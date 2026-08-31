@@ -1,0 +1,72 @@
+@import './tokens.css';
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--c-app);
+  color: var(--c-text);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+a {
+  color: var(--c-accent);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--c-accent-deep);
+}
+
+input,
+button,
+textarea,
+select {
+  font-family: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--c-border-dashed);
+  border-radius: 8px;
+  border: 3px solid var(--c-app);
+}
+
+/* Seules animations de l'interface : l'illustration du journal et la
+   rotation des affirmations (cette dernière est pilotée en JS). */
+@keyframes omJournalCover {
+  0%,
+  14% {
+    transform: scaleX(0.05);
+  }
+  46%,
+  72% {
+    transform: scaleX(1);
+  }
+  100% {
+    transform: scaleX(0.05);
+  }
+}
+@keyframes omJournalLines {
+  0%,
+  30% {
+    opacity: 0;
+  }
+  52%,
+  70% {
+    opacity: 1;
+  }
+  88%,
+  100% {
+    opacity: 0;
+  }
+}

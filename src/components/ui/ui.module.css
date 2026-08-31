@@ -1,0 +1,359 @@
+/* Primitives d'interface — valeurs reprises du prototype. */
+
+.card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+}
+.cardPad {
+  padding: 20px 22px 18px;
+}
+.cardFlush {
+  overflow: hidden;
+}
+
+.cardHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.title {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 19px;
+  line-height: 1.2;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+.titleLg {
+  font-size: 23px;
+}
+
+.sub {
+  font-size: 12px;
+  color: var(--c-text-muted);
+  line-height: 1.45;
+  margin: 4px 0 0;
+}
+
+.overline {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+
+.meta {
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+  line-height: 1.45;
+}
+
+/* Boutons ---------------------------------------------------------- */
+.btn {
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  border-radius: var(--r-sm);
+  padding: 9px 15px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.btn:disabled {
+  cursor: default;
+}
+
+.primary {
+  background: var(--c-accent);
+  color: var(--c-surface);
+  border-color: var(--c-accent);
+}
+.primary:hover:not(:disabled) {
+  background: var(--c-accent-hover);
+  border-color: var(--c-accent-hover);
+}
+.primary:disabled {
+  background: var(--c-accent-busy);
+  border-color: var(--c-border);
+  color: var(--c-text-disabled);
+}
+
+.secondary {
+  background: var(--c-surface);
+  color: var(--c-text);
+  border-color: var(--c-border);
+}
+.secondary:hover:not(:disabled) {
+  background: var(--c-accent-soft-2);
+}
+.secondary:disabled {
+  background: var(--c-accent-busy);
+  color: var(--c-text-disabled);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--c-text-4);
+  border-color: transparent;
+  padding: 6px 8px;
+}
+.ghost:hover:not(:disabled) {
+  background: var(--c-surface-2);
+  color: var(--c-text);
+}
+
+.danger {
+  background: transparent;
+  border-color: transparent;
+  color: var(--c-text-muted);
+  padding: 6px 8px;
+}
+.danger:hover:not(:disabled) {
+  color: var(--c-danger);
+}
+
+.block {
+  width: 100%;
+}
+.big {
+  font-size: 13px;
+  padding: 11px 18px;
+}
+
+/* Pilules ----------------------------------------------------------- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  border-radius: var(--r-pill);
+  padding: 5px 11px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.pillAccent {
+  background: var(--c-accent-soft);
+  color: var(--c-accent);
+}
+.pillNeutral {
+  background: var(--c-neutral-2);
+  color: var(--c-text-4);
+}
+.pillKind {
+  background: var(--c-neutral-2);
+  color: var(--c-text-muted);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.pillWarn {
+  background: var(--c-warn-bg);
+  color: var(--c-warn-text);
+}
+.pillOk {
+  background: var(--c-ok-bg);
+  color: var(--c-ok-text);
+}
+
+/* Commutateur en pilules ------------------------------------------- */
+.segmented {
+  display: inline-flex;
+  background: var(--c-neutral);
+  border-radius: var(--r-pill);
+  padding: 3px;
+  gap: 2px;
+}
+.segment {
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: var(--r-pill);
+  border: none;
+  cursor: pointer;
+  background: transparent;
+  color: var(--c-text-4);
+}
+.segmentOn {
+  background: var(--c-surface);
+  color: var(--c-text);
+  box-shadow: 0 1px 2px rgba(27, 26, 23, 0.09);
+}
+
+/* Filtres en pilules (bordure) -------------------------------------- */
+.chip {
+  font-size: 11.5px;
+  font-weight: 500;
+  border-radius: var(--r-pill);
+  padding: 6px 12px;
+  cursor: pointer;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  color: var(--c-text-4);
+  line-height: 1.2;
+}
+.chip:hover {
+  background: var(--c-surface-2);
+}
+.chipOn {
+  background: var(--c-accent-soft-2);
+  border-color: var(--c-accent);
+  color: var(--c-accent);
+}
+
+/* Cases à cocher ---------------------------------------------------- */
+.check {
+  flex: none;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--c-surface);
+  padding: 0;
+}
+.round {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--r-pill);
+  border: 1.5px solid var(--c-border-mute);
+  background: transparent;
+}
+.roundOn {
+  border-color: var(--c-accent);
+  background: var(--c-accent);
+}
+.square {
+  width: 21px;
+  height: 21px;
+  border-radius: var(--r-xs);
+  border: 1.5px solid var(--c-border-mute);
+  background: var(--c-surface);
+}
+.squareOn {
+  border-color: var(--c-accent);
+  background: var(--c-accent);
+}
+
+/* Barre de progression ---------------------------------------------- */
+.track {
+  height: 4px;
+  border-radius: var(--r-pill);
+  background: var(--c-neutral-3);
+  overflow: hidden;
+}
+.fill {
+  height: 100%;
+  border-radius: var(--r-pill);
+  background: var(--c-accent);
+}
+
+/* Carte de statistique ---------------------------------------------- */
+.stat {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 13px;
+  padding: 15px 17px 14px;
+}
+.statValue {
+  font-family: var(--font-serif);
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 400;
+  margin: 9px 0 12px;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.statUnit {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--c-text-muted);
+}
+
+/* État vide ---------------------------------------------------------- */
+.empty {
+  border: 1px dashed var(--c-border-dashed);
+  border-radius: var(--r-md);
+  padding: 16px;
+  font-size: 12.5px;
+  color: var(--c-text-muted);
+  line-height: 1.5;
+}
+
+/* Encarts ------------------------------------------------------------ */
+.notice {
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.noticeWarn {
+  background: var(--c-warn-bg);
+  border: 1px solid var(--c-warn-border);
+  color: var(--c-warn-text);
+}
+.noticeOk {
+  background: var(--c-ok-bg);
+  border: 1px solid var(--c-ok-border);
+  color: var(--c-ok-text);
+}
+.noticeHot {
+  background: var(--c-hot-bg);
+  border: 1px solid #eddbd0;
+  color: var(--c-hot);
+}
+
+/* Avatar -------------------------------------------------------------- */
+.avatar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-pill);
+  font-size: 11.5px;
+  font-weight: 600;
+  background: var(--c-avatar);
+  color: var(--c-text-4);
+}
+.avatarOn {
+  background: var(--c-accent);
+  color: var(--c-surface);
+}
+
+/* Champs --------------------------------------------------------------- */
+.input,
+.textarea {
+  width: 100%;
+  border: 1px solid var(--c-border);
+  background: var(--c-field);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--c-text);
+  outline: none;
+  line-height: 1.5;
+}
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--c-text-faint);
+}
+.input:focus,
+.textarea:focus {
+  border-color: var(--c-accent);
+}
+.textarea {
+  resize: vertical;
+  min-height: 90px;
+}
+.label {
+  display: block;
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+  margin-bottom: 7px;
+}
