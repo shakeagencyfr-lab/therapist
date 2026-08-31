@@ -118,7 +118,7 @@ export function AtelierView() {
       const extra = { ...prev.extra }
       selected.forEach((key) => {
         extra[key] = (prev.extra[key] ?? []).concat([
-          { title, meta: `${duree} · ${quand}`, kind: entry.type, done: false },
+          { title, meta: `${duree} · ${quand}`, kind: entry.type, done: false, fresh: true },
         ])
       })
       // Le module rejoint la bibliothèque du cabinet, rangé par type.
@@ -144,7 +144,7 @@ export function AtelierView() {
       extra: {
         ...prev.extra,
         [prev.sel]: (prev.extra[prev.sel] ?? []).concat([
-          { title: row.title, meta: row.meta, kind: row.kind, done: false },
+          { title: row.title, meta: row.meta, kind: row.kind, done: false, fresh: true },
         ]),
       },
     }))

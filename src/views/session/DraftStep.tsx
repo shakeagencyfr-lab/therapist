@@ -73,6 +73,7 @@ export function DraftStep() {
         meta: 'Ajouté depuis la séance du 8 septembre',
         kind: proposal.type,
         done: false,
+        fresh: true,
       }))
     set((prev) => ({
       sent: true,

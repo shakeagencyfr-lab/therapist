@@ -54,7 +54,9 @@ export function WeekModules() {
                 <span className={on ? `${s.title} ${s.titleDone}` : s.title}>{m.title}</span>
                 <span className={s.meta}>{m.meta + quizBadge(state, key, i, m)}</span>
               </div>
-              <Pill tone="kind">{m.kind}</Pill>
+              <Pill tone="kind" style={m.fresh ? { background: 'var(--c-accent-soft)' } : undefined}>
+                {m.kind}
+              </Pill>
             </div>
           )
         })}

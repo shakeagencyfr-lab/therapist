@@ -52,6 +52,8 @@ export interface PatientModule {
   meta: string
   kind: ModuleKind
   done: boolean
+  /** Module arrivé depuis une séance : sa pilule de type est accentuée. */
+  fresh?: boolean
 }
 
 /** Un audio envoyé à un patient. */
