@@ -84,8 +84,10 @@
 
 .secondary {
   background: var(--c-surface);
-  color: var(--c-text);
-  border-color: var(--c-border);
+  color: var(--c-accent);
+  /* Bordure d'accent atténuée : nuance propre aux boutons secondaires, sans
+     jeton (même valeur que le bouton « Actualiser le profil »). */
+  border-color: #dfd1b8;
 }
 .secondary:hover:not(:disabled) {
   background: var(--c-accent-soft-2);

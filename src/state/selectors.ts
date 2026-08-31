@@ -102,9 +102,13 @@ export function riskColor(adherence: number): string {
 /** Patients de la barre latérale, filtrés par la recherche. */
 export function sidebarPatients(state: AppState): Array<{ id: PatientId; patient: Patient }> {
   const query = state.q.trim().toLowerCase()
-  return PATIENT_ORDER.filter(
-    (k) => !query || PATIENTS[k].name.toLowerCase().includes(query),
-  ).map((k) => ({ id: k, patient: PATIENTS[k] }))
+  return PATIENT_ORDER.filter((k) => {
+    if (!query) return true
+    /* Le prototype cherche dans le nom ET le sous-titre : le programme et la
+       semaine (« Liberté · semaine 3 / 6 ») sont donc des critères valides. */
+    const haystack = `${PATIENTS[k].name} ${PATIENTS[k].subtitle}`.toLowerCase()
+    return haystack.includes(query)
+  }).map((k) => ({ id: k, patient: PATIENTS[k] }))
 }
 
 /** Patients qui décrochent : moins de 50 % de modules réalisés. */

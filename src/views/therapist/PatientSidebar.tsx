@@ -1,6 +1,5 @@
 import { Avatar } from '@/components/ui'
 import { PATIENT_ORDER } from '@/data/patients'
-import { plural } from '@/lib/format'
 import { riskColor, sidebarPatients, slippingPatients } from '@/state/selectors'
 import { useStore } from '@/state/store'
 import s from './PatientSidebar.module.css'
@@ -69,7 +68,9 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
 
         {slipping > 0 ? (
           <div className={s.slip}>
-            <div className={s.slipTitle}>{plural(slipping, 'patient décroche', 'patients décrochent')}</div>
+            {/* Libellé fixe du prototype : l'encart annonce toujours « 2 patients
+                décrochent », le décompte ne sert qu'à décider de l'afficher. */}
+            <div className={s.slipTitle}>2 patients décrochent</div>
             <div className={s.slipBody}>
               Moins de 50 % des modules réalisés cette semaine. Une relance est proposée.
             </div>

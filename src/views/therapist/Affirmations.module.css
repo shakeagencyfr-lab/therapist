@@ -14,9 +14,32 @@
   display: flex;
   align-items: flex-start;
   gap: 11px;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  color: var(--c-text);
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
 }
-.auto button {
+.box {
+  width: 21px;
+  height: 21px;
+  flex: none;
   margin-top: 1px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--c-surface);
+  border-radius: var(--r-xs);
+  border: 1.5px solid var(--c-border-mute);
+  background: var(--c-surface);
+}
+.boxOn {
+  border-color: var(--c-accent);
+  background: var(--c-accent);
 }
 .autoText {
   display: flex;

@@ -24,13 +24,15 @@ export function RecordStep() {
     return () => window.clearInterval(id)
   }, [state.recording, set])
 
-  // Micro coupé si l'on quitte l'écran en cours de séance.
+  // Micro coupé si l'on quitte l'écran en cours de séance : l'état d'enregistrement
+  // retombe avec lui, sinon le minuteur repartirait au retour sans rien transcrire.
   useEffect(
     () => () => {
+      set({ recording: false, interim: '' })
       transcriber.current?.stop()
       transcriber.current = null
     },
-    [],
+    [set],
   )
 
   function stopRec() {

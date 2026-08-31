@@ -1,4 +1,4 @@
-import { Card, SquareCheck, Title } from '@/components/ui'
+import { Card, Title } from '@/components/ui'
 import { plural } from '@/lib/format'
 import { buildPatientContext, generateAffirmations } from '@/services/aiClient'
 import { patientOf } from '@/state/selectors'
@@ -96,17 +96,21 @@ export function Affirmations() {
         Une phrase à la fois sur l'écran d'accueil du patient. Rien d'autre.
       </p>
 
-      <div className={s.auto}>
-        <SquareCheck
-          on={auto}
-          label="Génération automatique chaque lundi"
-          onClick={() =>
-            set((prev) => ({
-              affAuto: { ...prev.affAuto, [key]: !prev.affAuto[key] },
-              affSaved: '',
-            }))
-          }
-        />
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={auto}
+        className={s.auto}
+        onClick={() =>
+          set((prev) => ({
+            affAuto: { ...prev.affAuto, [key]: !prev.affAuto[key] },
+            affSaved: '',
+          }))
+        }
+      >
+        <span className={auto ? `${s.box} ${s.boxOn}` : s.box} aria-hidden>
+          {auto ? '✓' : ''}
+        </span>
         <span className={s.autoText}>
           <span className={s.autoTitle}>Génération automatique chaque lundi</span>
           <span className={s.autoHint}>
@@ -118,7 +122,7 @@ export function Affirmations() {
             Présent, affirmatif, aucun mot de doute : l'inconscient n'entend pas la négation.
           </span>
         </span>
-      </div>
+      </button>
 
       {work.length > 0 ? (
         <div className={s.list}>
