@@ -1,0 +1,162 @@
+/**
+ * Session et rôle du compte connecté.
+ *
+ * L'accès se fait par lien magique : pas de mot de passe, donc rien à
+ * stocker ni à réinitialiser. Après la connexion, deux appels :
+ *   claim_access()  rattache le compte à la fiche ou à l'invitation qui
+ *                   l'attendait — se connecter ne donne aucun accès en soi ;
+ *   my_context()    dit quel espace ouvrir.
+ */
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
+import type { Session } from '@supabase/supabase-js'
+import { isConfigured, supabase } from '@/lib/supabase'
+import type { CabinetBranding } from '@/types/reseller'
+
+export interface CabinetIdentity {
+  id: string
+  name: string
+  slug: string
+  tagline: string
+  branding: CabinetBranding
+  role: string
+  display_name: string
+}
+
+export interface ResellerIdentity {
+  id: string
+  name: string
+  slug: string
+  role: string
+}
+
+export interface PatientIdentity {
+  id: string
+  cabinet_id: string
+  display_name: string
+  cabinet_name: string
+  branding: CabinetBranding
+}
+
+export interface AccountContext {
+  user_id: string | null
+  email: string | null
+  reseller: ResellerIdentity | null
+  cabinet: CabinetIdentity | null
+  patient: PatientIdentity | null
+}
+
+export type AuthPhase = 'chargement' | 'deconnecte' | 'connecte' | 'sans-base'
+
+export interface AuthState {
+  phase: AuthPhase
+  session: Session | null
+  context: AccountContext | null
+  /** Message d'erreur en français, s'il y a lieu. */
+  error: string
+  /** Le lien magique vient d'être envoyé à cette adresse. */
+  sent: string
+  envoyerLien: (email: string) => Promise<void>
+  seDeconnecter: () => Promise<void>
+}
+
+const AuthContext = createContext<AuthState | null>(null)
+
+export function SessionProvider({ children }: { children: ReactNode }) {
+  const [phase, setPhase] = useState<AuthPhase>(isConfigured() ? 'chargement' : 'sans-base')
+  const [session, setSession] = useState<Session | null>(null)
+  const [context, setContext] = useState<AccountContext | null>(null)
+  const [error, setError] = useState('')
+  const [sent, setSent] = useState('')
+
+  /** Rattache puis lit le rôle. Les deux vont ensemble. */
+  const charger = useCallback(async (): Promise<void> => {
+    const db = supabase()
+    if (!db) return
+    const { error: claimError } = await db.rpc('claim_access')
+    if (claimError) {
+      // Un rattachement qui échoue n'empêche pas de lire un accès déjà acquis.
+      console.warn('[auth] rattachement impossible :', claimError.message)
+    }
+    const { data, error: ctxError } = await db.rpc('my_context')
+    if (ctxError) {
+      setError("Impossible de lire votre accès. Réessayez dans un instant.")
+      return
+    }
+    setContext(data as AccountContext)
+  }, [])
+
+  useEffect(() => {
+    const db = supabase()
+    if (!db) return
+
+    let vivant = true
+
+    db.auth.getSession().then(async ({ data }) => {
+      if (!vivant) return
+      setSession(data.session)
+      if (data.session) await charger()
+      if (vivant) setPhase(data.session ? 'connecte' : 'deconnecte')
+    })
+
+    const { data: sub } = db.auth.onAuthStateChange(async (_event, next) => {
+      if (!vivant) return
+      setSession(next)
+      if (next) {
+        await charger()
+        setPhase('connecte')
+      } else {
+        setContext(null)
+        setPhase('deconnecte')
+      }
+    })
+
+    return () => {
+      vivant = false
+      sub.subscription.unsubscribe()
+    }
+  }, [charger])
+
+  const envoyerLien = useCallback(async (email: string) => {
+    const db = supabase()
+    if (!db) {
+      setError("L'application n'est pas reliée à sa base de données.")
+      return
+    }
+    setError('')
+    const { error: err } = await db.auth.signInWithOtp({
+      email: email.trim(),
+      options: { emailRedirectTo: window.location.origin + window.location.pathname },
+    })
+    if (err) {
+      setError("L'envoi a échoué. Vérifiez l'adresse et réessayez.")
+      return
+    }
+    setSent(email.trim())
+  }, [])
+
+  const seDeconnecter = useCallback(async () => {
+    await supabase()?.auth.signOut()
+    setSent('')
+  }, [])
+
+  const value = useMemo<AuthState>(
+    () => ({ phase, session, context, error, sent, envoyerLien, seDeconnecter }),
+    [phase, session, context, error, sent, envoyerLien, seDeconnecter],
+  )
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
+export function useAuth(): AuthState {
+  const value = useContext(AuthContext)
+  if (!value) throw new Error('useAuth doit être utilisé dans <SessionProvider>')
+  return value
+}

@@ -10,6 +10,16 @@ export default defineConfig({
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
+  build: {
+    // Deux surfaces, deux téléchargements : le patient ne reçoit pas une
+    // ligne du code de l'espace cabinet.
+    rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        patient: fileURLToPath(new URL('./patient.html', import.meta.url)),
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {
