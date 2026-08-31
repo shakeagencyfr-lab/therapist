@@ -1,0 +1,334 @@
+/* Étape 2 : captation. Deux valeurs sans jeton dédié sont posées ici :
+   le fond du bouton pendant la génération et le gris du minuteur en pause. */
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  --c-busy: #c0a87f;
+}
+
+.card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-xl);
+}
+.pad {
+  padding: 22px 24px;
+}
+.flush {
+  overflow: hidden;
+}
+
+.overline {
+  display: block;
+  margin-bottom: 12px;
+}
+
+/* Mode de capture ---------------------------------------------------- */
+.modes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 11px;
+}
+
+.mode {
+  text-align: left;
+  padding: 15px 17px;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 1.5px solid var(--c-border);
+  background: var(--c-surface);
+  color: var(--c-text);
+}
+.mode:hover {
+  background: var(--c-surface-2);
+}
+.modeOn,
+.modeOn:hover {
+  border-color: var(--c-accent);
+  background: var(--c-accent-soft-2);
+}
+
+.modeTitle {
+  font-size: 14.5px;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 4px;
+}
+.modeBody {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--c-text-4);
+  display: block;
+}
+
+/* Bandeau d'enregistrement -------------------------------------------- */
+.recRow {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 22px 24px;
+  border-bottom: 1px solid var(--c-border-light);
+}
+
+.recBtn {
+  width: 54px;
+  height: 54px;
+  flex: none;
+  border-radius: var(--r-pill);
+  border: none;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  background: var(--c-accent);
+  color: var(--c-surface);
+  padding: 0;
+}
+.recBtn:hover {
+  background: var(--c-accent-hover);
+}
+.recBtnOn,
+.recBtnOn:hover {
+  font-size: 13px;
+  background: var(--c-hot);
+}
+
+.recText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+.recLabel {
+  font-size: 15px;
+  font-weight: 600;
+}
+.recHint {
+  font-size: 12.5px;
+  color: var(--c-text-muted);
+}
+
+.recTime {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text-2);
+}
+
+/* Découpage, volume, coût ---------------------------------------------- */
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1px;
+  background: var(--c-border-light);
+  border-bottom: 1px solid var(--c-border-light);
+}
+.fact {
+  background: var(--c-surface-2);
+  padding: 14px 24px;
+}
+.factLabel {
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+  margin-bottom: 6px;
+}
+.factValue {
+  font-size: 14px;
+  font-weight: 500;
+  min-height: 21px;
+}
+
+.factNote {
+  padding: 13px 24px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--c-text-muted);
+  border-bottom: 1px solid var(--c-border-light);
+}
+
+/* Corps ----------------------------------------------------------------- */
+.body {
+  padding: 20px 24px;
+}
+
+.samples {
+  margin-bottom: 20px;
+}
+.sampleGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+}
+.sample {
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  color: var(--c-text);
+}
+.sample:hover {
+  background: var(--c-surface-2);
+}
+.sampleOn,
+.sampleOn:hover {
+  border-color: var(--c-accent);
+  background: var(--c-accent-tint);
+}
+.sampleLabel {
+  font-size: 13.5px;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 3px;
+}
+.sampleMeta {
+  font-size: 12px;
+  color: var(--c-text-muted);
+  display: block;
+}
+
+.transcriptHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.count {
+  font-size: 11.5px;
+  color: var(--c-text-disabled);
+}
+
+.transcript {
+  background: var(--c-field);
+  border: 1px solid var(--c-neutral-3);
+  border-radius: 12px;
+  padding: 18px;
+  min-height: 190px;
+  max-height: 340px;
+  overflow-y: auto;
+  font-family: var(--font-serif);
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--c-text-2);
+  white-space: pre-wrap;
+}
+
+/* Notes de séance --------------------------------------------------------- */
+.notes {
+  margin-top: 16px;
+  border: 1px solid var(--c-neutral-3);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.notesHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 15px;
+  background: var(--c-surface-2);
+  border-bottom: 1px solid var(--c-neutral-3);
+}
+.notesTitles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.notesTitle {
+  font-size: 13px;
+  font-weight: 600;
+}
+.notesHint {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--c-text-muted);
+}
+.notesCount {
+  font-size: 11.5px;
+  color: var(--c-text-disabled);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 11px 15px 0;
+}
+.tag {
+  font-size: 12px;
+  color: var(--c-accent-deep);
+  background: var(--c-accent-soft-2);
+  border: 1px solid var(--c-border-accent);
+  border-radius: var(--r-pill);
+  padding: 5px 11px;
+  cursor: pointer;
+}
+.tag:hover {
+  background: var(--c-accent-soft);
+}
+
+.notesField {
+  width: 100%;
+  display: block;
+  resize: vertical;
+  border: none;
+  outline: none;
+  background: var(--c-surface);
+  font-family: var(--font-serif);
+  font-size: 15.5px;
+  line-height: 1.6;
+  color: var(--c-text-2);
+  padding: 13px 15px 15px;
+}
+.notesField::placeholder {
+  color: var(--c-text-faint);
+}
+
+/* Actions ------------------------------------------------------------------ */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+.generate {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--c-surface);
+  border: none;
+  border-radius: var(--r-sm);
+  padding: 10px 17px;
+  cursor: pointer;
+  background: var(--c-accent);
+}
+.generate:hover {
+  background: var(--c-accent-hover);
+}
+.generateBusy,
+.generateBusy:hover {
+  cursor: wait;
+  background: var(--c-busy);
+}
+.clear {
+  font-size: 13px;
+  color: var(--c-text-muted);
+  background: transparent;
+  border: none;
+  padding: 10px 6px;
+  cursor: pointer;
+}
+.clear:hover {
+  color: var(--c-text);
+}
+
+.notice {
+  margin-top: 14px;
+}

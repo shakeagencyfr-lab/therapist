@@ -1,0 +1,522 @@
+/* Bibliothèque audio : catalogue à gauche, audio sélectionné à droite. */
+
+.wrap {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 42px 34px 80px;
+}
+
+.crumb {
+  margin-bottom: 9px;
+}
+
+.h1 {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 40px;
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+
+.intro {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--c-text-3);
+  max-width: 64ch;
+  margin: 14px 0 28px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+/* Pilules de catégorie (import, filtres, changement de rayon) ---------- */
+
+.chips {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  border-radius: var(--r-pill);
+  padding: 7px 13px;
+  cursor: pointer;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  color: var(--c-text-4);
+  line-height: 1.2;
+}
+.chip:hover {
+  background: var(--c-surface-2);
+}
+.chipOn {
+  border-color: var(--c-accent);
+  background: var(--c-accent-soft-2);
+  color: var(--c-accent-deep);
+}
+
+/* Carte d'import ------------------------------------------------------- */
+
+.import {
+  border-radius: var(--r-xl);
+  padding: 22px 24px;
+}
+
+.importLabel {
+  margin-bottom: 10px;
+}
+
+.upLabel {
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--c-text-disabled);
+  margin-bottom: 8px;
+}
+
+.import .chips {
+  margin-bottom: 15px;
+}
+
+.drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  /* Beige un ton plus soutenu que --c-border-dashed, propre à la zone d'import. */
+  border: 1px dashed #dfd1b8;
+  border-radius: var(--r-lg);
+  padding: 22px 18px;
+  cursor: pointer;
+  background: var(--c-surface-2);
+}
+.drop:hover {
+  border-color: var(--c-accent);
+}
+
+.dropTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--c-accent-deep);
+}
+
+.dropHint {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+  text-align: center;
+}
+
+.file {
+  display: none;
+}
+
+.libNotice {
+  margin-top: 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--c-ok-text);
+  background: var(--c-ok-bg);
+  border: 1px solid var(--c-ok-border);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+/* Catalogue ------------------------------------------------------------ */
+
+.catalogue {
+  border-radius: 18px;
+}
+
+.catalogueHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 19px 22px 16px;
+  border-bottom: 1px solid var(--c-border-light);
+}
+
+.catalogueTitle {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 21px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.catalogueCount {
+  font-size: 12px;
+  color: var(--c-text-disabled);
+  white-space: nowrap;
+}
+
+.filters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 14px 22px;
+  background: var(--c-surface-2);
+  border-bottom: 1px solid var(--c-border-light);
+}
+
+.catOpen {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--c-text-muted);
+  background: transparent;
+  /* Même beige pointillé que la zone d'import. */
+  border: 1px dashed #dfd1b8;
+  border-radius: var(--r-pill);
+  padding: 6px 12px;
+  cursor: pointer;
+  line-height: 1.2;
+}
+.catOpen:hover {
+  color: var(--c-accent-deep);
+  border-color: var(--c-accent);
+}
+
+.catPlus {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.catForm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-accent);
+  border-radius: var(--r-pill);
+  padding: 3px 5px 3px 12px;
+}
+
+.catInput {
+  width: 148px;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--c-text-2);
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 3px 0;
+}
+
+.catSave {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-surface);
+  background: var(--c-accent);
+  border: none;
+  border-radius: var(--r-pill);
+  padding: 5px 11px;
+  cursor: pointer;
+  line-height: 1.2;
+}
+.catSave:hover {
+  background: var(--c-accent-hover);
+}
+
+.catCancel {
+  font-family: inherit;
+  font-size: 13px;
+  /* Gris de la croix d'annulation, entre --c-text-faint et --c-border-mute. */
+  color: #c9c2b5;
+  background: transparent;
+  border: none;
+  padding: 2px 6px;
+  cursor: pointer;
+  line-height: 1;
+}
+.catCancel:hover {
+  color: var(--c-text-muted);
+}
+
+/* Lignes du catalogue -------------------------------------------------- */
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 22px;
+  border: none;
+  border-top: 1px solid var(--c-border-light);
+  cursor: pointer;
+  color: var(--c-text);
+  text-align: left;
+  background: transparent;
+  font-family: inherit;
+}
+.row:hover {
+  background: var(--c-surface-2);
+}
+.rowOn,
+.rowOn:hover {
+  background: var(--c-accent-tint);
+  box-shadow: inset 2px 0 0 var(--c-accent);
+}
+
+.wave {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 15px;
+  flex: none;
+}
+
+.bar {
+  width: 2px;
+  border-radius: 2px;
+  display: inline-block;
+  background: var(--c-border-dashed);
+}
+.barOn {
+  background: var(--c-accent);
+}
+.b1 {
+  height: 7px;
+}
+.b2 {
+  height: 14px;
+}
+.b3 {
+  height: 10px;
+}
+.b4 {
+  height: 5px;
+}
+
+.rowText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+.rowTitle {
+  font-size: 14px;
+  font-weight: 500;
+}
+.rowMeta {
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+}
+
+.rowCat {
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--c-accent-deep);
+  background: var(--c-accent-soft-2);
+  border-radius: var(--r-pill);
+  padding: 4px 10px;
+  flex: none;
+}
+
+.rowDuration {
+  font-size: 12px;
+  color: var(--c-text-disabled);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+  width: 44px;
+  text-align: right;
+}
+
+.catalogueEmpty {
+  padding: 22px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--c-text-muted);
+}
+
+/* Panneau de détail ----------------------------------------------------- */
+
+.detail {
+  border-radius: var(--r-xl);
+  padding: 22px 24px;
+}
+
+.detailLabel {
+  margin-bottom: 10px;
+}
+
+.detailTitle {
+  width: 100%;
+  font-family: var(--font-serif);
+  font-size: 25px;
+  line-height: 1.2;
+  color: var(--c-text);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--c-neutral-3);
+  border-radius: 0;
+  outline: none;
+  padding: 0 0 9px;
+}
+.detailTitle:focus {
+  border-color: var(--c-accent);
+}
+
+.detailMeta {
+  font-size: 12.5px;
+  color: var(--c-text-muted);
+  margin-top: 10px;
+}
+
+.detailSection {
+  margin: 22px 0 9px;
+}
+
+.people {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--c-text);
+  border: 1px solid var(--c-neutral-3);
+  background: var(--c-surface-2);
+  font-family: inherit;
+}
+.personOn {
+  border-color: var(--c-border-accent);
+  background: var(--c-accent-tint);
+}
+
+.box {
+  width: 21px;
+  height: 21px;
+  flex: none;
+  border-radius: var(--r-xs);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  line-height: 1;
+  border: 1.5px solid var(--c-border-mute);
+  background: var(--c-surface);
+  color: var(--c-surface);
+}
+.boxOn {
+  border-color: var(--c-accent);
+  background: var(--c-accent);
+}
+
+.personText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.personName {
+  font-size: 14px;
+  font-weight: 500;
+}
+.personSub {
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+}
+.personNote {
+  font-size: 11.5px;
+  color: var(--c-text-disabled);
+  flex: none;
+}
+
+.detailFoot {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.dispatch {
+  font-size: 13.5px;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 12px 19px;
+}
+.dispatch:disabled {
+  /* Beige neutre du bouton inactif, sans équivalent dans les jetons. */
+  background: #efe7d9;
+  border-color: #efe7d9;
+  color: var(--c-text-disabled);
+}
+
+.dispatchHint {
+  font-size: 12.5px;
+  color: var(--c-text-muted);
+}
+
+/* État vide de la colonne droite ----------------------------------------- */
+
+.empty {
+  border: 1px dashed var(--c-border-dashed);
+  border-radius: var(--r-xl);
+  padding: 30px 28px;
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+}
+.emptyTitle {
+  font-family: var(--font-serif);
+  font-size: 21px;
+  color: var(--c-text-3);
+}
+.emptyText {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--c-text-muted);
+  max-width: 42ch;
+}
+
+/* Responsive -------------------------------------------------------------- */
+
+@media (max-width: 1100px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .wrap {
+    padding: 30px 20px 60px;
+  }
+  .h1 {
+    font-size: 32px;
+  }
+}

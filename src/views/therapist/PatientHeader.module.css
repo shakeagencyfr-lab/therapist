@@ -1,0 +1,45 @@
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 26px;
+}
+
+.identity {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.name {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 40px;
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+
+.facts {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.fact {
+  font-size: 13px;
+  color: var(--c-text-4);
+}
+.sep {
+  width: 4px;
+  height: 4px;
+  border-radius: var(--r-pill);
+  background: var(--c-border-mute);
+}
+
+.actions {
+  display: flex;
+  gap: 9px;
+}

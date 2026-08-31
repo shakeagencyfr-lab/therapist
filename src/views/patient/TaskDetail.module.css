@@ -1,0 +1,297 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.backRow {
+  padding: 14px 20px 0;
+}
+.back {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--c-accent);
+  background: transparent;
+  border: none;
+  padding: 6px 4px;
+  cursor: pointer;
+}
+.back:hover {
+  color: var(--c-accent-deep);
+}
+
+.head {
+  padding: 10px 24px 0;
+}
+.kind {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-text-4);
+  background: var(--c-neutral-2);
+  border-radius: var(--r-pill);
+  padding: 4px 10px;
+}
+.title {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 26px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  margin: 13px 0 0;
+  text-wrap: pretty;
+}
+
+/* Durée et moment ------------------------------------------------------- */
+.facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--c-neutral-3);
+  border-top: 1px solid var(--c-neutral-3);
+  border-bottom: 1px solid var(--c-neutral-3);
+  margin: 20px 0 0;
+}
+.fact {
+  background: var(--c-surface);
+  padding: 13px 24px;
+}
+.factWhen {
+  padding: 13px 20px;
+}
+.factLabel {
+  font-size: 10.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+  margin-bottom: 5px;
+}
+.factValue {
+  font-size: 13.5px;
+  font-weight: 500;
+}
+.factValueWrap {
+  line-height: 1.35;
+}
+
+/* Blocs ----------------------------------------------------------------- */
+.block {
+  padding: 22px 24px 0;
+}
+.overline {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+  margin-bottom: 15px;
+}
+.overlineTight {
+  margin-bottom: 10px;
+}
+
+/* Les trois temps -------------------------------------------------------- */
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.step {
+  display: flex;
+  gap: 13px;
+  align-items: flex-start;
+}
+.stepNum {
+  width: 23px;
+  height: 23px;
+  flex: none;
+  border-radius: var(--r-pill);
+  background: var(--c-accent-soft);
+  color: var(--c-accent-deep);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 600;
+}
+.stepText {
+  font-family: var(--font-serif);
+  font-size: 16.5px;
+  line-height: 1.55;
+  color: var(--c-text-2);
+  text-wrap: pretty;
+}
+
+/* Encart « pourquoi » ------------------------------------------------------ */
+.why {
+  background: var(--c-accent-tint);
+  border: 1px solid var(--c-accent-soft);
+  border-radius: var(--r-xl);
+  padding: 16px 18px;
+}
+.whyOverline {
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  /* Accent chaud de l'encart : nuance sans jeton dédié. */
+  color: #8a6737;
+  margin-bottom: 7px;
+}
+.whyBody {
+  font-size: 14px;
+  line-height: 1.6;
+  /* Corps de l'encart : nuance sans jeton dédié. */
+  color: #4a4438;
+  text-wrap: pretty;
+}
+
+/* Quiz ---------------------------------------------------------------------- */
+.quizHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.quizHead .overline {
+  margin-bottom: 0;
+}
+.quizScore {
+  font-size: 11.5px;
+  color: var(--c-accent);
+  font-weight: 500;
+}
+.quizList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.quizCard {
+  border: 1px solid var(--c-neutral-3);
+  border-radius: var(--r-xl);
+  padding: 15px 16px;
+}
+.quizQuestion {
+  font-family: var(--font-serif);
+  font-size: 16.5px;
+  line-height: 1.45;
+  color: var(--c-text-2);
+  margin-bottom: 12px;
+  text-wrap: pretty;
+}
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  color: var(--c-text-2);
+  border: 1px solid var(--c-neutral-3);
+  background: var(--c-surface);
+}
+.optionRight {
+  border-color: var(--c-ok-border);
+  background: var(--c-ok-bg);
+}
+.optionWrong {
+  /* Bordure et fond d'une réponse fausse : nuances sans jeton dédié. */
+  border-color: #efdcd3;
+  background: #faf1ec;
+}
+.optionText {
+  flex: 1;
+  text-align: left;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.mark {
+  width: 21px;
+  height: 21px;
+  flex: none;
+  border-radius: var(--r-pill);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--c-border-dashed);
+  background: transparent;
+  color: var(--c-text-muted);
+}
+.markRight {
+  border-color: var(--c-risk-low);
+  background: var(--c-risk-low);
+  color: var(--c-surface);
+}
+.markWrong {
+  /* Cercle d'erreur : nuance sans jeton dédié. */
+  border-color: #c48a72;
+  background: var(--c-danger);
+  color: var(--c-surface);
+}
+
+.feedback {
+  margin-top: 11px;
+  font-size: 13px;
+  line-height: 1.55;
+  border-radius: var(--r-md);
+  padding: 11px 12px;
+  color: var(--c-warn-text-2);
+  background: var(--c-warn-bg);
+  border: 1px solid var(--c-warn-border);
+}
+.feedbackOk {
+  color: var(--c-ok-text);
+  background: var(--c-ok-bg);
+  border-color: var(--c-ok-border);
+}
+
+/* Retour libre ------------------------------------------------------------------ */
+.noteArea {
+  width: 100%;
+  resize: vertical;
+  font-family: var(--font-serif);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--c-text-2);
+  background: var(--c-field);
+  border: 1px solid var(--c-neutral-3);
+  border-radius: 12px;
+  padding: 13px 14px;
+}
+.noteArea:focus {
+  outline: none;
+  border-color: var(--c-border-accent);
+}
+
+/* Validation du module ------------------------------------------------------------ */
+.doneRow {
+  padding: 20px 24px 26px;
+  margin-top: auto;
+}
+.doneBtn {
+  width: 100%;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--r-lg);
+  padding: 15px;
+  cursor: pointer;
+  background: var(--c-accent);
+  color: var(--c-surface);
+}
+.doneBtn:hover {
+  background: var(--c-accent-hover);
+}
+.doneBtnOn,
+.doneBtnOn:hover {
+  background: var(--c-accent-soft);
+  color: var(--c-accent-deep);
+}

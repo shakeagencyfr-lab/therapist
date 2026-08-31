@@ -1,0 +1,58 @@
+/* Étape 1 : consentement du patient. */
+
+.card {
+  border-radius: var(--r-xl);
+  padding: 26px 28px;
+}
+
+.heading {
+  margin-bottom: 16px;
+}
+
+.points {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  margin-bottom: 22px;
+}
+
+.point {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  background: var(--c-accent);
+  margin-top: 8px;
+  flex: none;
+}
+
+.text {
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--c-text-2);
+}
+
+.foot {
+  border-top: 1px solid var(--c-border-light);
+  padding-top: 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+/* Le bouton du kit, aux mesures du prototype. */
+.card .sign {
+  font-size: 13.5px;
+  padding: 11px 18px;
+}
+
+.hint {
+  font-size: 12.5px;
+  color: var(--c-text-muted);
+}

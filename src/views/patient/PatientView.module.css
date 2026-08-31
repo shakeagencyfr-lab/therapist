@@ -1,0 +1,76 @@
+.wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 412px;
+  gap: 40px;
+  align-items: start;
+  padding: 46px 40px 70px;
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+.editorial {
+  padding-top: 18px;
+}
+
+.h1 {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 44px;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  margin: 0 0 16px;
+  max-width: 15ch;
+}
+
+.lead {
+  font-size: 15.5px;
+  line-height: 1.65;
+  color: var(--c-text-3);
+  max-width: 46ch;
+  margin: 0 0 30px;
+}
+
+.principles {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 44ch;
+}
+
+.principle {
+  display: flex;
+  gap: 13px;
+  align-items: flex-start;
+}
+
+.bullet {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--c-accent);
+  margin-top: 7px;
+  flex: none;
+}
+
+.principleText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.principleTitle {
+  font-size: 14px;
+  font-weight: 600;
+}
+.principleBody {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--c-text-4);
+}
+
+/* Sous 1100px, la maquette passe sous le texte (voir README, responsive). */
+@media (max-width: 1100px) {
+  .wrap {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 34px 24px 60px;
+  }
+}

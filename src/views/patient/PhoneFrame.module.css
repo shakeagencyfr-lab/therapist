@@ -1,0 +1,58 @@
+.frame {
+  background: var(--c-dark);
+  border-radius: calc(var(--r-phone) + 11px);
+  padding: 11px;
+  /* Seule ombre portée de l'interface. */
+  box-shadow: 0 30px 70px -30px rgba(31, 43, 38, 0.5);
+  width: 412px;
+  max-width: 100%;
+}
+
+.screen {
+  width: 100%;
+  min-height: 844px;
+  background: var(--c-surface);
+  border-radius: var(--r-phone);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 24px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-text);
+}
+
+.time {
+  flex: 1;
+}
+
+.notch {
+  width: 78px;
+  height: 19px;
+  border-radius: var(--r-pill);
+  background: var(--c-dark);
+  flex: none;
+}
+
+.icons {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 1;
+}
+
+.battery {
+  width: 15px;
+  height: 8px;
+  border: 1px solid var(--c-text);
+  border-radius: 2px;
+  display: inline-block;
+}

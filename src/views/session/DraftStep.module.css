@@ -1,0 +1,454 @@
+/* Étape 3 : le brouillon de note. Les quelques teintes sans jeton dédié
+   (bordure des boutons de validation, bandeau de vigilance, fond d'attente,
+   transparences sur fond sombre) sont posées ici. */
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  --c-validate-border: #dfd1b8;
+  --c-busy: #c0a87f;
+  --c-flat: #efe7d9;
+  --c-vig-border: #e8d5b0;
+  --c-vig-sub: #8a6737;
+  --c-vig-rule: #c89a4c;
+  --c-on-dark-80: rgba(245, 238, 225, 0.8);
+  --c-on-dark-75: rgba(245, 238, 225, 0.75);
+  --c-on-dark-line: rgba(245, 238, 225, 0.32);
+}
+
+.card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-xl);
+  padding: 22px 24px;
+}
+.cardQuiet {
+  background: var(--c-surface-2);
+  padding: 20px 22px;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.headTight {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.h21 {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 21px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.sub {
+  font-size: 12.5px;
+  color: var(--c-text-muted);
+  margin: 5px 0 16px;
+  line-height: 1.5;
+}
+.notes {
+  font-family: var(--font-serif);
+  font-size: 15.5px;
+  line-height: 1.65;
+  color: var(--c-text-2);
+  white-space: pre-wrap;
+}
+.cardQuiet .sub {
+  margin: 4px 0 12px;
+}
+
+.countMeta {
+  font-size: 12.5px;
+  color: var(--c-text-muted);
+  flex: none;
+}
+.hot {
+  font-size: 12px;
+  color: var(--c-hot);
+  flex: none;
+}
+
+/* Zones de texte ------------------------------------------------------ */
+.field {
+  width: 100%;
+  display: block;
+  resize: vertical;
+  font-family: var(--font-serif);
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--c-text-2);
+  background: var(--c-field);
+  border: 1px solid var(--c-neutral-3);
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+.fieldLoose {
+  line-height: 1.7;
+}
+
+/* Boutons de validation et de copie ------------------------------------ */
+.validate {
+  font-size: 12.5px;
+  font-weight: 500;
+  border-radius: 8px;
+  padding: 7px 13px;
+  cursor: pointer;
+  flex: none;
+  border: 1px solid var(--c-validate-border);
+  background: var(--c-surface);
+  color: var(--c-accent);
+}
+.validate:hover {
+  background: var(--c-accent-soft-2);
+}
+.validateOn,
+.validateOn:hover {
+  border-color: var(--c-accent);
+  background: var(--c-accent);
+  color: var(--c-surface);
+}
+
+/* Mots du patient et fil rouge ------------------------------------------ */
+.pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 18px;
+}
+
+.words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.word {
+  font-family: var(--font-serif);
+  font-size: 15px;
+  color: var(--c-accent-deep);
+  background: var(--c-accent-soft);
+  border: 1px solid var(--c-border-accent);
+  border-radius: var(--r-pill);
+  padding: 5px 13px;
+}
+
+.themes {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.theme {
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+}
+.themeDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  background: var(--c-hot);
+  margin-top: 8px;
+  flex: none;
+}
+.themeText {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--c-text-2);
+}
+
+/* Points de vigilance ---------------------------------------------------- */
+.vigilance {
+  background: var(--c-warn-bg);
+  border: 1px solid var(--c-vig-border);
+  border-radius: var(--r-xl);
+  padding: 22px 24px;
+}
+.vigilanceTitle {
+  color: var(--c-warn-text);
+  margin-bottom: 4px;
+}
+.vigilanceSub {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--c-vig-sub);
+  margin-bottom: 16px;
+}
+.vigilanceList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.vigilanceItem {
+  border-left: 2px solid var(--c-vig-rule);
+  padding-left: 14px;
+}
+.vigilancePoint {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--c-text-2);
+  margin-bottom: 3px;
+}
+.vigilanceBody {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--c-text-4);
+}
+
+/* Questions ---------------------------------------------------------------- */
+.questions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.question {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.questionDot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--c-accent);
+  margin-top: 9px;
+  flex: none;
+}
+.questionText {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--c-text-2);
+}
+
+/* Listes cochables : modules proposés, audios suggérés ---------------------- */
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  padding: 13px 15px;
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--c-text);
+  border: 1px solid var(--c-border-accent);
+  background: var(--c-accent-tint);
+}
+/* Décoché : la ligne s'efface sans disparaître. */
+.rowOff {
+  border-color: var(--c-neutral-3);
+  background: var(--c-surface-2);
+  opacity: 0.55;
+}
+.rowPlain {
+  gap: 12px;
+  padding: 12px 14px;
+}
+.rowMuted {
+  border-color: var(--c-neutral-3);
+  background: var(--c-surface-2);
+}
+
+.box {
+  width: 21px;
+  height: 21px;
+  flex: none;
+  border-radius: var(--r-xs);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  line-height: 1;
+  border: 1.5px solid var(--c-border-mute);
+  background: var(--c-surface);
+  color: var(--c-surface);
+}
+.boxOn {
+  border-color: var(--c-accent);
+  background: var(--c-accent);
+}
+
+.rowText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  text-align: left;
+}
+.rowTitle {
+  font-size: 14.5px;
+  font-weight: 500;
+}
+.rowWhy {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--c-text-4);
+}
+
+.kind {
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--c-text-4);
+  background: var(--c-neutral-2);
+  border-radius: var(--r-pill);
+  padding: 3px 9px;
+  flex: none;
+}
+.duration {
+  font-size: 12px;
+  color: var(--c-text-disabled);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.sendRow {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+.dispatch {
+  font-size: 13.5px;
+  font-weight: 600;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 19px;
+  cursor: pointer;
+  background: var(--c-accent);
+  color: var(--c-surface);
+}
+.dispatch:hover {
+  background: var(--c-accent-hover);
+}
+.dispatchOff,
+.dispatchOff:hover {
+  cursor: default;
+  background: var(--c-flat);
+  color: var(--c-text-disabled);
+}
+.sendHint {
+  font-size: 12.5px;
+  color: var(--c-text-muted);
+}
+
+/* Actualisation du profil ---------------------------------------------------- */
+.profCard {
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.profText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 58ch;
+}
+.profTitle {
+  font-family: var(--font-serif);
+  font-size: 20px;
+}
+.profHint {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--c-text-4);
+}
+.profBtn {
+  font-size: 12.5px;
+  font-weight: 500;
+  border-radius: var(--r-sm);
+  padding: 8px 14px;
+  cursor: pointer;
+  border: 1px solid var(--c-validate-border);
+  background: var(--c-surface);
+  color: var(--c-accent);
+  flex: none;
+}
+.profBtn:hover {
+  background: var(--c-accent-soft-2);
+}
+.profBtnBusy,
+.profBtnBusy:hover {
+  cursor: default;
+  border-color: var(--c-flat);
+  background: var(--c-accent-busy);
+  color: var(--c-text-disabled);
+}
+
+/* Barre d'envoi ------------------------------------------------------------------ */
+.sendBar {
+  background: var(--c-dark);
+  border-radius: var(--r-xl);
+  padding: 24px 26px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  flex-wrap: wrap;
+}
+.sendText {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-width: 52ch;
+}
+.sendTitle {
+  font-family: var(--font-serif);
+  font-size: 21px;
+  color: var(--c-on-dark);
+}
+.sendSub {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--c-on-dark-soft);
+}
+.sendActions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.sendGhost {
+  font-size: 13.5px;
+  color: var(--c-on-dark-80);
+  background: transparent;
+  border: 1px solid var(--c-on-dark-line);
+  border-radius: var(--r-sm);
+  padding: 11px 16px;
+  cursor: pointer;
+}
+.sendGhost + .sendGhost {
+  color: var(--c-on-dark-75);
+}
+.sendGhost:hover {
+  color: var(--c-on-dark);
+}
+.sendBtn {
+  font-size: 13.5px;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--r-sm);
+  padding: 12px 20px;
+  cursor: pointer;
+  background: var(--c-accent-soft-2);
+  color: var(--c-dark);
+}
+.sendBtnDone {
+  background: var(--c-busy);
+}
