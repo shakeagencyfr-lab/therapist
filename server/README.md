@@ -1,8 +1,30 @@
 # Serveur d'API — fonctions IA
 
+## Deux enveloppes, une seule logique
+
+`ai.ts` porte tout : les prompts, l'appel au modèle, la validation, les
+messages d'erreur français. Deux enveloppes l'appellent, et n'y ajoutent que
+le transport :
+
+| Enveloppe | Où | Rôle |
+| --- | --- | --- |
+| `server/index.ts` | `npm run dev`, port 8787 | Express, CORS, corps JSON de 2 Mo |
+| `api/ai/*.ts` | Vercel | une fonction serverless par route |
+
+Les quatre routes sont identiques des deux côtés (`/api/ai/session-draft`,
+`/module`, `/affirmations`, `/profile`) : le client ne sait pas laquelle des
+deux le sert. Ajouter une route se fait dans `ai.ts` puis dans les deux
+enveloppes — le type `AiRoute` fait échouer la compilation si l'une est
+oubliée.
+
+`vercel.json` fixe `maxDuration` à 60 secondes : un brouillon de séance peut
+demander 3 000 jetons de sortie, bien au-delà des 10 secondes accordées par
+défaut à une fonction.
+
+
 ## Variables d'environnement
 
-Le serveur lit quatre variables, toutes optionnelles sauf la clé (voir le mode maquette ci-dessous). `ANTHROPIC_API_KEY` est la clé d'accès à l'API Claude : elle vit sur le serveur, jamais dans le navigateur ni dans le dépôt — le fichier `.env.example` en donne la forme, sans valeur. `CLAUDE_MODEL` choisit le modèle, `claude-opus-5` par défaut ; l'identifiant est complet tel quel, il ne prend pas de suffixe de date. `PORT` fixe le port d'écoute, 8787 par défaut, celui vers lequel Vite renvoie `/api` en développement. `AI_MOCK` bascule le serveur en mode maquette. `NODE_ENV=production` désactive CORS : en production le client est servi par la même origine que l'API, et l'ouvrir à d'autres origines n'aurait pas de raison d'être.
+Le serveur lit quatre variables, toutes optionnelles sauf la clé (voir le mode maquette ci-dessous). `ANTHROPIC_API_KEY` est la clé d'accès à l'API Claude : elle vit sur le serveur, jamais dans le navigateur ni dans le dépôt — le fichier `.env.example` en donne la forme, sans valeur. `CLAUDE_MODEL` choisit le modèle, `claude-opus-5` par défaut ; l'identifiant est complet tel quel, il ne prend pas de suffixe de date. `PORT` fixe le port d'écoute en développement, 8787 par défaut, celui vers lequel Vite renvoie `/api` (sur Vercel, le port n'a pas de sens : chaque fonction est servie par la plateforme). `AI_MOCK` bascule le serveur en mode maquette. `NODE_ENV=production` désactive CORS : en production le client est servi par la même origine que l'API, et l'ouvrir à d'autres origines n'aurait pas de raison d'être.
 
 ## Mode maquette
 

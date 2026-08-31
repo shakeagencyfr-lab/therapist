@@ -45,7 +45,10 @@ npm run typecheck  # client et serveur
 ```
 design-reference/     le prototype HTML et sa spécification (référence de design)
 index.html            hôte Vite, polices Google (à auto-héberger en production)
-server/               proxy des quatre appels IA : prompts, schémas, mode maquette
+api/                  fonctions serverless Vercel : une par route IA
+server/               les quatre appels IA : prompts, schémas, mode maquette
+                      (ai.ts est commun aux deux enveloppes ; index.ts sert
+                      le développement local)
 src/
   App.tsx             une seule vue à la fois, choisie par l'en-tête
   components/layout/  en-tête et commutateur de vues
@@ -68,7 +71,8 @@ Les différences volontaires :
 
 - **Les appels IA partent du serveur.** Le prototype appelait `window.claude.complete`
   depuis la page. Ici, quatre routes `POST /api/ai/*` portent les prompts ; le client
-  n'a ni clé ni prompt.
+  n'a ni clé ni prompt. La logique vit dans `server/ai.ts` et deux enveloppes
+  l'exposent : Express en développement, fonctions serverless sur Vercel.
 - **Sorties structurées** plutôt qu'extraction de JSON à la regex : le schéma de
   chaque réponse est déclaré côté serveur, donc validé avant d'atteindre l'interface.
 - **`support.js` n'est pas porté** : c'est le runtime du prototype, il n'a pas
