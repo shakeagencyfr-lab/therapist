@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
+import { RoundCheck } from '@/components/ui'
 import { durationToSeconds, timecode } from '@/lib/format'
 import { buildPatientContext, generateAffirmations } from '@/services/aiClient'
-import { allModules, isModuleDone, patientOf } from '@/state/selectors'
+import { allModules, isModuleDone, patientOf, toggleModulePatch } from '@/state/selectors'
 import { useStore } from '@/state/store'
 import s from './PatientHome.module.css'
 
@@ -225,25 +226,35 @@ export function PatientHome() {
           {tasks.map((t) => {
             const on = isModuleDone(state, key, t.index, t.module.done)
             return (
-              <button
-                type="button"
+              <div
                 key={`${t.module.title}-${t.index}`}
                 className={on ? `${s.taskRow} ${s.taskRowOn}` : s.taskRow}
-                onClick={() => set({ openTask: t.index, pView: 'home' })}
               >
-                <span className={on ? `${s.taskCheck} ${s.taskCheckOn}` : s.taskCheck} aria-hidden>
-                  {on ? '✓' : ''}
-                </span>
-                <span className={s.taskBody}>
-                  <span className={on ? `${s.taskTitle} ${s.taskTitleDone}` : s.taskTitle}>
-                    {t.module.title}
+                <RoundCheck
+                  on={on}
+                  label={
+                    on
+                      ? `Marquer « ${t.module.title} » comme non fait`
+                      : `Marquer « ${t.module.title} » comme fait`
+                  }
+                  onClick={() => set(toggleModulePatch(key, t.index, t.module.done))}
+                />
+                <button
+                  type="button"
+                  className={s.taskOpen}
+                  onClick={() => set({ openTask: t.index, pView: 'home' })}
+                >
+                  <span className={s.taskBody}>
+                    <span className={on ? `${s.taskTitle} ${s.taskTitleDone}` : s.taskTitle}>
+                      {t.module.title}
+                    </span>
+                    <span className={s.taskMeta}>{t.module.meta}</span>
                   </span>
-                  <span className={s.taskMeta}>{t.module.meta}</span>
-                </span>
-                <span className={s.chevron} aria-hidden>
-                  ›
-                </span>
-              </button>
+                  <span className={s.chevron} aria-hidden>
+                    ›
+                  </span>
+                </button>
+              </div>
             )
           })}
           {dayDone && (

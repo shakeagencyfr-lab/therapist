@@ -5,3 +5,6 @@ dist
 *.local
 .DS_Store
 *.tsbuildinfo
+
+# fichiers temporaires de vérification
+.smoke-tmp/

@@ -258,8 +258,6 @@
   width: 100%;
   padding: 14px 15px;
   border-radius: 15px;
-  cursor: pointer;
-  text-align: left;
   color: var(--c-text);
   border: 1px solid var(--c-border);
   background: var(--c-surface);
@@ -268,22 +266,19 @@
   border-color: var(--c-accent-soft);
   background: var(--c-accent-tint);
 }
-.taskCheck {
-  width: 22px;
-  height: 22px;
-  flex: none;
-  border-radius: var(--r-pill);
-  display: grid;
-  place-items: center;
-  font-size: 12px;
-  line-height: 1;
-  border: 1.5px solid var(--c-border-mute);
+/* La ligne ouvre le détail ; la case, elle, coche le module sur place. */
+.taskOpen {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  flex: 1;
+  min-width: 0;
   background: transparent;
-  color: var(--c-surface);
-}
-.taskCheckOn {
-  border-color: var(--c-accent);
-  background: var(--c-accent);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
 }
 .taskBody {
   display: flex;
