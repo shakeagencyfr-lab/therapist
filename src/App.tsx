@@ -6,19 +6,25 @@ import { SessionView } from '@/views/session/SessionView'
 import { AtelierView } from '@/views/atelier/AtelierView'
 import { AudiosView } from '@/views/audios/AudiosView'
 import { NotificationsView } from '@/views/notifications/NotificationsView'
+import { ResellerSpace } from '@/views/reseller/ResellerSpace'
 
-/** Une seule vue est affichée à la fois, choisie par le commutateur de l'en-tête. */
+/**
+ * Deux espaces, deux métiers : la thérapeute suit ses patients, le revendeur
+ * suit ses cabinets. Dans le produit réel, l'espace ouvert découle du rôle du
+ * compte connecté, pas d'un commutateur.
+ */
 export function App() {
-  const { mode } = useAppState()
+  const { mode, space } = useAppState()
   return (
     <div>
       <AppHeader />
-      {mode === 'therapist' && <TherapistView />}
-      {mode === 'patient' && <PatientView />}
-      {mode === 'session' && <SessionView />}
-      {mode === 'atelier' && <AtelierView />}
-      {mode === 'audios' && <AudiosView />}
-      {mode === 'notif' && <NotificationsView />}
+      {space === 'reseller' && <ResellerSpace />}
+      {space === 'cabinet' && mode === 'therapist' && <TherapistView />}
+      {space === 'cabinet' && mode === 'patient' && <PatientView />}
+      {space === 'cabinet' && mode === 'session' && <SessionView />}
+      {space === 'cabinet' && mode === 'atelier' && <AtelierView />}
+      {space === 'cabinet' && mode === 'audios' && <AudiosView />}
+      {space === 'cabinet' && mode === 'notif' && <NotificationsView />}
     </div>
   )
 }

@@ -38,12 +38,15 @@ de travailler l'interface sans appeler le modèle.
 ```bash
 npm run build      # typecheck + build de production
 npm run typecheck  # client et serveur
+npm run check      # typecheck, puis rendu des neuf vues et contrôle de cloisonnement
 ```
 
 ## Organisation
 
 ```
 design-reference/     le prototype HTML et sa spécification (référence de design)
+scripts/              banc de rendu : les neuf vues rendent, et l'espace
+                      revendeur ne montre aucun contenu de patient
 index.html            hôte Vite, polices Google (à auto-héberger en production)
 api/                  fonctions serverless Vercel : une par route IA
 server/               les quatre appels IA : prompts, schémas, mode maquette
@@ -60,7 +63,7 @@ src/
   styles/             jetons de design et styles globaux
   theme/              marque blanche : accent et sombre paramétrables
   types/              modèle de domaine
-  views/              les sept écrans
+  views/              les sept écrans du cabinet, plus l'espace revendeur
 ```
 
 ## Ce qui est porté depuis le prototype
@@ -79,6 +82,25 @@ Les différences volontaires :
   d'équivalent en production.
 - Les données patients sont typées et isolées dans `src/data/` pour rendre visible
   la frontière à remplacer par l'API.
+
+## Trois niveaux
+
+Le produit est vendu à des cabinets par un revendeur. Trois rôles, et une règle
+qui ne se négocie pas : **le revendeur ne lit aucune donnée de santé.**
+
+| Niveau | Voit | Ne voit pas |
+| --- | --- | --- |
+| **Revendeur** | ses cabinets, ses interlocutrices, les abonnements, des compteurs agrégés | ni patient, ni note, ni transcription, ni journal |
+| **Cabinet** | tous ses patients et leurs données | les autres cabinets |
+| **Patient** | ses modules, ses audios, son journal, son échelle | le dossier clinique de la thérapeute |
+
+Le cloisonnement est appliqué en base : aucune politique RLS d'une table de
+santé ne mentionne l'appartenance à un revendeur, il n'a donc aucun chemin de
+lecture (`supabase/README.md`). L'espace revendeur (`src/views/reseller/`)
+ajoute le portefeuille de cabinets, l'éditeur de marque blanche avec aperçu, et
+les offres avec leur plafond de consommation IA. Les moyennes y disparaissent
+sous trois patients actifs : dans un cabinet d'un patient, une moyenne est un
+chiffre individuel.
 
 ## Règles métier reprises telles quelles
 

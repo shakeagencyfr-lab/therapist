@@ -1,0 +1,241 @@
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.list {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+.listHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 17px 20px 13px;
+  border-bottom: 1px solid var(--c-border-light);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 13px;
+  align-items: center;
+  width: 100%;
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--c-border-light);
+  background: transparent;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  text-align: left;
+  cursor: pointer;
+  color: var(--c-text);
+}
+.row:last-child {
+  border-bottom: none;
+}
+.row:hover {
+  background: var(--c-surface-2);
+}
+.rowOn {
+  background: var(--c-accent-soft-2);
+}
+.rowOn:hover {
+  background: var(--c-accent-soft-2);
+}
+
+/* La pastille prend l'accent du cabinet : le portefeuille se lit d'un coup. */
+.mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-serif);
+  font-size: 14px;
+  color: var(--c-surface);
+  flex: none;
+}
+
+.name {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.sub {
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+  margin-top: 2px;
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.counters {
+  display: flex;
+  gap: 16px;
+  text-align: right;
+}
+
+.counter {
+  min-width: 62px;
+}
+.counterValue {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  line-height: 1.1;
+}
+.counterLabel {
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+  margin-top: 2px;
+}
+.suppressed {
+  color: var(--c-text-faint);
+}
+
+.usage {
+  width: 92px;
+}
+.usageLine {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--c-text-muted);
+  margin-bottom: 5px;
+}
+.over {
+  color: var(--c-warn-text-2);
+  font-weight: 500;
+}
+
+.aside {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.panel {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  padding: 18px 20px;
+}
+
+.panelTitle {
+  font-family: var(--font-serif);
+  font-size: 19px;
+  font-weight: 400;
+  margin: 0 0 4px;
+}
+
+.panelSub {
+  font-size: 12px;
+  color: var(--c-text-muted);
+  line-height: 1.5;
+  margin: 0 0 14px;
+}
+
+.blind {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.blindItem {
+  display: flex;
+  gap: 9px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--c-text-3);
+}
+.cross {
+  color: var(--c-text-faint);
+  flex: none;
+  line-height: 1.4;
+}
+
+.attention {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.attentionRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12.5px;
+}
+.attentionName {
+  font-weight: 500;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.slugHint {
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+  margin-top: 5px;
+}
+.planPick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+@media (max-width: 1100px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .row {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+  .right {
+    grid-column: 1 / -1;
+    justify-content: space-between;
+    padding-left: 47px;
+  }
+  .formRow {
+    grid-template-columns: 1fr;
+  }
+}

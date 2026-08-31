@@ -1,0 +1,281 @@
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.panel {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  padding: 18px 20px 20px;
+}
+
+.panelTitle {
+  font-family: var(--font-serif);
+  font-size: 19px;
+  font-weight: 400;
+  margin: 0 0 4px;
+}
+
+.panelSub {
+  font-size: 12px;
+  color: var(--c-text-muted);
+  line-height: 1.5;
+  margin: 0 0 16px;
+}
+
+.field {
+  margin-bottom: 14px;
+}
+
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.preset {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px 6px 7px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--c-text-4);
+}
+.preset:hover {
+  background: var(--c-surface-2);
+}
+.presetOn {
+  border-color: var(--c-accent);
+  color: var(--c-accent);
+  background: var(--c-accent-soft-2);
+}
+.swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--r-pill);
+  flex: none;
+}
+
+.colors {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.colorField {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--c-border);
+  background: var(--c-field);
+  border-radius: var(--r-sm);
+  padding: 7px 10px;
+}
+.colorInput {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  flex: none;
+}
+.colorText {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 12.5px;
+  font-family: inherit;
+  color: var(--c-text);
+  width: 100%;
+  min-width: 0;
+  text-transform: uppercase;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Aperçu : une miniature de l'espace thérapeute, aux couleurs du cabinet. */
+.preview {
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  background: var(--c-app);
+}
+
+.previewHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 16px;
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-border);
+}
+.previewBrand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.previewLogo {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-serif);
+  font-size: 14px;
+  color: #fffdf8;
+}
+.previewName {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.previewTagline {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+.previewTabs {
+  display: flex;
+  gap: 2px;
+  background: var(--c-neutral);
+  border-radius: var(--r-pill);
+  padding: 3px;
+}
+.previewTab {
+  font-size: 10.5px;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  color: var(--c-text-4);
+}
+.previewTabOn {
+  background: var(--c-surface);
+  color: var(--c-text);
+  box-shadow: 0 1px 2px rgba(27, 26, 23, 0.09);
+}
+
+.previewBody {
+  padding: 18px 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.previewCard {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 13px;
+  padding: 15px 17px;
+}
+
+.previewH1 {
+  font-family: var(--font-serif);
+  font-size: 24px;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  margin: 0 0 8px;
+}
+
+.previewPills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.previewPill {
+  font-size: 10.5px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+}
+
+.previewAxis {
+  margin-top: 14px;
+}
+.previewAxisHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 11.5px;
+  margin-bottom: 6px;
+}
+.previewTrack {
+  position: relative;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--c-border-light);
+}
+.previewBand {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: var(--r-pill);
+  background: var(--c-band);
+}
+.previewMark {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  border-radius: 2px;
+}
+
+.previewButtons {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+}
+.previewPrimary {
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 8px 14px;
+  border-radius: var(--r-sm);
+  color: #fffdf8;
+}
+.previewSecondary {
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 8px 14px;
+  border-radius: var(--r-sm);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+}
+
+.previewDark {
+  border-radius: var(--r-md);
+  padding: 13px 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.previewDarkText {
+  font-size: 11.5px;
+  color: rgba(240, 245, 242, 0.7);
+}
+.previewDarkTitle {
+  font-size: 12.5px;
+  color: #f5eee1;
+  font-weight: 500;
+}
+
+@media (max-width: 1100px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
