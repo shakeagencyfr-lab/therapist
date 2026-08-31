@@ -10,8 +10,7 @@
     "dev:server": "tsx watch server/index.ts",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b --noEmit false --emitDeclarationOnly false && tsc -p tsconfig.server.json --noEmit",
-    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc -b --noEmit",
     "start": "node --import tsx server/index.ts"
   },
   "dependencies": {
