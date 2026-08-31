@@ -1,16 +1,11 @@
 import { Button, Card, Overline, SquareCheck, TextArea, TextInput, Title } from '@/components/ui'
-import {
-  ATELIER_LIBRARY,
-  ATELIER_SEEDS,
-  ATELIER_SEED_BRIEFS,
-  ATELIER_TYPES,
-} from '@/data/atelier'
+import { ATELIER_SEEDS, ATELIER_SEED_BRIEFS, ATELIER_TYPES } from '@/data/atelier'
 import { PATIENTS, PATIENT_ORDER } from '@/data/patients'
 import { plural } from '@/lib/format'
 import { AiError, generateModule } from '@/services/aiClient'
 import { useStore } from '@/state/store'
 import type { AppState } from '@/state/state'
-import type { CustomModule, ModuleKind, PatientId, QuizQuestion } from '@/types/domain'
+import type { CustomModule, PatientId, QuizQuestion } from '@/types/domain'
 import s from './AtelierView.module.css'
 
 /* Bibliothèque du cabinet ------------------------------------------- */
@@ -19,9 +14,8 @@ interface LibraryRow {
   key: string
   title: string
   meta: string
-  kind: ModuleKind
   /** Module écrit dans l'atelier : il peut être rouvert dans le panneau de droite. */
-  made: CustomModule | null
+  made: CustomModule
 }
 
 /** Les patients dont le parcours contient déjà ce module. */
@@ -31,30 +25,21 @@ function holders(state: AppState, title: string): string[] {
   ).map((key) => PATIENTS[key].name)
 }
 
-/** Modules prêts à l'emploi du cabinet, suivis de ceux écrits dans l'atelier. */
+/** Les modules écrits dans l'atelier : la carte reste absente tant qu'il n'y en a aucun. */
 function libraryRows(state: AppState): LibraryRow[] {
-  const rows: LibraryRow[] = ATELIER_LIBRARY.map((module) => ({
-    key: module.title,
-    title: module.title,
-    meta: module.meta,
-    kind: module.kind,
-    made: null,
-  }))
+  const rows: LibraryRow[] = []
   for (const list of Object.values(state.customs)) {
     for (const made of list) {
+      const who = holders(state, made.titre)
       rows.push({
         key: `${made.type}:${made.titre}`,
         title: made.titre,
-        meta: `${made.type} · ${made.duree}`,
-        kind: made.type,
+        meta: `${made.type} · ${made.duree}${who.length ? ` · ${who.join(', ')}` : ''}`,
         made,
       })
     }
   }
-  return rows.map((row) => {
-    const who = holders(state, row.title)
-    return who.length ? { ...row, meta: `${row.meta} · ${who.join(', ')}` } : row
-  })
+  return rows
 }
 
 /* Quiz proposé -------------------------------------------------------- */
@@ -88,7 +73,6 @@ export function AtelierView() {
   const mod = state.aMod
   const rows = libraryRows(state)
   const selected = PATIENT_ORDER.filter((key) => state.aAssign[key])
-  const selectedPatient = PATIENTS[state.sel]
 
   async function generate() {
     const intent = state.aIntent.trim()
@@ -136,18 +120,6 @@ export function AtelierView() {
         aLastAssigned: selected.map((key) => PATIENTS[key].name).join(', '),
       }
     })
-  }
-
-  /** Ajoute un module de la bibliothèque au parcours du patient sélectionné. */
-  function addToWeek(row: LibraryRow) {
-    set((prev) => ({
-      extra: {
-        ...prev.extra,
-        [prev.sel]: (prev.extra[prev.sel] ?? []).concat([
-          { title: row.title, meta: row.meta, kind: row.kind, done: false, fresh: true },
-        ]),
-      },
-    }))
   }
 
   function reopen(made: CustomModule) {
@@ -246,30 +218,17 @@ export function AtelierView() {
               </div>
               <div className={s.librarySub}>Créés par vous, réutilisables pour d'autres patients.</div>
               <ul className={s.libraryList}>
-                {rows.map((row) => {
-                  const made = row.made
-                  return (
-                    <li key={row.key} className={s.libraryRow}>
-                      <div className={s.libraryText}>
-                        <span className={s.libraryTitle}>{row.title}</span>
-                        <span className={s.libraryMeta}>{row.meta}</span>
-                      </div>
-                      {made ? (
-                        <button type="button" className={s.small} onClick={() => reopen(made)}>
-                          Ouvrir
-                        </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        className={s.small}
-                        title={`Ajouter au parcours de ${selectedPatient.name}`}
-                        onClick={() => addToWeek(row)}
-                      >
-                        Ajouter au parcours
-                      </button>
-                    </li>
-                  )
-                })}
+                {rows.map((row) => (
+                  <li key={row.key} className={s.libraryRow}>
+                    <div className={s.libraryText}>
+                      <span className={s.libraryTitle}>{row.title}</span>
+                      <span className={s.libraryMeta}>{row.meta}</span>
+                    </div>
+                    <button type="button" className={s.small} onClick={() => reopen(row.made)}>
+                      Ouvrir
+                    </button>
+                  </li>
+                ))}
               </ul>
             </Card>
           )}

@@ -1,4 +1,5 @@
 import { Button, Pill } from '@/components/ui'
+import { ATELIER_LIBRARY } from '@/data/atelier'
 import { patientOf } from '@/state/selectors'
 import { useStore } from '@/state/store'
 import s from './PatientHeader.module.css'
@@ -7,6 +8,25 @@ import s from './PatientHeader.module.css'
 export function PatientHeader() {
   const { state, set } = useStore()
   const p = patientOf(state)
+
+  /**
+   * Ajoute au parcours de la semaine le module suivant de la bibliothèque du
+   * cabinet : on avance dans la liste au rythme des modules déjà ajoutés, sans
+   * quitter la fiche.
+   */
+  function addModule() {
+    set((prev) => {
+      const key = prev.sel
+      const used = (prev.extra[key] ?? []).length
+      const module = ATELIER_LIBRARY[used % ATELIER_LIBRARY.length]
+      return {
+        extra: {
+          ...prev.extra,
+          [key]: (prev.extra[key] ?? []).concat([{ ...module, done: false, fresh: true }]),
+        },
+      }
+    })
+  }
 
   return (
     <div className={s.head}>
@@ -24,7 +44,7 @@ export function PatientHeader() {
         <Button variant="secondary" onClick={() => set({ mode: 'session' })}>
           Note de séance
         </Button>
-        <Button variant="primary" onClick={() => set({ mode: 'atelier' })}>
+        <Button variant="primary" onClick={addModule}>
           Ajouter un module
         </Button>
       </div>

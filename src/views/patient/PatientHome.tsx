@@ -49,7 +49,7 @@ export function PatientHome() {
   async function renewAffirmations() {
     // Une seule génération à la fois, tous patients confondus.
     if (state.affGen) return
-    set({ affGen: key })
+    set({ affGen: key, affSaved: '' })
     try {
       const result = await generateAffirmations({ context: buildPatientContext(state, key) })
       const list = (result.affirmations ?? []).filter((x) => typeof x === 'string')
@@ -57,11 +57,10 @@ export function PatientHome() {
         affs: { ...prev.affs, [key]: list },
         affGen: '',
         affIdx: 0,
-        affPaused: false,
-        affSaved: '',
+        affSaved: 'Publiées chez le patient.',
       }))
     } catch {
-      set({ affGen: '' })
+      set({ affGen: '', affSaved: 'La génération a échoué. Réessayez.' })
     }
   }
 
@@ -71,8 +70,8 @@ export function PatientHome() {
     .map((m, i) => ({ module: m, index: i }))
     .filter((x) => x.module.kind !== 'Audio' && x.module.kind !== 'Échelle')
   const doneCount = tasks.filter((x) => isModuleDone(state, key, x.index, x.module.done)).length
-  /* L'écran se vide quand la journée est faite. */
-  const dayDone = tasks.length === 0 || doneCount === tasks.length
+  /* L'encart pointillé ne remplace la liste que s'il n'y a aucune tâche du jour. */
+  const noTasks = tasks.length === 0
 
   /* Échelle du soir ---------------------------------------------------- */
   const logged = (state.scaleLog[key] ?? []).length
@@ -257,7 +256,7 @@ export function PatientHome() {
               </div>
             )
           })}
-          {dayDone && (
+          {noTasks && (
             <div className={s.taskEmpty}>
               Rien à faire aujourd'hui. Écoute libre : prenez l'audio qui vous appelle.
             </div>
