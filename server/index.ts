@@ -7,7 +7,7 @@ import express from 'express'
 import cors from 'cors'
 import type { Request, Response } from 'express'
 
-import { AI_ROUTES, currentMode, describeError, handleAi, type AiRoute } from './ai'
+import { AI_ROUTES, currentMode, describeError, handleAi, type AiRoute } from './ai.js'
 
 const PORT = Number(process.env.PORT) || 8787
 const PRODUCTION = process.env.NODE_ENV === 'production'

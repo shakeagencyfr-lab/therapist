@@ -5,9 +5,12 @@
  * séparément, et une seule est réveillée par appel. Elles ne contiennent que
  * le nom de leur route : toute la logique reste dans server/ai.ts, partagée
  * avec l'enveloppe Express du développement local.
+ *
+ * L'adaptateur vit ici plutôt que dans api/ : ce dossier est un espace de
+ * routage pour Vercel, pas un endroit où ranger du code partagé.
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { describeError, handleAi, type AiRoute } from '../server/ai'
+import { describeError, handleAi, type AiRoute } from './ai.js'
 
 export function aiFunction(route: AiRoute) {
   return async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
