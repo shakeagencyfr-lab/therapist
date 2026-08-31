@@ -8,9 +8,9 @@
     "dev": "concurrently -n web,api -c cyan,magenta \"vite\" \"npm run dev:server\"",
     "dev:web": "vite",
     "dev:server": "tsx watch server/index.ts",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b --force && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b --noEmit",
+    "typecheck": "tsc -b --noEmit --force && tsc -p tsconfig.server.json --noEmit",
     "start": "node --import tsx server/index.ts"
   },
   "dependencies": {

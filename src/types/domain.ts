@@ -216,3 +216,42 @@ export interface GeneratedProfile {
   /** Une phrase disant ce qui a changé depuis la version précédente. */
   resume: string
 }
+
+/* ------------------------------------------------------------------ *
+ * Contexte envoyé aux fonctions IA
+ *
+ * Source unique, partagée par le client (src/services/aiClient.ts) et le
+ * serveur (server/schemas.ts) : les prompts consomment cette forme des deux
+ * côtés, et une dérive entre les deux ne serait signalée par aucun test.
+ * ------------------------------------------------------------------ */
+
+/** Un module du parcours, tel que les prompts le citent. */
+export interface ContextModule {
+  title: string
+  done: boolean
+}
+
+/** Une entrée de journal, telle que les prompts la citent. */
+export interface ContextJournalEntry {
+  date: string
+  text: string
+}
+
+/** Le dossier du patient réduit à ce que les prompts consomment. */
+export interface PatientContext {
+  name: string
+  program: string
+  subtitle: string
+  weekLabel: string
+  sessions: number
+  totalSessions: number
+  adherence: number
+  scaleLabel: string
+  scaleDelta: string
+  modules: ContextModule[]
+  journal: ContextJournalEntry[]
+  /** Ce que le patient écrit lui-même : pages de journal partagées, mises bout à bout. */
+  shared: string
+  /** Profil courant, que l'actualisation révise plutôt qu'elle ne remplace. */
+  profile: PsychProfile
+}

@@ -8,9 +8,9 @@
  * expression régulière (`out.match(/\{[\s\S]*\}/)`) avant de l'analyser — une
  * étape qui pouvait échouer sur une phrase d'introduction ou une balise de code.
  *
- * Les types de contexte sont dupliqués côté client dans src/services/aiClient.ts :
- * le serveur ne peut pas importer les alias « @/… » du bundle web, et le client
- * ne doit pas importer le serveur. Toute modification se fait des deux côtés.
+ * Le contexte patient n'est PAS redéfini ici : client et serveur lisent la même
+ * définition dans src/types/domain.ts, importée en « import type » — effacée à
+ * la compilation, donc sans effet sur ce que le serveur charge à l'exécution.
  */
 import { z } from 'zod'
 import type {
@@ -18,44 +18,15 @@ import type {
   GeneratedModule,
   GeneratedProfile,
   ModuleKind,
-  PsychProfile,
+  PatientContext,
   SessionDraft,
 } from '../src/types/domain'
+
+export type { PatientContext }
 
 /* ------------------------------------------------------------------ *
  * Corps de requête
  * ------------------------------------------------------------------ */
-
-/** Un module du parcours, tel que les prompts le citent. */
-export interface ContextModule {
-  title: string
-  done: boolean
-}
-
-/** Une entrée de journal, telle que les prompts la citent. */
-export interface ContextJournalEntry {
-  date: string
-  text: string
-}
-
-/** Le dossier du patient réduit à ce que les prompts consomment. */
-export interface PatientContext {
-  name: string
-  program: string
-  subtitle: string
-  weekLabel: string
-  sessions: number
-  totalSessions: number
-  adherence: number
-  scaleLabel: string
-  scaleDelta: string
-  modules: ContextModule[]
-  journal: ContextJournalEntry[]
-  /** Ce que le patient écrit lui-même : pages de journal partagées, mises bout à bout. */
-  shared: string
-  /** Profil courant, que l'actualisation doit réviser plutôt que remplacer. */
-  profile: PsychProfile
-}
 
 export interface SessionDraftBody {
   context: PatientContext

@@ -11,52 +11,20 @@ import { PATIENTS } from '@/data/patients'
 import { allModules, isModuleDone, profileOf } from '@/state/selectors'
 import type { AppState } from '@/state/state'
 import type {
+  ContextJournalEntry,
+  ContextModule,
   GeneratedAffirmations,
   GeneratedModule,
   GeneratedProfile,
   ModuleKind,
+  PatientContext,
   PatientId,
-  PsychProfile,
   SessionDraft,
 } from '@/types/domain'
 
-/* ------------------------------------------------------------------ *
- * Contexte patient
- * ------------------------------------------------------------------ */
-
-/** Un module du parcours, tel que les prompts le citent. */
-export interface ContextModule {
-  title: string
-  done: boolean
-}
-
-/** Une entrée de journal, telle que les prompts la citent. */
-export interface ContextJournalEntry {
-  date: string
-  text: string
-}
-
-/**
- * Le dossier du patient réduit à ce que les prompts consomment.
- * Même forme côté serveur (server/schemas.ts) : les deux se modifient ensemble.
- */
-export interface PatientContext {
-  name: string
-  program: string
-  subtitle: string
-  weekLabel: string
-  sessions: number
-  totalSessions: number
-  adherence: number
-  scaleLabel: string
-  scaleDelta: string
-  modules: ContextModule[]
-  journal: ContextJournalEntry[]
-  /** Ce que le patient écrit lui-même : pages de journal partagées, mises bout à bout. */
-  shared: string
-  /** Profil courant, que l'actualisation révise plutôt qu'elle ne le remplace. */
-  profile: PsychProfile
-}
+// Le contrat de contexte vit dans src/types/domain.ts, d'où le serveur le lit
+// aussi : une seule définition, donc pas de dérive silencieuse entre les deux.
+export type { ContextJournalEntry, ContextModule, PatientContext }
 
 /**
  * Assemble le contexte envoyé au serveur : le dossier, les modules réellement
