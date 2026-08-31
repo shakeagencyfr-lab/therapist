@@ -1,0 +1,84 @@
+/*
+ * Jetons de design — repris tels quels du prototype (design-reference/).
+ * Deux valeurs sont paramétrables par cabinet (marque blanche) :
+ * --c-accent et --c-dark. Voir src/theme/theme.ts.
+ */
+:root {
+  /* Fonds et surfaces */
+  --c-app: #faf6ef;
+  --c-surface: #fffdf8;
+  --c-surface-2: #fbf9f5;
+  --c-field: #f8f5ef;
+  --c-neutral: #f1ece3;
+  --c-neutral-2: #f2ede4;
+  --c-neutral-3: #eee9e0;
+  --c-search: #f4f0e8;
+  --c-avatar: #efeae1;
+  --c-avatar-head: #eae3d7;
+
+  /* Bordures */
+  --c-border: #e6e1d8;
+  --c-border-light: #f2ede4;
+  --c-border-dashed: #ddd6c9;
+  --c-border-accent: #e3d5bc;
+  --c-border-mute: #cfc8bb;
+
+  /* Texte */
+  --c-text: #1b1a17;
+  --c-text-2: #3a372f;
+  --c-text-3: #57544c;
+  --c-text-4: #6e6a62;
+  --c-text-muted: #8a857b;
+  --c-text-disabled: #a6a096;
+  --c-text-faint: #c0b9a9;
+
+  /* Accent de marque (paramétrable) */
+  --c-accent: #a17a45;
+  --c-accent-hover: #856239;
+  --c-accent-deep: #6e5230;
+  --c-accent-soft: #f0e7d6;
+  --c-accent-soft-2: #f5eee1;
+  --c-accent-tint: #f8f2e7;
+  --c-accent-busy: #f7f2e8;
+  --c-band: #ebdcc1;
+
+  /* Statuts */
+  --c-warn-bg: #fbf3e6;
+  --c-warn-border: #f0e2c9;
+  --c-warn-text: #7a5320;
+  --c-warn-text-2: #8a5a2b;
+  --c-warn-dash: #c79b54;
+  --c-ok-bg: #eef3eb;
+  --c-ok-border: #dce6d8;
+  --c-ok-text: #41603c;
+  --c-hot: #b5643f;
+  --c-hot-bg: #f7ede7;
+  --c-danger: #b0402c;
+
+  /* Pastilles d'assiduité */
+  --c-risk-high: #b0402c;
+  --c-risk-mid: #d19a24;
+  --c-risk-low: #6f8f6b;
+
+  /* Sombre (paramétrable) */
+  --c-dark: #33291c;
+  --c-on-dark: #f5eee1;
+  --c-on-dark-soft: rgba(240, 245, 242, 0.7);
+
+  /* Typographie */
+  --font-serif: 'Newsreader', Georgia, 'Times New Roman', serif;
+  --font-ui: 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Rayons */
+  --r-pill: 999px;
+  --r-xs: 6px;
+  --r-sm: 9px;
+  --r-md: 11px;
+  --r-lg: 14px;
+  --r-xl: 16px;
+  --r-panel: 20px;
+  --r-phone: 38px;
+
+  /* Chrome */
+  --header-h: 67px;
+}

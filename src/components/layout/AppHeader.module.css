@@ -1,0 +1,80 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 16px 28px;
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Placeholder : à remplacer par le vrai logo du cabinet. */
+.logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--c-accent);
+  color: var(--c-surface);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-serif);
+  font-size: 16px;
+  letter-spacing: 0.02em;
+}
+
+.names {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.cabinet {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.tagline {
+  font-size: 11px;
+  color: var(--c-text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.me {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-pill);
+  background: var(--c-avatar-head);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-text-4);
+}
+
+@media (max-width: 900px) {
+  .header {
+    padding: 12px 16px;
+    gap: 12px;
+  }
+  .tagline {
+    display: none;
+  }
+  .right {
+    overflow-x: auto;
+  }
+}

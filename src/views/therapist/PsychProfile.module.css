@@ -1,0 +1,239 @@
+.card {
+  margin-bottom: 18px;
+}
+
+/* En-tête ------------------------------------------------------------- */
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.identity {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.title {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 21px;
+  line-height: 1.2;
+  margin: 0;
+}
+.subtitle {
+  font-size: 12px;
+  color: var(--c-text-muted);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.maturity {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--c-accent);
+  background: var(--c-accent-soft);
+  border-radius: var(--r-pill);
+  padding: 4px 11px;
+  white-space: nowrap;
+}
+.updated {
+  font-size: 12px;
+  color: var(--c-text-disabled);
+}
+
+.refresh {
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.2;
+  border-radius: var(--r-sm);
+  padding: 8px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  /* Bordure d'accent atténuée : nuance propre à ce bouton, sans jeton. */
+  border: 1px solid #dfd1b8;
+  background: var(--c-surface);
+  color: var(--c-accent);
+}
+.refresh:hover:not(:disabled) {
+  background: var(--c-accent-soft-2);
+}
+.refresh:disabled {
+  cursor: default;
+  border-color: #efe7d9;
+  background: var(--c-accent-busy);
+  color: var(--c-text-disabled);
+}
+
+/* Corps ---------------------------------------------------------------- */
+.body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.left {
+  display: flex;
+  flex-direction: column;
+  gap: 17px;
+}
+
+.portrait {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--c-text-2);
+  margin: 0;
+  text-wrap: pretty;
+}
+
+/* Axes ------------------------------------------------------------------ */
+.axes {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+.axis {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.axisHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+.axisLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--c-text-2);
+}
+.axisNote {
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+  text-align: right;
+}
+
+.track {
+  position: relative;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--c-border-light);
+}
+/* Bande d'incertitude : d'autant plus large que les séances sont peu nombreuses. */
+.band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: var(--r-pill);
+  background: var(--c-band);
+}
+.mark {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--c-accent);
+}
+
+.marginNote {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--c-text-disabled);
+}
+
+/* Conseils d'accompagnement ---------------------------------------------- */
+.right {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.levers {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.lever {
+  display: flex;
+  gap: 11px;
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border-light);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.leverNum {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: var(--r-pill);
+  background: var(--c-accent-soft);
+  color: var(--c-accent-deep);
+  display: grid;
+  place-items: center;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.leverBody {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.leverTitle {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--c-text);
+}
+.leverText {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--c-text-4);
+  text-wrap: pretty;
+}
+
+/* Points d'attention ------------------------------------------------------- */
+.careHead {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--c-warn-text-2);
+  margin-bottom: 8px;
+}
+.careList {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.carePoint {
+  display: flex;
+  gap: 8px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--c-warn-text);
+}
+.careDash {
+  flex: none;
+  color: var(--c-warn-dash);
+}
+.careText {
+  text-wrap: pretty;
+}
+
+@media (max-width: 1100px) {
+  .body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+  }
+}

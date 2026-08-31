@@ -1,0 +1,273 @@
+import { Avatar, Button, Card, Overline, TextArea, TextInput, Title } from '@/components/ui'
+import {
+  NOTIF_ADHERENCE_OPTIONS,
+  NOTIF_PROGRAMS,
+  NOTIF_TEMPLATES,
+  NOTIF_WHEN_OPTIONS,
+} from '@/data/notifications'
+import { plural } from '@/lib/format'
+import { NOTIF_SITUATIONS, notifRows } from '@/state/selectors'
+import { useStore } from '@/state/store'
+import s from './NotificationsView.module.css'
+
+/** Heure d'envoi conservée dans le journal, au format `14:32`. */
+function stampNow(): string {
+  return new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+}
+
+/**
+ * Notifications ciblées : les filtres composent le groupe à partir de ce que
+ * l'application sait déjà, la liste nominative est visible avant l'envoi.
+ */
+export function NotificationsView() {
+  const { state, set } = useStore()
+
+  const rows = notifRows(state)
+  const recipients = rows.filter((row) => row.on)
+  const canSend = recipients.length > 0 && state.nMsg.trim().length > 0
+
+  const previewTitle = state.nTitle.trim()
+  const previewMsg = state.nMsg.trim()
+
+  function send() {
+    if (!canSend) return
+    const entry = {
+      title: state.nTitle.trim() || 'Un mot de Laetitia',
+      message: previewMsg,
+      when: state.nWhen,
+      names: recipients.map((row) => row.name),
+      stamp: stampNow(),
+    }
+    set((prev) => ({ pushes: [entry].concat(prev.pushes), nTitle: '', nMsg: '' }))
+  }
+
+  return (
+    <div className={s.wrap}>
+      <div className={s.crumb}>
+        <Overline>Notifications</Overline>
+      </div>
+      <h1 className={s.h1}>Écrire à un groupe de patients</h1>
+      <p className={s.intro}>
+        Les filtres composent le groupe à partir de ce que l'application sait déjà : programme,
+        assiduité, modules en retard, rendez-vous manquant. Vous voyez la liste nominative avant
+        d'envoyer.
+      </p>
+
+      <div className={s.grid}>
+        {/* Colonne gauche : le ciblage ------------------------------------ */}
+        <div className={s.col}>
+          <Card padded={false} className={s.filters}>
+            <div className={s.filtersHead}>
+              <h2 className={s.h2}>Filtres</h2>
+              <button
+                type="button"
+                className={s.reset}
+                onClick={() => set({ nProgs: {}, nAdh: 'all', nSits: {} })}
+              >
+                Tout réinitialiser
+              </button>
+            </div>
+
+            <span className={s.label}>
+              <Overline>Programme</Overline>
+            </span>
+            <div className={s.chips}>
+              {NOTIF_PROGRAMS.map((program) => {
+                const on = !!state.nProgs[program]
+                return (
+                  <button
+                    key={program}
+                    type="button"
+                    className={on ? `${s.chip} ${s.chipOn}` : s.chip}
+                    aria-pressed={on}
+                    onClick={() =>
+                      set((prev) => ({ nProgs: { ...prev.nProgs, [program]: !prev.nProgs[program] } }))
+                    }
+                  >
+                    {program}
+                  </button>
+                )
+              })}
+            </div>
+
+            <span className={`${s.label} ${s.labelGap}`}>
+              <Overline>Assiduité</Overline>
+            </span>
+            <div className={s.chips}>
+              {NOTIF_ADHERENCE_OPTIONS.map((option) => {
+                const on = state.nAdh === option.value
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={on ? `${s.chip} ${s.chipOn}` : s.chip}
+                    aria-pressed={on}
+                    onClick={() => set({ nAdh: option.value })}
+                  >
+                    {option.label}
+                  </button>
+                )
+              })}
+            </div>
+
+            <span className={`${s.label} ${s.labelGap}`}>
+              <Overline>Situation</Overline>
+            </span>
+            <div className={s.chips}>
+              {NOTIF_SITUATIONS.map((situation) => {
+                const on = !!state.nSits[situation]
+                return (
+                  <button
+                    key={situation}
+                    type="button"
+                    className={on ? `${s.chip} ${s.chipOn}` : s.chip}
+                    aria-pressed={on}
+                    onClick={() =>
+                      set((prev) => ({
+                        nSits: { ...prev.nSits, [situation]: !prev.nSits[situation] },
+                      }))
+                    }
+                  >
+                    {situation}
+                  </button>
+                )
+              })}
+            </div>
+          </Card>
+
+          <Card padded={false} flush className={s.recipients}>
+            <div className={s.recipientsHead}>
+              <h2 className={s.h2}>Destinataires</h2>
+              <span className={s.count}>
+                {recipients.length} sur {rows.length} patients
+              </span>
+            </div>
+            <ul className={s.list}>
+              {recipients.map((row) => (
+                <li key={row.key} className={s.row}>
+                  <Avatar initials={row.initials} size={28} />
+                  <div className={s.rowText}>
+                    <span className={s.name}>{row.name}</span>
+                    <span className={s.reason}>{row.reason}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {recipients.length === 0 && (
+              <div className={s.noRecipients}>
+                Aucun patient ne correspond à cette combinaison de filtres.
+              </div>
+            )}
+          </Card>
+        </div>
+
+        {/* Colonne droite : le message ------------------------------------- */}
+        <div className={s.col}>
+          <Card padded={false} className={s.editor}>
+            <div className={s.editorHead}>
+              <h2 className={s.h2}>Message</h2>
+            </div>
+            <TextInput
+              className={s.title}
+              value={state.nTitle}
+              onChange={(e) => set({ nTitle: e.target.value })}
+              placeholder="Titre de la notification"
+              aria-label="Titre de la notification"
+            />
+            <TextArea
+              className={s.message}
+              rows={4}
+              value={state.nMsg}
+              onChange={(e) => set({ nMsg: e.target.value })}
+              placeholder="Deux phrases suffisent. Le patient reçoit ceci sur son écran verrouillé."
+              aria-label="Message de la notification"
+            />
+            <div className={s.templates}>
+              {NOTIF_TEMPLATES.map((template) => (
+                <button
+                  key={template.label}
+                  type="button"
+                  className={s.template}
+                  onClick={() => set({ nTitle: template.title, nMsg: template.message })}
+                >
+                  {template.label}
+                </button>
+              ))}
+            </div>
+
+            <span className={`${s.label} ${s.labelGap}`}>
+              <Overline>Moment d'envoi</Overline>
+            </span>
+            <div className={s.chips}>
+              {NOTIF_WHEN_OPTIONS.map((when) => {
+                const on = state.nWhen === when
+                return (
+                  <button
+                    key={when}
+                    type="button"
+                    className={on ? `${s.chip} ${s.chipOn}` : s.chip}
+                    aria-pressed={on}
+                    onClick={() => set({ nWhen: when })}
+                  >
+                    {when}
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className={s.preview}>
+              <div className={s.previewTop}>
+                <span className={s.previewFrom}>Cabinet Laetitia Ollivier</span>
+                <span className={s.previewWhen}>{state.nWhen}</span>
+              </div>
+              <div className={previewTitle ? s.previewTitle : `${s.previewTitle} ${s.ghost}`}>
+                {previewTitle || 'Titre de la notification'}
+              </div>
+              <div className={previewMsg ? s.previewMsg : `${s.previewMsg} ${s.ghost}`}>
+                {previewMsg ||
+                  'Le message apparaîtra ici, tel que le patient le verra sur son écran verrouillé.'}
+              </div>
+            </div>
+
+            <div className={s.sendRow}>
+              <Button variant="primary" className={s.send} disabled={!canSend} onClick={send}>
+                {canSend ? `Envoyer à ${plural(recipients.length, 'patient', 'patients')}` : 'Envoyer'}
+              </Button>
+              <span className={s.sendHint}>
+                {state.pushes.length
+                  ? `Dernier envoi : ${state.pushes[0].names.length} destinataires.`
+                  : "Aucune notification n'est envoyée deux fois dans la même journée."}
+              </span>
+            </div>
+          </Card>
+
+          {state.pushes.length > 0 && (
+            <Card padded={false} className={s.log}>
+              <div className={s.logHead}>
+                <Title>Envoyés</Title>
+              </div>
+              <div className={s.logSub}>
+                Une seule notification par patient et par jour, quel que soit le nombre d'envois.
+              </div>
+              <ul className={s.logList}>
+                {state.pushes.map((push, i) => (
+                  <li key={`${push.stamp}:${i}`} className={s.logRow}>
+                    <div className={s.logTop}>
+                      <span className={s.logTitle}>{push.title}</span>
+                      <span className={s.logWhen}>{push.when}</span>
+                    </div>
+                    <div className={s.logMsg}>{push.message}</div>
+                    <div className={s.logTo}>
+                      {plural(push.names.length, 'destinataire', 'destinataires')} ·{' '}
+                      {push.names.join(', ')}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}

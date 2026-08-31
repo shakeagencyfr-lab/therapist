@@ -1,0 +1,47 @@
+.card {
+  padding: 17px 20px 6px;
+}
+/* Sans entrée, l'encadré pointillé reprend le padding bas d'une carte. */
+.cardEmpty {
+  padding-bottom: 18px;
+}
+
+.sub {
+  font-size: 12px;
+  color: var(--c-text-muted);
+  margin: 3px 0 6px;
+}
+
+.entry {
+  padding: 13px 0;
+  border-top: 1px solid var(--c-border-light);
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+.date {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+.trigger {
+  font-size: 11px;
+  color: var(--c-hot);
+  background: var(--c-hot-bg);
+  border-radius: var(--r-pill);
+  padding: 2px 8px;
+}
+
+.text {
+  font-family: var(--font-serif);
+  font-size: 15.5px;
+  line-height: 1.5;
+  color: var(--c-text-2);
+  text-wrap: pretty;
+  margin: 0;
+}
