@@ -1,6 +1,5 @@
 import { Button, Card, Overline, SquareCheck, TextArea, TextInput, Title } from '@/components/ui'
 import { ATELIER_SEEDS, ATELIER_SEED_BRIEFS, ATELIER_TYPES } from '@/data/atelier'
-import { PATIENTS, PATIENT_ORDER } from '@/data/patients'
 import { plural } from '@/lib/format'
 import { AiError, generateModule } from '@/services/aiClient'
 import { useStore } from '@/state/store'
@@ -20,9 +19,9 @@ interface LibraryRow {
 
 /** Les patients dont le parcours contient déjà ce module. */
 function holders(state: AppState, title: string): string[] {
-  return PATIENT_ORDER.filter((key) =>
+  return state.patientOrder.filter((key) =>
     (state.extra[key] ?? []).some((module) => module.title === title),
-  ).map((key) => PATIENTS[key].name)
+  ).map((key) => state.patients[key].name)
 }
 
 /** Les modules écrits dans l'atelier : la carte reste absente tant qu'il n'y en a aucun. */
@@ -72,7 +71,7 @@ export function AtelierView() {
   const { state, set } = useStore()
   const mod = state.aMod
   const rows = libraryRows(state)
-  const selected = PATIENT_ORDER.filter((key) => state.aAssign[key])
+  const selected = state.patientOrder.filter((key) => state.aAssign[key])
 
   async function generate() {
     const intent = state.aIntent.trim()
@@ -117,7 +116,7 @@ export function AtelierView() {
             : list.concat([entry]),
         },
         aNotice: '',
-        aLastAssigned: selected.map((key) => PATIENTS[key].name).join(', '),
+        aLastAssigned: selected.map((key) => state.patients[key].name).join(', '),
       }
     })
   }
@@ -316,8 +315,8 @@ export function AtelierView() {
                 Le module apparaît dans leur parcours de la semaine et dans leur application.
               </div>
               <div className={s.people}>
-                {PATIENT_ORDER.map((key) => {
-                  const patient = PATIENTS[key]
+                {state.patientOrder.map((key) => {
+                  const patient = state.patients[key]
                   const on = !!state.aAssign[key]
                   const has = (state.extra[key] ?? []).some((m) => m.title === mod.titre)
                   return (

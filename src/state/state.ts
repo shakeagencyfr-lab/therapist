@@ -1,3 +1,4 @@
+import type { Patient } from '@/types/domain'
 import type {
   CustomModule,
   JournalEntry,
@@ -14,6 +15,7 @@ import type {
 import { AUDIO_CATEGORIES, AUDIO_LIBRARY } from '@/data/audioLibrary'
 import { JOURNAL_PAGES } from '@/data/journalPages'
 import { INITIAL_AFFIRMATIONS, INITIAL_AFF_AUTO } from '@/data/affirmations'
+import { PATIENTS, PATIENT_ORDER } from '@/data/patients'
 import { CABINETS, SUBSCRIPTIONS } from '@/data/reseller'
 import type { Cabinet, CabinetId, PlanCode, Subscription } from '@/types/reseller'
 
@@ -55,6 +57,34 @@ export interface AppState {
   sel: PatientId
   /** Recherche de la barre latérale. */
   q: string
+
+  /* Dossier du cabinet ---------------------------------------------- *
+   * Les fiches vivent ici plutôt que dans un module importé : c'est ce qui
+   * permet de les remplacer par celles de la base sans toucher aux écrans
+   * ni aux sélecteurs, qui lisent déjà l'état. Sans session, elles restent
+   * les fiches de démonstration.                                         */
+  /** Cabinet ouvert, quand il vient d'un compte connecté. */
+  cabinetId: string | null
+  patients: Record<PatientId, Patient>
+  patientOrder: PatientId[]
+  /** Vrai quand les fiches viennent de la base et non de la démonstration. */
+  patientsReels: boolean
+  patientsChargement: boolean
+  patientsErreur: string
+
+  /* Ajout d'une patiente -------------------------------------------- */
+  pNewOpen: boolean
+  pNewName: string
+  pNewEmail: string
+  pNewProgram: string
+  /** Nombre de séances prévues au programme. */
+  pNewSessions: number
+  /** Ce que la patiente s'auto-évalue chaque soir. */
+  pNewScale: string
+  /** La question qu'elle lit, écrite par la praticienne. */
+  pNewQuestion: string
+  /** Confirmation du dernier geste sur le dossier. */
+  pNotice: string
 
   /* Fiche client -------------------------------------------------- */
   /** Modules cochés, clé `${patientId}:${index}`. */
@@ -206,6 +236,22 @@ export const initialState: AppState = {
   mode: 'therapist',
   sel: 'camille',
   q: '',
+
+  pNewOpen: false,
+  pNewName: '',
+  pNewEmail: '',
+  pNewProgram: 'Programme Liberté',
+  pNewSessions: 6,
+  pNewScale: '',
+  pNewQuestion: '',
+  pNotice: '',
+
+  cabinetId: null,
+  patients: PATIENTS,
+  patientOrder: PATIENT_ORDER,
+  patientsReels: false,
+  patientsChargement: false,
+  patientsErreur: '',
 
   done: {},
   extra: {},

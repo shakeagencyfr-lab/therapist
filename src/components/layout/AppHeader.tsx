@@ -57,6 +57,14 @@ export function AppHeader() {
   const marqueRevendeur = enseigne?.name ?? 'Shake'
   const logoRevendeur = initiales(marqueRevendeur)
 
+  // Le commutateur d'espace vient du prototype, où il servait de présentoir.
+  // Dans le produit, l'espace découle du rôle : on ne l'affiche qu'aux comptes
+  // qui portent réellement les deux — un revendeur qui est aussi praticienne.
+  // Sans session (démonstration publique), on le garde : c'est ce qui permet
+  // de montrer tous les écrans.
+  const deuxRoles = Boolean(enseigne && monCabinet)
+  const montrerCommutateur = !identite || deuxRoles
+
   return (
     <header
       className={s.header}
@@ -73,7 +81,9 @@ export function AppHeader() {
         {!reseller && (
           <Segmented options={VIEWS} value={state.mode} onChange={(mode) => set({ mode })} />
         )}
-        <Segmented options={SPACES} value={state.space} onChange={(space) => set({ space })} />
+        {montrerCommutateur && (
+          <Segmented options={SPACES} value={state.space} onChange={(space) => set({ space })} />
+        )}
         <div className={s.me}>{reseller ? logoRevendeur : cabinet.branding.logo}</div>
       </div>
     </header>

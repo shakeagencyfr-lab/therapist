@@ -20,9 +20,9 @@ export interface CabinetTheme {
 }
 
 export const defaultTheme: CabinetTheme = {
-  name: 'Cabinet Laetitia Ollivier',
-  tagline: 'Espace thérapie',
-  logo: 'LO',
+  name: 'Entre-séances',
+  tagline: 'Suivi entre les séances',
+  logo: 'ES',
 }
 
 /** Applique les couleurs paramétrables sur la racine du document. */

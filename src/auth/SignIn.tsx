@@ -7,13 +7,18 @@ import s from './SignIn.module.css'
  * Une seule porte pour les trois rôles : on entre son adresse, on reçoit un
  * lien. Aucun mot de passe — sur une application qu'un patient ouvre deux
  * minutes par jour, c'est le premier motif d'abandon.
+ *
+ * Avant la connexion, on ne sait pas qui arrive : l'écran porte donc
+ * l'identité du produit, jamais celle d'un cabinet. La marque du cabinet
+ * n'apparaît qu'une fois le compte reconnu — ou sur son propre sous-domaine,
+ * quand ils seront en place.
  */
 export function SignIn({
   titre,
   intro,
-  marque = 'LO',
-  cabinet = 'Cabinet Laetitia Ollivier',
-  tagline = 'Espace thérapie',
+  marque = 'ES',
+  cabinet = 'Entre-séances',
+  tagline = 'Suivi entre les séances',
 }: {
   titre: string
   intro: string

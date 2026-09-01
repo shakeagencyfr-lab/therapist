@@ -1,6 +1,5 @@
 import type { ChangeEvent, KeyboardEvent } from 'react'
 import { Button, Card, Overline } from '@/components/ui'
-import { PATIENTS, PATIENT_ORDER } from '@/data/patients'
 import { plural } from '@/lib/format'
 import { useStore } from '@/state/store'
 import type { AppState } from '@/state/state'
@@ -12,7 +11,7 @@ import s from './AudiosView.module.css'
 /** Le patient a-t-il déjà cet audio, dans sa fiche d'origine ou après un envoi ? */
 function hasAudio(state: AppState, key: PatientId, title: string): boolean {
   return (
-    PATIENTS[key].audios.some((audio) => audio.title === title) ||
+    state.patients[key].audios.some((audio) => audio.title === title) ||
     (state.extraAudios[key] ?? []).some((audio) => audio.title === title)
   )
 }
@@ -58,7 +57,7 @@ export function AudiosView() {
       ? state.lib
       : state.lib.filter((audio) => audio.cat === state.libFilter)
   const selected = state.lib.find((audio) => audio.id === state.libSel) ?? null
-  const targets = PATIENT_ORDER.filter((key) => state.libAssign[key])
+  const targets = state.patientOrder.filter((key) => state.libAssign[key])
 
   /** Import : les fichiers rejoignent le catalogue, rangés dans la catégorie choisie. */
   function upload(event: ChangeEvent<HTMLInputElement>) {
@@ -106,7 +105,7 @@ export function AudiosView() {
       const extraAudios = { ...prev.extraAudios }
       targets.forEach((key) => {
         const known =
-          PATIENTS[key].audios.some((audio) => audio.title === selected.title) ||
+          state.patients[key].audios.some((audio) => audio.title === selected.title) ||
           (extraAudios[key] ?? []).some((audio) => audio.title === selected.title)
         if (known) return
         extraAudios[key] = (extraAudios[key] ?? []).concat([
@@ -120,7 +119,7 @@ export function AudiosView() {
       return {
         extraAudios,
         libAssign: {},
-        libNotice: `Envoyé dans le compte de ${targets.map((key) => PATIENTS[key].name).join(', ')}.`,
+        libNotice: `Envoyé dans le compte de ${targets.map((key) => state.patients[key].name).join(', ')}.`,
       }
     })
   }
@@ -268,7 +267,7 @@ export function AudiosView() {
 
             {filtered.map((audio) => {
               const on = audio.id === state.libSel
-              const who = PATIENT_ORDER.filter((key) => hasAudio(state, key, audio.title)).length
+              const who = state.patientOrder.filter((key) => hasAudio(state, key, audio.title)).length
               return (
                 <button
                   key={audio.id}
@@ -336,8 +335,8 @@ export function AudiosView() {
               <Overline>Envoyer dans les comptes</Overline>
             </div>
             <div className={s.people}>
-              {PATIENT_ORDER.map((key) => {
-                const patient = PATIENTS[key]
+              {state.patientOrder.map((key) => {
+                const patient = state.patients[key]
                 const on = !!state.libAssign[key]
                 const has = hasAudio(state, key, selected.title)
                 return (

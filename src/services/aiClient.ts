@@ -7,7 +7,6 @@
  * de santé ; elle ne doit transiter que par une origine que le cabinet
  * maîtrise.
  */
-import { PATIENTS } from '@/data/patients'
 import { allModules, isModuleDone, profileOf } from '@/state/selectors'
 import type { AppState } from '@/state/state'
 import type {
@@ -33,7 +32,7 @@ export type { ContextJournalEntry, ContextModule, PatientContext }
  * journal marquées comme partagées, et le profil affiché.
  */
 export function buildPatientContext(state: AppState, id: PatientId): PatientContext {
-  const patient = PATIENTS[id]
+  const patient = state.patients[id]
   const modules = allModules(state, id)
   const shared = (state.pages[id] ?? [])
     .filter((page) => page.shared)

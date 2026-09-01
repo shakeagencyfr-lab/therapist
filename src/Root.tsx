@@ -1,4 +1,5 @@
 import { App } from './App'
+import { CabinetProvider } from './cabinet/context'
 import { SignIn } from './auth/SignIn'
 import { SessionProvider, useAuth } from './auth/session'
 import { Button } from './components/ui'
@@ -91,12 +92,13 @@ function Portail() {
     )
   }
 
-  // La marque du cabinet, dès la connexion.
+  // L'espace ouvert découle du rôle, pas d'un choix : un revendeur qui n'est
+  // pas praticienne n'a pas d'espace cabinet à ouvrir, et inversement.
   return (
-    <AppStoreProvider
-      initial={context.cabinet ? {} : { space: 'reseller' }}
-    >
-      <App />
+    <AppStoreProvider initial={{ space: context.cabinet ? 'cabinet' : 'reseller' }}>
+      <CabinetProvider cabinetId={context.cabinet?.id ?? null}>
+        <App />
+      </CabinetProvider>
     </AppStoreProvider>
   )
 }

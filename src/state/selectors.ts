@@ -1,19 +1,22 @@
 /**
- * Sélecteurs partagés : tout ce qui se déduit de l'état et des données, et
- * qui est utilisé par plus d'un écran.
+ * Sélecteurs partagés : tout ce qui se déduit de l'état, et qui est utilisé
+ * par plus d'un écran.
+ *
+ * Les fiches sont lues dans l'état (state.patients), jamais importées : selon
+ * qu'un compte est connecté ou non, ce sont celles du cabinet ou celles de la
+ * démonstration, et rien ici n'a besoin de le savoir.
  */
-import { PATIENTS, PATIENT_ORDER } from '@/data/patients'
 import type { AppState } from './state'
 import type { Patient, PatientId, PatientModule, PsychProfile } from '@/types/domain'
 
 /** Fiche du patient sélectionné. */
 export function patientOf(state: AppState): Patient {
-  return PATIENTS[state.sel]
+  return state.patients[state.sel]
 }
 
 /** Modules du programme + modules ajoutés depuis la séance ou l'atelier. */
 export function allModules(state: AppState, key: PatientId): PatientModule[] {
-  return PATIENTS[key].modules.concat(state.extra[key] ?? [])
+  return state.patients[key].modules.concat(state.extra[key] ?? [])
 }
 
 /** État coché d'un module : la valeur locale l'emporte sur celle du programme. */
@@ -44,7 +47,7 @@ export function moduleProgress(state: AppState, key: PatientId): { done: number;
  * celle du dossier.
  */
 export function profileOf(state: AppState, key: PatientId): PsychProfile {
-  return state.profNew[key] ?? PATIENTS[key].profile
+  return state.profNew[key] ?? state.patients[key].profile
 }
 
 /**
@@ -64,7 +67,7 @@ export interface ProfilePrecision {
 }
 
 export function profilePrecision(state: AppState, key: PatientId): ProfilePrecision {
-  const p = PATIENTS[key]
+  const p = state.patients[key]
   const fresh = !!state.profNew[key]
   const sessions = (p.sessions || 0) + (fresh ? 1 : 0)
   const margin = Math.max(3, Math.round(26 - sessions * 3))
@@ -102,18 +105,18 @@ export function riskColor(adherence: number): string {
 /** Patients de la barre latérale, filtrés par la recherche. */
 export function sidebarPatients(state: AppState): Array<{ id: PatientId; patient: Patient }> {
   const query = state.q.trim().toLowerCase()
-  return PATIENT_ORDER.filter((k) => {
+  return state.patientOrder.filter((k) => {
     if (!query) return true
     /* Le prototype cherche dans le nom ET le sous-titre : le programme et la
        semaine (« Liberté · semaine 3 / 6 ») sont donc des critères valides. */
-    const haystack = `${PATIENTS[k].name} ${PATIENTS[k].subtitle}`.toLowerCase()
+    const haystack = `${state.patients[k].name} ${state.patients[k].subtitle}`.toLowerCase()
     return haystack.includes(query)
-  }).map((k) => ({ id: k, patient: PATIENTS[k] }))
+  }).map((k) => ({ id: k, patient: state.patients[k] }))
 }
 
 /** Patients qui décrochent : moins de 50 % de modules réalisés. */
 export function slippingPatients(state: AppState): PatientId[] {
-  return PATIENT_ORDER.filter((k) => {
+  return state.patientOrder.filter((k) => {
     const { done, total } = moduleProgress(state, k)
     return total > 0 && done / total < 0.5
   })
@@ -152,8 +155,8 @@ export function notifRows(state: AppState): NotifRow[] {
   const progs = Object.keys(state.nProgs).filter((k) => state.nProgs[k])
   const sits = Object.keys(state.nSits).filter((k) => state.nSits[k])
 
-  return PATIENT_ORDER.map((k) => {
-    const d = PATIENTS[k]
+  return state.patientOrder.map((k) => {
+    const d = state.patients[k]
     const mods = allModules(state, k)
     const late = mods.filter((m, i) => !isModuleDone(state, k, i, m.done)).length
     const noNext = d.nextSession.indexOf('Aucune') === 0
@@ -193,7 +196,7 @@ export function notifRows(state: AppState): NotifRow[] {
 
 /** Série de l'auto-évaluation : programme + valeurs saisies dans la session. */
 export function scaleSeries(state: AppState, key: PatientId): number[] {
-  return PATIENTS[key].scale.concat(state.scaleLog[key] ?? [])
+  return state.patients[key].scale.concat(state.scaleLog[key] ?? [])
 }
 
 /**
