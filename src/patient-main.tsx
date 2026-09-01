@@ -34,7 +34,6 @@ function Portail() {
       <SignIn
         titre="Votre espace"
         intro="Entrez l'adresse que vous avez donnée à votre thérapeute : vous recevrez un lien qui vous connecte, sans mot de passe à retenir."
-        tagline="Entre les séances"
       />
     )
   }
@@ -44,7 +43,6 @@ function Portail() {
       <SignIn
         titre="Cette adresse n'a pas de fiche"
         intro="Votre compte existe, mais aucune fiche patient ne lui est rattachée. Vérifiez avec votre thérapeute l'adresse qu'elle a enregistrée."
-        tagline="Entre les séances"
       />
     )
   }
