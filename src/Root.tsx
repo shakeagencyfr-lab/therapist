@@ -1,4 +1,5 @@
 import { App } from './App'
+import { CabinetProvider } from './cabinet/context'
 import { SignIn } from './auth/SignIn'
 import { SessionProvider, useAuth } from './auth/session'
 import { Button } from './components/ui'
@@ -95,7 +96,9 @@ function Portail() {
   // pas praticienne n'a pas d'espace cabinet à ouvrir, et inversement.
   return (
     <AppStoreProvider initial={{ space: context.cabinet ? 'cabinet' : 'reseller' }}>
-      <App />
+      <CabinetProvider cabinetId={context.cabinet?.id ?? null}>
+        <App />
+      </CabinetProvider>
     </AppStoreProvider>
   )
 }

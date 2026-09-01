@@ -1,8 +1,12 @@
-import { Avatar } from '@/components/ui'
-import { PATIENT_ORDER } from '@/data/patients'
+import { useState } from 'react'
+import { Avatar, Button, Chip, Notice, TextInput } from '@/components/ui'
+import { useMaybeCabinet } from '@/cabinet/context'
 import { riskColor, sidebarPatients, slippingPatients } from '@/state/selectors'
 import { useStore } from '@/state/store'
 import s from './PatientSidebar.module.css'
+
+/** Les quatre programmes du cabinet. */
+const PROGRAMMES = ['Liberté', 'Équilibre', 'Harmonie', 'Compétences']
 
 /**
  * Barre latérale des patients. Les deux seules props sont l'ouverture du
@@ -10,9 +14,46 @@ import s from './PatientSidebar.module.css'
  */
 export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { state, set } = useStore()
+  const cabinet = useMaybeCabinet()
+  const [envoi, setEnvoi] = useState(false)
+  const [echec, setEchec] = useState('')
+
   const rows = sidebarPatients(state)
   const slipping = slippingPatients(state).length
-  const count = state.q.trim() ? `${rows.length} / ${PATIENT_ORDER.length}` : `${PATIENT_ORDER.length}`
+  const count = state.q.trim() ? `${rows.length} / ${state.patientOrder.length}` : `${state.patientOrder.length}`
+
+  const nomValide = state.pNewName.trim().length >= 2
+  const questionValide = state.pNewQuestion.trim().length >= 5
+  const peutCreer = nomValide && questionValide && !envoi
+
+  async function creer() {
+    if (!cabinet || !peutCreer) return
+    setEnvoi(true)
+    setEchec('')
+    set({ pNotice: '' })
+    const r = await cabinet.creerPatiente({
+      nom: state.pNewName,
+      email: state.pNewEmail,
+      programme: `Programme ${state.pNewProgram.replace('Programme ', '')}`,
+      seances: state.pNewSessions,
+      echelle: state.pNewScale.trim() || 'Auto-évaluation',
+      question: state.pNewQuestion,
+    })
+    setEnvoi(false)
+    if (r.ok) {
+      set({
+        pNewOpen: false,
+        pNewName: '',
+        pNewEmail: '',
+        pNewScale: '',
+        pNewQuestion: '',
+        pNotice: r.message,
+      })
+    } else {
+      // Un échec ne fait pas retaper le formulaire.
+      setEchec(r.message)
+    }
+  }
 
   return (
     <>
@@ -65,6 +106,117 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
             )
           })}
         </div>
+
+        {/* Ajouter une patiente : c'est son adresse qui la connectera, au
+            premier lien magique. Rien n'est envoyé d'ici. */}
+        {cabinet?.reel ? (
+          <div className={s.add}>
+            {state.pNotice ? (
+              <Notice tone="ok" style={{ marginBottom: 12 }}>
+                {state.pNotice}
+              </Notice>
+            ) : null}
+
+            {state.pNewOpen ? (
+              <div className={s.addForm}>
+                <div className={s.field}>
+                  <span className={s.label}>Nom affiché</span>
+                  <TextInput
+                    value={state.pNewName}
+                    onChange={(e) => set({ pNewName: e.target.value })}
+                    placeholder="Camille R."
+                  />
+                </div>
+
+                <div className={s.field}>
+                  <span className={s.label}>Adresse électronique</span>
+                  <TextInput
+                    type="email"
+                    inputMode="email"
+                    value={state.pNewEmail}
+                    onChange={(e) => set({ pNewEmail: e.target.value })}
+                    placeholder="camille@exemple.fr"
+                  />
+                  <span className={s.hint}>
+                    C'est avec cette adresse qu'elle ouvrira son espace, sans mot de passe.
+                  </span>
+                </div>
+
+                <div className={s.field}>
+                  <span className={s.label}>Programme</span>
+                  <div className={s.programs}>
+                    {PROGRAMMES.map((p) => (
+                      <Chip
+                        key={p}
+                        on={state.pNewProgram.endsWith(p)}
+                        onClick={() => set({ pNewProgram: p })}
+                      >
+                        {p}
+                      </Chip>
+                    ))}
+                  </div>
+                </div>
+
+                <div className={s.row}>
+                  <div className={s.field}>
+                    <span className={s.label}>Ce que vous suivez</span>
+                    <TextInput
+                      value={state.pNewScale}
+                      onChange={(e) => set({ pNewScale: e.target.value })}
+                      placeholder="Envie de fumer"
+                    />
+                  </div>
+                  <div className={s.field}>
+                    <span className={s.label}>Séances</span>
+                    <TextInput
+                      type="number"
+                      min={1}
+                      max={52}
+                      value={state.pNewSessions}
+                      onChange={(e) => set({ pNewSessions: Math.max(1, Number(e.target.value) || 1) })}
+                    />
+                  </div>
+                </div>
+
+                <div className={s.field}>
+                  <span className={s.label}>La question du soir</span>
+                  <TextInput
+                    value={state.pNewQuestion}
+                    onChange={(e) => set({ pNewQuestion: e.target.value })}
+                    placeholder="Où en est l'envie de fumer ?"
+                  />
+                  <span className={s.hint}>
+                    Elle la lira chaque soir : écrivez-la comme vous la lui diriez.
+                  </span>
+                </div>
+
+                {echec ? <Notice tone="warn">{echec}</Notice> : null}
+
+                <div className={s.actions}>
+                  <Button variant="primary" onClick={() => void creer()} disabled={!peutCreer}>
+                    {envoi ? 'Création…' : 'Ajouter'}
+                  </Button>
+                  <Button variant="ghost" onClick={() => set({ pNewOpen: false })}>
+                    Annuler
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button
+                variant="secondary"
+                block
+                onClick={() => set({ pNewOpen: true, pNotice: '' })}
+              >
+                Ajouter une patiente
+              </Button>
+            )}
+          </div>
+        ) : (
+          <p className={s.demo}>
+            Fiches de démonstration. Connectez-vous à votre cabinet pour voir vos patientes et en
+            ajouter.
+          </p>
+        )}
 
         {slipping > 0 ? (
           <div className={s.slip}>

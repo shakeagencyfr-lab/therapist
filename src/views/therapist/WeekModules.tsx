@@ -1,4 +1,5 @@
 import { Card, Pill, RoundCheck, Title } from '@/components/ui'
+import { useMaybeCabinet } from '@/cabinet/context'
 import { consigneFor } from '@/data/consignes'
 import { allModules, isModuleDone, moduleProgress, toggleModulePatch } from '@/state/selectors'
 import type { AppState } from '@/state/state'
@@ -29,6 +30,7 @@ function quizBadge(state: AppState, key: PatientId, index: number, module: Patie
 /** Parcours de la semaine : les modules confiés au patient. */
 export function WeekModules() {
   const { state, set } = useStore()
+  const cabinet = useMaybeCabinet()
   const key = state.sel
   const modules = allModules(state, key)
   const { done, total } = moduleProgress(state, key)
@@ -48,7 +50,14 @@ export function WeekModules() {
               <RoundCheck
                 on={on}
                 label={on ? `Marquer « ${m.title} » comme non réalisé` : `Marquer « ${m.title} » comme réalisé`}
-                onClick={() => set(toggleModulePatch(key, i, m.done))}
+                onClick={() => {
+                  // La case bascule tout de suite à l'écran ; l'écriture suit.
+                  // Sur les fiches de démonstration, il n'y a rien à écrire.
+                  set(toggleModulePatch(key, i, m.done))
+                  if (cabinet?.reel) {
+                    void cabinet.basculerModule(key, i, !isModuleDone(state, key, i, m.done))
+                  }
+                }}
               />
               <div className={s.body}>
                 <span className={on ? `${s.title} ${s.titleDone}` : s.title}>{m.title}</span>

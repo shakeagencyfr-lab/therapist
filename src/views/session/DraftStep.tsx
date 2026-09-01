@@ -1,5 +1,4 @@
 import { Title } from '@/components/ui'
-import { PATIENTS } from '@/data/patients'
 import { buildPatientContext, refreshProfile } from '@/services/aiClient'
 import { profileOf } from '@/state/selectors'
 import { useStore } from '@/state/store'
@@ -17,7 +16,7 @@ export function DraftStep() {
   if (!draft) return null
 
   const key = state.sel
-  const patient = PATIENTS[key]
+  const patient = state.patients[key]
   const firstName = patient.name.split(' ')[0]
 
   const proposals = draft.propositions ?? []

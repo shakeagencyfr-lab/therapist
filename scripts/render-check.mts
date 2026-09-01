@@ -49,6 +49,24 @@ for (const mode of MODES) {
   if (html) console.log(`✓ cabinet/${mode.padEnd(9)} ${String(html.length).padStart(6)} octets`)
 }
 
+// 1 bis. Un cabinet sans patiente : le premier écran d'une praticienne qui
+// vient d'accepter son invitation. La fiche n'a rien à montrer, et l'afficher
+// planterait — c'est arrivé.
+const vide = rendu('cabinet/sans-patiente', {
+  space: 'cabinet',
+  mode: 'therapist',
+  patients: {},
+  patientOrder: [],
+  sel: '',
+  patientsReels: true,
+})
+if (vide && !vide.includes('Votre cabinet est prêt')) {
+  console.error("✗ cabinet/sans-patiente : l'écran d'accueil du cabinet vide ne s'affiche pas")
+  echecs++
+} else if (vide) {
+  console.log(`✓ cabinet/sans-patiente ${String(vide.length).padStart(6)} octets · accueil affiché`)
+}
+
 // 2. Les trois vues du revendeur rendent, et ne montrent aucun patient.
 const VUES: ResellerView[] = ['portfolio', 'brand', 'plans']
 for (const rView of VUES) {
