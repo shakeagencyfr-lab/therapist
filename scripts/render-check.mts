@@ -67,6 +67,14 @@ if (vide && !vide.includes('Votre cabinet est prêt')) {
   console.log(`✓ cabinet/sans-patiente ${String(vide.length).padStart(6)} octets · accueil affiché`)
 }
 
+// 1 ter. TOUTES les vues du cabinet doivent tenir sans patiente : c'est
+// l'état normal d'un cabinet qui vient d'ouvrir, pas un cas limite.
+const VIDE = { space: 'cabinet', patients: {}, patientOrder: [], sel: '', patientsReels: true } as const
+for (const mode of MODES) {
+  const html = rendu(`vide/${mode}`, { ...VIDE, mode })
+  if (html) console.log(`✓ vide/${mode.padEnd(12)} ${String(html.length).padStart(6)} octets`)
+}
+
 // 2. Les trois vues du revendeur rendent, et ne montrent aucun patient.
 const VUES: ResellerView[] = ['portfolio', 'brand', 'plans']
 for (const rView of VUES) {

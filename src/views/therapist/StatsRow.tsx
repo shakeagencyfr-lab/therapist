@@ -10,6 +10,10 @@ export function StatsRow() {
   const { done, total } = moduleProgress(state, state.sel)
   const pct = (part: number, whole: number) => (whole ? Math.round((part / whole) * 100) : 0)
 
+
+  // Les statistiques ne sont montées qu'avec une patiente.
+  if (!p) return null
+
   return (
     <div className={s.row}>
       <StatCard label="Assiduité" value={p.adherence} unit="%" progress={p.adherence} />

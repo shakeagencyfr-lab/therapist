@@ -13,10 +13,12 @@ export function PatientHome() {
   const { state, set, read } = useStore()
   const key = state.sel
   const p = patientOf(state)
-  const first = p.name.split(' ')[0]
+  // Un cabinet qui vient d'ouvrir n'a aucune patiente : l'aperçu n'a alors
+  // personne à montrer. PatientView affiche l'explication à sa place.
+  const first = p ? p.name.split(' ')[0] : ''
 
   /* Lecteur ------------------------------------------------------------ */
-  const audios = p.audios.concat(state.extraAudios[key] ?? [])
+  const audios = (p?.audios ?? []).concat(state.extraAudios[key] ?? [])
   const currentIndex = Math.min(state.pAudio, audios.length - 1)
   const current = audios[currentIndex]
   const duration = current ? durationToSeconds(current.duration) || 600 : 600
@@ -93,7 +95,7 @@ export function PatientHome() {
 
   /* Notification récente ------------------------------------------------ */
   const push = state.pushes[0]
-  const hasPush = !!push && push.names.includes(p.name)
+  const hasPush = !!push && !!p && push.names.includes(p.name)
 
   function shareNote() {
     const text = state.note.trim()
@@ -109,6 +111,11 @@ export function PatientHome() {
       },
     }))
   }
+
+
+  // Sans patiente, l'aperçu n'a personne à montrer : PatientView affiche
+  // l'explication à sa place.
+  if (!p) return null
 
   return (
     <div className={s.screen}>

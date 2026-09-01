@@ -104,7 +104,7 @@ export function DraftStep() {
       })
       const next: PsychProfile = {
         updated: "Actualisé à l'instant, depuis la dernière séance",
-        portrait: result.portrait || current.portrait,
+        portrait: result.portrait || current?.portrait || '',
         axes: result.axes
           .filter((axis) => axis && axis.label)
           .map((axis) => ({

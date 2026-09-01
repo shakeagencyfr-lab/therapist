@@ -9,6 +9,10 @@ export function PatientHeader() {
   const { state, set } = useStore()
   const p = patientOf(state)
 
+  // La fiche n'est montée qu'avec une patiente ; le garde rend l'invariant
+  // explicite plutôt que supposé.
+  if (!p) return null
+
   /**
    * Ajoute au parcours de la semaine le module suivant de la bibliothèque du
    * cabinet : on avance dans la liste au rythme des modules déjà ajoutés, sans

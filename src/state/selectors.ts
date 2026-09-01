@@ -9,14 +9,20 @@
 import type { AppState } from './state'
 import type { Patient, PatientId, PatientModule, PsychProfile } from '@/types/domain'
 
-/** Fiche du patient sélectionné. */
-export function patientOf(state: AppState): Patient {
+/**
+ * Fiche du patient sélectionné.
+ *
+ * Peut être absente : un cabinet qui vient d'ouvrir n'a aucune fiche, et
+ * c'est son état normal, pas un cas limite. Les écrans doivent le prévoir.
+ */
+export function patientOf(state: AppState): Patient | undefined {
   return state.patients[state.sel]
 }
 
 /** Modules du programme + modules ajoutés depuis la séance ou l'atelier. */
 export function allModules(state: AppState, key: PatientId): PatientModule[] {
-  return state.patients[key].modules.concat(state.extra[key] ?? [])
+  const fiche = state.patients[key]
+  return (fiche?.modules ?? []).concat(state.extra[key] ?? [])
 }
 
 /** État coché d'un module : la valeur locale l'emporte sur celle du programme. */
@@ -46,8 +52,8 @@ export function moduleProgress(state: AppState, key: PatientId): { done: number;
  * Profil affiché : la version actualisée par l'IA si elle existe, sinon
  * celle du dossier.
  */
-export function profileOf(state: AppState, key: PatientId): PsychProfile {
-  return state.profNew[key] ?? state.patients[key].profile
+export function profileOf(state: AppState, key: PatientId): PsychProfile | undefined {
+  return state.profNew[key] ?? state.patients[key]?.profile
 }
 
 /**
@@ -67,7 +73,7 @@ export interface ProfilePrecision {
 }
 
 export function profilePrecision(state: AppState, key: PatientId): ProfilePrecision {
-  const p = state.patients[key]
+  const p = state.patients[key] ?? { sessions: 0, totalSessions: 0 }
   const fresh = !!state.profNew[key]
   const sessions = (p.sessions || 0) + (fresh ? 1 : 0)
   const margin = Math.max(3, Math.round(26 - sessions * 3))
@@ -196,7 +202,7 @@ export function notifRows(state: AppState): NotifRow[] {
 
 /** Série de l'auto-évaluation : programme + valeurs saisies dans la session. */
 export function scaleSeries(state: AppState, key: PatientId): number[] {
-  return state.patients[key].scale.concat(state.scaleLog[key] ?? [])
+  return (state.patients[key]?.scale ?? []).concat(state.scaleLog[key] ?? [])
 }
 
 /**

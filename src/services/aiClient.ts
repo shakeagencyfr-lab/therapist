@@ -58,7 +58,14 @@ export function buildPatientContext(state: AppState, id: PatientId): PatientCont
     })),
     journal,
     shared,
-    profile: profileOf(state, id),
+    // Un patient sans profil n'en a pas encore : les prompts le comprennent.
+    profile: profileOf(state, id) ?? {
+      updated: '',
+      portrait: '',
+      axes: [],
+      levers: [],
+      care: [],
+    },
   }
 }
 

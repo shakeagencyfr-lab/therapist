@@ -19,7 +19,7 @@ export function SharedJournal() {
         .filter((g) => g.shared)
         .map((g) => ({ date: g.date, trigger: g.title || 'Page sans titre', text: g.text })),
     )
-    .concat(patientOf(state).journal)
+    .concat(patientOf(state)?.journal ?? [])
 
   return (
     <Card padded={false} className={entries.length ? s.card : `${s.card} ${s.cardEmpty}`}>

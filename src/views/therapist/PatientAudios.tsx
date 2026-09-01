@@ -11,7 +11,11 @@ import s from './PatientAudios.module.css'
 export function PatientAudios() {
   const { state, set } = useStore()
   const key = state.sel
-  const audios = patientOf(state).audios.concat(state.extraAudios[key] ?? [])
+  const fiche = patientOf(state)
+  // La carte n'est montée qu'avec une patiente ; le garde rend l'invariant
+  // explicite plutôt que supposé.
+  if (!fiche) return null
+  const audios = fiche.audios.concat(state.extraAudios[key] ?? [])
 
   return (
     <Card padded={false} flush>

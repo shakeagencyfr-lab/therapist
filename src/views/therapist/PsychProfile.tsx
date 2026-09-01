@@ -33,7 +33,7 @@ export function PsychProfile() {
       })
       const next: Profile = {
         updated: "Actualisé à l'instant, depuis la dernière séance",
-        portrait: result.portrait || profile.portrait,
+        portrait: result.portrait || profile?.portrait || '',
         axes: (result.axes ?? [])
           .filter((a) => !!a && !!a.label)
           .map((a) => ({
@@ -58,6 +58,11 @@ export function PsychProfile() {
   }
 
   const sessionsWord = precision.sessions > 1 ? 'séances' : 'séance'
+
+
+  // Le profil n'existe qu'à partir d'une patiente ; la carte n'est montée
+  // qu'avec elle.
+  if (!profile) return null
 
   return (
     <Card className={s.card}>
