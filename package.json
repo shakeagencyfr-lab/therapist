@@ -13,8 +13,7 @@
     "typecheck": "tsc -b --noEmit --force && tsc -p tsconfig.server.json --noEmit",
     "start": "node --import tsx server/index.ts",
     "check:render": "tsx --tsconfig tsconfig.app.json --import ./scripts/render-register.mjs scripts/render-check.mts",
-    "check": "npm run typecheck && npm run check:render",
-    "seed:generate": "tsx --tsconfig tsconfig.app.json --import ./scripts/render-register.mjs scripts/generate-seed.mts > supabase/seed.sql"
+    "check": "npm run typecheck && npm run check:render"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.72.0",
