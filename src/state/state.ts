@@ -114,6 +114,8 @@ export interface AppState {
   /* Brouillon de note --------------------------------------------- */
   generating: boolean
   draft: SessionDraft | null
+  /** Le brouillon affiché est un texte de maquette, pas une analyse. */
+  draftMaquette: boolean
   /** La synthèse a été relue et validée par la thérapeute. */
   syntheseOk: boolean
   /** Propositions de modules décochées, par index. */
@@ -268,6 +270,7 @@ export const initialState: AppState = {
 
   generating: false,
   draft: null,
+  draftMaquette: false,
   syntheseOk: false,
   proposalOff: {},
   sent: false,

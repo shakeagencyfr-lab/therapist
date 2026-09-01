@@ -57,10 +57,35 @@ import type { ModuleKind } from '../src/types/domain.js'
 /** Aucun suffixe de date : l'identifiant du modèle est complet tel quel. */
 const MODEL = process.env.CLAUDE_MODEL ?? 'claude-opus-5'
 
-/** Le mode maquette évite tout appel réseau : demandé, ou faute de clé. */
+/**
+ * Le mode maquette évite tout appel réseau. Il se DEMANDE explicitement.
+ *
+ * Il a longtemps suffi que la clé manque pour l'activer, et c'était le pire
+ * défaut possible ici : un serveur mal configuré rendait un brouillon fictif —
+ * toujours le même, pour n'importe quelle patiente — présenté comme l'analyse
+ * de sa séance. Une clé absente est une panne de configuration, elle se dit ;
+ * elle ne s'invente pas.
+ */
 function mockMode(): boolean {
+  return process.env.AI_MOCK === '1'
+}
+
+/** La clé est-elle présente ? Hors maquette, sans elle il n'y a pas d'analyse. */
+function keyConfigured(): boolean {
   const key = process.env.ANTHROPIC_API_KEY ?? process.env.ANTHROPIC_AUTH_TOKEN ?? ''
-  return process.env.AI_MOCK === '1' || key.trim() === ''
+  return key.trim() !== ''
+}
+
+/**
+ * Barrière posée devant chaque fonction : plutôt que de rendre du texte
+ * inventé, on dit que l'analyse n'est pas configurée.
+ */
+function requireKey(): void {
+  if (mockMode() || keyConfigured()) return
+  throw new HttpError(
+    503,
+    "L'analyse n'est pas configurée sur ce serveur (clé Anthropic absente). Aucune note n'a été produite.",
+  )
 }
 
 let anthropic: Anthropic | null = null
@@ -202,6 +227,7 @@ async function sessionDraft(body: Partial<SessionDraftBody>): Promise<unknown> {
       "Il faut un peu plus de matière. Dictez quelques phrases ou chargez la séance d'exemple.",
     )
   }
+  requireKey()
   if (mockMode()) return mockSessionDraft(context, categories)
   return callClaude({
     schema: sessionDraftSchema,
@@ -224,6 +250,7 @@ async function customModule(body: Partial<ModuleContext>): Promise<unknown> {
     type: (asText(body.type) || 'Exercice') as ModuleKind,
     quiz: body.quiz !== false,
   }
+  requireKey()
   if (mockMode()) return mockGeneratedModule(brief)
   return callClaude({
     schema: generatedModuleSchema,
@@ -235,6 +262,7 @@ async function customModule(body: Partial<ModuleContext>): Promise<unknown> {
 
 async function affirmations(body: Partial<AffirmationsBody>): Promise<unknown> {
   const context = asContext(body.context)
+  requireKey()
   if (mockMode()) return mockGeneratedAffirmations(context)
   return callClaude({
     schema: generatedAffirmationsSchema,
@@ -246,6 +274,7 @@ async function affirmations(body: Partial<AffirmationsBody>): Promise<unknown> {
 
 async function profile(body: Partial<ProfileBody>): Promise<unknown> {
   const context = asContext(body.context)
+  requireKey()
   if (mockMode()) return mockGeneratedProfile(context)
   const generated = await callClaude({
     schema: generatedProfileSchema,

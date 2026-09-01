@@ -88,6 +88,19 @@ interface Envelope<T> {
   error?: string
 }
 
+/**
+ * Le dernier appel a-t-il rendu un texte de maquette ?
+ *
+ * Le serveur le dit dans chaque réponse ; personne ne le lisait, et un
+ * brouillon inventé arrivait à l'écran comme une vraie analyse. Les écrans qui
+ * affichent une production de l'IA doivent pouvoir le dire.
+ */
+let dernierEstMaquette = false
+
+export function derniereReponseEstMaquette(): boolean {
+  return dernierEstMaquette
+}
+
 async function post<T>(route: string, body: unknown, fallback: string): Promise<T> {
   let response: Response
   let payload: Envelope<T>
@@ -105,6 +118,7 @@ async function post<T>(route: string, body: unknown, fallback: string): Promise<
   if (!response.ok || payload.data === undefined) {
     throw new AiError(payload.error ?? fallback)
   }
+  dernierEstMaquette = payload.mock === true
   return payload.data
 }
 

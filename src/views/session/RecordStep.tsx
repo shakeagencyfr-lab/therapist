@@ -2,7 +2,12 @@ import { useEffect, useRef } from 'react'
 import { Notice, Overline } from '@/components/ui'
 import { NOTE_TAGS, NOTE_TAG_PREFIXES, TRANSCRIPT_SAMPLES } from '@/data/session'
 import { clock, euro } from '@/lib/format'
-import { AiError, buildPatientContext, draftSessionNote } from '@/services/aiClient'
+import {
+  AiError,
+  buildPatientContext,
+  derniereReponseEstMaquette,
+  draftSessionNote,
+} from '@/services/aiClient'
 import { createTranscriber, isSpeechSupported, type Transcriber } from '@/services/speech'
 import { useStore } from '@/state/store'
 import s from './RecordStep.module.css'
@@ -105,6 +110,7 @@ export function RecordStep() {
       })
       set({
         draft,
+        draftMaquette: derniereReponseEstMaquette(),
         generating: false,
         syntheseOk: false,
         proposalOff: {},

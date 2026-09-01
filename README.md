@@ -27,13 +27,19 @@ Aucune dépendance d'interface tierce : les primitives (`src/components/ui`) son
 
 ```bash
 npm install
-cp .env.example .env      # renseigner ANTHROPIC_API_KEY, ou laisser AI_MOCK=1
+cp .env.example .env      # renseigner ANTHROPIC_API_KEY, ou poser AI_MOCK=1
 npm run dev               # interface sur :5173, API sur :8787
 ```
 
-Sans clé API, le serveur répond en **mode maquette** (`AI_MOCK=1`) : les quatre
-fonctions IA renvoient des sorties de démonstration bien formées, ce qui permet
-de travailler l'interface sans appeler le modèle.
+Le **mode maquette** se demande explicitement, par `AI_MOCK=1` : les quatre
+fonctions IA renvoient alors des sorties de démonstration bien formées, ce qui
+permet de travailler l'interface sans appeler le modèle. Le brouillon de séance
+est signalé comme fictif à l'écran et ne peut pas être versé au dossier.
+
+Sans clé et sans `AI_MOCK`, les fonctions IA répondent **503 avec un message
+explicite**. Elles n'inventent jamais de contenu : un serveur mal configuré
+rendait autrefois le même brouillon fictif pour n'importe quelle patiente,
+présenté comme l'analyse de sa séance.
 
 ```bash
 npm run build      # typecheck + build de production

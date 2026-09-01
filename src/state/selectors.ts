@@ -120,6 +120,7 @@ export function nouvelleSeance(patient: PatientId = ''): Partial<AppState> {
     sample: null,
     generating: false,
     draft: null,
+    draftMaquette: false,
     syntheseOk: false,
     proposalOff: {},
     sent: false,

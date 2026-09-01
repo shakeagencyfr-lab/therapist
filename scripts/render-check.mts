@@ -124,6 +124,45 @@ if (seanceVide && !seanceVide.includes('Aucune fiche dans ce cabinet')) {
   console.log(`✓ vide/session-sans-fiche ${String(seanceVide.length).padStart(6)} octets`)
 }
 
+// 1 quinquies. Un brouillon de maquette ne doit JAMAIS pouvoir passer pour une
+// analyse : l'écran le dit, et la barre d'envoi refuse de le verser au dossier.
+// C'est le défaut qui a produit une « analyse » hors sujet en production.
+const BROUILLON = {
+  synthese: 'Texte de maquette.',
+  mots: [],
+  themes: [],
+  propositions: [],
+  induction: '',
+  questions: [],
+  vigilance: [],
+  categories_audio: [],
+  message: '',
+}
+const maquette = rendu('cabinet/session-maquette', {
+  space: 'cabinet',
+  mode: 'session',
+  sessionPatient: choisie,
+  consent: true,
+  draft: BROUILLON,
+  draftMaquette: true,
+})
+if (maquette) {
+  /* Les apostrophes sont échappées au rendu (&#x27;) : on cherche des
+     fragments qui n'en contiennent pas. */
+  const avant = maquette.slice(0, maquette.indexOf('Valider et envoyer'))
+  const manque = [
+    !maquette.includes('pas une analyse de votre séance') && "l'avertissement manque",
+    !maquette.includes('Envoi impossible') && "la barre d'envoi ne dit pas qu'elle refuse",
+    !avant.slice(-400).includes('disabled') && "le bouton d'envoi n'est pas barré",
+  ].filter(Boolean)
+  if (manque.length) {
+    console.error(`✗ session/maquette : ${manque.join(', ')}`)
+    echecs++
+  } else {
+    console.log(`✓ session/maquette    ${String(maquette.length).padStart(6)} octets · annoncée et non envoyable`)
+  }
+}
+
 // 2. Les trois vues du revendeur rendent, et ne montrent aucun patient.
 const VUES: ResellerView[] = ['portfolio', 'brand', 'plans']
 for (const rView of VUES) {

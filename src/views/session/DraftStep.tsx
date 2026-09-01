@@ -70,6 +70,9 @@ export function DraftStep() {
   }
 
   function sendDraft() {
+    // Garde de fond : le bouton est déjà barré, mais rien de fictif ne doit
+    // pouvoir atteindre un dossier par un autre chemin.
+    if (state.draftMaquette) return
     const retained: PatientModule[] = proposals
       .filter((_, i) => !state.proposalOff[i])
       .map((proposal) => ({
@@ -135,6 +138,19 @@ export function DraftStep() {
 
   return (
     <div className={s.step}>
+      {/* Un brouillon de maquette ne se déguise pas en analyse : il est annoncé
+          comme tel, et la barre d'envoi refuse de le verser au dossier. */}
+      {state.draftMaquette ? (
+        <section className={s.fake}>
+          <h2 className={s.fakeTitle}>Ceci n'est pas une analyse de votre séance</h2>
+          <p className={s.fakeBody}>
+            Le serveur tourne en mode maquette : ce texte est un exemple fixe, écrit d'avance, qui
+            ne tient aucun compte de ce que vous venez d'enregistrer. Il ne peut pas être versé au
+            dossier. Renseignez la clé d'analyse du serveur pour obtenir une vraie note de séance.
+          </p>
+        </section>
+      ) : null}
+
       {/* Synthèse ------------------------------------------------------ */}
       <section className={s.card}>
         <div className={s.head}>
@@ -397,12 +413,18 @@ export function DraftStep() {
       <section className={s.sendBar}>
         <div className={s.sendText}>
           <span className={s.sendTitle}>
-            {state.sent ? `Envoyé au dossier de ${firstName}` : 'Prêt à envoyer'}
+            {state.draftMaquette
+              ? 'Envoi impossible'
+              : state.sent
+                ? `Envoyé au dossier de ${firstName}`
+                : 'Prêt à envoyer'}
           </span>
           <span className={s.sendSub}>
-            {state.sent
-              ? 'La note est archivée et les modules retenus apparaissent dans son parcours de la semaine.'
-              : "La note rejoint le dossier, les modules retenus partent dans son espace patient. La transcription brute est supprimée."}
+            {state.draftMaquette
+              ? "Ce brouillon est un texte de maquette. Rien de fictif n'entre dans un dossier de santé."
+              : state.sent
+                ? 'La note est archivée et les modules retenus apparaissent dans son parcours de la semaine.'
+                : "La note rejoint le dossier, les modules retenus partent dans son espace patient. La transcription brute est supprimée."}
           </span>
         </div>
         <div className={s.sendActions}>
@@ -424,6 +446,7 @@ export function DraftStep() {
             type="button"
             className={cx(s.sendBtn, state.sent && s.sendBtnDone)}
             onClick={sendDraft}
+            disabled={state.draftMaquette}
           >
             {state.sent ? '✓ Envoyé' : 'Valider et envoyer'}
           </button>
