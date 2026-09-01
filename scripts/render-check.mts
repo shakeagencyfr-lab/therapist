@@ -75,6 +75,55 @@ for (const mode of MODES) {
   if (html) console.log(`✓ vide/${mode.padEnd(12)} ${String(html.length).padStart(6)} octets`)
 }
 
+// 1 quater. La séance ne s'ouvre jamais sur une fiche que personne n'a
+// choisie. C'était le défaut : l'écran de consentement portait le nom d'une
+// patiente d'exemple, quel que soit le cabinet.
+const seance = rendu('cabinet/session-sans-choix', { space: 'cabinet', mode: 'session' })
+if (seance) {
+  if (!seance.includes('Pour qui est cette séance')) {
+    console.error('✗ session : le choix de la fiche ne précède pas le consentement')
+    echecs++
+  } else if (seance.includes('a donné son accord')) {
+    console.error("✗ session : un consentement est proposé avant qu'une fiche soit choisie")
+    echecs++
+  } else {
+    console.log(`✓ session/sans-choix  ${String(seance.length).padStart(6)} octets · aucune fiche imposée`)
+  }
+}
+
+/* La fiche choisie est celle qui est nommée, jusque dans le consentement.
+   Le prénom et la phrase sont deux nœuds de texte séparés au rendu : on
+   vérifie le nom complet du fil d'Ariane, puis la phrase. */
+const choisie = Object.keys(PATIENTS)[1] as string
+const nomChoisi = (PATIENTS[choisie] as { name: string }).name
+const avecChoix = rendu('cabinet/session-choisie', {
+  space: 'cabinet',
+  mode: 'session',
+  sessionPatient: choisie,
+})
+if (avecChoix) {
+  const manque = [
+    !avecChoix.includes(`· ${nomChoisi}`) && `le fil d'Ariane ne porte pas ${nomChoisi}`,
+    !avecChoix.includes('a donné son accord, signer') && 'le consentement ne se signe pas',
+    !avecChoix.includes(nomChoisi.split(' ')[0] as string) && 'le prénom ne paraît nulle part',
+  ].filter(Boolean)
+  if (manque.length) {
+    console.error(`✗ session/choisie : ${manque.join(', ')}`)
+    echecs++
+  } else {
+    console.log(`✓ session/choisie     ${String(avecChoix.length).padStart(6)} octets · séance au nom de ${nomChoisi}`)
+  }
+}
+
+// Sans aucune fiche, la séance le dit au lieu de proposer d'enregistrer.
+const seanceVide = rendu('vide/session-sans-fiche', { ...VIDE, mode: 'session' })
+if (seanceVide && !seanceVide.includes('Aucune fiche dans ce cabinet')) {
+  console.error('✗ vide/session : le cabinet sans fiche ne dit pas quoi faire')
+  echecs++
+} else if (seanceVide) {
+  console.log(`✓ vide/session-sans-fiche ${String(seanceVide.length).padStart(6)} octets`)
+}
+
 // 2. Les trois vues du revendeur rendent, et ne montrent aucun patient.
 const VUES: ResellerView[] = ['portfolio', 'brand', 'plans']
 for (const rView of VUES) {

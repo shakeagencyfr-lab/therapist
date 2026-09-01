@@ -1,0 +1,110 @@
+/* Étape 1 : la fiche qui recevra la séance. */
+
+.card {
+  border-radius: var(--r-xl);
+  overflow: hidden;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 16px 22px;
+  border: 0;
+  border-bottom: 1px solid var(--c-border-light);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  color: var(--c-text);
+}
+.row:last-child {
+  border-bottom: 0;
+}
+.row:hover {
+  background: var(--c-surface-2);
+}
+
+.who {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.name {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.sub {
+  font-size: 12px;
+  color: var(--c-text-muted);
+}
+
+.facts {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+}
+
+.fact {
+  font-size: 12px;
+  color: var(--c-text-muted);
+  text-align: right;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.foot {
+  margin: 0;
+  padding: 14px 22px 16px;
+  border-top: 1px solid var(--c-border-light);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+}
+
+/* Cabinet sans fiche : l'état normal d'un cabinet qui vient d'ouvrir. */
+.empty {
+  border-radius: var(--r-xl);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 30px 28px;
+}
+
+.emptyTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.emptyBody {
+  margin: 0;
+  max-width: 46ch;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--c-text-2);
+}
+
+@media (max-width: 640px) {
+  .fact {
+    display: none;
+  }
+}

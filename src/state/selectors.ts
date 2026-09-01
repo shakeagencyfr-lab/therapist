@@ -99,6 +99,36 @@ export function axisBand(value: number, margin: number): { lo: number; hi: numbe
   return { lo: Math.max(0, value - margin), hi: Math.min(100, value + margin) }
 }
 
+/**
+ * Correctif d'état remettant la captation de séance à zéro.
+ *
+ * Une séance appartient à une fiche : en changer, c'est en recommencer une.
+ * Tout ce qu'une captation accumule — consentement, minuteur, transcription,
+ * notes, brouillon — repart donc d'ici, sans qu'un écran ait à énumérer les
+ * champs et à en oublier un.
+ */
+export function nouvelleSeance(patient: PatientId = ''): Partial<AppState> {
+  return {
+    sessionPatient: patient,
+    consent: false,
+    recording: false,
+    elapsed: 0,
+    transcript: '',
+    interim: '',
+    notice: '',
+    sessionNotes: '',
+    sample: null,
+    generating: false,
+    draft: null,
+    syntheseOk: false,
+    proposalOff: {},
+    sent: false,
+    msgOk: false,
+    sugOff: {},
+    sugSent: '',
+  }
+}
+
 /** Couleur de la pastille d'assiduité. */
 export function riskColor(adherence: number): string {
   return adherence < 50

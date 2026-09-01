@@ -12,7 +12,7 @@ const SEGMENT = 900
 
 const cx = (...parts: Array<string | false>) => parts.filter(Boolean).join(' ')
 
-/** Étape 2 : minuteur, transcription en direct, notes écrites, brouillon. */
+/** Étape 3 : minuteur, transcription en direct, notes écrites, brouillon. */
 export function RecordStep() {
   const { state, set, read } = useStore()
   const transcriber = useRef<Transcriber | null>(null)
@@ -98,7 +98,7 @@ export function RecordStep() {
     set({ generating: true, notice: '' })
     try {
       const draft = await draftSessionNote({
-        context: buildPatientContext(now, now.sel),
+        context: buildPatientContext(now, now.sessionPatient),
         transcript,
         notes,
         categories: now.cats,
