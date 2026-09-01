@@ -91,11 +91,10 @@ function Portail() {
     )
   }
 
-  // La marque du cabinet, dès la connexion.
+  // L'espace ouvert découle du rôle, pas d'un choix : un revendeur qui n'est
+  // pas praticienne n'a pas d'espace cabinet à ouvrir, et inversement.
   return (
-    <AppStoreProvider
-      initial={context.cabinet ? {} : { space: 'reseller' }}
-    >
+    <AppStoreProvider initial={{ space: context.cabinet ? 'cabinet' : 'reseller' }}>
       <App />
     </AppStoreProvider>
   )
