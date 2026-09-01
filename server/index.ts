@@ -8,6 +8,7 @@ import cors from 'cors'
 import type { Request, Response } from 'express'
 
 import { AI_ROUTES, currentMode, describeError, handleAi, type AiRoute } from './ai.js'
+import { jetonDe } from './auth.js'
 import { envoyerInvitation } from './invitations.js'
 
 const PORT = Number(process.env.PORT) || 8787
@@ -25,7 +26,7 @@ if (!PRODUCTION) app.use(cors())
 for (const route of AI_ROUTES) {
   app.post(`/api/ai/${route}`, async (req: Request, res: Response): Promise<void> => {
     try {
-      res.json(await handleAi(route as AiRoute, req.body))
+      res.json(await handleAi(route as AiRoute, req.body, jetonDe(req.headers.authorization)))
     } catch (err) {
       const { status, message } = describeError(err)
       // Journal technique seulement : aucune donnée patient n'y figure.

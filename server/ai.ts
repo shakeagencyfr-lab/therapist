@@ -15,6 +15,8 @@
  * et ce qui reste à faire avant une mise en production.
  */
 import Anthropic from '@anthropic-ai/sdk'
+import { HttpError } from './errors.js'
+import { baseConfiguree, clientAdmin, identifier, type Appelant } from './auth.js'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import type { ZodType } from 'zod'
 
@@ -100,15 +102,7 @@ function client(): Anthropic {
  * Erreurs
  * ------------------------------------------------------------------ */
 
-/** Erreur portant son statut HTTP et son message, en français. */
-export class HttpError extends Error {
-  constructor(
-    readonly status: number,
-    message: string,
-  ) {
-    super(message)
-  }
-}
+export { HttpError }
 
 /**
  * Chaîne d'exceptions du SDK, de la plus spécifique à la plus générale.
@@ -162,7 +156,19 @@ interface CallOptions<T> {
  * déjà analysé dans `parsed_output`. Plus besoin d'extraire le JSON à la main
  * comme le faisait le prototype avec une expression régulière sur la réponse.
  */
-async function callClaude<T>({ schema, system, prompt, maxTokens }: CallOptions<T>): Promise<T> {
+/** Jetons consommés par un appel, pour la consommation du cabinet. */
+export interface Usage {
+  input: number
+  output: number
+}
+
+/** Une sortie du modèle, et ce qu'elle a coûté. */
+interface Produit<T> {
+  data: T
+  usage: Usage | null
+}
+
+async function callClaude<T>({ schema, system, prompt, maxTokens }: CallOptions<T>): Promise<Produit<T>> {
   const message = await client().messages.parse({
     model: MODEL,
     max_tokens: maxTokens,
@@ -181,7 +187,10 @@ async function callClaude<T>({ schema, system, prompt, maxTokens }: CallOptions<
   if (!message.parsed_output) {
     throw new HttpError(502, "La réponse du service d'analyse est inexploitable. Réessayez.")
   }
-  return message.parsed_output
+  return {
+    data: message.parsed_output,
+    usage: { input: message.usage.input_tokens, output: message.usage.output_tokens },
+  }
 }
 
 /* ------------------------------------------------------------------ *
@@ -218,7 +227,7 @@ export interface AiResult {
   data: unknown
 }
 
-async function sessionDraft(body: Partial<SessionDraftBody>): Promise<unknown> {
+async function sessionDraft(body: Partial<SessionDraftBody>): Promise<Produit<unknown>> {
   const context = asContext(body.context)
   const categories = asStrings(body.categories)
   const transcript = asText(body.transcript)
@@ -230,7 +239,7 @@ async function sessionDraft(body: Partial<SessionDraftBody>): Promise<unknown> {
     )
   }
   requireKey()
-  if (mockMode()) return mockSessionDraft(context, categories)
+  if (mockMode()) return { data: mockSessionDraft(context, categories), usage: null }
   return callClaude({
     schema: sessionDraftSchema,
     system: SESSION_DRAFT_SYSTEM,
@@ -239,7 +248,7 @@ async function sessionDraft(body: Partial<SessionDraftBody>): Promise<unknown> {
   })
 }
 
-async function customModule(body: Partial<ModuleContext>): Promise<unknown> {
+async function customModule(body: Partial<ModuleContext>): Promise<Produit<unknown>> {
   const intent = asText(body.intent).trim()
   if (intent.length < 15) {
     throw new HttpError(
@@ -253,7 +262,7 @@ async function customModule(body: Partial<ModuleContext>): Promise<unknown> {
     quiz: body.quiz !== false,
   }
   requireKey()
-  if (mockMode()) return mockGeneratedModule(brief)
+  if (mockMode()) return { data: mockGeneratedModule(brief), usage: null }
   return callClaude({
     schema: generatedModuleSchema,
     system: MODULE_SYSTEM,
@@ -262,10 +271,10 @@ async function customModule(body: Partial<ModuleContext>): Promise<unknown> {
   })
 }
 
-async function affirmations(body: Partial<AffirmationsBody>): Promise<unknown> {
+async function affirmations(body: Partial<AffirmationsBody>): Promise<Produit<unknown>> {
   const context = asContext(body.context)
   requireKey()
-  if (mockMode()) return mockGeneratedAffirmations(context)
+  if (mockMode()) return { data: mockGeneratedAffirmations(context), usage: null }
   return callClaude({
     schema: generatedAffirmationsSchema,
     system: AFFIRMATIONS_SYSTEM,
@@ -274,11 +283,11 @@ async function affirmations(body: Partial<AffirmationsBody>): Promise<unknown> {
   })
 }
 
-async function profile(body: Partial<ProfileBody>): Promise<unknown> {
+async function profile(body: Partial<ProfileBody>): Promise<Produit<unknown>> {
   const context = asContext(body.context)
   requireKey()
-  if (mockMode()) return mockGeneratedProfile(context)
-  const generated = await callClaude({
+  if (mockMode()) return { data: mockGeneratedProfile(context), usage: null }
+  const { data: generated, usage } = await callClaude({
     schema: generatedProfileSchema,
     system: PROFILE_SYSTEM,
     prompt: profilePrompt({
@@ -291,31 +300,101 @@ async function profile(body: Partial<ProfileBody>): Promise<unknown> {
   })
   // Les axes sont affichés sur une piste 0–100 : on borne avant de servir.
   return {
-    ...generated,
-    axes: generated.axes.map((axis) => ({
-      ...axis,
-      value: Math.max(0, Math.min(100, Math.round(axis.value))),
-    })),
+    data: {
+      ...generated,
+      axes: generated.axes.map((axis) => ({
+        ...axis,
+        value: Math.max(0, Math.min(100, Math.round(axis.value))),
+      })),
+    },
+    usage,
   }
+}
+
+/* ------------------------------------------------------------------ *
+ * Consommation
+ * ------------------------------------------------------------------ */
+
+/** Tarif du modèle, en dollars par million de jetons. */
+const TARIFS: Record<string, { input: number; output: number }> = {
+  'claude-opus-5': { input: 5, output: 25 },
+  'claude-sonnet-5': { input: 2, output: 10 },
+  'claude-haiku-4-5': { input: 1, output: 5 },
+}
+
+/** Coût d'un appel en centimes, au tarif du modèle. Inconnu : tarif Opus. */
+export function coutCentimes(model: string, usage: Usage): number {
+  const tarif = TARIFS[model] ?? TARIFS['claude-opus-5']!
+  return ((usage.input * tarif.input + usage.output * tarif.output) / 1_000_000) * 100
+}
+
+/** Le genre d'appel tel que la base le classe (enum ai_call_kind). */
+const GENRES: Record<AiRoute, string> = {
+  'session-draft': 'brouillon_seance',
+  module: 'module',
+  affirmations: 'affirmations',
+  profile: 'profil',
+}
+
+/**
+ * Inscrit la consommation au compte du cabinet. Réservé au serveur : la base
+ * n'autorise le cabinet qu'à LIRE sa consommation, pas à l'écrire — c'est ce
+ * qui empêche de la maquiller. Un échec d'inscription ne fait pas échouer
+ * l'appel : la note est produite, le compteur rattrapera.
+ */
+async function compter(route: AiRoute, cabinetId: string, usage: Usage): Promise<void> {
+  const admin = clientAdmin()
+  if (!admin) return
+  const { error } = await admin.from('ai_usage').insert({
+    cabinet_id: cabinetId,
+    kind: GENRES[route],
+    model: MODEL,
+    input_tokens: usage.input,
+    output_tokens: usage.output,
+    cost_cents: coutCentimes(MODEL, usage),
+  })
+  if (error) console.warn(`[ia] consommation non inscrite — ${error.message}`)
 }
 
 /**
  * Point d'entrée unique. Lève une HttpError portant son statut et son message
  * français ; l'enveloppe appelante la traduit avec describeError().
+ *
+ * Reliée à une base, la route n'agit que pour un compte reconnu, membre d'un
+ * cabinet : c'est ce qui empêche n'importe qui de dépenser une clé depuis
+ * l'URL. Sans base — développement local, maquette — il n'y a personne à
+ * reconnaître, et la route tourne pour le poste.
  */
-export async function handleAi(route: AiRoute, raw: unknown): Promise<AiResult> {
+export async function handleAi(route: AiRoute, raw: unknown, token: string | null = null): Promise<AiResult> {
   const body = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
   const mock = mockMode()
 
+  let appelant: Appelant | null = null
+  if (baseConfiguree()) {
+    appelant = await identifier(token)
+    if (!appelant.cabinetId) {
+      throw new HttpError(403, "Les fonctions d'analyse sont réservées à l'espace d'un cabinet.")
+    }
+  }
+
+  const produit = await produire(route, body)
+
+  if (appelant?.cabinetId && produit.usage) {
+    await compter(route, appelant.cabinetId, produit.usage)
+  }
+  return { mock, data: produit.data }
+}
+
+function produire(route: AiRoute, body: Record<string, unknown>): Promise<Produit<unknown>> {
   switch (route) {
     case 'session-draft':
-      return { mock, data: await sessionDraft(body as Partial<SessionDraftBody>) }
+      return sessionDraft(body as Partial<SessionDraftBody>)
     case 'module':
-      return { mock, data: await customModule(body as Partial<ModuleContext>) }
+      return customModule(body as Partial<ModuleContext>)
     case 'affirmations':
-      return { mock, data: await affirmations(body as Partial<AffirmationsBody>) }
+      return affirmations(body as Partial<AffirmationsBody>)
     case 'profile':
-      return { mock, data: await profile(body as Partial<ProfileBody>) }
+      return profile(body as Partial<ProfileBody>)
   }
 }
 

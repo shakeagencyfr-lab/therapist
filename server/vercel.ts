@@ -10,6 +10,7 @@
  * routage pour Vercel, pas un endroit où ranger du code partagé.
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { jetonDe } from './auth.js'
 import { describeError, handleAi, type AiRoute } from './ai.js'
 
 export function aiFunction(route: AiRoute) {
@@ -20,7 +21,7 @@ export function aiFunction(route: AiRoute) {
       return
     }
     try {
-      res.status(200).json(await handleAi(route, req.body))
+      res.status(200).json(await handleAi(route, req.body, jetonDe(req.headers.authorization)))
     } catch (err) {
       const { status, message } = describeError(err)
       // Journal technique seulement : aucune donnée patient n'y figure.
