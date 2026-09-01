@@ -10,8 +10,11 @@
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-const url = import.meta.env.VITE_SUPABASE_URL
-const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+// `import.meta.env` n'existe que sous Vite : hors du navigateur — banc de
+// rendu, script Node — l'accès direct lèverait une erreur au chargement.
+const env = import.meta.env ?? {}
+const url = env.VITE_SUPABASE_URL
+const key = env.VITE_SUPABASE_PUBLISHABLE_KEY
 
 let client: SupabaseClient | null = null
 

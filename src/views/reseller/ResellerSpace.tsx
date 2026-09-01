@@ -1,6 +1,7 @@
 import { Segmented } from '@/components/ui'
 import { useStore } from '@/state/store'
 import type { ResellerView } from '@/state/state'
+import { ResellerProvider } from '@/reseller/context'
 import { CabinetPortfolio } from './CabinetPortfolio'
 import { BrandEditor } from './BrandEditor'
 import { PlansView } from './PlansView'
@@ -40,6 +41,7 @@ export function ResellerSpace() {
   const { title, intro } = TITLES[state.rView]
 
   return (
+    <ResellerProvider>
     <div className={s.space}>
       <div className={s.head}>
         <div>
@@ -57,5 +59,6 @@ export function ResellerSpace() {
       {state.rView === 'brand' && <BrandEditor />}
       {state.rView === 'plans' && <PlansView />}
     </div>
+    </ResellerProvider>
   )
 }
