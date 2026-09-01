@@ -8,7 +8,12 @@ import {
   derniereReponseEstMaquette,
   draftSessionNote,
 } from '@/services/aiClient'
-import { createTranscriber, isSpeechSupported, type Transcriber } from '@/services/speech'
+import {
+  appendSegment,
+  createTranscriber,
+  isSpeechSupported,
+  type Transcriber,
+} from '@/services/speech'
 import { useStore } from '@/state/store'
 import s from './RecordStep.module.css'
 
@@ -56,7 +61,7 @@ export function RecordStep() {
     }
     const next = createTranscriber({
       onFinal: (text) =>
-        set((prev) => ({ transcript: (prev.transcript + text).replace(/\s+/g, ' '), interim: '' })),
+        set((prev) => ({ transcript: appendSegment(prev.transcript, text), interim: '' })),
       onInterim: (text) => set({ interim: text }),
       onError: (code) =>
         set({

@@ -78,6 +78,22 @@ export function isSpeechSupported(): boolean {
   return recognizerClass() !== null
 }
 
+/**
+ * Ajoute un segment validé à la transcription, sur sa propre ligne.
+ *
+ * Chaque segment final correspond à une prise de parole séparée par un
+ * silence : c'est le SEUL indice de tour de parole que l'API fournisse. Tout
+ * concaténer à plat le détruisait — et c'est précisément ce qui manque au
+ * modèle pour rattacher une phrase à l'un ou à l'autre. Une ligne par segment
+ * le lui rend, sans rien inventer : la ligne dit « ici, quelqu'un a repris la
+ * parole », elle ne dit pas qui.
+ */
+export function appendSegment(transcript: string, segment: string): string {
+  const propre = segment.replace(/\s+/g, ' ').trim()
+  if (!propre) return transcript
+  return transcript ? transcript + '\n' + propre : propre
+}
+
 export interface TranscriberHandlers {
   /**
    * Segment validé, à concaténer à la transcription déjà saisie. Il se termine
