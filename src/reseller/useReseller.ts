@@ -11,6 +11,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { demanderInvitation } from '@/services/invitations'
 import { CABINETS, CABINET_STATS, PLANS, SUBSCRIPTIONS } from '@/data/reseller'
 import { slugify } from '@/state/resellerSelectors'
 import type { CabinetBranding, PlanCode, PortfolioRow } from '@/types/reseller'
@@ -282,6 +283,17 @@ export function useReseller(): ResellerData {
           : Promise.resolve({ error: null }),
       ])
 
+      // L'invitation est posée ; reste à prévenir la praticienne.
+      let envoi = ''
+      if (input.email.trim() && !eInv) {
+        const r = await demanderInvitation({
+          email: input.email.trim(),
+          cabinetId: cabinet.id,
+          kind: 'praticienne',
+        })
+        envoi = r.message
+      }
+
       await recharger()
 
       if (eSub || eInv) {
@@ -290,11 +302,14 @@ export function useReseller(): ResellerData {
           message: `${cabinet.name} est ouvert, mais ${eSub ? "son offre" : "l'invitation"} n'a pas pu être enregistrée. Reprenez-la depuis sa fiche.`,
         }
       }
+      if (!input.email.trim()) {
+        return { ok: true, message: `${cabinet.name} est ouvert en essai. Reste à inviter sa praticienne.` }
+      }
       return {
         ok: true,
-        message: input.email.trim()
-          ? `${cabinet.name} est ouvert en essai. ${input.praticienne.trim() || 'La praticienne'} recevra son lien en se connectant avec ${input.email.trim()}.`
-          : `${cabinet.name} est ouvert en essai. Reste à inviter sa praticienne.`,
+        message:
+          envoi ||
+          `${cabinet.name} est ouvert en essai. ${input.praticienne.trim() || 'La praticienne'} se connectera avec ${input.email.trim()}.`,
       }
     },
     [recharger, reel],
@@ -310,10 +325,20 @@ export function useReseller(): ResellerData {
         role: 'owner',
         expires_at: new Date(Date.now() + 30 * 86400_000).toISOString(),
       })
+      if (error) {
+        await recharger()
+        return { ok: false, message: "L'invitation n'a pas pu être enregistrée." }
+      }
+      const envoi = await demanderInvitation({
+        email: email.trim(),
+        cabinetId,
+        kind: 'praticienne',
+      })
       await recharger()
-      return error
-        ? { ok: false, message: "L'invitation n'a pas pu être enregistrée." }
-        : { ok: true, message: `Invitation prête pour ${email.trim()}. Elle se connectera avec cette adresse.` }
+      return {
+        ok: true,
+        message: envoi.message || `Invitation prête pour ${email.trim()}. Elle se connectera avec cette adresse.`,
+      }
     },
     [recharger, reel],
   )

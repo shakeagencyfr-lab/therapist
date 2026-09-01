@@ -1,4 +1,5 @@
 import { Title } from '@/components/ui'
+import { dateDuJour } from '@/lib/format'
 import { buildPatientContext, refreshProfile } from '@/services/aiClient'
 import { profileOf } from '@/state/selectors'
 import { useStore } from '@/state/store'
@@ -9,14 +10,18 @@ type SuggestedAudio = LibraryAudio & { why: string }
 
 const cx = (...parts: Array<string | false>) => parts.filter(Boolean).join(' ')
 
-/** Étape 3 : le brouillon. Rien n'entre au dossier avant la barre d'envoi. */
+/** Étape 4 : le brouillon. Rien n'entre au dossier avant la barre d'envoi. */
 export function DraftStep() {
   const { state, set, read } = useStore()
   const draft = state.draft
-  if (!draft) return null
 
-  const key = state.sel
+  /* La fiche de la séance, pas celle de la barre latérale : c'est elle qui
+     recevra la note, les modules et les audios, même si la sélection a
+     bougé ailleurs entre-temps. */
+  const key = state.sessionPatient
   const patient = state.patients[key]
+  if (!draft || !patient) return null
+
   const firstName = patient.name.split(' ')[0]
 
   const proposals = draft.propositions ?? []
@@ -69,7 +74,7 @@ export function DraftStep() {
       .filter((_, i) => !state.proposalOff[i])
       .map((proposal) => ({
         title: proposal.titre,
-        meta: 'Ajouté depuis la séance du 8 septembre',
+        meta: `Ajouté depuis la séance du ${dateDuJour()}`,
         kind: proposal.type,
         done: false,
         fresh: true,
@@ -104,7 +109,7 @@ export function DraftStep() {
       })
       const next: PsychProfile = {
         updated: "Actualisé à l'instant, depuis la dernière séance",
-        portrait: result.portrait || current.portrait,
+        portrait: result.portrait || current?.portrait || '',
         axes: result.axes
           .filter((axis) => axis && axis.label)
           .map((axis) => ({
@@ -328,7 +333,7 @@ export function DraftStep() {
           </Title>
           <span className={s.hot}>Brouillon, à retravailler par vous</span>
         </div>
-        <div className={s.sub}>Construit avec les mots de Camille, pas les vôtres.</div>
+        <div className={s.sub}>Construit avec les mots de {firstName}, pas les vôtres.</div>
         <textarea
           className={cx(s.field, s.fieldLoose)}
           rows={8}
@@ -392,7 +397,7 @@ export function DraftStep() {
       <section className={s.sendBar}>
         <div className={s.sendText}>
           <span className={s.sendTitle}>
-            {state.sent ? 'Envoyé au dossier de Camille' : 'Prêt à envoyer'}
+            {state.sent ? `Envoyé au dossier de ${firstName}` : 'Prêt à envoyer'}
           </span>
           <span className={s.sendSub}>
             {state.sent
@@ -401,7 +406,11 @@ export function DraftStep() {
           </span>
         </div>
         <div className={s.sendActions}>
-          <button type="button" className={s.sendGhost} onClick={() => set({ mode: 'therapist' })}>
+          <button
+            type="button"
+            className={s.sendGhost}
+            onClick={() => set({ mode: 'therapist', sel: key })}
+          >
             Voir le parcours
           </button>
           <button

@@ -8,6 +8,7 @@ import cors from 'cors'
 import type { Request, Response } from 'express'
 
 import { AI_ROUTES, currentMode, describeError, handleAi, type AiRoute } from './ai.js'
+import { envoyerInvitation } from './invitations.js'
 
 const PORT = Number(process.env.PORT) || 8787
 const PRODUCTION = process.env.NODE_ENV === 'production'
@@ -33,6 +34,19 @@ for (const route of AI_ROUTES) {
     }
   })
 }
+
+app.post('/api/invitations', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const auth = req.headers.authorization ?? ''
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : null
+    const { status, body } = await envoyerInvitation(token, req.body)
+    res.status(status).json(body)
+  } catch (err) {
+    // Journal technique seulement. Une exception ne doit pas emporter l'API.
+    console.error('[invitation] exception —', (err as Error).message)
+    res.status(500).json({ message: "L'invitation n'a pas pu être envoyée." })
+  }
+})
 
 app.listen(PORT, () => {
   console.log(`[ia] API à l'écoute sur le port ${PORT} · mode ${currentMode()}`)

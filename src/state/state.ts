@@ -72,17 +72,13 @@ export interface AppState {
   patientsChargement: boolean
   patientsErreur: string
 
-  /* Ajout d'une patiente -------------------------------------------- */
+  /* Ajout d'une patiente -------------------------------------------- *
+   * Une fiche s'ouvre avec un nom et une adresse, rien de plus : le
+   * programme, l'échelle du soir et sa question se règlent ensuite depuis
+   * la fiche, quand la première séance a eu lieu.                        */
   pNewOpen: boolean
   pNewName: string
   pNewEmail: string
-  pNewProgram: string
-  /** Nombre de séances prévues au programme. */
-  pNewSessions: number
-  /** Ce que la patiente s'auto-évalue chaque soir. */
-  pNewScale: string
-  /** La question qu'elle lit, écrite par la praticienne. */
-  pNewQuestion: string
   /** Confirmation du dernier geste sur le dossier. */
   pNotice: string
 
@@ -94,7 +90,13 @@ export interface AppState {
   /** Audios envoyés depuis la bibliothèque, par patient. */
   extraAudios: Record<PatientId, PatientAudio[]>
 
-  /* Captation de séance ------------------------------------------- */
+  /* Captation de séance ------------------------------------------- *
+   * La séance porte sa propre sélection : c'est la fiche qui recevra la
+   * note et les modules. Elle est choisie avant tout le reste, et ne suit
+   * pas la barre latérale — changer de fiche entre deux séances ne doit
+   * pas déplacer une captation en cours.                                 */
+  /** Fiche de la séance en cours. Vide tant qu'aucune n'est choisie. */
+  sessionPatient: PatientId
   consent: boolean
   capture: CaptureMode
   recording: boolean
@@ -240,10 +242,6 @@ export const initialState: AppState = {
   pNewOpen: false,
   pNewName: '',
   pNewEmail: '',
-  pNewProgram: 'Programme Liberté',
-  pNewSessions: 6,
-  pNewScale: '',
-  pNewQuestion: '',
   pNotice: '',
 
   cabinetId: null,
@@ -257,6 +255,7 @@ export const initialState: AppState = {
   extra: {},
   extraAudios: {},
 
+  sessionPatient: '',
   consent: false,
   capture: 'live',
   recording: false,

@@ -34,3 +34,8 @@ export function plural(n: number, one: string, many: string): string {
 export function euroCents(cents: number): string {
   return `${(cents / 100).toFixed(2).replace('.', ',')} €`
 }
+
+/** Date du jour, « 1 septembre » — fil d'Ariane et horodatage de séance. */
+export function dateDuJour(now: Date = new Date()): string {
+  return now.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
+}

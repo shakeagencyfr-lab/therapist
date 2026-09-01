@@ -12,6 +12,10 @@ export function ScaleChart() {
   const p = patientOf(state)
   const points = chartPoints(scaleSeries(state, state.sel))
 
+
+  // La courbe n'est montée qu'avec une patiente.
+  if (!p) return null
+
   return (
     <Card padded={false} className={s.card}>
       <div className={s.head}>

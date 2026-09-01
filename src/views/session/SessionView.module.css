@@ -1,4 +1,4 @@
-/* Conteneur des trois étapes de la captation de séance. */
+/* Conteneur des quatre étapes de la captation de séance. */
 
 .wrap {
   max-width: 940px;
@@ -16,6 +16,26 @@
 
 .crumb {
   margin-bottom: 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Sortie de secours : revenir au choix de la fiche. */
+.change {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--c-accent);
+  cursor: pointer;
+}
+.change:hover {
+  text-decoration: underline;
 }
 
 .h1 {

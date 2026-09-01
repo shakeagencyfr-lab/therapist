@@ -13,6 +13,7 @@ import s from './PatientView.module.css'
  */
 export function PatientView() {
   const state = useAppState()
+  const fiche = state.patients[state.sel]
   const modules = allModules(state, state.sel)
   const open = state.openTask
   /* Le détail de tâche n'existe que si l'index pointe encore sur un module. */
@@ -41,7 +42,17 @@ export function PatientView() {
       </div>
 
       <PhoneFrame>
-        {state.pView === 'journal' ? (
+        {/* Un cabinet qui vient d'ouvrir n'a aucune patiente : l'aperçu n'a
+            alors personne à montrer, et le dire vaut mieux qu'un écran noir. */}
+        {!fiche ? (
+          <div className={s.preview}>
+            <p className={s.previewTitle}>Rien à prévisualiser</p>
+            <p className={s.previewText}>
+              Cet écran montre ce que voit une patiente sur son téléphone. Ajoutez-en une depuis la
+              vue thérapeute, et son espace apparaîtra ici.
+            </p>
+          </div>
+        ) : state.pView === 'journal' ? (
           <PatientJournal />
         ) : taskOpen ? (
           <TaskDetail />

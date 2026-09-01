@@ -1,12 +1,9 @@
 import { useState } from 'react'
-import { Avatar, Button, Chip, Notice, TextInput } from '@/components/ui'
+import { Avatar, Button, Notice, TextInput } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { riskColor, sidebarPatients, slippingPatients } from '@/state/selectors'
 import { useStore } from '@/state/store'
 import s from './PatientSidebar.module.css'
-
-/** Les quatre programmes du cabinet. */
-const PROGRAMMES = ['Liberté', 'Équilibre', 'Harmonie', 'Compétences']
 
 /**
  * Barre latérale des patients. Les deux seules props sont l'ouverture du
@@ -22,33 +19,17 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
   const slipping = slippingPatients(state).length
   const count = state.q.trim() ? `${rows.length} / ${state.patientOrder.length}` : `${state.patientOrder.length}`
 
-  const nomValide = state.pNewName.trim().length >= 2
-  const questionValide = state.pNewQuestion.trim().length >= 5
-  const peutCreer = nomValide && questionValide && !envoi
+  const peutCreer = state.pNewName.trim().length >= 2 && !envoi
 
   async function creer() {
     if (!cabinet || !peutCreer) return
     setEnvoi(true)
     setEchec('')
     set({ pNotice: '' })
-    const r = await cabinet.creerPatiente({
-      nom: state.pNewName,
-      email: state.pNewEmail,
-      programme: `Programme ${state.pNewProgram.replace('Programme ', '')}`,
-      seances: state.pNewSessions,
-      echelle: state.pNewScale.trim() || 'Auto-évaluation',
-      question: state.pNewQuestion,
-    })
+    const r = await cabinet.creerPatiente({ nom: state.pNewName, email: state.pNewEmail })
     setEnvoi(false)
     if (r.ok) {
-      set({
-        pNewOpen: false,
-        pNewName: '',
-        pNewEmail: '',
-        pNewScale: '',
-        pNewQuestion: '',
-        pNotice: r.message,
-      })
+      set({ pNewOpen: false, pNewName: '', pNewEmail: '', pNotice: r.message })
     } else {
       // Un échec ne fait pas retaper le formulaire.
       setEchec(r.message)
@@ -108,7 +89,8 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
         </div>
 
         {/* Ajouter une patiente : c'est son adresse qui la connectera, au
-            premier lien magique. Rien n'est envoyé d'ici. */}
+            premier lien magique. Une fiche s'ouvre avec un nom et une adresse,
+            le reste se règle depuis la fiche. */}
         {cabinet?.reel ? (
           <div className={s.add}>
             {state.pNotice ? (
@@ -142,53 +124,10 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
                   </span>
                 </div>
 
-                <div className={s.field}>
-                  <span className={s.label}>Programme</span>
-                  <div className={s.programs}>
-                    {PROGRAMMES.map((p) => (
-                      <Chip
-                        key={p}
-                        on={state.pNewProgram.endsWith(p)}
-                        onClick={() => set({ pNewProgram: p })}
-                      >
-                        {p}
-                      </Chip>
-                    ))}
-                  </div>
-                </div>
-
-                <div className={s.row}>
-                  <div className={s.field}>
-                    <span className={s.label}>Ce que vous suivez</span>
-                    <TextInput
-                      value={state.pNewScale}
-                      onChange={(e) => set({ pNewScale: e.target.value })}
-                      placeholder="Envie de fumer"
-                    />
-                  </div>
-                  <div className={s.field}>
-                    <span className={s.label}>Séances</span>
-                    <TextInput
-                      type="number"
-                      min={1}
-                      max={52}
-                      value={state.pNewSessions}
-                      onChange={(e) => set({ pNewSessions: Math.max(1, Number(e.target.value) || 1) })}
-                    />
-                  </div>
-                </div>
-
-                <div className={s.field}>
-                  <span className={s.label}>La question du soir</span>
-                  <TextInput
-                    value={state.pNewQuestion}
-                    onChange={(e) => set({ pNewQuestion: e.target.value })}
-                    placeholder="Où en est l'envie de fumer ?"
-                  />
-                  <span className={s.hint}>
-                    Elle la lira chaque soir : écrivez-la comme vous la lui diriez.
-                  </span>
-                </div>
+                <p className={s.later}>
+                  Le programme, ce que vous suivez et la question du soir se règlent depuis sa
+                  fiche, après la première séance.
+                </p>
 
                 {echec ? <Notice tone="warn">{echec}</Notice> : null}
 

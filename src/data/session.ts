@@ -7,13 +7,20 @@
  * un hébergeur certifié HDS.
  */
 
-/** Points lus au patient avant d'enregistrer. Le consentement est bloquant. */
-export const CONSENT_POINTS: string[] = [
-  "La séance est transcrite en texte. L'enregistrement sonore est détruit dès la transcription terminée, il n'est stocké nulle part.",
-  "La note produite est un brouillon. Elle n'entre au dossier qu'après relecture et validation de la thérapeute.",
-  'Camille peut demander la suppression de la transcription à tout moment, sans justification, depuis son espace.',
-  'Les données sont hébergées en France chez un hébergeur agréé données de santé. Aucun transfert hors Union européenne.',
-]
+/**
+ * Points lus au patient avant d'enregistrer. Le consentement est bloquant.
+ *
+ * Ils se lisent à voix haute devant la personne : le troisième la nomme, il
+ * prend donc son prénom plutôt qu'un exemple.
+ */
+export function consentPoints(prenom: string): string[] {
+  return [
+    "La séance est transcrite en texte. L'enregistrement sonore est détruit dès la transcription terminée, il n'est stocké nulle part.",
+    "La note produite est un brouillon. Elle n'entre au dossier qu'après relecture et validation de la thérapeute.",
+    `${prenom} peut demander la suppression de la transcription à tout moment, sans justification, depuis son espace.`,
+    'Les données sont hébergées en France chez un hébergeur agréé données de santé. Aucun transfert hors Union européenne.',
+  ]
+}
 
 /** Une transcription de démonstration, pour essayer la génération du brouillon. */
 export interface TranscriptSample {

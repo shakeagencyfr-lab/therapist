@@ -11,6 +11,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { demanderInvitation } from '@/services/invitations'
 import { useStore } from '@/state/store'
 import { durationToSeconds } from '@/lib/format'
 import type {
@@ -88,13 +89,14 @@ interface ProfileRow {
   care: string[]
 }
 
+/**
+ * Ce qu'il faut pour ouvrir une fiche : de quoi la nommer, et de quoi la
+ * joindre. Le programme, l'échelle du soir et sa question ne s'inventent pas
+ * avant la première séance — ils se règlent ensuite depuis la fiche.
+ */
 export interface NouvellePatiente {
   nom: string
   email: string
-  programme: string
-  seances: number
-  echelle: string
-  question: string
 }
 
 export interface Resultat {
@@ -157,15 +159,18 @@ function assembler(
   return {
     name: p.display_name,
     initials: p.initials,
+    /* Une fiche neuve n'a encore ni programme ni échelle. Les écrans le
+       disent plutôt que d'afficher un vide : c'est un état normal, pas une
+       donnée manquante. */
     program: p.program,
-    subtitle: p.subtitle,
-    weekLabel: p.week_label,
+    subtitle: p.subtitle || 'Programme à définir',
+    weekLabel: p.week_label || 'Programme à définir',
     nextSession: p.next_session ?? 'Aucune séance planifiée',
     adherence: mods.length ? Math.round((faits / mods.length) * 100) : 0,
     listens: auds.reduce((n, a) => n + a.listens, 0),
     sessions: p.sessions_done,
     totalSessions: p.sessions_total,
-    scaleLabel: p.scale_label,
+    scaleLabel: p.scale_label || 'Auto-évaluation',
     scaleQuestion: p.scale_question,
     scaleDelta: p.scale_delta ?? '',
     scale: serie,
@@ -297,19 +302,23 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       const email = input.email.trim().toLowerCase()
       if (nom.length < 2) return { ok: false, message: 'Indiquez au moins un nom.' }
 
+      /* Les colonnes non renseignées restent vides plutôt que de recevoir une
+         valeur que personne n'a choisie : « aucun programme » se lit dans la
+         base, « Programme Liberté » posé d'office ne se relit plus. C'est
+         `assembler` qui décide de ce que les écrans affichent en attendant. */
       const { error } = await db.from('patients').insert({
         cabinet_id: cabinetId,
         display_name: nom,
         initials: initialesDe(nom),
         email: email || null,
-        program: input.programme,
-        subtitle: `${input.programme.replace('Programme ', '')} · semaine 1 / ${input.seances}`,
-        week_label: `Semaine 1 sur ${input.seances}`,
+        program: '',
+        subtitle: '',
+        week_label: '',
         next_session: null,
         sessions_done: 0,
-        sessions_total: input.seances,
-        scale_label: input.echelle,
-        scale_question: input.question,
+        sessions_total: 0,
+        scale_label: '',
+        scale_question: '',
         scale_delta: null,
       })
 
@@ -323,12 +332,20 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         }
       }
 
+      // Sa fiche existe ; on lui envoie le lien qui ouvre son espace.
+      let envoi = ''
+      if (email) {
+        const r = await demanderInvitation({ email, cabinetId, kind: 'patiente' })
+        envoi = r.message
+      }
+
       await recharger()
+      if (!email) {
+        return { ok: true, message: `${nom} est ajoutée. Ajoutez son adresse pour qu'elle puisse ouvrir son espace.` }
+      }
       return {
         ok: true,
-        message: email
-          ? `${nom} est ajoutée. Elle entrera dans son espace avec ${email}, sans mot de passe.`
-          : `${nom} est ajoutée. Ajoutez son adresse pour qu'elle puisse ouvrir son espace.`,
+        message: envoi || `${nom} est ajoutée. Elle entrera dans son espace avec ${email}, sans mot de passe.`,
       }
     },
     [cabinetId, recharger],
