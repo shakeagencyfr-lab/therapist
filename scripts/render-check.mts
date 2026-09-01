@@ -163,6 +163,23 @@ if (maquette) {
   }
 }
 
+// Sans distinction des locuteurs, « les mots du patient » est légitimement
+// vide : l'écran doit le dire, pas laisser un blanc.
+const sansMots = rendu('cabinet/session-sans-mots', {
+  space: 'cabinet',
+  mode: 'session',
+  sessionPatient: choisie,
+  consent: true,
+  draft: BROUILLON,
+  draftMaquette: false,
+})
+if (sansMots && !sansMots.includes('ne distingue pas qui parle')) {
+  console.error("✗ session/sans-mots : la rubrique vide n'explique pas pourquoi")
+  echecs++
+} else if (sansMots) {
+  console.log(`✓ session/sans-mots   ${String(sansMots.length).padStart(6)} octets · rubrique vide expliquée`)
+}
+
 // 2. Les trois vues du revendeur rendent, et ne montrent aucun patient.
 const VUES: ResellerView[] = ['portfolio', 'brand', 'plans']
 for (const rView of VUES) {

@@ -152,6 +152,14 @@ Ce dépôt est une recréation fidèle des écrans, pas un produit déployable. 
   journalisation des accès, durées de conservation, registre de traitement.
 - **Consentement** — le consentement de captation doit être horodaté et conservé,
   et la suppression d'une transcription doit être effective côté serveur.
+- **Transcription** — l'API Web Speech du navigateur, utilisée aujourd'hui, a deux
+  limites qui interdisent un usage clinique réel. Elle **envoie l'audio à un tiers**
+  (Google, sur Chrome), ce qui contredit la promesse HDS ci-dessus ; et elle **ne
+  distingue pas les locuteurs**, si bien que « les mots du patient » et l'induction
+  bâtie sur ses images reposent sur une attribution que la chaîne ne fournit pas —
+  le serveur le détecte et l'annonce au modèle plutôt que de le laisser deviner. La
+  chaîne visée : captation locale, transcription **avec diarisation** chez un
+  hébergeur de données de santé européen, destruction de l'audio, puis rédaction.
 - **Polices** — Newsreader et Public Sans à auto-héberger (pas de requête vers
   Google Fonts depuis un poste de santé).
 - **Marque** — le logo « LO » est un placeholder ; l'accent `#A17A45` et le sombre

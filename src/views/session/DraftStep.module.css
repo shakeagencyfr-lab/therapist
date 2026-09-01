@@ -477,3 +477,11 @@
   line-height: 1.6;
   color: var(--c-text-2);
 }
+
+/* Rubrique légitimement vide : on dit pourquoi plutôt que de laisser un blanc. */
+.empty {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--c-text-muted);
+}

@@ -32,6 +32,7 @@ import {
   affirmationsPrompt,
   modulePrompt,
   profilePrompt,
+  hasSpeakerLabels,
   sessionDraftPrompt,
   sessionMaterial,
 } from './prompts.js'
@@ -220,7 +221,8 @@ export interface AiResult {
 async function sessionDraft(body: Partial<SessionDraftBody>): Promise<unknown> {
   const context = asContext(body.context)
   const categories = asStrings(body.categories)
-  const material = sessionMaterial(asText(body.transcript), asText(body.notes))
+  const transcript = asText(body.transcript)
+  const material = sessionMaterial(transcript, asText(body.notes))
   if (material.length < 80) {
     throw new HttpError(
       400,
@@ -232,7 +234,7 @@ async function sessionDraft(body: Partial<SessionDraftBody>): Promise<unknown> {
   return callClaude({
     schema: sessionDraftSchema,
     system: SESSION_DRAFT_SYSTEM,
-    prompt: sessionDraftPrompt(material, categories),
+    prompt: sessionDraftPrompt(material, categories, hasSpeakerLabels(transcript)),
     maxTokens: 3000,
   })
 }

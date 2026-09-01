@@ -192,13 +192,24 @@ export function DraftStep() {
         <section className={s.card}>
           <h2 className={s.h21}>Les mots du patient</h2>
           <div className={s.sub}>À réutiliser tels quels dans la prochaine induction.</div>
-          <div className={s.words}>
-            {draft.mots.map((word, i) => (
-              <span className={s.word} key={`${i}-${word}`}>
-                {word}
-              </span>
-            ))}
-          </div>
+          {draft.mots.length ? (
+            <div className={s.words}>
+              {draft.mots.map((word, i) => (
+                <span className={s.word} key={`${i}-${word}`}>
+                  {word}
+                </span>
+              ))}
+            </div>
+          ) : (
+            /* Vide à dessein : sans distinction des locuteurs, rien ne permet
+               d'attribuer une phrase au patient. Mieux vaut le dire que citer
+               au hasard. */
+            <p className={s.empty}>
+              La transcription ne distingue pas qui parle : aucune expression n'a pu être
+              attribuée au patient avec certitude. Le bouton « Mot du patient », pendant la
+              séance, horodate ceux que vous voulez retenir.
+            </p>
+          )}
         </section>
         <section className={s.card}>
           <h2 className={s.h21}>Fil rouge</h2>

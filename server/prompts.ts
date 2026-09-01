@@ -16,6 +16,31 @@ export const SESSION_DRAFT_SYSTEM =
   "Tu assistes une hypnothérapeute française dans la rédaction de sa note de séance. Tu ne poses aucun diagnostic, tu ne prescris rien, tu ne parles jamais de pathologie. Tu restitues ce qui a été dit, avec les mots exacts du patient. Tu écris en français, sobrement, sans jargon et sans formule d'introduction. Tu réponds uniquement par du JSON valide, sans texte autour et sans balises de code."
 
 /**
+ * La transcription distingue-t-elle les locuteurs ?
+ *
+ * L'API Web Speech du navigateur n'en produit jamais : elle rend un flux
+ * unique où la voix de la thérapeute et celle du patient sont fondues. Les
+ * séances d'exemple, elles, sont écrites en dialogue étiqueté. La différence
+ * change ce qu'on est en droit de demander au modèle — d'où cette lecture de
+ * la matière, plutôt qu'une hypothèse.
+ */
+export function hasSpeakerLabels(transcript: string): boolean {
+  const lignes = transcript.split("\n").map((l) => l.trim()).filter(Boolean)
+  const etiquetees = lignes.filter((l) => /^[A-ZÀ-ÝŒ][^:\n]{1,30}\s?:\s/.test(l)).length
+  return etiquetees >= 2
+}
+
+/**
+ * Avertissement ajouté quand la transcription ne distingue pas les locuteurs.
+ *
+ * Sans lui, le modèle attribue au patient des phrases qu'il ne peut pas lui
+ * attribuer : rien dans la matière ne dit qui parle. « Les mots du patient »
+ * et l'induction bâtie sur ses images reposaient alors sur une devinette.
+ */
+const SANS_LOCUTEURS =
+  "\n\nAVERTISSEMENT SUR LA MATIÈRE : cette transcription vient d'un micro unique et NE DISTINGUE PAS les locuteurs. Les paroles de la thérapeute et celles du patient s'y mélangent sans aucune marque. Tu ne peux donc pas savoir qui a dit quoi.\nEn conséquence : pour « mots », ne retiens que des expressions dont les notes écrites de la thérapeute confirment qu'elles viennent du patient ; si rien ne permet de l'établir, rends un tableau VIDE plutôt qu'une attribution incertaine. Pour « induction », n'emploie que des images ainsi confirmées ; à défaut, écris une induction sobre, sans métaphore rapportée. Pour « synthese » et « themes », rends compte de la séance sans prêter une phrase à l'un ou à l'autre."
+
+/**
  * Matière de la séance : la transcription, complétée des notes écrites par la
  * thérapeute — qui priment sur la transcription.
  */
@@ -25,8 +50,8 @@ export function sessionMaterial(transcript: string, notes: string): string {
   return _nt ? _tr + "\n\n[Notes écrites par la thérapeute pendant la séance, à prendre en priorité sur la transcription]\n" + _nt : _tr
 }
 
-export function sessionDraftPrompt(text: string, categories: string[]): string {
-  return "Voici la transcription d'une séance d'hypnothérapie.\n\n---\n" + text + "\n---\n\nProduis un objet JSON avec exactement ces clés :\n\"synthese\" : 4 à 6 phrases résumant la séance, à la troisième personne, factuel, ce qui a été travaillé et ce qui s'est passé depuis la dernière fois.\n\"mots\" : tableau de 4 à 8 chaînes, les expressions et métaphores employées littéralement par le patient (ses mots exacts, courts, sans guillemets).\n\"themes\" : tableau de 2 à 4 chaînes, les fils qui traversent la séance et mériteraient d'être explorés, formulés comme des observations et non comme des conclusions.\n\"propositions\" : tableau de 3 à 5 objets {\"titre\", \"pourquoi\", \"type\"} où type vaut Audio, Exercice, Journal, Échelle ou Écriture ; ce sont des modules courts que le patient réalisera entre deux séances.\n\"induction\" : un paragraphe de 80 à 130 mots, brouillon d'induction hypnotique à la deuxième personne, construit avec les métaphores du patient repérées ci-dessus.\n\"questions\" : tableau de 3 à 5 chaînes, des questions ouvertes et précises que la thérapeute pourrait poser à la séance suivante, appuyées sur ce qui est resté en suspens.\n\"vigilance\" : tableau de 0 à 3 objets {\"point\", \"conduite\"}, uniquement si la transcription contient un élément qui mérite l'attention du praticien (détresse marquée, mention médicale, sujet hors du champ de l'hypnose). \"conduite\" décrit la conduite professionnelle à envisager, jamais un diagnostic. Tableau vide s'il n'y a rien à signaler.\n\"categories_audio\" : tableau de 1 à 3 objets {\"categorie\", \"pourquoi\"} où \"categorie\" est choisie STRICTEMENT dans cette liste : « " + categories.join(", ") + " » ; \"pourquoi\" est une phrase disant ce que cet audio viendrait soutenir chez ce patient. Ce sont les rayons de la bibliothèque d'audios de la thérapeute, pas des titres.\n\"message\" : un message de 40 à 70 mots, à la deuxième personne, chaleureux et sans jargon, que la thérapeute pourra envoyer au patient dans la journée pour accompagner les modules retenus."
+export function sessionDraftPrompt(text: string, categories: string[], locuteurs = true): string {
+  return "Voici la transcription d'une séance d'hypnothérapie.\n\n---\n" + text + "\n---" + (locuteurs ? "" : SANS_LOCUTEURS) + "\n\nProduis un objet JSON avec exactement ces clés :\n\"synthese\" : 4 à 6 phrases résumant la séance, à la troisième personne, factuel, ce qui a été travaillé et ce qui s'est passé depuis la dernière fois.\n\"mots\" : tableau de 4 à 8 chaînes, les expressions et métaphores employées littéralement par le patient (ses mots exacts, courts, sans guillemets).\n\"themes\" : tableau de 2 à 4 chaînes, les fils qui traversent la séance et mériteraient d'être explorés, formulés comme des observations et non comme des conclusions.\n\"propositions\" : tableau de 3 à 5 objets {\"titre\", \"pourquoi\", \"type\"} où type vaut Audio, Exercice, Journal, Échelle ou Écriture ; ce sont des modules courts que le patient réalisera entre deux séances.\n\"induction\" : un paragraphe de 80 à 130 mots, brouillon d'induction hypnotique à la deuxième personne, construit avec les métaphores du patient repérées ci-dessus.\n\"questions\" : tableau de 3 à 5 chaînes, des questions ouvertes et précises que la thérapeute pourrait poser à la séance suivante, appuyées sur ce qui est resté en suspens.\n\"vigilance\" : tableau de 0 à 3 objets {\"point\", \"conduite\"}, uniquement si la transcription contient un élément qui mérite l'attention du praticien (détresse marquée, mention médicale, sujet hors du champ de l'hypnose). \"conduite\" décrit la conduite professionnelle à envisager, jamais un diagnostic. Tableau vide s'il n'y a rien à signaler.\n\"categories_audio\" : tableau de 1 à 3 objets {\"categorie\", \"pourquoi\"} où \"categorie\" est choisie STRICTEMENT dans cette liste : « " + categories.join(", ") + " » ; \"pourquoi\" est une phrase disant ce que cet audio viendrait soutenir chez ce patient. Ce sont les rayons de la bibliothèque d'audios de la thérapeute, pas des titres.\n\"message\" : un message de 40 à 70 mots, à la deuxième personne, chaleureux et sans jargon, que la thérapeute pourra envoyer au patient dans la journée pour accompagner les modules retenus."
 }
 
 /* ------------------------------------------------------------------ *
