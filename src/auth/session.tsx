@@ -160,3 +160,15 @@ export function useAuth(): AuthState {
   if (!value) throw new Error('useAuth doit être utilisé dans <SessionProvider>')
   return value
 }
+
+/**
+ * La session quand elle existe, null sinon.
+ *
+ * Certains composants — l'en-tête, par exemple — sont rendus aussi bien dans
+ * l'application connectée que dans la démonstration publique et le banc de
+ * rendu, qui n'ont pas de fournisseur de session. Ceux-là demandent sans
+ * exiger.
+ */
+export function useMaybeAuth(): AuthState | null {
+  return useContext(AuthContext)
+}

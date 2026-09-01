@@ -126,6 +126,11 @@
 .picker {
   display: flex;
   gap: 6px;
+  /* Remises à zéro du `fieldset` : bordure, marges et largeur minimale. */
+  border: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
 }
 
 .period {
@@ -167,10 +172,10 @@
   }
 }
 
-/* Pendant un changement d'offre, les pilules du cabinet ne répondent plus. */
+/* Le cabinet dont l'offre part en base : c'est le `fieldset` désactivé qui
+   coupe le clic, cette teinte dit seulement lequel attend. */
 .pickerBusy {
   opacity: 0.55;
-  pointer-events: none;
 }
 
 .demo {

@@ -116,8 +116,11 @@ function Editeur({ row }: { row: PortfolioRow }) {
   }
 
   async function publier() {
+    if (publication) return
     setPublication(true)
     setEchec('')
+    // La réussite précédente ne doit pas rester affichée à côté d'un échec.
+    if (state.rNotice) set({ rNotice: '' })
     const res = await enregistrerMarque(row.cabinet.id, {
       name: draft.name,
       slug: draft.slug,

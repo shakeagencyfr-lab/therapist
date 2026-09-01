@@ -5,7 +5,7 @@ import { euroCents, plural } from '@/lib/format'
 import { useResellerData } from '@/reseller/context'
 import { mrrCents } from '@/state/resellerSelectors'
 import { useStore } from '@/state/store'
-import type { PlanCode } from '@/types/reseller'
+import type { PlanCode, PortfolioRow } from '@/types/reseller'
 import s from './PlansView.module.css'
 
 export function PlansView() {
@@ -16,11 +16,16 @@ export function PlansView() {
   const [echec, setEchec] = useState('')
 
   /** Changer d'offre déplace le plafond de consommation avec elle. */
-  async function changePlan(cabinetId: string, plan: PlanCode) {
-    if (enCours) return
-    setEnCours(cabinetId)
+  async function changePlan(row: PortfolioRow, plan: PlanCode) {
+    // Recliquer l'offre déjà en cours n'écrit rien : ce serait une écriture
+    // pour rien, et un message de réussite pour un changement qui n'a pas eu
+    // lieu.
+    if (enCours || row.subscription.plan === plan) return
+    setEnCours(row.cabinet.id)
     setEchec('')
-    const resultat = await changerOffre(cabinetId, plan)
+    // La réussite précédente ne doit pas rester affichée à côté d'un échec.
+    if (state.rNotice) set({ rNotice: '' })
+    const resultat = await changerOffre(row.cabinet.id, plan)
     setEnCours('')
     if (resultat.ok) set({ rNotice: resultat.message })
     else setEchec(resultat.message)
@@ -117,18 +122,24 @@ export function PlansView() {
                 </div>
               </div>
 
-              <div className={occupe ? `${s.picker} ${s.pickerBusy}` : s.picker}>
+              {/* Un `fieldset` désactivé neutralise ses boutons pour de bon,
+                  souris et clavier compris : `Chip` n'a pas de `disabled`, et
+                  une pilule seulement grisée reste actionnable au clavier. */}
+              <fieldset
+                className={occupe ? `${s.picker} ${s.pickerBusy}` : s.picker}
+                disabled={enCours !== ''}
+              >
                 {PLANS.map((plan) => (
                   <Chip
                     key={plan.code}
                     on={row.subscription.plan === plan.code}
-                    onClick={() => void changePlan(row.cabinet.id, plan.code)}
+                    onClick={() => void changePlan(row, plan.code)}
                     title={`Passer ${row.cabinet.name} à l'offre ${plan.label}`}
                   >
                     {plan.label}
                   </Chip>
                 ))}
-              </div>
+              </fieldset>
 
               <div className={s.spend}>
                 <div className={s.spendLine}>

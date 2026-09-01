@@ -102,6 +102,8 @@ export function CabinetPortfolio() {
   const [invitEnCours, setInvitEnCours] = useState('')
   const [invitEchec, setInvitEchec] = useState<{ id: string; message: string } | null>(null)
 
+  const canCreate = state.rNewName.trim().length >= 3 && state.rNewTherapist.trim().length >= 3
+
   function openCabinet(id: string) {
     set({ rSel: id, rView: 'brand', rNotice: '' })
   }
@@ -110,6 +112,8 @@ export function CabinetPortfolio() {
     if (!canCreate || ouverture) return
     setOuverture(true)
     setEchec('')
+    // La réussite précédente ne doit pas rester affichée à côté d'un échec.
+    if (state.rNotice) set({ rNotice: '' })
     const resultat = await ouvrirCabinet({
       nom: state.rNewName,
       slug: state.rNewSlug,
@@ -138,6 +142,7 @@ export function CabinetPortfolio() {
     if (!email || invitEnCours) return
     setInvitEnCours(cabinetId)
     setInvitEchec(null)
+    if (state.rNotice) set({ rNotice: '' })
     const resultat = await inviterPraticienne(cabinetId, email)
     setInvitEnCours('')
     if (resultat.ok) {
@@ -147,8 +152,6 @@ export function CabinetPortfolio() {
     }
     setInvitEchec({ id: cabinetId, message: resultat.message })
   }
-
-  const canCreate = state.rNewName.trim().length >= 3 && state.rNewTherapist.trim().length >= 3
 
   return (
     <>
