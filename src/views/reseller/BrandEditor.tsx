@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { Button, Chip, FieldLabel, Notice, TextInput } from '@/components/ui'
 import { BRAND_PRESETS } from '@/data/reseller'
-import { cabinetById, portfolio, slugify } from '@/state/resellerSelectors'
+import { useResellerData } from '@/reseller/context'
+import { slugify } from '@/state/resellerSelectors'
 import { useStore } from '@/state/store'
-import type { CabinetBranding } from '@/types/reseller'
+import type { Cabinet, CabinetBranding, PortfolioRow } from '@/types/reseller'
 import s from './BrandEditor.module.css'
 
 /** Éclaircit ou assombrit une couleur hexadécimale d'un facteur donné. */
@@ -18,22 +20,90 @@ function shade(hex: string, factor: number): string {
 
 const HEX = /^#[0-9a-fA-F]{6}$/
 
-export function BrandEditor() {
-  const { state, set } = useStore()
-  const rows = portfolio(state)
-  const cabinet = cabinetById(state, state.rSel)
-  const branding = cabinet.branding
+/** Les couleurs livrées avec un cabinet neuf. */
+const ORIGINE = {
+  accent: '#A17A45',
+  accentHover: '#856239',
+  accentDeep: '#6E5230',
+  dark: '#33291C',
+}
 
-  /** Applique un correctif de marque au cabinet ouvert. */
+/** Ce qui s'édite ici, et qui part tel quel à `enregistrerMarque`. */
+interface Fiche {
+  name: string
+  slug: string
+  tagline: string
+  branding: CabinetBranding
+}
+
+function ficheDe(cabinet: Cabinet): Fiche {
+  return {
+    name: cabinet.name,
+    slug: cabinet.slug,
+    tagline: cabinet.tagline,
+    branding: { ...cabinet.branding },
+  }
+}
+
+/** Vrai quand le brouillon dit exactement ce qui est déjà publié. */
+function memeFiche(a: Fiche, b: Fiche): boolean {
+  return (
+    a.name === b.name &&
+    a.slug === b.slug &&
+    a.tagline === b.tagline &&
+    a.branding.accent === b.branding.accent &&
+    a.branding.accentHover === b.branding.accentHover &&
+    a.branding.accentDeep === b.branding.accentDeep &&
+    a.branding.dark === b.branding.dark &&
+    a.branding.logo === b.branding.logo
+  )
+}
+
+export function BrandEditor() {
+  const { rows, chargement, erreur } = useResellerData()
+  const { state } = useStore()
+  const row = rows.find((r) => r.cabinet.id === state.rSel) ?? rows[0]
+
+  return (
+    <>
+      {chargement ? <p className={s.hint}>Chargement de vos cabinets…</p> : null}
+      {erreur ? (
+        <Notice tone="warn" style={{ marginBottom: 14 }}>
+          {erreur}
+        </Notice>
+      ) : null}
+      {row ? (
+        /* Changer de cabinet repart de sa fiche publiée : la clé jette le
+           brouillon du précédent plutôt que de le traîner d'un cabinet à
+           l'autre. */
+        <Editeur key={row.cabinet.id} row={row} />
+      ) : chargement || erreur ? null : (
+        <p className={s.hint}>Aucun cabinet à régler pour le moment.</p>
+      )}
+    </>
+  )
+}
+
+/**
+ * L'édition se fait sur un brouillon local : l'aperçu suit la frappe, la base
+ * n'est touchée qu'à la publication.
+ */
+function Editeur({ row }: { row: PortfolioRow }) {
+  const { rows, reel, enregistrerMarque } = useResellerData()
+  const { state, set } = useStore()
+  const publie = ficheDe(row.cabinet)
+  const [draft, setDraft] = useState<Fiche>(publie)
+  const [publication, setPublication] = useState(false)
+  const [echec, setEchec] = useState('')
+  const cabinet = draft
+  const branding = draft.branding
+  const modifie = !memeFiche(draft, publie)
+
+  /** Applique un correctif de marque au brouillon ouvert. */
   function patch(next: Partial<CabinetBranding>, extra?: Partial<{ name: string; slug: string; tagline: string }>) {
-    set((prev) => ({
-      rCabinets: prev.rCabinets.map((c) =>
-        c.id === cabinet.id
-          ? { ...c, ...extra, branding: { ...c.branding, ...next } }
-          : c,
-      ),
-      rNotice: '',
-    }))
+    setDraft((prev) => ({ ...prev, ...extra, branding: { ...prev.branding, ...next } }))
+    setEchec('')
+    if (state.rNotice) set({ rNotice: '' })
   }
 
   /** L'accent choisi donne ses deux variantes : survol et lien appuyé. */
@@ -45,25 +115,45 @@ export function BrandEditor() {
     })
   }
 
+  async function publier() {
+    setPublication(true)
+    setEchec('')
+    const res = await enregistrerMarque(row.cabinet.id, {
+      name: draft.name,
+      slug: draft.slug,
+      tagline: draft.tagline,
+      branding: draft.branding,
+    })
+    setPublication(false)
+    if (res.ok) set({ rNotice: res.message })
+    else setEchec(res.message)
+  }
+
   return (
     <div className={s.grid}>
       <section className={s.panel}>
-        <h2 className={s.panelTitle}>{cabinet.name}</h2>
+        <h2 className={s.panelTitle}>{row.cabinet.name}</h2>
         <p className={s.panelSub}>
-          {cabinet.therapist} · {cabinet.since}
+          {row.cabinet.therapist} · {row.cabinet.since}
         </p>
+
+        {!reel ? (
+          <p className={s.hint}>
+            Démonstration : ces cabinets sont fictifs. Connectez-vous pour régler la marque des vôtres.
+          </p>
+        ) : null}
 
         <div className={s.field}>
           <FieldLabel>Cabinet à régler</FieldLabel>
           <div className={s.presets}>
-            {rows.map((row) => (
+            {rows.map((r) => (
               <Chip
-                key={row.cabinet.id}
-                on={row.cabinet.id === cabinet.id}
-                onClick={() => set({ rSel: row.cabinet.id, rNotice: '' })}
+                key={r.cabinet.id}
+                on={r.cabinet.id === row.cabinet.id}
+                onClick={() => set({ rSel: r.cabinet.id, rNotice: '' })}
               >
-                <span className={s.swatch} style={{ background: row.cabinet.branding.accent }} aria-hidden />
-                {row.cabinet.name}
+                <span className={s.swatch} style={{ background: r.cabinet.branding.accent }} aria-hidden />
+                {r.cabinet.name}
               </Chip>
             ))}
           </div>
@@ -180,28 +270,23 @@ export function BrandEditor() {
           </Notice>
         ) : null}
 
+        {echec ? (
+          <Notice tone="warn" style={{ marginBottom: 14 }}>
+            {echec}
+          </Notice>
+        ) : null}
+
+        {modifie ? (
+          <p className={s.hint} style={{ margin: '0 0 10px' }}>
+            Modifications non publiées : l'aperçu les montre, l'espace du cabinet pas encore.
+          </p>
+        ) : null}
+
         <div className={s.actions}>
-          <Button
-            variant="primary"
-            onClick={() =>
-              set({
-                rNotice: `La marque de ${cabinet.name} est publiée. Elle s'applique à l'espace de la thérapeute et à l'application de ses patients.`,
-              })
-            }
-          >
-            Publier la marque
+          <Button variant="primary" disabled={publication} onClick={() => void publier()}>
+            {publication ? 'Publication…' : 'Publier la marque'}
           </Button>
-          <Button
-            variant="ghost"
-            onClick={() =>
-              patch({
-                accent: '#A17A45',
-                accentHover: '#856239',
-                accentDeep: '#6E5230',
-                dark: '#33291C',
-              })
-            }
-          >
+          <Button variant="ghost" onClick={() => patch(ORIGINE)}>
             Revenir aux couleurs d'origine
           </Button>
         </div>

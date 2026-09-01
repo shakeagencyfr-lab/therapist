@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   Button,
   Chip,
@@ -15,15 +16,17 @@ import {
   mrrCents,
   nearCap,
   needsAttention,
-  planOf,
-  portfolio,
   slugify,
   totals,
 } from '@/state/resellerSelectors'
 import { useStore } from '@/state/store'
+import { useResellerData } from '@/reseller/context'
 import { PLANS, STATUS_LABEL } from '@/data/reseller'
-import type { Cabinet, PlanCode, PortfolioRow, SubscriptionStatus } from '@/types/reseller'
+import type { PlanCode, PortfolioRow, SubscriptionStatus } from '@/types/reseller'
 import s from './CabinetPortfolio.module.css'
+
+/** Ce que la couche d'accès écrit quand aucune praticienne n'est rattachée. */
+const SANS_PRATICIENNE = 'Aucune praticienne'
 
 /** Ton de la pilule de statut d'abonnement. */
 function statusTone(status: SubscriptionStatus) {
@@ -87,64 +90,62 @@ function CabinetRow({ row, on, onSelect }: { row: PortfolioRow; on: boolean; onS
 
 export function CabinetPortfolio() {
   const { state, set } = useStore()
-  const rows = portfolio(state)
+  const { rows, reel, chargement, erreur, ouvrirCabinet, inviterPraticienne } = useResellerData()
   const sums = totals(rows)
   const warned = nearCap(rows)
   const late = needsAttention(rows)
+
+  /** Écriture en cours : le bouton attend la base plutôt que la mémoire. */
+  const [ouverture, setOuverture] = useState(false)
+  const [echec, setEchec] = useState('')
+  const [invitEmail, setInvitEmail] = useState<Record<string, string>>({})
+  const [invitEnCours, setInvitEnCours] = useState('')
+  const [invitEchec, setInvitEchec] = useState<{ id: string; message: string } | null>(null)
 
   function openCabinet(id: string) {
     set({ rSel: id, rView: 'brand', rNotice: '' })
   }
 
-  function createCabinet() {
-    const name = state.rNewName.trim()
-    const therapist = state.rNewTherapist.trim()
-    if (name.length < 3 || therapist.length < 3) return
-    const slug = (state.rNewSlug.trim() || slugify(name)).slice(0, 50)
-    const plan = planOf(state.rNewPlan)
-    const cabinet: Cabinet = {
-      id: slug,
-      name,
-      slug,
-      tagline: 'Espace thérapie',
-      branding: {
-        accent: '#A17A45',
-        accentHover: '#856239',
-        accentDeep: '#6E5230',
-        dark: '#33291C',
-        logo: name
-          .split(/\s+/)
-          .filter((w) => /[A-Za-zÀ-ÿ]/.test(w))
-          .slice(-2)
-          .map((w) => w[0]?.toUpperCase() ?? '')
-          .join('') || 'CB',
-      },
-      therapist,
-      email: state.rNewEmail.trim(),
-      since: "Ouvert à l'instant",
-      archived: false,
+  async function createCabinet() {
+    if (!canCreate || ouverture) return
+    setOuverture(true)
+    setEchec('')
+    const resultat = await ouvrirCabinet({
+      nom: state.rNewName,
+      slug: state.rNewSlug,
+      praticienne: state.rNewTherapist,
+      email: state.rNewEmail,
+      offre: state.rNewPlan,
+    })
+    setOuverture(false)
+    if (resultat.ok) {
+      set({
+        rNewOpen: false,
+        rNewName: '',
+        rNewSlug: '',
+        rNewEmail: '',
+        rNewTherapist: '',
+        rNotice: resultat.message,
+      })
+      return
     }
-    set((prev) => ({
-      rCabinets: prev.rCabinets.concat([cabinet]),
-      rSubs: {
-        ...prev.rSubs,
-        [cabinet.id]: {
-          cabinetId: cabinet.id,
-          plan: prev.rNewPlan,
-          status: 'essai',
-          periodEnd: 'dans 14 jours',
-          capOverrideCents: null,
-        },
-      },
-      rNewOpen: false,
-      rNewName: '',
-      rNewSlug: '',
-      rNewEmail: '',
-      rNewTherapist: '',
-      rNotice: `${cabinet.name} est ouvert en essai sur l'offre ${plan.label}. ${
-        cabinet.email ? `L'invitation part à ${cabinet.email}.` : 'Reste à inviter la thérapeute.'
-      }`,
-    }))
+    // On garde la saisie : rien n'est plus pénible qu'un formulaire à retaper.
+    setEchec(resultat.message)
+  }
+
+  async function inviter(cabinetId: string) {
+    const email = (invitEmail[cabinetId] ?? '').trim()
+    if (!email || invitEnCours) return
+    setInvitEnCours(cabinetId)
+    setInvitEchec(null)
+    const resultat = await inviterPraticienne(cabinetId, email)
+    setInvitEnCours('')
+    if (resultat.ok) {
+      setInvitEmail((prev) => ({ ...prev, [cabinetId]: '' }))
+      set({ rNotice: resultat.message })
+      return
+    }
+    setInvitEchec({ id: cabinetId, message: resultat.message })
   }
 
   const canCreate = state.rNewName.trim().length >= 3 && state.rNewTherapist.trim().length >= 3
@@ -168,6 +169,19 @@ export function CabinetPortfolio() {
         <StatCard label="Revenu mensuel" value={euroCents(mrrCents(rows))} unit="récurrent" progress={100} />
       </div>
 
+      {erreur ? (
+        <Notice tone="warn" style={{ marginBottom: 18 }}>
+          {erreur}
+        </Notice>
+      ) : null}
+
+      {/* Dit une fois, sobrement : sans session, ces cabinets sont fictifs. */}
+      {!reel ? (
+        <p className={s.demo}>
+          Portefeuille de démonstration : connectez-vous pour voir vos cabinets.
+        </p>
+      ) : null}
+
       {state.rNotice ? (
         <Notice tone="ok" style={{ marginBottom: 18 }}>
           {state.rNotice}
@@ -182,15 +196,43 @@ export function CabinetPortfolio() {
               {plural(rows.length, 'cabinet', 'cabinets')}
             </span>
           </div>
+          {chargement ? <div className={s.loading}>Chargement du portefeuille…</div> : null}
           {rows.map((row) => (
-            <CabinetRow
-              key={row.cabinet.id}
-              row={row}
-              on={row.cabinet.id === state.rSel}
-              onSelect={() => openCabinet(row.cabinet.id)}
-            />
+            <div key={row.cabinet.id} className={s.item}>
+              <CabinetRow
+                row={row}
+                on={row.cabinet.id === state.rSel}
+                onSelect={() => openCabinet(row.cabinet.id)}
+              />
+              {row.cabinet.therapist === SANS_PRATICIENNE ? (
+                <div className={s.invite}>
+                  <TextInput
+                    type="email"
+                    value={invitEmail[row.cabinet.id] ?? ''}
+                    onChange={(e) =>
+                      setInvitEmail((prev) => ({ ...prev, [row.cabinet.id]: e.target.value }))
+                    }
+                    placeholder="claire@cabinet-fontaine.fr"
+                    aria-label={`Courriel d'invitation pour ${row.cabinet.name}`}
+                  />
+                  <Button
+                    onClick={() => void inviter(row.cabinet.id)}
+                    disabled={
+                      (invitEmail[row.cabinet.id] ?? '').trim().length === 0 || invitEnCours !== ''
+                    }
+                  >
+                    {invitEnCours === row.cabinet.id ? 'Invitation…' : 'Inviter'}
+                  </Button>
+                </div>
+              ) : null}
+              {invitEchec && invitEchec.id === row.cabinet.id ? (
+                <Notice tone="warn" style={{ margin: '0 20px 14px' }}>
+                  {invitEchec.message}
+                </Notice>
+              ) : null}
+            </div>
           ))}
-          {rows.length === 0 ? (
+          {rows.length === 0 && !chargement ? (
             <div style={{ padding: 20 }}>
               <EmptyState>
                 Aucun cabinet ouvert. Le premier se crée en deux champs : le nom du cabinet et
@@ -308,9 +350,10 @@ export function CabinetPortfolio() {
                     ))}
                   </div>
                 </div>
+                {echec ? <Notice tone="warn">{echec}</Notice> : null}
                 <div className={s.actions}>
-                  <Button variant="primary" onClick={createCabinet} disabled={!canCreate}>
-                    Ouvrir le cabinet
+                  <Button variant="primary" onClick={() => void createCabinet()} disabled={!canCreate || ouverture}>
+                    {ouverture ? 'Ouverture…' : 'Ouvrir le cabinet'}
                   </Button>
                   <Button variant="ghost" onClick={() => set({ rNewOpen: false })}>
                     Annuler

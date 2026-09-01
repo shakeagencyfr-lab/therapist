@@ -1,28 +1,29 @@
+import { useState } from 'react'
 import { Chip, Notice, Pill } from '@/components/ui'
 import { PLANS, STATUS_LABEL } from '@/data/reseller'
 import { euroCents, plural } from '@/lib/format'
-import { mrrCents, portfolio } from '@/state/resellerSelectors'
+import { useResellerData } from '@/reseller/context'
+import { mrrCents } from '@/state/resellerSelectors'
 import { useStore } from '@/state/store'
 import type { PlanCode } from '@/types/reseller'
 import s from './PlansView.module.css'
 
 export function PlansView() {
+  const { rows, reel, chargement, erreur, changerOffre } = useResellerData()
   const { state, set } = useStore()
-  const rows = portfolio(state)
+  /** Le cabinet dont l'offre est en cours de changement, s'il y en a un. */
+  const [enCours, setEnCours] = useState('')
+  const [echec, setEchec] = useState('')
 
   /** Changer d'offre déplace le plafond de consommation avec elle. */
-  function changePlan(cabinetId: string, plan: PlanCode) {
-    const cabinet = rows.find((r) => r.cabinet.id === cabinetId)?.cabinet
-    const label = PLANS.find((p) => p.code === plan)?.label ?? plan
-    set((prev) => ({
-      rSubs: {
-        ...prev.rSubs,
-        [cabinetId]: { ...prev.rSubs[cabinetId], plan },
-      },
-      rNotice: cabinet
-        ? `${cabinet.name} passe à l'offre ${label}. Le nouveau plafond s'applique au prochain cycle.`
-        : '',
-    }))
+  async function changePlan(cabinetId: string, plan: PlanCode) {
+    if (enCours) return
+    setEnCours(cabinetId)
+    setEchec('')
+    const resultat = await changerOffre(cabinetId, plan)
+    setEnCours('')
+    if (resultat.ok) set({ rNotice: resultat.message })
+    else setEchec(resultat.message)
   }
 
   return (
@@ -67,6 +68,25 @@ export function PlansView() {
         })}
       </div>
 
+      {erreur ? (
+        <Notice tone="warn" style={{ marginBottom: 18 }}>
+          {erreur}
+        </Notice>
+      ) : null}
+
+      {echec ? (
+        <Notice tone="warn" style={{ marginBottom: 18 }}>
+          {echec}
+        </Notice>
+      ) : null}
+
+      {/* Dit une fois, sobrement : sans session, ces abonnements sont fictifs. */}
+      {!reel ? (
+        <p className={s.demo}>
+          Abonnements de démonstration : connectez-vous pour voir ceux de vos cabinets.
+        </p>
+      ) : null}
+
       {state.rNotice ? (
         <Notice tone="ok" style={{ marginBottom: 18 }}>
           {state.rNotice}
@@ -81,8 +101,12 @@ export function PlansView() {
           </span>
         </div>
 
+        {chargement ? <div className={s.loading}>Chargement des abonnements…</div> : null}
+
         {rows.map((row) => {
           const over = row.usagePct > 100
+          const occupe = enCours === row.cabinet.id
+          const echeance = row.subscription.periodEnd.trim()
           return (
             <div key={row.cabinet.id} className={s.row}>
               <div>
@@ -93,12 +117,12 @@ export function PlansView() {
                 </div>
               </div>
 
-              <div className={s.picker}>
+              <div className={occupe ? `${s.picker} ${s.pickerBusy}` : s.picker}>
                 {PLANS.map((plan) => (
                   <Chip
                     key={plan.code}
                     on={row.subscription.plan === plan.code}
-                    onClick={() => changePlan(row.cabinet.id, plan.code)}
+                    onClick={() => void changePlan(row.cabinet.id, plan.code)}
                     title={`Passer ${row.cabinet.name} à l'offre ${plan.label}`}
                   >
                     {plan.label}
@@ -142,7 +166,10 @@ export function PlansView() {
                 >
                   {STATUS_LABEL[row.subscription.status]}
                 </Pill>
-                <div style={{ marginTop: 5 }}>Échéance le {row.subscription.periodEnd}</div>
+                {/* Pas d'échéance en base : un tiret, plutôt qu'une date inventée. */}
+                <div style={{ marginTop: 5 }}>
+                  {echeance && echeance !== '—' ? `Échéance le ${echeance}` : '—'}
+                </div>
               </div>
             </div>
           )

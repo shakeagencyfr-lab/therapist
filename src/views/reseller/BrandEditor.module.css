@@ -26,6 +26,14 @@
   margin: 0 0 16px;
 }
 
+/* Ligne discrète : chargement, démonstration, brouillon non publié. */
+.hint {
+  font-size: 12px;
+  color: var(--c-text-muted);
+  line-height: 1.5;
+  margin: 0 0 14px;
+}
+
 .field {
   margin-bottom: 14px;
 }
