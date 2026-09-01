@@ -7,6 +7,7 @@ import { AtelierView } from '@/views/atelier/AtelierView'
 import { AudiosView } from '@/views/audios/AudiosView'
 import { NotificationsView } from '@/views/notifications/NotificationsView'
 import { ResellerSpace } from '@/views/reseller/ResellerSpace'
+import { IntegrationsView } from '@/views/integrations/IntegrationsView'
 
 /**
  * Deux espaces, deux métiers : la thérapeute suit ses patients, le revendeur
@@ -25,6 +26,7 @@ export function App() {
       {space === 'cabinet' && mode === 'atelier' && <AtelierView />}
       {space === 'cabinet' && mode === 'audios' && <AudiosView />}
       {space === 'cabinet' && mode === 'notif' && <NotificationsView />}
+      {space === 'cabinet' && mode === 'integrations' && <IntegrationsView />}
     </div>
   )
 }

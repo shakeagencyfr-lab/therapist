@@ -30,7 +30,14 @@ export type Space = 'cabinet' | 'reseller'
 export type ResellerView = 'portfolio' | 'brand' | 'plans'
 
 /** Vue affichée par le commutateur de l'en-tête. Une seule à la fois. */
-export type ViewMode = 'therapist' | 'patient' | 'session' | 'atelier' | 'audios' | 'notif'
+export type ViewMode =
+  | 'therapist'
+  | 'patient'
+  | 'session'
+  | 'atelier'
+  | 'audios'
+  | 'notif'
+  | 'integrations'
 
 /** Vue interne de la maquette téléphone. */
 export type PatientView = 'home' | 'journal'

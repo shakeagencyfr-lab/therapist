@@ -17,6 +17,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { HttpError } from './errors.js'
 import { baseConfiguree, clientAdmin, identifier, type Appelant } from './auth.js'
+import { cleAnthropicDuCabinet } from './integrations.js'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import type { ZodType } from 'zod'
 
@@ -73,29 +74,36 @@ function mockMode(): boolean {
   return process.env.AI_MOCK === '1'
 }
 
-/** La clé est-elle présente ? Hors maquette, sans elle il n'y a pas d'analyse. */
-function keyConfigured(): boolean {
-  const key = process.env.ANTHROPIC_API_KEY ?? process.env.ANTHROPIC_AUTH_TOKEN ?? ''
-  return key.trim() !== ''
-}
-
 /**
- * Barrière posée devant chaque fonction : plutôt que de rendre du texte
- * inventé, on dit que l'analyse n'est pas configurée.
+ * D'où vient la clé d'un appel.
+ *
+ * Le cabinet qui a posé la sienne (onglet Intégrations) paie ses propres
+ * appels ; sinon la plateforme prête la sienne. La résolution se fait une
+ * fois par requête, avant tout appel : un cabinet sans clé et une plateforme
+ * sans clé, c'est un 503 qui le dit, jamais un texte inventé.
  */
-function requireKey(): void {
-  if (mockMode() || keyConfigured()) return
-  throw new HttpError(
-    503,
-    "L'analyse n'est pas configurée sur ce serveur (clé Anthropic absente). Aucune note n'a été produite.",
-  )
+export interface Cle {
+  apiKey: string
+  source: 'cabinet' | 'plateforme'
 }
 
-let anthropic: Anthropic | null = null
-function client(): Anthropic {
-  // Instancié à la première requête réelle : le serveur démarre sans clé.
-  if (!anthropic) anthropic = new Anthropic()
-  return anthropic
+async function resoudreCle(cabinetId: string | null): Promise<Cle | null> {
+  if (cabinetId) {
+    const propre = await cleAnthropicDuCabinet(cabinetId)
+    if (propre) return { apiKey: propre, source: 'cabinet' }
+  }
+  const plateforme = (process.env.ANTHROPIC_API_KEY ?? process.env.ANTHROPIC_AUTH_TOKEN ?? '').trim()
+  return plateforme ? { apiKey: plateforme, source: 'plateforme' } : null
+}
+
+function client(cle: Cle | null): Anthropic {
+  if (!cle) {
+    throw new HttpError(
+      503,
+      "L'analyse n'est pas configurée : aucune clé Anthropic, ni pour ce cabinet (onglet Intégrations), ni sur le serveur. Aucune note n'a été produite.",
+    )
+  }
+  return new Anthropic({ apiKey: cle.apiKey })
 }
 
 /* ------------------------------------------------------------------ *
@@ -147,6 +155,7 @@ interface CallOptions<T> {
   system: string
   prompt: string
   maxTokens: number
+  cle: Cle | null
 }
 
 /**
@@ -168,8 +177,8 @@ interface Produit<T> {
   usage: Usage | null
 }
 
-async function callClaude<T>({ schema, system, prompt, maxTokens }: CallOptions<T>): Promise<Produit<T>> {
-  const message = await client().messages.parse({
+async function callClaude<T>({ schema, system, prompt, maxTokens, cle }: CallOptions<T>): Promise<Produit<T>> {
+  const message = await client(cle).messages.parse({
     model: MODEL,
     max_tokens: maxTokens,
     system,
@@ -227,7 +236,7 @@ export interface AiResult {
   data: unknown
 }
 
-async function sessionDraft(body: Partial<SessionDraftBody>): Promise<Produit<unknown>> {
+async function sessionDraft(body: Partial<SessionDraftBody>, cle: Cle | null): Promise<Produit<unknown>> {
   const context = asContext(body.context)
   const categories = asStrings(body.categories)
   const transcript = asText(body.transcript)
@@ -238,17 +247,17 @@ async function sessionDraft(body: Partial<SessionDraftBody>): Promise<Produit<un
       "Il faut un peu plus de matière. Dictez quelques phrases ou chargez la séance d'exemple.",
     )
   }
-  requireKey()
   if (mockMode()) return { data: mockSessionDraft(context, categories), usage: null }
   return callClaude({
     schema: sessionDraftSchema,
     system: SESSION_DRAFT_SYSTEM,
     prompt: sessionDraftPrompt(material, categories, hasSpeakerLabels(transcript)),
     maxTokens: 3000,
+    cle,
   })
 }
 
-async function customModule(body: Partial<ModuleContext>): Promise<Produit<unknown>> {
+async function customModule(body: Partial<ModuleContext>, cle: Cle | null): Promise<Produit<unknown>> {
   const intent = asText(body.intent).trim()
   if (intent.length < 15) {
     throw new HttpError(
@@ -261,31 +270,30 @@ async function customModule(body: Partial<ModuleContext>): Promise<Produit<unkno
     type: (asText(body.type) || 'Exercice') as ModuleKind,
     quiz: body.quiz !== false,
   }
-  requireKey()
   if (mockMode()) return { data: mockGeneratedModule(brief), usage: null }
   return callClaude({
     schema: generatedModuleSchema,
     system: MODULE_SYSTEM,
     prompt: modulePrompt(brief),
     maxTokens: 1600,
+    cle,
   })
 }
 
-async function affirmations(body: Partial<AffirmationsBody>): Promise<Produit<unknown>> {
+async function affirmations(body: Partial<AffirmationsBody>, cle: Cle | null): Promise<Produit<unknown>> {
   const context = asContext(body.context)
-  requireKey()
   if (mockMode()) return { data: mockGeneratedAffirmations(context), usage: null }
   return callClaude({
     schema: generatedAffirmationsSchema,
     system: AFFIRMATIONS_SYSTEM,
     prompt: affirmationsPrompt(context),
     maxTokens: 800,
+    cle,
   })
 }
 
-async function profile(body: Partial<ProfileBody>): Promise<Produit<unknown>> {
+async function profile(body: Partial<ProfileBody>, cle: Cle | null): Promise<Produit<unknown>> {
   const context = asContext(body.context)
-  requireKey()
   if (mockMode()) return { data: mockGeneratedProfile(context), usage: null }
   const { data: generated, usage } = await callClaude({
     schema: generatedProfileSchema,
@@ -297,6 +305,7 @@ async function profile(body: Partial<ProfileBody>): Promise<Produit<unknown>> {
       transcript: asText(body.transcript).trim(),
     }),
     maxTokens: 1400,
+    cle,
   })
   // Les axes sont affichés sur une piste 0–100 : on borne avant de servir.
   return {
@@ -377,7 +386,12 @@ export async function handleAi(route: AiRoute, raw: unknown, token: string | nul
     }
   }
 
-  const produit = await produire(route, body)
+  // Hors maquette, il faut une clé — celle du cabinet, sinon celle de la
+  // plateforme. Sans aucune, le refus est dit avant tout travail.
+  const cle = mock ? null : await resoudreCle(appelant?.cabinetId ?? null)
+  if (!mock) client(cle)
+
+  const produit = await produire(route, body, cle)
 
   if (appelant?.cabinetId && produit.usage) {
     await compter(route, appelant.cabinetId, produit.usage)
@@ -385,16 +399,16 @@ export async function handleAi(route: AiRoute, raw: unknown, token: string | nul
   return { mock, data: produit.data }
 }
 
-function produire(route: AiRoute, body: Record<string, unknown>): Promise<Produit<unknown>> {
+function produire(route: AiRoute, body: Record<string, unknown>, cle: Cle | null): Promise<Produit<unknown>> {
   switch (route) {
     case 'session-draft':
-      return sessionDraft(body as Partial<SessionDraftBody>)
+      return sessionDraft(body as Partial<SessionDraftBody>, cle)
     case 'module':
-      return customModule(body as Partial<ModuleContext>)
+      return customModule(body as Partial<ModuleContext>, cle)
     case 'affirmations':
-      return affirmations(body as Partial<AffirmationsBody>)
+      return affirmations(body as Partial<AffirmationsBody>, cle)
     case 'profile':
-      return profile(body as Partial<ProfileBody>)
+      return profile(body as Partial<ProfileBody>, cle)
   }
 }
 

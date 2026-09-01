@@ -10,6 +10,7 @@ import type { Request, Response } from 'express'
 import { AI_ROUTES, currentMode, describeError, handleAi, type AiRoute } from './ai.js'
 import { jetonDe } from './auth.js'
 import { envoyerInvitation } from './invitations.js'
+import { appliquerIntegration, etatIntegrations } from './integrations.js'
 
 const PORT = Number(process.env.PORT) || 8787
 const PRODUCTION = process.env.NODE_ENV === 'production'
@@ -35,6 +36,26 @@ for (const route of AI_ROUTES) {
     }
   })
 }
+
+/** Intégrations du cabinet : lecture de l'état, puis actions. */
+app.get('/api/integrations', async (req: Request, res: Response): Promise<void> => {
+  try {
+    res.json(await etatIntegrations(jetonDe(req.headers.authorization)))
+  } catch (err) {
+    const { status, message } = describeError(err)
+    res.status(status).json({ error: message })
+  }
+})
+app.post('/api/integrations', async (req: Request, res: Response): Promise<void> => {
+  try {
+    res.json(await appliquerIntegration(jetonDe(req.headers.authorization), req.body))
+  } catch (err) {
+    const { status, message } = describeError(err)
+    // Journal technique seulement : jamais une clé, jamais un corps de requête.
+    console.error(`[integrations] ${status} · ${message}`)
+    res.status(status).json({ error: message })
+  }
+})
 
 app.post('/api/invitations', async (req: Request, res: Response): Promise<void> => {
   try {

@@ -13,6 +13,7 @@ const VIEWS: Array<{ value: ViewMode; label: string }> = [
   { value: 'atelier', label: 'Atelier' },
   { value: 'audios', label: 'Audios' },
   { value: 'notif', label: 'Notifications' },
+  { value: 'integrations', label: 'Intégrations' },
 ]
 
 const SPACES: Array<{ value: Space; label: string }> = [
