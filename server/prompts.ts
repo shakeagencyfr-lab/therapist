@@ -6,7 +6,7 @@
  * Les prompts vivent côté serveur : ils ne sont jamais exposés au navigateur,
  * pas plus que la clé d'API.
  */
-import type { ModuleContext, PatientContext } from './schemas'
+import type { ModuleContext, PatientContext } from './schemas.js'
 
 /* ------------------------------------------------------------------ *
  * 1. Brouillon de note de séance

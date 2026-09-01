@@ -13,8 +13,8 @@ import type {
   GeneratedModule,
   GeneratedProfile,
   SessionDraft,
-} from '../src/types/domain'
-import type { ModuleContext, PatientContext } from './schemas'
+} from '../src/types/domain.js'
+import type { ModuleContext, PatientContext } from './schemas.js'
 
 /** Prénom du patient, tel que les messages l'emploient. */
 function firstName(context: PatientContext): string {

@@ -14,6 +14,18 @@ import type {
 import { AUDIO_CATEGORIES, AUDIO_LIBRARY } from '@/data/audioLibrary'
 import { JOURNAL_PAGES } from '@/data/journalPages'
 import { INITIAL_AFFIRMATIONS, INITIAL_AFF_AUTO } from '@/data/affirmations'
+import { CABINETS, SUBSCRIPTIONS } from '@/data/reseller'
+import type { Cabinet, CabinetId, PlanCode, Subscription } from '@/types/reseller'
+
+/**
+ * L'espace ouvert. Deux personnes différentes, deux applications :
+ * la thérapeute suit ses patients, le revendeur suit ses cabinets et ne voit
+ * aucune donnée de santé.
+ */
+export type Space = 'cabinet' | 'reseller'
+
+/** Vue de l'espace revendeur. */
+export type ResellerView = 'portfolio' | 'brand' | 'plans'
 
 /** Vue affichée par le commutateur de l'en-tête. Une seule à la fois. */
 export type ViewMode = 'therapist' | 'patient' | 'session' | 'atelier' | 'audios' | 'notif'
@@ -36,6 +48,8 @@ export type AdherenceFilter = 'all' | 'low' | 'mid' | 'high'
  */
 export interface AppState {
   /* Navigation ---------------------------------------------------- */
+  /** Espace ouvert. Dans le produit réel, il découle du rôle du compte. */
+  space: Space
   mode: ViewMode
   /** Patient sélectionné dans la barre latérale. */
   sel: PatientId
@@ -168,9 +182,27 @@ export interface AppState {
   profGen: string
   /** Phrase de résumé du changement, par patient. */
   profNote: Record<PatientId, string>
+
+  /* Espace revendeur ------------------------------------------------ */
+  rView: ResellerView
+  /** Portefeuille : les cabinets vendus. Aucune donnée de santé. */
+  rCabinets: Cabinet[]
+  rSubs: Record<CabinetId, Subscription>
+  /** Cabinet ouvert dans l'éditeur de marque. */
+  rSel: CabinetId
+  /** Message de confirmation du dernier geste. */
+  rNotice: string
+  /** Formulaire d'ouverture d'un cabinet. */
+  rNewOpen: boolean
+  rNewName: string
+  rNewSlug: string
+  rNewEmail: string
+  rNewTherapist: string
+  rNewPlan: PlanCode
 }
 
 export const initialState: AppState = {
+  space: 'cabinet',
   mode: 'therapist',
   sel: 'camille',
   q: '',
@@ -254,4 +286,16 @@ export const initialState: AppState = {
   profNew: {},
   profGen: '',
   profNote: {},
+
+  rView: 'portfolio',
+  rCabinets: CABINETS,
+  rSubs: SUBSCRIPTIONS,
+  rSel: 'ollivier',
+  rNotice: '',
+  rNewOpen: false,
+  rNewName: '',
+  rNewSlug: '',
+  rNewEmail: '',
+  rNewTherapist: '',
+  rNewPlan: 'cabinet',
 }

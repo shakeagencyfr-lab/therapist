@@ -23,7 +23,7 @@ import {
   mockGeneratedModule,
   mockGeneratedProfile,
   mockSessionDraft,
-} from './mock'
+} from './mock.js'
 import {
   AFFIRMATIONS_SYSTEM,
   MODULE_SYSTEM,
@@ -34,21 +34,21 @@ import {
   profilePrompt,
   sessionDraftPrompt,
   sessionMaterial,
-} from './prompts'
+} from './prompts.js'
 import {
   generatedAffirmationsSchema,
   generatedModuleSchema,
   generatedProfileSchema,
   sessionDraftSchema,
-} from './schemas'
+} from './schemas.js'
 import type {
   AffirmationsBody,
   ModuleContext,
   PatientContext,
   ProfileBody,
   SessionDraftBody,
-} from './schemas'
-import type { ModuleKind } from '../src/types/domain'
+} from './schemas.js'
+import type { ModuleKind } from '../src/types/domain.js'
 
 /* ------------------------------------------------------------------ *
  * Configuration

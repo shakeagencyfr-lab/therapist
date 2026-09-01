@@ -56,6 +56,18 @@ note, il faut une bascule vers un hébergeur certifié (OVHcloud, Scaleway,
 Clever Cloud) ou un accord équivalent. Le schéma est du PostgreSQL standard,
 sans extension propriétaire, précisément pour que cette bascule reste possible.
 
+## La base est vierge
+
+Aucune donnée de démonstration n'est versée en base. Tout ce qui existe est
+créé depuis l'interface : le revendeur ouvre un cabinet et invite sa
+praticienne, la praticienne crée ses patients. La seule ligne posée à la main
+est l'organisation du revendeur et son invitation — il faut bien une première
+porte.
+
+Les données fictives de `src/data/` servent uniquement à l'affichage de
+démonstration, quand l'application tourne sans base configurée. Elles ne sont
+jamais écrites.
+
 ## Exécuter
 
 ```bash

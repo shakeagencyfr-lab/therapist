@@ -1,0 +1,39 @@
+# Vérification à chaque push et à chaque PR.
+#
+# Sans elle, un échec n'apparaît que comme une croix rouge muette à côté du
+# commit. Ici, le log est dans GitHub, lisible sans passer par Vercel.
+name: Vérification
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verifier:
+    name: Types, rendu et build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      # Types du client, du serveur et des fonctions Vercel.
+      # --force : sans lui, tsc -b saute la vérification quand le
+      # .tsbuildinfo est à jour, et sort 0 sans rien avoir contrôlé.
+      - name: Typage
+        run: npm run typecheck
+
+      # Les neuf vues rendent hors navigateur, et l'espace revendeur ne
+      # laisse filtrer aucun nom de patient ni extrait de dossier.
+      - name: Rendu et cloisonnement
+        run: npm run check:render
+
+      - name: Build de production
+        run: npm run build

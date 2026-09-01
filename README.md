@@ -38,12 +38,15 @@ de travailler l'interface sans appeler le modèle.
 ```bash
 npm run build      # typecheck + build de production
 npm run typecheck  # client et serveur
+npm run check      # typecheck, puis rendu des neuf vues et contrôle de cloisonnement
 ```
 
 ## Organisation
 
 ```
 design-reference/     le prototype HTML et sa spécification (référence de design)
+scripts/              banc de rendu : les neuf vues rendent, et l'espace
+                      revendeur ne montre aucun contenu de patient
 index.html            hôte Vite, polices Google (à auto-héberger en production)
 api/                  fonctions serverless Vercel : une par route IA
 server/               les quatre appels IA : prompts, schémas, mode maquette
@@ -60,7 +63,7 @@ src/
   styles/             jetons de design et styles globaux
   theme/              marque blanche : accent et sombre paramétrables
   types/              modèle de domaine
-  views/              les sept écrans
+  views/              les sept écrans du cabinet, plus l'espace revendeur
 ```
 
 ## Ce qui est porté depuis le prototype
@@ -79,6 +82,48 @@ Les différences volontaires :
   d'équivalent en production.
 - Les données patients sont typées et isolées dans `src/data/` pour rendre visible
   la frontière à remplacer par l'API.
+
+## Entrer dans l'application
+
+Il n'y a pas de mot de passe. On entre son adresse, on reçoit un lien, on est
+connecté. Sur une application qu'un patient ouvre deux minutes par jour, un mot
+de passe est le premier motif d'abandon.
+
+**Se connecter ne donne accès à rien en soi.** Le compte est créé au premier
+lien, puis `claim_access()` le rattache à ce qui l'attendait : une fiche patient
+créée par la thérapeute, une invitation de cabinet, une invitation de revendeur.
+Une adresse que personne n'a invitée obtient un compte valide et aucune donnée.
+C'est le quatrième cas de `supabase/tests/connexion.sql`, et le plus important.
+
+Deux surfaces, deux adresses :
+
+| Surface | Adresse | Pour |
+| --- | --- | --- |
+| Espace cabinet | `/` | la thérapeute, et le revendeur |
+| Espace patient | `/mon` | le patient, sur son téléphone |
+
+Ce ne sont pas deux vues d'une même page : ce sont deux points d'entrée Vite
+distincts. Le téléchargement du patient ne contient pas une ligne du code de
+l'espace cabinet — vérifié sur le build, pas supposé.
+
+## Trois niveaux
+
+Le produit est vendu à des cabinets par un revendeur. Trois rôles, et une règle
+qui ne se négocie pas : **le revendeur ne lit aucune donnée de santé.**
+
+| Niveau | Voit | Ne voit pas |
+| --- | --- | --- |
+| **Revendeur** | ses cabinets, ses interlocutrices, les abonnements, des compteurs agrégés | ni patient, ni note, ni transcription, ni journal |
+| **Cabinet** | tous ses patients et leurs données | les autres cabinets |
+| **Patient** | ses modules, ses audios, son journal, son échelle | le dossier clinique de la thérapeute |
+
+Le cloisonnement est appliqué en base : aucune politique RLS d'une table de
+santé ne mentionne l'appartenance à un revendeur, il n'a donc aucun chemin de
+lecture (`supabase/README.md`). L'espace revendeur (`src/views/reseller/`)
+ajoute le portefeuille de cabinets, l'éditeur de marque blanche avec aperçu, et
+les offres avec leur plafond de consommation IA. Les moyennes y disparaissent
+sous trois patients actifs : dans un cabinet d'un patient, une moyenne est un
+chiffre individuel.
 
 ## Règles métier reprises telles quelles
 
@@ -99,7 +144,6 @@ Ce dépôt est une recréation fidèle des écrans, pas un produit déployable. 
 
 - **Données de santé** — hébergeur certifié HDS, chiffrement en transit et au repos,
   journalisation des accès, durées de conservation, registre de traitement.
-- **Authentification** de la thérapeute et du patient, séparation stricte des espaces.
 - **Consentement** — le consentement de captation doit être horodaté et conservé,
   et la suppression d'une transcription doit être effective côté serveur.
 - **Polices** — Newsreader et Public Sans à auto-héberger (pas de requête vers

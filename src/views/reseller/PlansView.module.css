@@ -1,0 +1,191 @@
+.plans {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.plan {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  padding: 18px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.planHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.planName {
+  font-family: var(--font-serif);
+  font-size: 21px;
+  font-weight: 400;
+}
+
+.price {
+  font-family: var(--font-serif);
+  font-size: 30px;
+  line-height: 1;
+}
+.priceUnit {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--c-text-muted);
+  margin-left: 5px;
+}
+
+.includes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.include {
+  display: flex;
+  gap: 9px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--c-text-3);
+}
+.tick {
+  color: var(--c-accent);
+  flex: none;
+}
+
+.limits {
+  border-top: 1px solid var(--c-border-light);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--c-text-muted);
+  margin-top: auto;
+}
+.limitRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.limitValue {
+  color: var(--c-text);
+}
+
+.table {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+.tableHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 17px 20px 13px;
+  border-bottom: 1px solid var(--c-border-light);
+}
+.tableTitle {
+  font-family: var(--font-serif);
+  font-size: 19px;
+  font-weight: 400;
+  margin: 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) auto auto auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--c-border-light);
+}
+.row:last-child {
+  border-bottom: none;
+}
+
+.name {
+  font-size: 13.5px;
+  font-weight: 500;
+}
+.sub {
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+  margin-top: 2px;
+}
+
+.picker {
+  display: flex;
+  gap: 6px;
+  /* Remises à zéro du `fieldset` : bordure, marges et largeur minimale. */
+  border: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.period {
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+  text-align: right;
+  min-width: 110px;
+}
+
+.spend {
+  min-width: 110px;
+}
+.spendLine {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--c-text-muted);
+  margin-bottom: 5px;
+}
+.over {
+  color: var(--c-warn-text-2);
+  font-weight: 500;
+}
+
+.foot {
+  padding: 14px 20px 16px;
+  font-size: 12px;
+  color: var(--c-text-muted);
+  line-height: 1.55;
+  border-top: 1px solid var(--c-border-light);
+}
+
+@media (max-width: 900px) {
+  .row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .period {
+    text-align: left;
+  }
+}
+
+/* Le cabinet dont l'offre part en base : c'est le `fieldset` désactivé qui
+   coupe le clic, cette teinte dit seulement lequel attend. */
+.pickerBusy {
+  opacity: 0.55;
+}
+
+.demo {
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+  margin: 0 0 18px;
+}
+
+.loading {
+  padding: 12px 20px;
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+}

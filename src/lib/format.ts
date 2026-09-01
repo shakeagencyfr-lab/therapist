@@ -29,3 +29,8 @@ export function euro(amount: number): string {
 export function plural(n: number, one: string, many: string): string {
   return `${n} ${n > 1 ? many : one}`
 }
+
+/** Montant en euros à partir de centimes : « 79,00 € ». */
+export function euroCents(cents: number): string {
+  return `${(cents / 100).toFixed(2).replace('.', ',')} €`
+}

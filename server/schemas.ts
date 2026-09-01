@@ -20,7 +20,7 @@ import type {
   ModuleKind,
   PatientContext,
   SessionDraft,
-} from '../src/types/domain'
+} from '../src/types/domain.js'
 
 export type { PatientContext }
 

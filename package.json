@@ -11,10 +11,13 @@
     "build": "tsc -b --force && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit --force && tsc -p tsconfig.server.json --noEmit",
-    "start": "node --import tsx server/index.ts"
+    "start": "node --import tsx server/index.ts",
+    "check:render": "tsx --tsconfig tsconfig.app.json --import ./scripts/render-register.mjs scripts/render-check.mts",
+    "check": "npm run typecheck && npm run check:render"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.72.0",
+    "@supabase/supabase-js": "^2.112.4",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "react": "^18.3.1",

@@ -4,5 +4,15 @@
     "api/ai/*.ts": {
       "maxDuration": 60
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/mon",
+      "destination": "/patient.html"
+    },
+    {
+      "source": "/mon/",
+      "destination": "/patient.html"
+    }
+  ]
 }
