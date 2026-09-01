@@ -11,6 +11,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { demanderInvitation } from '@/services/invitations'
 import { useStore } from '@/state/store'
 import { durationToSeconds } from '@/lib/format'
 import type {
@@ -323,12 +324,20 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         }
       }
 
+      // Sa fiche existe ; on lui envoie le lien qui ouvre son espace.
+      let envoi = ''
+      if (email) {
+        const r = await demanderInvitation({ email, cabinetId, kind: 'patiente' })
+        envoi = r.message
+      }
+
       await recharger()
+      if (!email) {
+        return { ok: true, message: `${nom} est ajoutée. Ajoutez son adresse pour qu'elle puisse ouvrir son espace.` }
+      }
       return {
         ok: true,
-        message: email
-          ? `${nom} est ajoutée. Elle entrera dans son espace avec ${email}, sans mot de passe.`
-          : `${nom} est ajoutée. Ajoutez son adresse pour qu'elle puisse ouvrir son espace.`,
+        message: envoi || `${nom} est ajoutée. Elle entrera dans son espace avec ${email}, sans mot de passe.`,
       }
     },
     [cabinetId, recharger],
