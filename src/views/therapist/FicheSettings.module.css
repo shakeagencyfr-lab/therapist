@@ -180,3 +180,12 @@
   flex: 1 1 240px;
   min-width: 0;
 }
+
+/* Ce que le panneau contient, dit avant de l'ouvrir. La suppression y vivait
+   sans que rien ne l'annonce : introuvable revient à inexistant. */
+.contenu {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--c-text-muted);
+}

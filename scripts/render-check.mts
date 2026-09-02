@@ -167,6 +167,35 @@ if (maquette) {
   }
 }
 
+// 1 quinquies bis. L'hypnose se décide DANS la séance, au moment où la
+// question se pose. Elle vivait auparavant sur la seule fiche patiente, ce
+// qui obligeait la thérapeute à quitter la séance pour cocher une case.
+const hypnose = rendu('cabinet/session-hypnose', {
+  space: 'cabinet',
+  mode: 'session',
+  sessionPatient: choisie,
+  consent: true,
+  draft: BROUILLON,
+  draftMaquette: false,
+})
+if (hypnose) {
+  /* Le prénom est interpolé : React sépare le texte statique de la valeur par
+     un marqueur de commentaire, et la phrase n'existe jamais d'un seul tenant
+     dans le balisage. On vérifie donc les deux morceaux. */
+  const prenom = nomChoisi.split(' ')[0] as string
+  const manque = [
+    !hypnose.includes('Écrire une hypnose pour') && "la case ne s'offre pas depuis la séance",
+    !hypnose.includes('type="checkbox"') && 'aucune case à cocher',
+    !hypnose.includes(prenom) && `la case ne nomme pas ${prenom}`,
+  ].filter(Boolean)
+  if (manque.length) {
+    console.error(`✗ session/hypnose : ${manque.join(', ')}`)
+    echecs++
+  } else {
+    console.log(`✓ session/hypnose     ${String(hypnose.length).padStart(6)} octets · case offerte en séance`)
+  }
+}
+
 // Une rubrique de mots vide reste possible sur une transcription pauvre :
 // l'écran doit le dire, pas laisser un blanc. Il ne l'impute plus à
 // l'absence de locuteurs — le prompt relève désormais les formulations
