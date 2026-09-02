@@ -52,6 +52,19 @@ export function HypnoseCard() {
   const [enCours, setEnCours] = useState<string>('')
   const [erreur, setErreur] = useState('')
   const [fini, setFini] = useState(false)
+  /*
+   * L'écriture est en cours — dès le clic, pas au premier mouvement rendu.
+   *
+   * C'était le défaut : `enCours` n'était posé que DANS le rappel de
+   * progression, donc après le premier mouvement. Pendant les trente
+   * secondes qu'il met à s'écrire, l'écran ne montrait rien et le bouton
+   * restait cliquable. La thérapeute a donc recliqué — deux écritures en
+   * parallèle, deux hypnoses ouvertes en base, et les inductions empilées
+   * dans le même tableau.
+   *
+   * Un booléen posé avant tout appel, et le bouton qui le respecte.
+   */
+  const [ecriture, setEcriture] = useState(false)
 
   if (!patient) return null
 
@@ -60,7 +73,10 @@ export function HypnoseCard() {
   const draft = state.draft
 
   async function ecrire() {
-    if (!draft) return
+    // Garde de réentrée : un second clic pendant l'écriture ne relance rien.
+    if (!draft || ecriture) return
+    setEcriture(true)
+    setEnCours(NOM_MOUVEMENT[MOUVEMENTS_HYPNOSE[0]])
     setErreur('')
     setFini(false)
     setEcrits([])
@@ -96,10 +112,9 @@ export function HypnoseCard() {
       setErreur(err instanceof AiError ? err.message : "L'hypnose n'a pas pu être écrite.")
     } finally {
       setEnCours('')
+      setEcriture(false)
     }
   }
-
-  const ecriture = Boolean(enCours) || (ecrits.length > 0 && !fini && !erreur)
 
   return (
     <section className={s.card}>
@@ -119,7 +134,7 @@ export function HypnoseCard() {
             approfondissement, travail, retour. C'est un texte à dire, pas à donner.
           </p>
 
-          {ecrits.length === 0 && !ecriture ? (
+          {!ecriture && ecrits.length === 0 ? (
             <div className={s.lancement}>
               <label className={s.champ}>
                 <span className={s.label}>Ce que vous voulez travailler (facultatif)</span>
@@ -130,15 +145,23 @@ export function HypnoseCard() {
                   placeholder="Installer le délai avant le geste, ancrer la main sur le sternum…"
                 />
               </label>
-              <Button variant="primary" onClick={() => void ecrire()} disabled={!draft}>
-                Écrire l'hypnose
+              <Button variant="primary" onClick={() => void ecrire()} disabled={!draft || ecriture}>
+                {ecriture ? 'Écriture en cours…' : "Écrire l'hypnose"}
               </Button>
             </div>
           ) : null}
 
           {erreur ? <Notice tone="warn">{erreur}</Notice> : null}
 
-          {ecrits.length > 0 || ecriture ? (
+          {ecriture || ecrits.length > 0 ? (
+            <>
+            {enCours ? (
+              <p className={s.encours}>
+                <span className={s.point} aria-hidden />
+                {enCours} en cours d'écriture… chaque mouvement demande une trentaine de
+                secondes.
+              </p>
+            ) : null}
             <ol className={s.avancement}>
               {MOUVEMENTS_HYPNOSE.map((m, i) => {
                 const ecrit = ecrits[i]
@@ -151,6 +174,7 @@ export function HypnoseCard() {
                 )
               })}
             </ol>
+            </>
           ) : null}
 
           {ecrits.map((e) => (

@@ -87,16 +87,11 @@ import type { ModuleKind } from '../src/types/domain.js'
  * lit, facturé au tarif de sortie. Quatre appels sur quatre montraient le
  * même motif, et la sortie pesait 80 % de la facture.
  *
- * D'où deux réglages, et non un seul :
- *
- *   LE MODÈLE. Le brouillon de séance est la pièce clinique : il garde Opus.
- *   Le profil et le module descendent sur Sonnet (tarif ÷ 2,5), les
- *   affirmations sur Haiku (÷ 5) — écrire sept phrases ne demande pas le
- *   meilleur modèle du monde.
- *
- *   L'EFFORT. Sur Opus 5 le raisonnement est actif par défaut, à l'effort
- *   « high ». C'est le bon réglage pour une note de séance, pas pour remplir
- *   un gabarit. On le baisse partout où la tâche est mécanique.
+ * Ce constat avait d'abord fait descendre le profil et le module sur Sonnet.
+ * La consigne a changé depuis — la qualité prime — et ils sont remontés sur
+ * Opus à l'effort « high ». Seules les affirmations restent sur Haiku :
+ * écrire sept phrases ne demande ni le meilleur modèle ni la moindre
+ * réflexion, et c'est la seule action du produit dont on puisse le dire.
  *
  * Aucun suffixe de date : l'identifiant d'un modèle est complet tel quel.
  */
@@ -290,6 +285,25 @@ async function callClaude<T>({ route, schema, system, prompt, maxTokens, cle }: 
     output_config: effort ? { format, effort } : { format },
   })
 
+  /*
+   * Une SORTIE TRONQUÉE se lit avant tout le reste.
+   *
+   * Quand le modèle bute sur max_tokens, le JSON s'arrête au milieu d'une
+   * chaîne et le lecteur du SDK lève « Unterminated string in JSON ». Cette
+   * erreur remontait en 500 « erreur interne », puis en 502 « réponse
+   * inexploitable » : deux messages qui ne disent ni la cause ni le remède,
+   * et qui m'ont coûté un aller-retour dans les journaux de production pour
+   * comprendre que j'avais enrichi les prompts sans lever les plafonds.
+   *
+   * On le dit donc en clair, avec le chiffre en cause.
+   */
+  if (message.stop_reason === 'max_tokens') {
+    throw new HttpError(
+      502,
+      `La réponse a été coupée avant sa fin : elle dépasse le plafond de ${maxTokens} jetons prévu pour cette analyse. Rien n'a été produit. Prévenez votre revendeur, c'est un réglage du serveur.`,
+    )
+  }
+
   // Un refus est un succès HTTP : il se lit sur stop_reason, avant le contenu.
   if (message.stop_reason === 'refusal') {
     throw new HttpError(
@@ -357,7 +371,7 @@ async function sessionDraft(body: Partial<SessionDraftBody>, cle: Cle | null): P
     schema: sessionDraftSchema,
     system: SESSION_DRAFT_SYSTEM,
     prompt: sessionDraftPrompt(material, categories, hasSpeakerLabels(transcript)),
-    maxTokens: 3000,
+    maxTokens: 4000,
     cle,
   })
 }
@@ -381,7 +395,7 @@ async function customModule(body: Partial<ModuleContext>, cle: Cle | null): Prom
     schema: generatedModuleSchema,
     system: MODULE_SYSTEM,
     prompt: modulePrompt(brief),
-    maxTokens: 1600,
+    maxTokens: 4000,
     cle,
   })
 }
@@ -435,7 +449,7 @@ async function hypnose(body: Partial<HypnoseBody>, cle: Cle | null): Promise<Pro
     }),
     // Un mouvement fait 500 à 900 mots. Le plafond laisse de la marge au
     // raisonnement sans jamais approcher les soixante secondes.
-    maxTokens: 2600,
+    maxTokens: 5000,
     cle,
   })
 }
@@ -453,7 +467,7 @@ async function profile(body: Partial<ProfileBody>, cle: Cle | null): Promise<Pro
       synthese: asText(body.synthese).trim(),
       transcript: asText(body.transcript).trim(),
     }),
-    maxTokens: 1400,
+    maxTokens: 6000,
     cle,
   })
   // Les axes sont affichés sur une piste 0–100 : on borne avant de servir.

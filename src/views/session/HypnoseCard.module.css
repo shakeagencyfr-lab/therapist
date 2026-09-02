@@ -183,3 +183,39 @@
     font-size: 15px;
   }
 }
+
+/* L'annonce de ce qui s'écrit, dès le clic. Sans elle, trente secondes de
+   silence passaient pour une panne — et la thérapeute recliquait. */
+.encours {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0 0;
+  font-size: 13.5px;
+  color: var(--c-text-2);
+}
+
+.point {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c-accent);
+  animation: battement 1.2s ease-in-out infinite;
+}
+
+@keyframes battement {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .point {
+    animation: none;
+  }
+}
