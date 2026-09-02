@@ -370,3 +370,42 @@
     font-size: 32px;
   }
 }
+
+/* La date précise : un champ qui n'apparaît que si on la demande. Les trois
+   raccourcis couvrent presque tous les envois — ce champ sert au reste. */
+.quand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.quandChamp {
+  border: 1px solid var(--c-border);
+  background: var(--c-field);
+  border-radius: var(--r-sm);
+  padding: 9px 11px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--c-text);
+  min-width: 0;
+}
+.quandChamp:focus {
+  outline: none;
+  border-color: var(--c-border-accent);
+}
+
+.quandAnnuler {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+.quandAnnuler:hover {
+  color: var(--c-accent);
+  text-decoration: underline;
+}

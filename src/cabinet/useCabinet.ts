@@ -404,7 +404,10 @@ export interface CabinetData {
   publierAffirmations: (patientId: PatientId, textes: string[]) => Promise<Resultat>
   reglerAffirmationsAuto: (patientId: PatientId, auto: boolean) => Promise<Resultat>
   /** Enregistre une notification et ses destinataires. L'envoi réel attend un service de push. */
-  envoyerNotification: (input: { title: string; body: string; when: string }, patientIds: PatientId[]) => Promise<Resultat>
+  envoyerNotification: (
+    input: { title: string; body: string; when: string; quand: Date | null },
+    patientIds: PatientId[],
+  ) => Promise<Resultat>
   /* La séance ------------------------------------------------------ *
    * Elle s'ouvre à la signature du consentement — c'est la pièce qui
    * autorise la captation, elle est horodatée et conservée. Le brouillon
@@ -1156,12 +1159,23 @@ export function useCabinet(cabinetId: string | null): CabinetData {
   )
 
   const envoyerNotification = useCallback(
-    async (input: { title: string; body: string; when: string }, patientIds: PatientId[]): Promise<Resultat> => {
+    async (
+      input: { title: string; body: string; when: string; quand: Date | null },
+      patientIds: PatientId[],
+    ): Promise<Resultat> => {
       const db = supabase()
       if (!db || !cabinetId || !patientIds.length) return { ok: false, message: '' }
       const { data, error: e1 } = await db
         .from('push_notifications')
-        .insert({ cabinet_id: cabinetId, title: input.title, body: input.body, scheduled_for: input.when })
+        .insert({
+          cabinet_id: cabinetId,
+          title: input.title,
+          body: input.body,
+          // Le libellé se lit, l'horodatage décide. « Ce soir, 20 h » se
+          // comprend d'un coup d'œil ; un timestamp, non.
+          scheduled_for: input.when,
+          scheduled_at: input.quand ? input.quand.toISOString() : null,
+        })
         .select('id')
         .single<{ id: string }>()
       if (e1 || !data) return { ok: false, message: "La notification n'a pas pu être enregistrée." }
