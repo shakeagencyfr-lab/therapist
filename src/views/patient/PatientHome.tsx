@@ -356,6 +356,25 @@ export function PatientHome() {
             ›
           </span>
         </button>
+
+        {/* La prise de rendez-vous, sous le journal, telle que la patiente la
+            verra. Rien tant que la thérapeute ne l'a pas réglée : mieux vaut
+            un aperçu fidèle qu'un bouton qui n'existera pas. */}
+        {state.booking ? (
+          <div className={s.rdv}>
+            <span className={s.rdvBody}>
+              <span className={s.journalTitle}>Prendre rendez-vous</span>
+              <span className={s.journalSub}>
+                {state.booking.mode === 'widget'
+                  ? 'Le widget se déplie ici, sans quitter l’espace'
+                  : 'Ouvre votre agenda dans un nouvel onglet'}
+              </span>
+            </span>
+            <span className={s.chevron} aria-hidden>
+              {state.booking.mode === 'widget' ? '›' : '↗'}
+            </span>
+          </div>
+        ) : null}
       </div>
     </div>
   )

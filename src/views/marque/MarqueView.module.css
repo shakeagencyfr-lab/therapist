@@ -332,3 +332,32 @@
 .fichier {
   display: none;
 }
+
+/* Le widget se lit sous les deux colonnes, sur toute la largeur. */
+.site {
+  margin-top: 18px;
+}
+
+/* Le code d'intégration : lisible, sélectionnable, jamais modifiable. */
+.code {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface-2);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--c-text-2);
+}
+
+.lien {
+  font-size: 13px;
+  color: var(--c-accent);
+  text-decoration: none;
+}
+.lien:hover {
+  text-decoration: underline;
+}

@@ -265,6 +265,33 @@
 
 /* --- Rendez-vous --- */
 
+/* L'en-tête qui déplie : même titre que les autres sections, plus un chevron
+   qui pivote. Toute la ligne est cliquable — au pouce, une petite flèche ne
+   suffit pas. */
+.deplie {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 12px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+.chevron {
+  font-size: 20px;
+  line-height: 1;
+  color: var(--c-text-muted);
+  transition: transform 0.18s ease;
+}
+.chevronOn {
+  transform: rotate(90deg);
+}
+
 .frame {
   width: 100%;
   height: min(70vh, 640px);

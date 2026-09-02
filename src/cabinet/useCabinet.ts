@@ -29,6 +29,7 @@ import type {
   PsychProfile,
   PushRecord,
   QuizQuestion,
+  Reservation,
   SessionDraft,
 } from '@/types/domain'
 
@@ -385,7 +386,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     setErreur('')
     setChargement(true)
 
-    const [fiches, modules, audios, echelles, journal, profils, categories, progs, bibliotheque, ateliers, affs, reglages, pushes] = await Promise.all([
+    const [fiches, modules, audios, echelles, journal, profils, categories, progs, rdv, bibliotheque, ateliers, affs, reglages, pushes] = await Promise.all([
       db.from('patients').select('*').is('archived_at', null).order('created_at'),
       db.from('patient_modules').select('id, patient_id, title, meta, kind, position, done_at'),
       db.from('patient_audios').select('patient_id, listens, last_listened_at, audio:audio_library (title, duration_seconds)'),
@@ -394,6 +395,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       db.from('psych_profiles').select('patient_id, version, sessions_count, portrait, axes, levers, care').order('version', { ascending: false }),
       db.from('audio_categories').select('id, label, position').order('position').order('label'),
       db.from('cabinet_programs').select('label, position').is('archived_at', null).order('position').order('label'),
+      db.from('cabinet_settings').select('booking_url, booking_mode, booking_widget_url').eq('cabinet_id', cabinetId).maybeSingle(),
       db.from('audio_library').select('id, category_id, title, meta, duration_seconds, storage_path, created_at').order('created_at', { ascending: false }),
       db.from('custom_modules').select('id, title, kind, duree, quand, steps, pourquoi, quiz').order('created_at'),
       db.from('affirmations').select('patient_id, text, position, published_at').order('position'),
@@ -447,6 +449,21 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     // fiche le dit et propose d'en créer un, plutôt que d'en inventer quatre.
     const programmes = ((progs.data ?? []) as Array<{ label: string }>).map((r) => r.label)
 
+    // La prise de rendez-vous, pour que l'aperçu du téléphone montre ce que
+    // la patiente verra vraiment — et rien quand rien n'est réglé.
+    const r = (rdv.data ?? null) as {
+      booking_url?: string | null
+      booking_mode?: string | null
+      booking_widget_url?: string | null
+    } | null
+    const booking: Reservation | null = r?.booking_url
+      ? {
+          url: r.booking_url,
+          mode: r.booking_mode === 'widget' ? 'widget' : 'bouton',
+          widgetUrl: r.booking_widget_url ?? null,
+        }
+      : null
+
     // L'atelier : les modules du cabinet, rangés par type.
     const customs: Record<string, CustomModule[]> = {}
     for (const m of (ateliers.data ?? []) as CustomModuleRow[]) {
@@ -495,6 +512,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       lib,
       cats: catLabels,
       programmes,
+      booking,
       libSel: lib.some((a) => a.id === prev.libSel) ? prev.libSel : (lib[0]?.id ?? null),
       libFilter: catLabels.includes(prev.libFilter) ? prev.libFilter : 'Toutes',
       upCat: catLabels.includes(prev.upCat) ? prev.upCat : (catLabels[0] ?? ''),

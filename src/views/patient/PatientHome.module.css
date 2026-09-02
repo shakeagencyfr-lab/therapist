@@ -456,3 +456,25 @@
   line-height: 1.45;
   color: var(--c-text-muted);
 }
+
+/* Prise de rendez-vous dans l'aperçu : le même gabarit que le journal, sans
+   son ouverture — c'est une image de ce que la patiente aura. */
+.rdv {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--c-border);
+  border-radius: 14px;
+  background: var(--c-surface);
+}
+
+.rdvBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}

@@ -1,0 +1,117 @@
+/* Le widget posé sur le site d'une thérapeute.
+   Fond transparent : c'est la page hôte qui donne la couleur autour. */
+
+.carte {
+  box-sizing: border-box;
+  max-width: 420px;
+  min-height: 260px;
+  margin: 0 auto;
+  padding: 22px 22px 20px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 16px;
+}
+
+.marque {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.logo,
+.logoImage {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  flex: none;
+}
+
+.logo {
+  background: var(--c-accent);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-serif);
+  font-size: 16px;
+}
+
+.logoImage {
+  object-fit: contain;
+  display: block;
+}
+
+.nom {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.surTitre {
+  font-size: 10.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+  margin-top: 2px;
+}
+
+.texte {
+  margin: 0 0 14px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--c-text-2);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.champ {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 13px;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  background: var(--c-field);
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--c-text);
+}
+.champ:focus {
+  outline: none;
+  border-color: var(--c-accent);
+}
+
+.bouton {
+  padding: 12px 16px;
+  border: none;
+  border-radius: 10px;
+  background: var(--c-accent);
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.bouton:hover:not(:disabled) {
+  background: var(--c-accent-hover);
+}
+.bouton:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.erreur {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: var(--c-warn-text-2, #8a4b26);
+}
+
+.aide {
+  margin: 12px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+}

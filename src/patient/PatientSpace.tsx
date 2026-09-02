@@ -8,7 +8,7 @@ import { RendezVous } from './RendezVous'
 import { Boutique } from './Boutique'
 import s from './PatientSpace.module.css'
 
-type Onglet = 'jour' | 'rdv' | 'boutique'
+type Onglet = 'jour' | 'boutique'
 
 /** Retour de Stripe : la session à vérifier, ou l'annulation. Lus une fois. */
 function retourPaiement(): { commande: string | null; annule: boolean } {
@@ -136,7 +136,6 @@ export function PatientSpace() {
 
   const onglets: Array<{ value: Onglet; label: string }> = [
     { value: 'jour', label: "Aujourd'hui" },
-    ...(bookingUrl ? [{ value: 'rdv' as const, label: 'Rendez-vous' }] : []),
     ...(shopEnabled ? [{ value: 'boutique' as const, label: 'Boutique' }] : []),
   ]
   const avecOnglets = onglets.length > 1
@@ -175,15 +174,6 @@ export function PatientSpace() {
       <div className={s.body}>
         {erreur ? <Notice tone="warn">{erreur}</Notice> : null}
         {chargement ? <p className={s.count}>Chargement…</p> : null}
-
-        {courant === 'rdv' && bookingUrl ? (
-          <RendezVous
-            url={bookingUrl}
-            widgetUrl={bookingWidgetUrl}
-            mode={bookingMode}
-            accent={patient.branding?.accent}
-          />
-        ) : null}
 
         {courant === 'boutique' ? (
           <Boutique
@@ -303,6 +293,15 @@ export function PatientSpace() {
             </p>
           ) : null}
         </section>
+        ) : null}
+
+        {courant === 'jour' && bookingUrl ? (
+          <RendezVous
+            url={bookingUrl}
+            widgetUrl={bookingWidgetUrl}
+            mode={bookingMode}
+            accent={patient.branding?.accent}
+          />
         ) : null}
 
         <p className={s.foot}>
