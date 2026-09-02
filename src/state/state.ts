@@ -10,6 +10,7 @@ import type {
   PatientModule,
   PsychProfile,
   PushRecord,
+  Reservation,
   SessionDraft,
 } from '@/types/domain'
 import { AUDIO_CATEGORIES, AUDIO_LIBRARY } from '@/data/audioLibrary'
@@ -165,6 +166,8 @@ export interface AppState {
   cats: string[]
   /** Les programmes du cabinet, tels qu'il les a nommés. */
   programmes: string[]
+  /** La prise de rendez-vous du cabinet, si elle est réglée. */
+  booking: Reservation | null
   catAdd: boolean
   catName: string
 
@@ -310,6 +313,7 @@ export const initialState: AppState = {
   upCat: 'Détente',
   cats: AUDIO_CATEGORIES,
   programmes: PROGRAMMES_DEMO,
+  booking: null,
   catAdd: false,
   catName: '',
 

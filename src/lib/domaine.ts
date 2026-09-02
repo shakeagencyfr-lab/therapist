@@ -25,3 +25,25 @@ export function adresseCabinet(slug: string): string {
 export function lienCabinet(slug: string): string {
   return `https://${adresseCabinet(slug)}`
 }
+
+/** L'adresse du widget de connexion, celle qu'un site tiers encadre. */
+export function lienEmbed(slug: string): string {
+  return `https://${DOMAINE_CABINETS}/e/${slug.trim()}`
+}
+
+/**
+ * Le code que la thérapeute colle sur son propre site.
+ *
+ * Un iframe et rien d'autre : pas de script à charger, donc rien à mettre à
+ * jour chez elle le jour où Klaro change, et rien qui puisse lire la page
+ * qui l'accueille.
+ */
+export function codeEmbed(slug: string): string {
+  return [
+    '<!-- Espace patient — Klaro -->',
+    `<iframe src="${lienEmbed(slug)}"`,
+    '        title="Accès à votre espace"',
+    '        width="100%" height="360" loading="lazy"',
+    '        style="border:0;max-width:420px;"></iframe>',
+  ].join('\n')
+}

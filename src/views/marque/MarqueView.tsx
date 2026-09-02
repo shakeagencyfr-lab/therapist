@@ -3,7 +3,7 @@ import { Button, Card, FieldLabel, Marque, Notice, Overline, TextInput, Title } 
 import { useMaybeAuth } from '@/auth/session'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { BRAND_PRESETS } from '@/data/reseller'
-import { adresseCabinet, lienCabinet } from '@/lib/domaine'
+import { adresseCabinet, codeEmbed, lienCabinet, lienEmbed } from '@/lib/domaine'
 import type { CabinetBranding } from '@/types/reseller'
 import s from './MarqueView.module.css'
 
@@ -91,7 +91,10 @@ export function MarqueView() {
           </p>
         </Card>
       ) : (
-        <Editeur key={identite.id} publie={publie} slug={identite.slug} />
+        <>
+          <Editeur key={identite.id} publie={publie} slug={identite.slug} />
+          <SurVotreSite slug={identite.slug} />
+        </>
       )}
     </div>
   )
@@ -369,5 +372,53 @@ function Editeur({ publie, slug }: { publie: Fiche; slug: string }) {
         </p>
       </section>
     </div>
+  )
+}
+
+/**
+ * Le widget à poser sur le site de la thérapeute.
+ *
+ * Un cadre qui ne contient qu'un champ d'adresse : ses patientes entrent la
+ * leur et reçoivent leur lien, sans quitter son site. Rien de l'application
+ * n'y est monté — c'est ce qui permet à cette page d'être encadrée alors que
+ * le reste de Klaro ne l'est pas.
+ */
+function SurVotreSite({ slug }: { slug: string }) {
+  const code = codeEmbed(slug)
+  const [copie, setCopie] = useState(false)
+
+  async function copier() {
+    try {
+      await navigator.clipboard.writeText(code)
+      setCopie(true)
+      window.setTimeout(() => setCopie(false), 2500)
+    } catch {
+      // Presse-papiers refusé : le code reste sélectionnable à la main.
+      setCopie(false)
+    }
+  }
+
+  return (
+    <Card className={`${s.panel} ${s.site}`}>
+      <Title large as="h2">
+        Sur votre site
+      </Title>
+      <p className={s.hint} style={{ marginBottom: 14 }}>
+        Collez ce code sur votre site : vos patientes y entrent leur adresse et reçoivent leur lien
+        de connexion, sans quitter votre page. Le cadre porte votre nom et vos couleurs, et se met
+        à jour tout seul quand vous les changez.
+      </p>
+
+      <textarea className={s.code} value={code} readOnly rows={5} spellCheck={false} />
+
+      <div className={s.actions} style={{ marginTop: 12 }}>
+        <Button variant="secondary" onClick={() => void copier()}>
+          {copie ? 'Copié' : 'Copier le code'}
+        </Button>
+        <a className={s.lien} href={lienEmbed(slug)} target="_blank" rel="noreferrer">
+          Voir le widget ↗
+        </a>
+      </div>
+    </Card>
   )
 }

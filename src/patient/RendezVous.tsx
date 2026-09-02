@@ -4,7 +4,7 @@ import s from './PatientSpace.module.css'
 interface Props {
   /** Page publique de réservation : c'est elle qu'ouvre le bouton. */
   url: string
-  /** Adresse du widget, quand le cabinet en a donné une distincte. */
+  /** Adresse du widget, tirée du code d'intégration de l'agenda. */
   widgetUrl?: string | null
   /** Ce que la thérapeute a choisi dans ses intégrations. */
   mode: 'bouton' | 'widget'
@@ -12,73 +12,94 @@ interface Props {
 }
 
 /**
- * Prendre rendez-vous, dans l'espace de la patiente.
+ * Prendre rendez-vous, au bas de la journée — sous le journal, là où on
+ * regarde une fois le reste fait.
  *
- * Deux façons, réglées par la thérapeute. Un bouton qui ouvre son agenda dans
- * un nouvel onglet — ça marche avec n'importe quel logiciel, sans réglage. Ou
- * son widget de réservation, encadré ici, pour qu'elle choisisse son créneau
- * sans quitter l'application.
+ * Deux formes, réglées par la thérapeute. Un bouton qui ouvre son agenda dans
+ * un nouvel onglet : ça marche avec n'importe quel logiciel, sans réglage. Ou
+ * son widget, qui se déplie ici même, sans quitter l'espace.
  *
- * Le bouton reste affiché dans les deux cas, et ce n'est pas une redondance :
- * certains agendas refusent d'être encadrés (X-Frame-Options), et un
- * navigateur ne le dit pas proprement — le cadre reste blanc. Passé quelques
- * secondes sans signal, on cesse d'attendre et on l'explique.
+ * Le cadre n'est monté qu'au dépliement : on ne charge pas l'agenda d'un
+ * tiers, ni ses cookies, sur une page que la patiente ouvre chaque soir pour
+ * répondre à une question. Et le lien de secours reste sous le cadre, car un
+ * agenda qui refuse d'être encadré ne le dit pas — il reste blanc.
  */
 export function RendezVous({ url, widgetUrl, mode, accent }: Props) {
   const cadre = mode === 'widget' ? (widgetUrl ?? url) : null
+  const [ouvert, setOuvert] = useState(false)
   const [etat, setEtat] = useState<'chargement' | 'affiche' | 'muet'>('chargement')
 
   useEffect(() => {
-    if (!cadre) return
+    if (!ouvert) return
     setEtat('chargement')
     const t = window.setTimeout(() => setEtat((e) => (e === 'chargement' ? 'muet' : e)), 8000)
     return () => window.clearTimeout(t)
-  }, [cadre])
+  }, [ouvert, cadre])
+
+  // Le bouton seul : rien à déplier, l'agenda s'ouvre ailleurs.
+  if (!cadre) {
+    return (
+      <section className={s.section}>
+        <div className={s.sectionHead}>
+          <span className={s.sectionTitle}>Prendre rendez-vous</span>
+        </div>
+        <a
+          className={s.cta}
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          style={accent ? { background: accent } : undefined}
+        >
+          Choisir mon créneau ↗
+        </a>
+        <p className={s.frameNote}>L'agenda de votre thérapeute s'ouvre dans un nouvel onglet.</p>
+      </section>
+    )
+  }
 
   return (
     <section className={s.section}>
-      <div className={s.sectionHead}>
-        <span className={s.sectionTitle}>Prendre rendez-vous</span>
-      </div>
-
-      {cadre && etat !== 'muet' ? (
-        <iframe
-          className={s.frame}
-          src={cadre}
-          title="Prise de rendez-vous"
-          loading="lazy"
-          referrerPolicy="strict-origin-when-cross-origin"
-          onLoad={() => setEtat('affiche')}
-        />
-      ) : null}
-
-      {cadre && etat === 'muet' ? (
-        <p className={s.frameNote}>
-          L'agenda ne s'affiche pas ici. Ouvrez-le dans un nouvel onglet : c'est le même agenda,
-          avec les mêmes créneaux.
-        </p>
-      ) : null}
-
-      <a
-        className={s.cta}
-        href={url}
-        target="_blank"
-        rel="noreferrer"
-        style={accent ? { background: accent } : undefined}
+      <button
+        type="button"
+        className={s.deplie}
+        aria-expanded={ouvert}
+        onClick={() => setOuvert((o) => !o)}
       >
-        {cadre ? 'Ouvrir la réservation en plein écran ↗' : 'Choisir mon créneau ↗'}
-      </a>
+        <span className={s.sectionTitle}>Prendre rendez-vous</span>
+        <span className={ouvert ? `${s.chevron} ${s.chevronOn}` : s.chevron} aria-hidden>
+          ›
+        </span>
+      </button>
 
-      {cadre && etat === 'affiche' ? (
-        <p className={s.frameNote}>
-          Si le cadre ci-dessus reste vide, le bouton ouvre la même page en plein écran.
-        </p>
-      ) : null}
-      {!cadre ? (
-        <p className={s.frameNote}>
-          L'agenda de votre thérapeute s'ouvre dans un nouvel onglet.
-        </p>
-      ) : null}
+      {ouvert ? (
+        <>
+          {etat !== 'muet' ? (
+            <iframe
+              className={s.frame}
+              src={cadre}
+              title="Prise de rendez-vous"
+              referrerPolicy="strict-origin-when-cross-origin"
+              onLoad={() => setEtat('affiche')}
+            />
+          ) : (
+            <p className={s.frameNote}>
+              L'agenda ne s'affiche pas ici. Ouvrez-le dans un nouvel onglet : ce sont les mêmes
+              créneaux.
+            </p>
+          )}
+          <a
+            className={s.cta}
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            style={accent ? { background: accent } : undefined}
+          >
+            Ouvrir en plein écran ↗
+          </a>
+        </>
+      ) : (
+        <p className={s.frameNote}>Choisissez votre créneau sans quitter cette page.</p>
+      )}
     </section>
   )
 }

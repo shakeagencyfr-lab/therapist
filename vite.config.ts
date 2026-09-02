@@ -17,6 +17,7 @@ export default defineConfig({
       input: {
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
         patient: fileURLToPath(new URL('./patient.html', import.meta.url)),
+        embed: fileURLToPath(new URL('./embed.html', import.meta.url)),
       },
     },
   },

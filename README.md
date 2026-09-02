@@ -109,6 +109,7 @@ Deux surfaces, deux adresses :
 | --- | --- | --- |
 | Espace cabinet | `/` | la thérapeute, et le revendeur |
 | Vitrine d'un cabinet | `/c/<identifiant>` | la même porte, aux couleurs du cabinet |
+| Widget d'intégration | `/e/<identifiant>` | posé sur le site de la thérapeute |
 | Espace patient | `/mon` | le patient, sur son téléphone |
 
 Ce ne sont pas deux vues d'une même page : ce sont deux points d'entrée Vite
@@ -122,6 +123,12 @@ moment-là, aucune politique RLS ne rendrait la ligne : une fonction dédiée,
 (`supabase/tests/vitrine.sql`). Un chemin plutôt qu'un sous-domaine : pas de DNS
 à poser ni de certificat à émettre par cabinet, et l'adresse marche le jour où
 le revendeur ouvre le cabinet.
+
+`/e/<identifiant>` est la même porte, réduite à un champ d'adresse, faite pour
+être encadrée par le site de la thérapeute. C'est un point d'entrée Vite à part :
+ni espace cabinet, ni espace patient, aucune donnée. **Toutes les autres pages
+refusent d'être encadrées** (`frame-ancestors 'self'`, posé dans `vercel.json`) —
+encadrer une application connectée, c'est offrir ses clics à qui l'encadre.
 
 ## Trois niveaux
 

@@ -255,3 +255,10 @@ export interface PatientContext {
   /** Profil courant, que l'actualisation révise plutôt qu'elle ne remplace. */
   profile: PsychProfile
 }
+
+/** La prise de rendez-vous du cabinet, telle que la patiente la verra. */
+export interface Reservation {
+  url: string
+  mode: 'bouton' | 'widget'
+  widgetUrl: string | null
+}
