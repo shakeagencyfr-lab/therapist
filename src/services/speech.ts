@@ -79,6 +79,37 @@ export function isSpeechSupported(): boolean {
 }
 
 /**
+ * Deux textes comparables : casse, blancs et ponctuation finale mis de côté.
+ *
+ * C'est en finalisant que le navigateur pose les majuscules et le point. La
+ * même phrase republiée ne doit pas passer pour une autre à cause d'eux.
+ */
+function cle(texte: string): string {
+  return texte
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .replace(/[.,;:!?…]+$/, '')
+}
+
+/**
+ * `suite` reprend-il `debut` en le prolongeant ?
+ *
+ * La coupure doit tomber sur une frontière de mot, sinon « il a dit » serait
+ * vu comme le début de « il a dites » et deux phrases distinctes
+ * fusionneraient.
+ */
+function prolonge(debut: string, suite: string): boolean {
+  const a = cle(debut)
+  const b = cle(suite)
+  if (!a) return true
+  if (a === b) return true
+  if (!b.startsWith(a)) return false
+  const frontiere = b[a.length]
+  return !/[\p{L}\p{N}]/u.test(frontiere)
+}
+
+/**
  * Ajoute un segment validé à la transcription, sur sa propre ligne.
  *
  * Chaque segment final correspond à une prise de parole séparée par un
@@ -87,11 +118,40 @@ export function isSpeechSupported(): boolean {
  * modèle pour rattacher une phrase à l'un ou à l'autre. Une ligne par segment
  * le lui rend, sans rien inventer : la ligne dit « ici, quelqu'un a repris la
  * parole », elle ne dit pas qui.
+ *
+ * MAIS certains navigateurs — Chrome sur Android au premier chef — annoncent
+ * comme DÉFINITIF un segment qu'ils rallongent ensuite, et republient depuis
+ * le début de la liste à chaque événement. Ajouter aveuglément donnait alors
+ * l'empilement observé en séance :
+ *
+ *     c'est quelqu'un
+ *     c'est quelqu'un de
+ *     c'est quelqu'un de très
+ *     c'est quelqu'un de très dépressif
+ *
+ * Un segment qui prolonge la dernière ligne la REMPLACE donc, au lieu de s'y
+ * ajouter ; un segment déjà contenu dans elle est ignoré. Une vraie reprise de
+ * parole, qui ne prolonge rien, garde sa ligne à elle. On ne perd que le cas
+ * où quelqu'un répète mot pour mot le début de la phrase précédente — contre
+ * six cents lignes de doublons, l'échange est bon.
  */
 export function appendSegment(transcript: string, segment: string): string {
   const propre = segment.replace(/\s+/g, ' ').trim()
   if (!propre) return transcript
-  return transcript ? transcript + '\n' + propre : propre
+  if (!transcript) return propre
+
+  const lignes = transcript.split('\n')
+  const derniere = lignes[lignes.length - 1]
+
+  // Le segment rallonge la dernière ligne : c'est la même prise de parole.
+  if (prolonge(derniere, propre)) {
+    lignes[lignes.length - 1] = propre
+    return lignes.join('\n')
+  }
+  // Republication plus courte de ce qui est déjà écrit : rien à faire.
+  if (prolonge(propre, derniere)) return transcript
+
+  return transcript + '\n' + propre
 }
 
 export interface TranscriberHandlers {
@@ -120,46 +180,77 @@ export interface Transcriber {
  * heure.
  */
 export function createTranscriber(handlers: TranscriberHandlers): Transcriber | null {
-  const Recognizer = recognizerClass()
-  if (!Recognizer) return null
+  const Classe = recognizerClass()
+  if (!Classe) return null
+  // Capturée dans une constante non nullable : `construire` est appelée depuis
+  // un rappel, où le rétrécissement de type ne survit pas.
+  const Recognizer: SpeechRecognizerConstructor = Classe
 
   let recognizer: SpeechRecognizer | null = null
   let active = false
+  let relance: number | null = null
+  /** Horodatage du dernier démarrage, pour ne pas relancer en boucle chaude. */
+  let demarre = 0
+
+  /**
+   * Un objet neuf à chaque écoute.
+   *
+   * Redémarrer celui qui vient de se terminer laisse sa liste de résultats en
+   * place : le navigateur republie alors ce qui est déjà transcrit. Un objet
+   * neuf repart d'une liste vide, ce qui est exactement ce qu'on veut après
+   * une coupure — la transcription déjà écrite, elle, est gardée par l'écran.
+   */
+  function construire(): SpeechRecognizer {
+    const r = new Recognizer()
+    r.lang = 'fr-FR'
+    r.continuous = true
+    r.interimResults = true
+
+    r.onresult = (event) => {
+      let fin = ''
+      let itm = ''
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0].transcript
+        if (event.results[i].isFinal) fin += t + ' '
+        else itm += t
+      }
+      // Un seul segment final par événement : les navigateurs qui republient
+      // toute la liste rendent alors une phrase qui s'allonge, et
+      // appendSegment la reconnaît comme la même prise de parole.
+      if (fin) handlers.onFinal(fin)
+      else handlers.onInterim(itm)
+    }
+
+    r.onerror = (event) => handlers.onError(event.error)
+
+    r.onend = () => {
+      if (!active) return
+      // Une écoute qui se termine aussitôt signale un micro qui refuse : on
+      // espace les relances plutôt que de tourner à vide.
+      const attente = Date.now() - demarre < 400 ? 700 : 0
+      relance = window.setTimeout(() => {
+        relance = null
+        if (!active) return
+        try {
+          recognizer = construire()
+          demarre = Date.now()
+          recognizer.start()
+        } catch {
+          active = false
+        }
+      }, attente)
+    }
+
+    return r
+  }
 
   return {
     start() {
       try {
-        const r = new Recognizer()
-        r.lang = 'fr-FR'
-        r.continuous = true
-        r.interimResults = true
-
-        r.onresult = (event) => {
-          let fin = ''
-          let itm = ''
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            const t = event.results[i][0].transcript
-            if (event.results[i].isFinal) fin += t + ' '
-            else itm += t
-          }
-          if (fin) handlers.onFinal(fin)
-          else handlers.onInterim(itm)
-        }
-
-        r.onerror = (event) => handlers.onError(event.error)
-
-        r.onend = () => {
-          if (!active) return
-          try {
-            r.start()
-          } catch {
-            // Relance impossible : l'événement d'erreur a déjà prévenu.
-          }
-        }
-
-        recognizer = r
+        recognizer = construire()
         active = true
-        r.start()
+        demarre = Date.now()
+        recognizer.start()
         return true
       } catch {
         recognizer = null
@@ -170,6 +261,10 @@ export function createTranscriber(handlers: TranscriberHandlers): Transcriber | 
 
     stop() {
       active = false
+      if (relance !== null) {
+        window.clearTimeout(relance)
+        relance = null
+      }
       if (!recognizer) return
       try {
         recognizer.stop()
