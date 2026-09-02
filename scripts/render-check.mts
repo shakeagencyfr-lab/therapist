@@ -14,6 +14,7 @@
 import { renderToString } from 'react-dom/server'
 import { createElement as h } from 'react'
 import { App } from '../src/App'
+import { RendezVous } from '../src/patient/RendezVous'
 import { AppStoreProvider } from '../src/state/store'
 import { PATIENTS } from '../src/data/patients'
 import type { AppState, ResellerView, ViewMode } from '../src/state/state'
@@ -44,7 +45,8 @@ function rendu(label: string, initial: Partial<AppState>): string {
 
 // 1. Les six vues du cabinet rendent.
 const MODES: ViewMode[] = [
-  'therapist', 'patient', 'session', 'atelier', 'audios', 'notif', 'boutique', 'marque', 'integrations',
+  'therapist', 'patient', 'session', 'atelier', 'audios', 'notif', 'boutique', 'programmes', 'marque',
+  'integrations',
 ]
 for (const mode of MODES) {
   const html = rendu(`cabinet/${mode}`, { space: 'cabinet', mode })
@@ -180,6 +182,55 @@ if (sansMots && !sansMots.includes('ne distingue pas qui parle')) {
   echecs++
 } else if (sansMots) {
   console.log(`✓ session/sans-mots   ${String(sansMots.length).padStart(6)} octets · rubrique vide expliquée`)
+}
+
+// 1 sexies. La prise de rendez-vous, côté patiente.
+//
+// Le cadre existait dans le code mais dormait derrière un dépliant fermé :
+// personne ne le voyait, et le réglage de la thérapeute passait pour perdu.
+// C'est exactement ce qu'un banc de rendu doit attraper.
+const PAGE = 'https://agenda.exemple.fr/'
+const WIDGET = 'https://agenda.exemple.fr/?t=s&uuid=abc'
+
+function rdv(label: string, props: Parameters<typeof RendezVous>[0]): string {
+  try {
+    return renderToString(h(RendezVous, props))
+  } catch (err) {
+    console.error(`✗ ${label} : ${(err as Error).message}`)
+    echecs++
+    return ''
+  }
+}
+
+const enCadre = rdv('rdv/widget', { url: PAGE, widgetUrl: WIDGET, mode: 'widget' })
+// React échappe les esperluettes de l'adresse : on compare la forme rendue.
+const widgetRendu = WIDGET.replace(/&/g, '&amp;')
+if (enCadre && (!enCadre.includes('<iframe') || !enCadre.includes(widgetRendu))) {
+  console.error("✗ rdv/widget : le cadre n'est pas monté au chargement")
+  echecs++
+} else if (enCadre) {
+  console.log(`✓ rdv/widget          ${String(enCadre.length).padStart(6)} octets · cadre monté`)
+}
+
+// Sans adresse de widget distincte, c'est la page de réservation qu'on encadre.
+const cadreParDefaut = rdv('rdv/widget-sans-adresse', { url: PAGE, widgetUrl: null, mode: 'widget' })
+if (cadreParDefaut && !cadreParDefaut.includes('<iframe')) {
+  console.error('✗ rdv/widget-sans-adresse : aucun cadre alors que le mode widget est choisi')
+  echecs++
+} else if (cadreParDefaut) {
+  console.log(`✓ rdv/widget-sans-adresse ${String(cadreParDefaut.length).padStart(6)} octets`)
+}
+
+// En mode bouton, aucun cadre : on n'encadre pas ce qu'on n'a pas demandé.
+const enBouton = rdv('rdv/bouton', { url: PAGE, widgetUrl: null, mode: 'bouton' })
+if (enBouton && enBouton.includes('<iframe')) {
+  console.error('✗ rdv/bouton : un cadre est monté alors que le mode bouton est choisi')
+  echecs++
+} else if (enBouton && !enBouton.includes(`href="${PAGE}"`)) {
+  console.error("✗ rdv/bouton : le bouton n'ouvre pas la page de réservation")
+  echecs++
+} else if (enBouton) {
+  console.log(`✓ rdv/bouton          ${String(enBouton.length).padStart(6)} octets · aucun cadre`)
 }
 
 // 2. Les trois vues du revendeur rendent, et ne montrent aucun patient.

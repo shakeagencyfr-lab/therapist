@@ -40,7 +40,10 @@ function IconeAgenda() {
  * pourtant la seule chose qu'elle a besoin d'éprouver ici.
  */
 function ApercuRendezVous({ booking }: { booking: Reservation }) {
-  const [ouvert, setOuvert] = useState(false)
+  // Déplié d'entrée, comme chez la patiente : l'aperçu doit montrer ce
+  // qu'elle verra, et la thérapeute doit pouvoir constater d'un coup d'œil
+  // que son agenda accepte d'être encadré.
+  const [ouvert, setOuvert] = useState(true)
   const cadre = booking.mode === 'widget' ? (booking.widgetUrl ?? booking.url) : null
 
   if (!cadre) {

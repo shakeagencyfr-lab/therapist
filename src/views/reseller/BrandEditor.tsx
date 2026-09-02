@@ -314,7 +314,7 @@ function Editeur({ row }: { row: PortfolioRow }) {
               </div>
             </div>
             <div className={s.previewTabs} aria-hidden>
-              <span className={`${s.previewTab} ${s.previewTabOn}`}>Vue thérapeute</span>
+              <span className={`${s.previewTab} ${s.previewTabOn}`}>Tableau d&apos;évolution</span>
               <span className={s.previewTab}>Séance</span>
               <span className={s.previewTab}>Audios</span>
             </div>

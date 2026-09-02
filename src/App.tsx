@@ -12,6 +12,7 @@ import { ResellerSpace } from '@/views/reseller/ResellerSpace'
 import { IntegrationsView } from '@/views/integrations/IntegrationsView'
 import { BoutiqueView } from '@/views/boutique/BoutiqueView'
 import { MarqueView } from '@/views/marque/MarqueView'
+import { ProgrammesView } from '@/views/programmes/ProgrammesView'
 
 /**
  * Deux espaces, deux métiers : la thérapeute suit ses patients, le revendeur
@@ -55,6 +56,7 @@ export function App() {
       {mode === 'audios' && <AudiosView />}
       {mode === 'notif' && <NotificationsView />}
       {mode === 'boutique' && <BoutiqueView />}
+      {mode === 'programmes' && <ProgrammesView />}
       {mode === 'marque' && <MarqueView />}
       {mode === 'integrations' && <IntegrationsView />}
     </div>

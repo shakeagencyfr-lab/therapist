@@ -56,7 +56,10 @@ export function FicheSettings() {
     setEnvoi(true)
     setNotice(null)
     const r = await cabinet.majFiche(state.sel, {
-      programme: programme ? `Programme ${programme}` : '',
+      // Le libellé nu, tel qu'il figure au catalogue : c'est sur lui que
+      // l'écran des programmes rattache. Les fiches d'avant, préfixées
+      // « Programme … », restent lues correctement à l'affichage.
+      programme: programme.trim(),
       seances,
       echelle: echelle.trim(),
       question: question.trim(),

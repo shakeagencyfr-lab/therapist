@@ -39,6 +39,7 @@ export type ViewMode =
   | 'audios'
   | 'notif'
   | 'boutique'
+  | 'programmes'
   | 'marque'
   | 'integrations'
 
