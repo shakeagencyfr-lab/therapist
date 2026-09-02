@@ -14,6 +14,7 @@ import { supabase } from '@/lib/supabase'
 import { demanderInvitation } from '@/services/invitations'
 import { useStore } from '@/state/store'
 import { durationToSeconds } from '@/lib/format'
+import type { CabinetBranding } from '@/types/reseller'
 import type {
   CustomModule,
   JournalEntry,
@@ -314,6 +315,14 @@ export interface ProfilGenere {
   resume: string
 }
 
+/** Ce qu'une praticienne règle de sa propre marque. Le sous-domaine n'en est
+ *  pas : il identifie le cabinet chez son revendeur, et se change là-bas. */
+export interface MarqueCabinet {
+  nom: string
+  surTitre: string
+  branding: CabinetBranding
+}
+
 export interface CabinetData {
   /** Vrai quand les fiches viennent de la base. */
   reel: boolean
@@ -325,6 +334,8 @@ export interface CabinetData {
   basculerModule: (patientId: PatientId, position: number, fait: boolean) => Promise<Resultat>
   /** Règle la fiche : programme, échelle, question du soir, prochaine séance. */
   majFiche: (patientId: PatientId, input: ReglagesFiche) => Promise<Resultat>
+  /** Publie la marque du cabinet : nom affiché, sur-titre, initiales, couleurs. */
+  enregistrerMarque: (input: MarqueCabinet) => Promise<Resultat>
   /* La bibliothèque audio ------------------------------------------- *
    * Les fichiers vont dans un compartiment privé, rangé par cabinet ; la
    * base n'en garde que le chemin. Une écoute passe par une URL signée,
@@ -586,6 +597,40 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       return { ok: true, message: '' }
     },
     [cabinetId, recharger],
+  )
+
+  /**
+   * La marque du cabinet, publiée par la praticienne elle-même.
+   *
+   * La même ligne que règle le revendeur depuis son espace : la RLS autorise
+   * les deux, chacun sur ses cabinets. Le sous-domaine et le rattachement au
+   * revendeur ne bougent pas d'ici — le premier est une adresse publique, le
+   * second est verrouillé en base par un déclencheur.
+   *
+   * Rien ne recharge le dossier : ce qui change est l'identité du cabinet,
+   * lue par `my_context()`. C'est l'appelant qui la redemande.
+   */
+  const enregistrerMarque = useCallback(
+    async (input: MarqueCabinet): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) {
+        return { ok: false, message: 'Connectez-vous à votre cabinet pour publier votre marque.' }
+      }
+      const nom = input.nom.trim()
+      if (!nom) return { ok: false, message: 'Le nom affiché ne peut pas être vide.' }
+      const { error } = await db
+        .from('cabinets')
+        .update({ name: nom, tagline: input.surTitre.trim(), branding: input.branding })
+        .eq('id', cabinetId)
+      return error
+        ? { ok: false, message: "Votre marque n'a pas pu être publiée. Réessayez." }
+        : {
+            ok: true,
+            message:
+              'Marque publiée. Elle habille votre espace et l’application de vos patientes.',
+          }
+    },
+    [cabinetId],
   )
 
   /* ---- La bibliothèque audio ------------------------------------------ */
@@ -1021,6 +1066,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     creerPatiente,
     basculerModule,
     majFiche,
+    enregistrerMarque,
     importerAudio,
     envoyerAudio,
     creerCategorie,

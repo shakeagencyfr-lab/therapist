@@ -43,7 +43,9 @@ function rendu(label: string, initial: Partial<AppState>): string {
 }
 
 // 1. Les six vues du cabinet rendent.
-const MODES: ViewMode[] = ['therapist', 'patient', 'session', 'atelier', 'audios', 'notif', 'boutique', 'integrations']
+const MODES: ViewMode[] = [
+  'therapist', 'patient', 'session', 'atelier', 'audios', 'notif', 'boutique', 'marque', 'integrations',
+]
 for (const mode of MODES) {
   const html = rendu(`cabinet/${mode}`, { space: 'cabinet', mode })
   if (html) console.log(`✓ cabinet/${mode.padEnd(9)} ${String(html.length).padStart(6)} octets`)

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button, Chip, FieldLabel, Notice, TextInput } from '@/components/ui'
 import { BRAND_PRESETS } from '@/data/reseller'
+import { adresseCabinet } from '@/lib/domaine'
 import { useResellerData } from '@/reseller/context'
 import { slugify } from '@/state/resellerSelectors'
 import { useStore } from '@/state/store'
@@ -185,7 +186,7 @@ function Editeur({ row }: { row: PortfolioRow }) {
             onChange={(e) => patch({}, { slug: slugify(e.target.value) })}
           />
           <p className={s.panelSub} style={{ margin: '6px 0 0' }}>
-            {cabinet.slug || 'sous-domaine'}.entre-seances.fr
+            {adresseCabinet(cabinet.slug || 'sous-domaine')}
           </p>
         </div>
 
