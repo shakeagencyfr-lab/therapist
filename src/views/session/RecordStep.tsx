@@ -9,6 +9,7 @@ import {
   derniereReponseEstMaquette,
   draftSessionNote,
 } from '@/services/aiClient'
+import { MODELE_ANALYSE, TARIF, estimationBrouillon } from '@/lib/coutIA'
 import {
   appendSegment,
   createTranscriber,
@@ -145,21 +146,16 @@ export function RecordStep() {
   const segCount = Math.max(1, Math.ceil(Math.max(state.elapsed, 1) / SEGMENT))
   const wordsNow = state.transcript ? state.transcript.trim().split(/\s+/).length : 0
   /**
-   * Le volume sur lequel l'analyse sera facturée.
+   * Ce que l'analyse coûtera, calculé sur la matière réelle.
    *
-   * Ce n'est PAS un compte de mots : c'est le plus grand des deux, ce qui a
-   * été transcrit et ce qu'une parole normale aurait produit dans le temps
-   * écoulé (2,3 mots par seconde). Il monte donc pendant un silence, et c'est
-   * voulu — une estimation de coût qui sous-estime ne sert à rien.
+   * L'ancienne version prenait le temps écoulé pour du texte, à 2,3 mots par
+   * seconde : le chiffre montait pendant les silences et annonçait une
+   * dépense qui n'aurait pas lieu. Ici, tant que rien n'a été dit, il n'y a
+   * rien à facturer et l'écran l'écrit.
    *
-   * Il a longtemps été affiché sous l'étiquette « mots transcrits », ce qui
-   * était faux et donnait à croire que le micro entendait des choses. Le vrai
-   * compte, lui, est au-dessus de la transcription.
+   * Les notes écrites comptent : elles partent avec la transcription.
    */
-  const estWords = Math.max(wordsNow, Math.round(state.elapsed * 2.3))
-  // Transcription + rédaction du brouillon, aux tarifs du modèle, par segment envoyé.
-  const estCost =
-    state.elapsed < 5 && !wordsNow ? 0 : (estWords * 1.45) / 1000000 * 3.6 + 0.004 * segCount
+  const devis = estimationBrouillon(state.transcript, state.sessionNotes)
 
   const recLabel = state.recording
     ? 'Enregistrement en cours'
@@ -236,14 +232,16 @@ export function RecordStep() {
             </div>
           </div>
           <div className={s.fact}>
-            <div className={s.factLabel}>Volume estimé</div>
+            <div className={s.factLabel}>À analyser</div>
             <div className={s.factValue}>
-              {estWords > 0 ? `≈ ${estWords.toLocaleString('fr-FR')} mots à analyser` : ''}
+              {wordsNow > 0
+                ? `${wordsNow.toLocaleString('fr-FR')} ${wordsNow > 1 ? 'mots' : 'mot'}`
+                : 'Rien encore'}
             </div>
           </div>
           <div className={s.fact}>
             <div className={s.factLabel}>Coût d'analyse</div>
-            <div className={s.factValue}>{estCost === 0 ? '—' : euro(estCost)}</div>
+            <div className={s.factValue}>{devis.euros === 0 ? '—' : euro(devis.euros)}</div>
           </div>
         </div>
 
@@ -251,9 +249,9 @@ export function RecordStep() {
           {state.elapsed >= 5400
             ? "Séance longue. L'enregistrement est découpé en segments de quinze minutes envoyés au fur et à mesure : aucune limite de durée, et rien n'est perdu si la connexion tombe."
             : "Aucune limite de durée : l'enregistrement est découpé en segments de quinze minutes transcrits au fil de la séance."}{' '}
-          {estCost === 0
-            ? "Le coût d'analyse s'affiche dès que la captation commence."
-            : "Le volume est estimé d'après la durée écoulée tant qu'elle dépasse ce qui a été transcrit : il monte donc aussi pendant les silences. Le nombre de mots réellement transcrits est affiché au-dessus de la transcription. Une séance de deux heures coûte environ 0,12 € à analyser."}
+          {devis.euros === 0
+            ? "Le coût d'analyse s'affiche dès les premiers mots transcrits, et suit ce qui est réellement dit."
+            : `Estimation au tarif de ${MODELE_ANALYSE} — ${TARIF.entree} $ le million de jetons envoyés, ${TARIF.sortie} $ le million rendus — sur ${devis.entree.toLocaleString('fr-FR')} jetons envoyés et ${devis.sortie.toLocaleString('fr-FR')} attendus en retour. Elle ne dépassera pas ${euro(devis.eurosMax)} : la longueur du brouillon est plafonnée. L'appel est facturé sur le compte Anthropic de votre cabinet.`}
         </div>
 
         <div className={s.body}>
