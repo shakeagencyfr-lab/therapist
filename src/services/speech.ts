@@ -110,7 +110,7 @@ function prolonge(debut: string, suite: string): boolean {
 }
 
 /**
- * Ajoute un segment validé à la transcription, sur sa propre ligne.
+ * Ajoute un segment validé à la transcription.
  *
  * Chaque segment final correspond à une prise de parole séparée par un
  * silence : c'est le SEUL indice de tour de parole que l'API fournisse. Tout
@@ -129,13 +129,14 @@ function prolonge(debut: string, suite: string): boolean {
  *     c'est quelqu'un de très
  *     c'est quelqu'un de très dépressif
  *
- * Un segment qui prolonge la dernière ligne la REMPLACE donc, au lieu de s'y
- * ajouter ; un segment déjà contenu dans elle est ignoré. Une vraie reprise de
- * parole, qui ne prolonge rien, garde sa ligne à elle. On ne perd que le cas
- * où quelqu'un répète mot pour mot le début de la phrase précédente — contre
- * six cents lignes de doublons, l'échange est bon.
+ * `suite` dit lequel des deux cas se présente, et seul le transcripteur peut
+ * le savoir : il suit chaque résultat par son index. Vrai, le segment
+ * REMPLACE la dernière ligne — c'est la même phrase qui s'allonge. Faux, il
+ * prend une ligne à lui, même s'il commence par les mêmes mots : « oui » puis
+ * « oui bien sûr » sont deux tours de parole, et le devinerait-on qu'on
+ * aurait tort de les fondre.
  */
-export function appendSegment(transcript: string, segment: string): string {
+export function appendSegment(transcript: string, segment: string, suite = false): string {
   const propre = segment.replace(/\s+/g, ' ').trim()
   if (!propre) return transcript
   if (!transcript) return propre
@@ -143,23 +144,75 @@ export function appendSegment(transcript: string, segment: string): string {
   const lignes = transcript.split('\n')
   const derniere = lignes[lignes.length - 1]
 
-  // Le segment rallonge la dernière ligne : c'est la même prise de parole.
-  if (prolonge(derniere, propre)) {
-    lignes[lignes.length - 1] = propre
-    return lignes.join('\n')
+  if (suite) {
+    // La même phrase qui s'allonge : elle reprend la place de la précédente.
+    if (prolonge(derniere, propre)) {
+      lignes[lignes.length - 1] = propre
+      return lignes.join('\n')
+    }
+    // Republication plus courte de ce qui est déjà écrit : rien à faire.
+    if (prolonge(propre, derniere)) return transcript
   }
-  // Republication plus courte de ce qui est déjà écrit : rien à faire.
-  if (prolonge(propre, derniere)) return transcript
 
   return transcript + '\n' + propre
 }
 
+/** Un résultat d'un événement de reconnaissance, mis à plat. */
+export interface ResultatBrut {
+  texte: string
+  definitif: boolean
+}
+
+/** Un segment définitif à écrire, et s'il prolonge le précédent. */
+export interface SegmentFinal {
+  texte: string
+  /** Vrai quand ce même résultat avait déjà été transmis, plus court. */
+  suite: boolean
+}
+
+/**
+ * Les segments définitifs encore jamais transmis, et le texte en cours.
+ *
+ * `transmis` porte la mémoire de l'écoute, par index de résultat, et se
+ * complète au passage. C'est lui qui rend la fonction sûre face aux
+ * navigateurs qui republient toute leur liste à chaque événement : un
+ * résultat inchangé ne repart pas.
+ *
+ * Chaque résultat définitif garde sa propre entrée. Les fondre en une seule
+ * chaîne, comme on l'a fait un temps, faisait disparaître les tours de
+ * parole : la chaîne s'allongeait par la droite, appendSegment y voyait la
+ * même phrase qui grandit, et une séance entière finissait sur une ligne.
+ */
+export function segmentsInedits(
+  resultats: ResultatBrut[],
+  transmis: string[],
+): { finals: SegmentFinal[]; interim: string } {
+  const finals: SegmentFinal[] = []
+  let interim = ''
+  for (let i = 0; i < resultats.length; i++) {
+    const r = resultats[i]
+    if (!r.definitif) {
+      interim += r.texte
+      continue
+    }
+    if (transmis[i] === r.texte) continue
+    // Cet index avait déjà parlé : sa phrase s'allonge, elle ne recommence
+    // pas. C'est la seule information qui distingue les deux cas, et elle
+    // n'existe qu'ici.
+    const suite = transmis[i] !== undefined
+    transmis[i] = r.texte
+    finals.push({ texte: r.texte, suite })
+  }
+  return { finals, interim }
+}
+
 export interface TranscriberHandlers {
   /**
-   * Segment validé, à concaténer à la transcription déjà saisie. Il se termine
-   * par une espace : le prototype recolle puis normalise les blancs.
+   * Segment validé, à verser dans la transcription. `suite` est vrai quand il
+   * prolonge celui qui vient d'être écrit — la même phrase, plus complète —
+   * et faux quand c'est une nouvelle prise de parole.
    */
-  onFinal(text: string): void
+  onFinal(text: string, suite: boolean): void
   /** Segment en cours de reconnaissance : il remplace le précédent. */
   onInterim(text: string): void
   /** Code d'erreur de l'API, à traduire par l'appelant. */
@@ -206,19 +259,34 @@ export function createTranscriber(handlers: TranscriberHandlers): Transcriber | 
     r.continuous = true
     r.interimResults = true
 
+    /**
+     * Ce qui a déjà été transmis, par index de résultat, pour CETTE écoute.
+     *
+     * C'est la pièce qui manquait. Concaténer tous les résultats définitifs
+     * d'un événement en une seule chaîne paraissait prudent : sur un
+     * navigateur qui republie toute sa liste, la chaîne s'allonge par la
+     * droite, appendSegment y reconnaît la même prise de parole et remplace
+     * la ligne — si bien qu'une séance entière finissait sur UNE ligne, et
+     * que les tours de parole disparaissaient. Or c'est le seul indice de
+     * tour de parole que l'API donne, et le modèle s'en sert.
+     *
+     * En gardant ce qui a été transmis, chaque résultat garde sa ligne, et
+     * une republication à l'identique ne coûte rien. Le tableau est propre à
+     * l'objet construit ici : une nouvelle écoute repart de zéro.
+     */
+    const transmis: string[] = []
+
     r.onresult = (event) => {
-      let fin = ''
-      let itm = ''
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const t = event.results[i][0].transcript
-        if (event.results[i].isFinal) fin += t + ' '
-        else itm += t
+      // On lit toute la liste et non depuis `event.resultIndex` : sur Android
+      // il reste à zéro pendant qu'elle s'allonge, et s'y fier ferait relire
+      // des résultats déjà transmis. C'est `transmis` qui tranche.
+      const resultats: ResultatBrut[] = []
+      for (let i = 0; i < event.results.length; i++) {
+        resultats.push({ texte: event.results[i][0].transcript, definitif: event.results[i].isFinal })
       }
-      // Un seul segment final par événement : les navigateurs qui republient
-      // toute la liste rendent alors une phrase qui s'allonge, et
-      // appendSegment la reconnaît comme la même prise de parole.
-      if (fin) handlers.onFinal(fin)
-      else handlers.onInterim(itm)
+      const { finals, interim } = segmentsInedits(resultats, transmis)
+      for (const segment of finals) handlers.onFinal(segment.texte, segment.suite)
+      if (interim) handlers.onInterim(interim)
     }
 
     r.onerror = (event) => handlers.onError(event.error)

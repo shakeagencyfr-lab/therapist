@@ -62,8 +62,8 @@ export function RecordStep() {
       return
     }
     const next = createTranscriber({
-      onFinal: (text) =>
-        set((prev) => ({ transcript: appendSegment(prev.transcript, text), interim: '' })),
+      onFinal: (text, suite) =>
+        set((prev) => ({ transcript: appendSegment(prev.transcript, text, suite), interim: '' })),
       onInterim: (text) => set({ interim: text }),
       onError: (code) =>
         set({
