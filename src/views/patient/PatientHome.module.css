@@ -457,24 +457,44 @@
   color: var(--c-text-muted);
 }
 
-/* Prise de rendez-vous dans l'aperçu : le même gabarit que le journal, sans
-   son ouverture — c'est une image de ce que la patiente aura. */
-.rdv {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
+/* Prise de rendez-vous : le même gabarit que le journal, juste en dessous.
+   Elle en reprend .journalBtn, .journalBody et .journalTitle — deux lignes
+   voisines qui ne se ressembleraient pas se liraient comme deux natures
+   différentes. */
+.journalBtn + .journalBtn,
+.journalBtn + a.journalBtn {
   margin-top: 10px;
-  padding: 14px 16px;
-  border: 1px solid var(--c-border);
-  border-radius: 14px;
-  background: var(--c-surface);
 }
 
-.rdvBody {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-  min-width: 0;
+a.journalBtn {
+  text-decoration: none;
+}
+
+.rdvIcon {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  overflow: visible;
+}
+
+/* Le jour marqué au calendrier respire, comme la couverture du journal
+   tourne. Animation définie dans src/styles/global.css. */
+.rdvPastille {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: omRdvPastille 4.2s ease-in-out infinite;
+}
+
+.chevronOuvert {
+  transform: rotate(90deg);
+}
+
+/* Le cadre de l'agenda, déplié sous la ligne. */
+.rdvFrame {
+  width: 100%;
+  height: 420px;
+  margin-top: 10px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-panel);
+  background: var(--c-surface);
 }

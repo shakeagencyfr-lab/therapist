@@ -24,6 +24,28 @@ interface Props {
  * répondre à une question. Et le lien de secours reste sous le cadre, car un
  * agenda qui refuse d'être encadré ne le dit pas — il reste blanc.
  */
+/** Calendrier, du même trait que le livre du journal. */
+function IconeAgenda({ accent }: { accent?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={s.rdvIcon}
+      fill="none"
+      stroke={accent ?? 'var(--c-accent)'}
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="3.4" y="5.2" width="17.2" height="15.4" rx="2.6" />
+      <path d="M3.4 10 H 20.6" />
+      <path d="M8.2 3.4 V 6.6" />
+      <path d="M15.8 3.4 V 6.6" />
+      <circle cx="12" cy="15.2" r="1.5" fill={accent ?? 'var(--c-accent)'} stroke="none" />
+    </svg>
+  )
+}
+
 export function RendezVous({ url, widgetUrl, mode, accent }: Props) {
   const cadre = mode === 'widget' ? (widgetUrl ?? url) : null
   const [ouvert, setOuvert] = useState(false)
@@ -41,7 +63,10 @@ export function RendezVous({ url, widgetUrl, mode, accent }: Props) {
     return (
       <section className={s.section}>
         <div className={s.sectionHead}>
-          <span className={s.sectionTitle}>Prendre rendez-vous</span>
+          <span className={s.deplieTitre}>
+            <IconeAgenda accent={accent} />
+            <span className={s.sectionTitle}>Prendre rendez-vous</span>
+          </span>
         </div>
         <a
           className={s.cta}
@@ -65,7 +90,10 @@ export function RendezVous({ url, widgetUrl, mode, accent }: Props) {
         aria-expanded={ouvert}
         onClick={() => setOuvert((o) => !o)}
       >
-        <span className={s.sectionTitle}>Prendre rendez-vous</span>
+        <span className={s.deplieTitre}>
+          <IconeAgenda accent={accent} />
+          <span className={s.sectionTitle}>Prendre rendez-vous</span>
+        </span>
         <span className={ouvert ? `${s.chevron} ${s.chevronOn}` : s.chevron} aria-hidden>
           ›
         </span>
