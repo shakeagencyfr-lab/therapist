@@ -22,7 +22,15 @@ export function ScaleChart() {
         <Title>{p.scaleLabel}</Title>
         <span className={s.delta}>{p.scaleDelta}</span>
       </div>
-      <p className={s.sub}>Auto-évaluation quotidienne, échelle de 0 à 10</p>
+      {/* Le sous-titre porte la QUESTION que la patiente lit chaque soir : elle
+          dit ce que la courbe mesure, là où « échelle de 0 à 10 » ne disait
+          rien. Non réglée, l'écran le dit et nomme l'endroit où le faire —
+          le réglage existait, il était seulement invisible. */}
+      <p className={s.sub}>
+        {p.scaleQuestion
+          ? `« ${p.scaleQuestion} » — chaque soir, de 0 à 10.`
+          : 'Auto-évaluation quotidienne, de 0 à 10. Réglez son sujet et sa question du soir dans les réglages de la fiche.'}
+      </p>
 
       <svg
         className={s.chart}

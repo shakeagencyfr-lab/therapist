@@ -6,6 +6,7 @@ import { PatientHeader } from './PatientHeader'
 import { FicheSettings } from './FicheSettings'
 import { StatsRow } from './StatsRow'
 import { WeekModules } from './WeekModules'
+import { HypnosesFiche } from '@/views/therapist/HypnosesFiche'
 import { PsychProfile } from '@/views/therapist/PsychProfile'
 import { ScaleChart } from '@/views/therapist/ScaleChart'
 import { PatientAudios } from '@/views/therapist/PatientAudios'
@@ -47,6 +48,7 @@ export function TherapistView() {
             <FicheSettings />
             <StatsRow />
             <PsychProfile />
+            <HypnosesFiche />
 
             <div className={s.split}>
               <WeekModules />

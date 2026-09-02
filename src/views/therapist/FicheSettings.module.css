@@ -115,3 +115,68 @@
 .retirer:hover:not(:disabled) {
   color: var(--c-text-2);
 }
+
+/* L'hypnose : une case à cocher, pas un champ. Elle bascule seule, sans
+   attendre l'enregistrement du reste du formulaire. */
+.option {
+  margin-top: 4px;
+  padding: 14px;
+  border: 1px solid var(--c-border-light);
+  border-radius: 12px;
+  background: var(--c-surface-2);
+}
+
+.optionLigne {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.optionLigne input {
+  margin-top: 3px;
+  accent-color: var(--c-accent);
+  flex: none;
+}
+
+.optionLigne > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.optionTitre {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* La suppression : séparée du reste par une vraie frontière, et jamais à
+   portée d'un clic distrait. */
+.danger {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 26px;
+  padding-top: 20px;
+  border-top: 1px solid var(--c-border);
+}
+
+.dangerTitre {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--c-danger);
+}
+
+.dangerLigne {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.dangerLigne > :first-child {
+  flex: 1 1 240px;
+  min-width: 0;
+}

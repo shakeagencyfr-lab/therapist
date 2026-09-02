@@ -108,8 +108,17 @@ export function DraftStep() {
       .envoyerSeance(state.sessionId, key, { modules: retained, audioIds: sugOn.map((a) => a.id) })
       .then((r) => {
         setEnvoi('repos')
-        if (r.ok) set({ sent: true })
-        else setEchecEnvoi(r.message || "L'envoi a échoué. Réessayez.")
+        if (r.ok) {
+          /* La séance est versée : le compteur de la fiche la connaît
+             désormais. On oublie le profil « fraîchement généré », sans quoi
+             son +1 s'ajouterait à un compteur qui compte déjà cette séance —
+             et le badge annonçait deux séances pour une. */
+          set((prev) => {
+            const profNew = { ...prev.profNew }
+            delete profNew[key]
+            return { sent: true, profNew }
+          })
+        } else setEchecEnvoi(r.message || "L'envoi a échoué. Réessayez.")
       })
   }
 
@@ -146,6 +155,8 @@ export function DraftStep() {
             note: axis.note || '',
           })),
         levers: result.levers.filter((lever) => lever && lever.title),
+        dynamique: result.dynamique || current?.dynamique,
+        alliance: result.alliance || current?.alliance,
         care: result.care.filter((item) => typeof item === 'string'),
       }
       set((prev) => ({
@@ -160,6 +171,8 @@ export function DraftStep() {
           portrait: next.portrait,
           axes: next.axes,
           levers: next.levers,
+          dynamique: next.dynamique,
+          alliance: next.alliance,
           care: next.care,
           resume: result.resume ?? '',
         })

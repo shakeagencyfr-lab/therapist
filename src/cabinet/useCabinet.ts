@@ -351,6 +351,8 @@ export interface ProfilGenere {
   portrait: string
   axes: ProfileAxis[]
   levers: ProfileLever[]
+  dynamique?: string
+  alliance?: string
   care: string[]
   resume: string
 }
@@ -1399,6 +1401,8 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         portrait: profil.portrait,
         axes: profil.axes,
         levers: profil.levers,
+        dynamique: profil.dynamique || null,
+        alliance: profil.alliance || null,
         care: profil.care,
         resume: profil.resume || null,
         source_session_id: sessionId,

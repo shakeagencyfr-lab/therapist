@@ -42,6 +42,8 @@ export function PsychProfile() {
             note: a.note || '',
           })),
         levers: (result.levers ?? []).filter((l) => !!l && !!l.title),
+        dynamique: result.dynamique || profile?.dynamique,
+        alliance: result.alliance || profile?.alliance,
         care: (result.care ?? []).filter((c) => typeof c === 'string'),
       }
       set((prev) => ({
@@ -85,6 +87,22 @@ export function PsychProfile() {
       <div className={s.body}>
         <div className={s.left}>
           <p className={s.portrait}>{profile.portrait}</p>
+
+          {/* Le mouvement, que l'ancien profil ne disait jamais : une photo
+              n'apprend rien à qui suit quelqu'un depuis six séances. */}
+          {profile.dynamique ? (
+            <div className={s.bloc}>
+              <Overline>Ce qui bouge</Overline>
+              <p className={s.blocTexte}>{profile.dynamique}</p>
+            </div>
+          ) : null}
+
+          {profile.alliance ? (
+            <div className={s.bloc}>
+              <Overline>Dans la relation de travail</Overline>
+              <p className={s.blocTexte}>{profile.alliance}</p>
+            </div>
+          ) : null}
 
           <div className={s.axes}>
             {profile.axes.map((axis) => {
