@@ -23,6 +23,7 @@ export interface EtatIntegrations {
   shopEnabled: boolean
   chiffrement: boolean
   cleplateforme: boolean
+  maquette: boolean
 }
 
 export type ActionIntegration =
