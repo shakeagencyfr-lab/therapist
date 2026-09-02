@@ -52,6 +52,21 @@
   display: flex;
   align-items: center;
   gap: 16px;
+  min-width: 0;
+}
+
+/* Neuf vues dans le commutateur : sur un écran moyen, la rangée défile
+   horizontalement plutôt que de se tasser ou de casser la ligne. */
+.right > * {
+  flex: none;
+}
+@media (max-width: 1240px) {
+  .right {
+    overflow-x: auto;
+    scrollbar-width: thin;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 .me {

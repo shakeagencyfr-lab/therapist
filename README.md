@@ -8,8 +8,10 @@ Application de suivi entre les séances d'hypnothérapie. Elle relie deux espace
 - **Espace patient** — une à trois tâches par jour, audios hors connexion, journal,
   échelle du soir, affirmation du jour.
 
-Quatre écrans outils complètent l'espace thérapeute : captation de séance,
-atelier de modules IA, bibliothèque audio du cabinet, notifications ciblées.
+Six écrans outils complètent l'espace thérapeute : captation de séance,
+atelier de modules IA, bibliothèque audio du cabinet, notifications ciblées,
+boutique (Stripe, sur le compte de la thérapeute) et intégrations (clé
+d'analyse, Stripe, agenda de réservation).
 
 ## Pile
 
@@ -144,6 +146,19 @@ chiffre individuel.
 - **Affirmations** — génération le lundi ou édition manuelle ; côté patient,
   rotation toutes les cinq secondes, arrêtée définitivement au premier tap.
 
+## Variables d'environnement, côté serveur
+
+| Variable | Rôle |
+| --- | --- |
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` | destinées au navigateur ; à cocher aussi pour **Preview** sur Vercel si l'on veut tester une branche |
+| `SUPABASE_SERVICE_ROLE_KEY` | serveur seul : envoi des invitations, consommation IA, secrets d'intégration, commandes |
+| `PUBLIC_SITE_URL` | adresse publique, fixée par le serveur (liens des courriels, retours de paiement) |
+| `INTEGRATIONS_KEY` | chiffrement des clés confiées par les cabinets ; `openssl rand -base64 32`, à ne jamais changer ensuite |
+| `ANTHROPIC_API_KEY` | clé d'analyse de la plateforme, en repli quand un cabinet n'a pas posé la sienne |
+
+Aucune de ces variables, hormis les deux `VITE_`, ne doit approcher un préfixe
+`VITE_` : elles seraient compilées dans le paquet envoyé au navigateur.
+
 ## Avant la mise en production
 
 Ce dépôt est une recréation fidèle des écrans, pas un produit déployable. Il reste :
@@ -166,3 +181,7 @@ Ce dépôt est une recréation fidèle des écrans, pas un produit déployable. 
   `#33291C` sont estimés et paramétrables par cabinet (`src/theme/theme.ts`).
 - **Contenu** — le texte de démonstration est réaliste mais à valider avec la
   thérapeute ; les libellés d'interface, eux, sont définitifs.
+- **Notifications** — les envois sont enregistrés avec leurs destinataires ;
+  la remise sur téléphone attend un service de push (Web Push ou natif).
+- **Courriels** — l'envoi intégré de Supabase est limité et ne convient qu'aux
+  essais ; un SMTP dédié est nécessaire avant les premières patientes.
