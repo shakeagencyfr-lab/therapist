@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { Notice, Overline } from '@/components/ui'
+import { useMaybeCabinet } from '@/cabinet/context'
 import { NOTE_TAGS, NOTE_TAG_PREFIXES, TRANSCRIPT_SAMPLES } from '@/data/session'
 import { clock, euro } from '@/lib/format'
 import {
@@ -25,6 +26,7 @@ const cx = (...parts: Array<string | false>) => parts.filter(Boolean).join(' ')
 /** Étape 3 : minuteur, transcription en direct, notes écrites, brouillon. */
 export function RecordStep() {
   const { state, set, read } = useStore()
+  const cabinet = useMaybeCabinet()
   const transcriber = useRef<Transcriber | null>(null)
 
   // Le minuteur n'avance que pendant l'enregistrement, et jamais après.
@@ -113,9 +115,10 @@ export function RecordStep() {
         notes,
         categories: now.cats,
       })
+      const maquette = derniereReponseEstMaquette()
       set({
         draft,
-        draftMaquette: derniereReponseEstMaquette(),
+        draftMaquette: maquette,
         generating: false,
         syntheseOk: false,
         proposalOff: {},
@@ -123,6 +126,16 @@ export function RecordStep() {
         sugOff: {},
         sugSent: '',
       })
+      // Le brouillon rejoint la séance en base dès qu'il existe : recharger la
+      // page ne le perd plus. Un texte de maquette, lui, n'y entre jamais.
+      if (cabinet?.reel && now.sessionId && !maquette) {
+        void cabinet.enregistrerBrouillon(now.sessionId, {
+          transcript,
+          notes,
+          dureeSecondes: now.elapsed,
+          draft,
+        })
+      }
     } catch (error) {
       const message = error instanceof AiError ? error.message : 'erreur inconnue'
       set({ generating: false, notice: `La génération a échoué : ${message}. Réessayez.` })

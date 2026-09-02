@@ -104,6 +104,8 @@ export interface AppState {
    * pas déplacer une captation en cours.                                 */
   /** Fiche de la séance en cours. Vide tant qu'aucune n'est choisie. */
   sessionPatient: PatientId
+  /** La séance en base, ouverte à la signature du consentement. */
+  sessionId: string | null
   consent: boolean
   capture: CaptureMode
   recording: boolean
@@ -265,6 +267,7 @@ export const initialState: AppState = {
   extraAudios: {},
 
   sessionPatient: '',
+  sessionId: null,
   consent: false,
   capture: 'live',
   recording: false,

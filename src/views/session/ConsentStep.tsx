@@ -1,4 +1,6 @@
-import { Button, Card, Title } from '@/components/ui'
+import { useState } from 'react'
+import { Button, Card, Notice, Title } from '@/components/ui'
+import { useMaybeCabinet } from '@/cabinet/context'
 import { consentPoints } from '@/data/session'
 import { useStore } from '@/state/store'
 import s from './ConsentStep.module.css'
@@ -6,12 +8,36 @@ import s from './ConsentStep.module.css'
 /** Étape 2 : le consentement est bloquant, rien ne s'enregistre avant lui. */
 export function ConsentStep() {
   const { state, set } = useStore()
+  const cabinet = useMaybeCabinet()
   const patient = state.patients[state.sessionPatient]
+  const [envoi, setEnvoi] = useState(false)
+  const [echec, setEchec] = useState('')
 
   // Le consentement se donne par quelqu'un : sans fiche, il n'y a rien à signer.
   if (!patient) return null
 
   const prenom = patient.name.split(' ')[0]
+
+  /**
+   * Signer ouvre la séance en base, horodatée : c'est la pièce qui autorise
+   * la captation, et elle doit survivre à la page. Sur les fiches de
+   * démonstration, rien n'est écrit.
+   */
+  async function signer() {
+    if (!cabinet?.reel) {
+      set({ consent: true })
+      return
+    }
+    setEnvoi(true)
+    setEchec('')
+    const r = await cabinet.ouvrirSeance(state.sessionPatient)
+    setEnvoi(false)
+    if (!r.ok) {
+      setEchec(r.message)
+      return
+    }
+    set({ consent: true, sessionId: r.id ?? null })
+  }
 
   return (
     <Card padded={false} className={s.card}>
@@ -28,9 +54,14 @@ export function ConsentStep() {
           </div>
         ))}
       </div>
+      {echec ? (
+        <div className={s.notice}>
+          <Notice tone="warn">{echec}</Notice>
+        </div>
+      ) : null}
       <div className={s.foot}>
-        <Button variant="primary" className={s.sign} onClick={() => set({ consent: true })}>
-          {prenom} a donné son accord, signer
+        <Button variant="primary" className={s.sign} onClick={() => void signer()} disabled={envoi}>
+          {envoi ? 'Enregistrement…' : `${prenom} a donné son accord, signer`}
         </Button>
         <span className={s.hint}>Révocable à tout moment depuis l'espace patient.</span>
       </div>

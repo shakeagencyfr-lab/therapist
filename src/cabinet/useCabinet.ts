@@ -24,6 +24,7 @@ import type {
   ProfileAxis,
   ProfileLever,
   PsychProfile,
+  SessionDraft,
 } from '@/types/domain'
 
 /* ------------------------------------------------------------------ *
@@ -209,6 +210,30 @@ function assembler(
   }
 }
 
+/** Ce qu'une captation a produit, à conserver avec la séance. */
+export interface Brouillon {
+  transcript: string
+  notes: string
+  dureeSecondes: number
+  draft: SessionDraft
+}
+
+/** Ce qui part au dossier à la validation du brouillon. */
+export interface Envoi {
+  modules: PatientModule[]
+  /** Audios de la bibliothèque du cabinet, par identifiant en base. */
+  audioIds: string[]
+}
+
+/** Un profil actualisé par l'analyse, tel que le serveur le rend. */
+export interface ProfilGenere {
+  portrait: string
+  axes: ProfileAxis[]
+  levers: ProfileLever[]
+  care: string[]
+  resume: string
+}
+
 export interface CabinetData {
   /** Vrai quand les fiches viennent de la base. */
   reel: boolean
@@ -218,6 +243,14 @@ export interface CabinetData {
   creerPatiente: (input: NouvellePatiente) => Promise<Resultat>
   /** Coche ou décoche un module du parcours. */
   basculerModule: (patientId: PatientId, position: number, fait: boolean) => Promise<Resultat>
+  /* La séance ------------------------------------------------------ *
+   * Elle s'ouvre à la signature du consentement — c'est la pièce qui
+   * autorise la captation, elle est horodatée et conservée. Le brouillon
+   * la complète, l'envoi la clôt et verse au dossier ce qui a été retenu. */
+  ouvrirSeance: (patientId: PatientId) => Promise<Resultat & { id?: string }>
+  enregistrerBrouillon: (sessionId: string, input: Brouillon) => Promise<Resultat>
+  envoyerSeance: (sessionId: string, patientId: PatientId, input: Envoi) => Promise<Resultat>
+  enregistrerProfil: (patientId: PatientId, sessionId: string | null, profil: ProfilGenere) => Promise<Resultat>
 }
 
 export function useCabinet(cabinetId: string | null): CabinetData {
@@ -367,7 +400,159 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     [cabinetId, recharger],
   )
 
-  return { reel, chargement, erreur, recharger, creerPatiente, basculerModule }
+  /* ---- La séance ----------------------------------------------------- */
+
+  const ouvrirSeance = useCallback(
+    async (patientId: PatientId): Promise<Resultat & { id?: string }> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const { data, error } = await db
+        .from('therapy_sessions')
+        .insert({
+          cabinet_id: cabinetId,
+          patient_id: patientId,
+          status: 'captation',
+          consent_given_at: new Date().toISOString(),
+        })
+        .select('id')
+        .single<{ id: string }>()
+      if (error || !data) {
+        return { ok: false, message: "Le consentement n'a pas pu être enregistré. Réessayez." }
+      }
+      return { ok: true, message: '', id: data.id }
+    },
+    [cabinetId],
+  )
+
+  const enregistrerBrouillon = useCallback(
+    async (sessionId: string, input: Brouillon): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const { error } = await db
+        .from('therapy_sessions')
+        .update({
+          transcript: input.transcript || null,
+          notes: input.notes || null,
+          duration_seconds: Math.max(0, Math.round(input.dureeSecondes)),
+          draft: input.draft,
+          status: 'brouillon',
+        })
+        .eq('id', sessionId)
+      if (error) return { ok: false, message: "Le brouillon n'a pas pu être conservé." }
+      return { ok: true, message: '' }
+    },
+    [cabinetId],
+  )
+
+  const envoyerSeance = useCallback(
+    async (sessionId: string, patientId: PatientId, input: Envoi): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+
+      // Les modules retenus prennent la suite du parcours existant.
+      const { data: dernier } = await db
+        .from('patient_modules')
+        .select('position')
+        .eq('patient_id', patientId)
+        .order('position', { ascending: false })
+        .limit(1)
+        .maybeSingle<{ position: number }>()
+      let position = (dernier?.position ?? -1) + 1
+      if (input.modules.length) {
+        const { error } = await db.from('patient_modules').insert(
+          input.modules.map((m) => ({
+            cabinet_id: cabinetId,
+            patient_id: patientId,
+            title: m.title,
+            meta: m.meta,
+            kind: m.kind,
+            source: 'seance',
+            position: position++,
+          })),
+        )
+        if (error) return { ok: false, message: "Les modules n'ont pas pu être envoyés." }
+      }
+
+      // Les audios : seulement ceux qui existent en base (identifiants UUID).
+      const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      const audios = input.audioIds.filter((id) => UUID.test(id))
+      if (audios.length) {
+        await db
+          .from('patient_audios')
+          .upsert(
+            audios.map((audio_id) => ({ cabinet_id: cabinetId, patient_id: patientId, audio_id })),
+            { onConflict: 'patient_id,audio_id', ignoreDuplicates: true },
+          )
+      }
+
+      const { error: e2 } = await db
+        .from('therapy_sessions')
+        .update({ sent_at: new Date().toISOString(), status: 'envoye' })
+        .eq('id', sessionId)
+      if (e2) return { ok: false, message: "La séance n'a pas pu être clôturée." }
+
+      // Une séance de plus au compteur de la fiche.
+      const { data: fiche } = await db
+        .from('patients')
+        .select('sessions_done')
+        .eq('id', patientId)
+        .maybeSingle<{ sessions_done: number }>()
+      await db
+        .from('patients')
+        .update({ sessions_done: (fiche?.sessions_done ?? 0) + 1 })
+        .eq('id', patientId)
+
+      await recharger()
+      return { ok: true, message: '' }
+    },
+    [cabinetId, recharger],
+  )
+
+  const enregistrerProfil = useCallback(
+    async (patientId: PatientId, sessionId: string | null, profil: ProfilGenere): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const [{ data: precedent }, { data: fiche }] = await Promise.all([
+        db
+          .from('psych_profiles')
+          .select('version')
+          .eq('patient_id', patientId)
+          .order('version', { ascending: false })
+          .limit(1)
+          .maybeSingle<{ version: number }>(),
+        db.from('patients').select('sessions_done').eq('id', patientId).maybeSingle<{ sessions_done: number }>(),
+      ])
+      const { error } = await db.from('psych_profiles').insert({
+        cabinet_id: cabinetId,
+        patient_id: patientId,
+        version: (precedent?.version ?? 0) + 1,
+        // La séance en cours compte : c'est d'elle que le profil est tiré.
+        sessions_count: (fiche?.sessions_done ?? 0) + 1,
+        portrait: profil.portrait,
+        axes: profil.axes,
+        levers: profil.levers,
+        care: profil.care,
+        resume: profil.resume || null,
+        source_session_id: sessionId,
+      })
+      if (error) return { ok: false, message: "Le profil n'a pas pu être enregistré." }
+      return { ok: true, message: '' }
+    },
+    [cabinetId],
+  )
+
+  return {
+    reel,
+    chargement,
+    erreur,
+    recharger,
+    creerPatiente,
+    basculerModule,
+    ouvrirSeance,
+    enregistrerBrouillon,
+    envoyerSeance,
+    enregistrerProfil,
+  }
 }
 
 /** Durée d'un audio de la bibliothèque, pour les écrans qui l'affichent. */
