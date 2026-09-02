@@ -148,6 +148,12 @@ interface ProfileRow {
   care: string[]
 }
 
+interface BrouillonRow {
+  patient_id: string
+  draft: SessionDraft | null
+  created_at: string
+}
+
 interface HypnoseRow {
   id: string
   patient_id: string
@@ -239,6 +245,7 @@ function assembler(
   profil: ProfileRow | undefined,
   hypnoses: HypnoseRow[],
   mouvements: MouvementRow[],
+  brouillon: SessionDraft | undefined,
 ): Patient {
   const mods = modules
     .filter((m) => m.patient_id === p.id)
@@ -270,6 +277,7 @@ function assembler(
     scaleDelta: p.scale_delta ?? '',
     scale: serie,
     hypnoseActivee: Boolean(p.hypnose_activee),
+    dernierBrouillon: brouillon,
     hypnoses: hypnoses
       .filter((h) => h.patient_id === p.id)
       .map((h) => ({
@@ -426,6 +434,8 @@ export interface CabinetData {
   acheverHypnose: (hypnoseId: string, titre: string) => Promise<Resultat>
   /** Supprime une fiche et tout ce qu'elle porte. Irréversible. */
   supprimerPatiente: (patientId: PatientId) => Promise<Resultat>
+  /** Supprime une hypnose et ses mouvements. */
+  supprimerHypnose: (hypnoseId: string) => Promise<Resultat>
 }
 
 export function useCabinet(cabinetId: string | null): CabinetData {
@@ -443,7 +453,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     setErreur('')
     setChargement(true)
 
-    const [fiches, modules, audios, echelles, journal, profils, categories, progs, rdv, bibliotheque, ateliers, affs, reglages, pushes, hypnoses, mouvements] = await Promise.all([
+    const [fiches, modules, audios, echelles, journal, profils, categories, progs, rdv, bibliotheque, ateliers, affs, reglages, pushes, hypnoses, mouvements, brouillons] = await Promise.all([
       db.from('patients').select('*').is('archived_at', null).order('created_at'),
       db.from('patient_modules').select('id, patient_id, title, meta, kind, position, done_at'),
       db.from('patient_audios').select('patient_id, listens, last_listened_at, audio:audio_library (title, duration_seconds)'),
@@ -467,6 +477,15 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         .select('id, patient_id, titre, intention, complete, created_at')
         .order('created_at', { ascending: false }),
       db.from('hypnose_mouvements').select('hypnose_id, mouvement, rang, titre, texte').order('rang'),
+      // Le dernier brouillon de chaque patiente : il porte les formulations
+      // et la synthèse d'où une hypnose se bâtit. Sans lui, une hypnose
+      // relancée depuis la fiche n'aurait que le dossier — et perdrait les
+      // mots de la séance, qui en sont la matière la plus précieuse.
+      db
+        .from('therapy_sessions')
+        .select('patient_id, draft, created_at')
+        .not('draft', 'is', null)
+        .order('created_at', { ascending: false }),
     ])
 
     const premiere = [fiches, modules, audios, echelles, journal, profils, categories, bibliotheque].find((r) => r.error)
@@ -477,6 +496,12 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     }
 
     const lignes = (fiches.data ?? []) as PatientRow[]
+    // Un seul brouillon par patiente : le plus récent, l'ordre étant décroissant.
+    const dernierBrouillon = new Map<string, SessionDraft>()
+    for (const b of (brouillons.data ?? []) as BrouillonRow[]) {
+      if (b.draft && !dernierBrouillon.has(b.patient_id)) dernierBrouillon.set(b.patient_id, b.draft)
+    }
+
     // Une seule version par patient : la plus récente, l'ordre étant décroissant.
     const dernierProfil = new Map<string, ProfileRow>()
     for (const pr of (profils.data ?? []) as ProfileRow[]) {
@@ -494,6 +519,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         dernierProfil.get(ligne.id),
         (hypnoses.data ?? []) as HypnoseRow[],
         (mouvements.data ?? []) as MouvementRow[],
+        dernierBrouillon.get(ligne.id),
       )
     }
 
@@ -1380,6 +1406,19 @@ export function useCabinet(cabinetId: string | null): CabinetData {
    * patiente, lui, survit — il ne nous appartient pas, et il peut être
    * rattaché à une autre fiche ailleurs.
    */
+  const supprimerHypnose = useCallback(
+    async (hypnoseId: string): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      // Les mouvements partent en cascade, sur la clé étrangère.
+      const { error } = await db.from('hypnoses').delete().eq('id', hypnoseId)
+      if (error) return { ok: false, message: "L'hypnose n'a pas pu être supprimée." }
+      await recharger()
+      return { ok: true, message: '' }
+    },
+    [cabinetId, recharger],
+  )
+
   const supprimerPatiente = useCallback(
     async (patientId: PatientId): Promise<Resultat> => {
       const db = supabase()
@@ -1460,6 +1499,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     ajouterMouvement,
     acheverHypnose,
     supprimerPatiente,
+    supprimerHypnose,
   }
 }
 

@@ -127,6 +127,14 @@ export interface Patient {
   journal: JournalEntry[]
   /** Les hypnoses écrites pour elle, de la plus récente à la plus ancienne. */
   hypnoses: Hypnose[]
+  /**
+   * Le brouillon de sa dernière séance analysée.
+   *
+   * Il porte les formulations et la synthèse d'où une hypnose se bâtit :
+   * sans lui, une hypnose relancée depuis la fiche perdrait les mots de la
+   * séance, qui en sont la matière la plus précieuse.
+   */
+  dernierBrouillon?: SessionDraft
 }
 
 /** Une question de quiz de compréhension. */

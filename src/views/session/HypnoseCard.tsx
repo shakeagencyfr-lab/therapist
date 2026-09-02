@@ -1,14 +1,7 @@
 import { useState } from 'react'
 import { Button, Notice, Title } from '@/components/ui'
-import { useMaybeCabinet } from '@/cabinet/context'
-import {
-  AiError,
-  MOUVEMENTS_HYPNOSE,
-  NOM_MOUVEMENT,
-  buildPatientContext,
-  genererHypnose,
-  type MouvementEcrit,
-} from '@/services/aiClient'
+import { MOUVEMENTS_HYPNOSE, NOM_MOUVEMENT } from '@/services/aiClient'
+import { useEcritureHypnose } from '@/cabinet/useEcritureHypnose'
 import { useStore } from '@/state/store'
 import { HypnoseToggle } from './HypnoseToggle'
 import s from './HypnoseCard.module.css'
@@ -31,8 +24,7 @@ import s from './HypnoseCard.module.css'
  * cher que tout le reste de la séance réuni.
  */
 export function HypnoseCard() {
-  const { state, read } = useStore()
-  const cabinet = useMaybeCabinet()
+  const { state } = useStore()
   const key = state.sessionPatient
   const patient = state.patients[key]
 
@@ -40,81 +32,20 @@ export function HypnoseCard() {
   /*
    * L'option se décide AUSSI ici, au moment où la question se pose vraiment :
    * la séance vient de se dérouler, la thérapeute sait maintenant si cette
-   * patiente-là en tirera quelque chose. L'envoyer régler une case sur la
-   * fiche à ce moment-là lui ferait perdre le fil.
+   * patiente-là en tirera quelque chose.
    *
    * C'est le même réglage que sur la fiche, pas un doublon : cocher ici
    * l'ouvre aussi pour les séances suivantes. Une copie locale garde l'écran
    * réactif — et laisse la démonstration fonctionner sans base.
    */
   const [ouverteIci, setOuverteIci] = useState<boolean | null>(null)
-  const [ecrits, setEcrits] = useState<MouvementEcrit[]>([])
-  const [enCours, setEnCours] = useState<string>('')
-  const [erreur, setErreur] = useState('')
-  const [fini, setFini] = useState(false)
-  /*
-   * L'écriture est en cours — dès le clic, pas au premier mouvement rendu.
-   *
-   * C'était le défaut : `enCours` n'était posé que DANS le rappel de
-   * progression, donc après le premier mouvement. Pendant les trente
-   * secondes qu'il met à s'écrire, l'écran ne montrait rien et le bouton
-   * restait cliquable. La thérapeute a donc recliqué — deux écritures en
-   * parallèle, deux hypnoses ouvertes en base, et les inductions empilées
-   * dans le même tableau.
-   *
-   * Un booléen posé avant tout appel, et le bouton qui le respecte.
-   */
-  const [ecriture, setEcriture] = useState(false)
+  const { ecriture, enCours, ecrits, erreur, fini, ecrire } = useEcritureHypnose()
 
   if (!patient) return null
 
   const prenom = patient.name.split(' ')[0] ?? patient.name
   const ouverte = ouverteIci ?? patient.hypnoseActivee
   const draft = state.draft
-
-  async function ecrire() {
-    // Garde de réentrée : un second clic pendant l'écriture ne relance rien.
-    if (!draft || ecriture) return
-    setEcriture(true)
-    setEnCours(NOM_MOUVEMENT[MOUVEMENTS_HYPNOSE[0]])
-    setErreur('')
-    setFini(false)
-    setEcrits([])
-
-    // L'hypnose s'ouvre en base AVANT d'être écrite : chaque mouvement y est
-    // versé dès qu'il arrive, et rien n'est perdu si l'un d'eux échoue.
-    const hypnoseId = cabinet?.reel
-      ? await cabinet.creerHypnose(key, state.sessionId || null, intention.trim())
-      : null
-
-    try {
-      const tous = await genererHypnose(
-        {
-          context: buildPatientContext(read(), key),
-          mots: draft.mots ?? [],
-          themes: draft.themes ?? [],
-          synthese: draft.synthese ?? '',
-          intention: intention.trim(),
-        },
-        async (ecrit, rang) => {
-          setEcrits((prev) => [...prev, ecrit])
-          setEnCours(MOUVEMENTS_HYPNOSE[rang] ? NOM_MOUVEMENT[MOUVEMENTS_HYPNOSE[rang]] : '')
-          if (hypnoseId) await cabinet?.ajouterMouvement(hypnoseId, ecrit, rang)
-        },
-      )
-      if (hypnoseId) {
-        // Le titre de la séance est celui de son induction : c'est la
-        // métaphore qui la porte d'un bout à l'autre.
-        await cabinet?.acheverHypnose(hypnoseId, tous[0]?.titre || `Séance pour ${prenom}`)
-      }
-      setFini(true)
-    } catch (err) {
-      setErreur(err instanceof AiError ? err.message : "L'hypnose n'a pas pu être écrite.")
-    } finally {
-      setEnCours('')
-      setEcriture(false)
-    }
-  }
 
   return (
     <section className={s.card}>
@@ -145,7 +76,11 @@ export function HypnoseCard() {
                   placeholder="Installer le délai avant le geste, ancrer la main sur le sternum…"
                 />
               </label>
-              <Button variant="primary" onClick={() => void ecrire()} disabled={!draft || ecriture}>
+              <Button
+                variant="primary"
+                onClick={() => draft && void ecrire(key, draft, intention)}
+                disabled={!draft || ecriture}
+              >
                 {ecriture ? 'Écriture en cours…' : "Écrire l'hypnose"}
               </Button>
             </div>
