@@ -25,8 +25,19 @@ export interface PatientAudioRow {
   audio: { title: string; duration_seconds: number; meta: string | null; storage_path: string } | null
 }
 
+/** Une page du journal, telle que la patiente l'a écrite. */
+export interface JournalPageRow {
+  id: string
+  title: string
+  body: string
+  shared: boolean
+  written_at: string
+}
+
 export interface PatientData {
   modules: PatientModuleRow[]
+  /** Son journal, de la plus récente à la plus ancienne. */
+  journal: JournalPageRow[]
   affirmations: string[]
   audios: PatientAudioRow[]
   /** Dernière valeur d'échelle enregistrée aujourd'hui, s'il y en a une. */
@@ -47,6 +58,7 @@ export interface PatientData {
 
 export function usePatientData(patientId: string | null): PatientData {
   const [modules, setModules] = useState<PatientModuleRow[]>([])
+  const [journal, setJournal] = useState<JournalPageRow[]>([])
   const [affirmations, setAffirmations] = useState<string[]>([])
   const [audios, setAudios] = useState<PatientAudioRow[]>([])
   const [scaleToday, setScaleToday] = useState<number | null>(null)
@@ -66,7 +78,7 @@ export function usePatientData(patientId: string | null): PatientData {
     }
     setErreur('')
 
-    const [mods, affs, auds, fiche, echelle, reglages] = await Promise.all([
+    const [mods, affs, auds, fiche, echelle, reglages, pages] = await Promise.all([
       db.from('patient_modules').select('id, title, meta, kind, position, done_at, patient_note').order('position'),
       db.from('affirmations').select('text, position').not('published_at', 'is', null).order('position'),
       db.from('patient_audios').select('id, listens, audio:audio_library (title, duration_seconds, meta, storage_path)'),
@@ -75,6 +87,11 @@ export function usePatientData(patientId: string | null): PatientData {
       // Ce que la patiente voit de son cabinet : l'agenda et la boutique, rien
       // des clés. Un échec ici ne bloque pas le reste de l'espace.
       db.rpc('patient_cabinet_settings'),
+      db
+        .from('journal_pages')
+        .select('id, title, body, shared, written_at')
+        .order('written_at', { ascending: false })
+        .limit(60),
     ])
 
     const premiere = [mods.error, affs.error, auds.error, fiche.error, echelle.error].find(Boolean)
@@ -85,6 +102,7 @@ export function usePatientData(patientId: string | null): PatientData {
     }
 
     setModules((mods.data ?? []) as PatientModuleRow[])
+    setJournal((pages.data ?? []) as JournalPageRow[])
     setAffirmations(((affs.data ?? []) as Array<{ text: string }>).map((a) => a.text))
     setAudios((auds.data ?? []) as unknown as PatientAudioRow[])
     if (fiche.data?.scale_question) setScaleQuestion(fiche.data.scale_question)
@@ -111,6 +129,7 @@ export function usePatientData(patientId: string | null): PatientData {
 
   return {
     modules,
+    journal,
     affirmations,
     audios,
     scaleToday,
