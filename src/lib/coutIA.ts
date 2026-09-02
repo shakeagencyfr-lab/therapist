@@ -78,6 +78,18 @@ function euros(entree: number, sortie: number): number {
  * s'allonge un peu avec la matière avant de buter sur son plafond. D'où une
  * base et une pente modeste, plutôt qu'une règle de trois qui surestimerait
  * grossièrement les séances longues.
+ *
+ * CALIBRAGE À REPRENDRE. Le premier appel réel mesuré (1 755 jetons de
+ * matière) a rendu 2 448 jetons là où cette formule en prédit 1 051 : la
+ * base et la pente ont été posées avant qu'aucun appel n'existe, et elles
+ * ignoraient les jetons de raisonnement, facturés au tarif de sortie. La
+ * thérapeute voyait donc environ la moitié du prix réel. Le plafond, lui,
+ * était juste : `eurosMax` reste une vraie borne.
+ *
+ * Ce chiffre a de nouveau bougé depuis : le brouillon tourne maintenant à
+ * l'effort « medium » (server/ai.ts) et produit moins. Recalibrer sur trois
+ * ou quatre brouillons réels au nouveau réglage, plutôt que de deviner une
+ * seconde fois — l'onglet « Revente IA » du revendeur donne la mesure.
  */
 export function estimationBrouillon(transcript: string, notes = ''): Estimation {
   const matiere = jetonsDe(transcript) + jetonsDe(notes)
