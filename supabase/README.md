@@ -28,6 +28,19 @@ actifs — dans un cabinet d'un patient, une moyenne est un chiffre individuel.
 | `0001_socle_multi_cabinet.sql` | revendeurs, cabinets, membres, invitations, marque blanche, fonctions d'appartenance |
 | `0002_donnees_de_sante.sql` | patients, modules, audios, échelle, journal, séances, profils, affirmations, notifications |
 | `0003_commercial_et_revendeur.sql` | offres, abonnements, consommation IA, journal d'accès, agrégats du revendeur |
+| `0004_durcissement_execution.sql` | qui a le droit d'appeler quelle fonction |
+| `0005_connexion_et_roles.sql` | `my_context()`, `claim_access()` : le lien magique rattache un compte à ce qui l'attendait |
+| `0006_invitations_revendeur.sql` | invitations d'un revendeur |
+| `0007_gestes_du_patient.sql` | ce qu'un patient peut modifier, par fonctions nommées |
+| `0008_invitation_sans_jeton.sql` | le jeton d'invitation devient facultatif |
+| `0009_integrations.sql` | `cabinet_settings` (ce qui se montre) et `cabinet_secrets` (clés chiffrées, réservées au serveur) |
+| `0010_boutique.sql` | produits du cabinet, commandes écrites par le serveur seul |
+| `0011_stockage_audios.sql` | compartiment privé `audios`, rangé par cabinet, URL signées |
+| `0012_lectures_de_la_patiente.sql` | la patiente lit les audios et notifications qui lui sont envoyés |
+
+Les tests de `tests/` se jouent sous les droits réels de chaque acteur, dans
+un seul bloc qui se rétracte (`RAISE EXCEPTION 'REUSSITE …'`) : rien ne
+persiste, et le message dit ce qui a été vérifié.
 
 ## Choix à connaître
 

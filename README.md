@@ -8,8 +8,10 @@ Application de suivi entre les séances d'hypnothérapie. Elle relie deux espace
 - **Espace patient** — une à trois tâches par jour, audios hors connexion, journal,
   échelle du soir, affirmation du jour.
 
-Quatre écrans outils complètent l'espace thérapeute : captation de séance,
-atelier de modules IA, bibliothèque audio du cabinet, notifications ciblées.
+Six écrans outils complètent l'espace thérapeute : captation de séance,
+atelier de modules IA, bibliothèque audio du cabinet, notifications ciblées,
+boutique (Stripe, sur le compte de la thérapeute) et intégrations (clé
+d'analyse, Stripe, agenda de réservation).
 
 ## Pile
 
@@ -27,13 +29,19 @@ Aucune dépendance d'interface tierce : les primitives (`src/components/ui`) son
 
 ```bash
 npm install
-cp .env.example .env      # renseigner ANTHROPIC_API_KEY, ou laisser AI_MOCK=1
+cp .env.example .env      # renseigner ANTHROPIC_API_KEY, ou poser AI_MOCK=1
 npm run dev               # interface sur :5173, API sur :8787
 ```
 
-Sans clé API, le serveur répond en **mode maquette** (`AI_MOCK=1`) : les quatre
-fonctions IA renvoient des sorties de démonstration bien formées, ce qui permet
-de travailler l'interface sans appeler le modèle.
+Le **mode maquette** se demande explicitement, par `AI_MOCK=1` : les quatre
+fonctions IA renvoient alors des sorties de démonstration bien formées, ce qui
+permet de travailler l'interface sans appeler le modèle. Le brouillon de séance
+est signalé comme fictif à l'écran et ne peut pas être versé au dossier.
+
+Sans clé et sans `AI_MOCK`, les fonctions IA répondent **503 avec un message
+explicite**. Elles n'inventent jamais de contenu : un serveur mal configuré
+rendait autrefois le même brouillon fictif pour n'importe quelle patiente,
+présenté comme l'analyse de sa séance.
 
 ```bash
 npm run build      # typecheck + build de production
@@ -138,6 +146,19 @@ chiffre individuel.
 - **Affirmations** — génération le lundi ou édition manuelle ; côté patient,
   rotation toutes les cinq secondes, arrêtée définitivement au premier tap.
 
+## Variables d'environnement, côté serveur
+
+| Variable | Rôle |
+| --- | --- |
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` | destinées au navigateur ; à cocher aussi pour **Preview** sur Vercel si l'on veut tester une branche |
+| `SUPABASE_SERVICE_ROLE_KEY` | serveur seul : envoi des invitations, consommation IA, secrets d'intégration, commandes |
+| `PUBLIC_SITE_URL` | adresse publique, fixée par le serveur (liens des courriels, retours de paiement) |
+| `INTEGRATIONS_KEY` | chiffrement des clés confiées par les cabinets ; `openssl rand -base64 32`, à ne jamais changer ensuite |
+| `ANTHROPIC_API_KEY` | clé d'analyse de la plateforme, en repli quand un cabinet n'a pas posé la sienne |
+
+Aucune de ces variables, hormis les deux `VITE_`, ne doit approcher un préfixe
+`VITE_` : elles seraient compilées dans le paquet envoyé au navigateur.
+
 ## Avant la mise en production
 
 Ce dépôt est une recréation fidèle des écrans, pas un produit déployable. Il reste :
@@ -146,9 +167,21 @@ Ce dépôt est une recréation fidèle des écrans, pas un produit déployable. 
   journalisation des accès, durées de conservation, registre de traitement.
 - **Consentement** — le consentement de captation doit être horodaté et conservé,
   et la suppression d'une transcription doit être effective côté serveur.
+- **Transcription** — l'API Web Speech du navigateur, utilisée aujourd'hui, a deux
+  limites qui interdisent un usage clinique réel. Elle **envoie l'audio à un tiers**
+  (Google, sur Chrome), ce qui contredit la promesse HDS ci-dessus ; et elle **ne
+  distingue pas les locuteurs**, si bien que « les mots du patient » et l'induction
+  bâtie sur ses images reposent sur une attribution que la chaîne ne fournit pas —
+  le serveur le détecte et l'annonce au modèle plutôt que de le laisser deviner. La
+  chaîne visée : captation locale, transcription **avec diarisation** chez un
+  hébergeur de données de santé européen, destruction de l'audio, puis rédaction.
 - **Polices** — Newsreader et Public Sans à auto-héberger (pas de requête vers
   Google Fonts depuis un poste de santé).
 - **Marque** — le logo « LO » est un placeholder ; l'accent `#A17A45` et le sombre
   `#33291C` sont estimés et paramétrables par cabinet (`src/theme/theme.ts`).
 - **Contenu** — le texte de démonstration est réaliste mais à valider avec la
   thérapeute ; les libellés d'interface, eux, sont définitifs.
+- **Notifications** — les envois sont enregistrés avec leurs destinataires ;
+  la remise sur téléphone attend un service de push (Web Push ou natif).
+- **Courriels** — l'envoi intégré de Supabase est limité et ne convient qu'aux
+  essais ; un SMTP dédié est nécessaire avant les premières patientes.

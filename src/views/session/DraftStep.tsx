@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { Title } from '@/components/ui'
+import { useMaybeCabinet } from '@/cabinet/context'
 import { dateDuJour } from '@/lib/format'
-import { buildPatientContext, refreshProfile } from '@/services/aiClient'
+import { buildPatientContext, derniereReponseEstMaquette as derniereEstMaquette, refreshProfile } from '@/services/aiClient'
 import { profileOf } from '@/state/selectors'
 import { useStore } from '@/state/store'
 import type { LibraryAudio, PatientModule, PsychProfile } from '@/types/domain'
@@ -13,7 +15,11 @@ const cx = (...parts: Array<string | false>) => parts.filter(Boolean).join(' ')
 /** Étape 4 : le brouillon. Rien n'entre au dossier avant la barre d'envoi. */
 export function DraftStep() {
   const { state, set, read } = useStore()
+  const cabinet = useMaybeCabinet()
   const draft = state.draft
+  /** L'envoi en base : en cours, ou l'échec à afficher. */
+  const [envoi, setEnvoi] = useState<'repos' | 'en-cours'>('repos')
+  const [echecEnvoi, setEchecEnvoi] = useState('')
 
   /* La fiche de la séance, pas celle de la barre latérale : c'est elle qui
      recevra la note, les modules et les audios, même si la sélection a
@@ -70,6 +76,9 @@ export function DraftStep() {
   }
 
   function sendDraft() {
+    // Garde de fond : le bouton est déjà barré, mais rien de fictif ne doit
+    // pouvoir atteindre un dossier par un autre chemin.
+    if (state.draftMaquette || state.sent || envoi === 'en-cours') return
     const retained: PatientModule[] = proposals
       .filter((_, i) => !state.proposalOff[i])
       .map((proposal) => ({
@@ -79,10 +88,28 @@ export function DraftStep() {
         done: false,
         fresh: true,
       }))
-    set((prev) => ({
-      sent: true,
-      extra: { ...prev.extra, [key]: (prev.extra[key] ?? []).concat(retained) },
-    }))
+
+    // Fiches de démonstration : le parcours se met à jour en mémoire.
+    if (!cabinet?.reel || !state.sessionId) {
+      set((prev) => ({
+        sent: true,
+        extra: { ...prev.extra, [key]: (prev.extra[key] ?? []).concat(retained) },
+      }))
+      return
+    }
+
+    // Fiche réelle : les modules entrent en base et la fiche est rechargée
+    // depuis là — rien n'est ajouté en mémoire, sinon ils apparaîtraient deux
+    // fois. La séance est clôturée, le compteur de séances avance.
+    setEnvoi('en-cours')
+    setEchecEnvoi('')
+    void cabinet
+      .envoyerSeance(state.sessionId, key, { modules: retained, audioIds: sugOn.map((a) => a.id) })
+      .then((r) => {
+        setEnvoi('repos')
+        if (r.ok) set({ sent: true })
+        else setEchecEnvoi(r.message || "L'envoi a échoué. Réessayez.")
+      })
   }
 
   function copyMessage() {
@@ -125,6 +152,17 @@ export function DraftStep() {
         profNew: { ...prev.profNew, [key]: next },
         profNote: { ...prev.profNote, [key]: result.resume || 'Profil actualisé.' },
       }))
+      // Le profil est versionné en base : la fiche le retrouvera au prochain
+      // chargement, avec le nombre de séances qui donne sa marge.
+      if (cabinet?.reel && !derniereEstMaquette()) {
+        void cabinet.enregistrerProfil(key, now.sessionId, {
+          portrait: next.portrait,
+          axes: next.axes,
+          levers: next.levers,
+          care: next.care,
+          resume: result.resume ?? '',
+        })
+      }
     } catch {
       set((prev) => ({
         profGen: '',
@@ -135,6 +173,19 @@ export function DraftStep() {
 
   return (
     <div className={s.step}>
+      {/* Un brouillon de maquette ne se déguise pas en analyse : il est annoncé
+          comme tel, et la barre d'envoi refuse de le verser au dossier. */}
+      {state.draftMaquette ? (
+        <section className={s.fake}>
+          <h2 className={s.fakeTitle}>Ceci n'est pas une analyse de votre séance</h2>
+          <p className={s.fakeBody}>
+            Le serveur tourne en mode maquette : ce texte est un exemple fixe, écrit d'avance, qui
+            ne tient aucun compte de ce que vous venez d'enregistrer. Il ne peut pas être versé au
+            dossier. Renseignez la clé d'analyse du serveur pour obtenir une vraie note de séance.
+          </p>
+        </section>
+      ) : null}
+
       {/* Synthèse ------------------------------------------------------ */}
       <section className={s.card}>
         <div className={s.head}>
@@ -176,13 +227,24 @@ export function DraftStep() {
         <section className={s.card}>
           <h2 className={s.h21}>Les mots du patient</h2>
           <div className={s.sub}>À réutiliser tels quels dans la prochaine induction.</div>
-          <div className={s.words}>
-            {draft.mots.map((word, i) => (
-              <span className={s.word} key={`${i}-${word}`}>
-                {word}
-              </span>
-            ))}
-          </div>
+          {draft.mots.length ? (
+            <div className={s.words}>
+              {draft.mots.map((word, i) => (
+                <span className={s.word} key={`${i}-${word}`}>
+                  {word}
+                </span>
+              ))}
+            </div>
+          ) : (
+            /* Vide à dessein : sans distinction des locuteurs, rien ne permet
+               d'attribuer une phrase au patient. Mieux vaut le dire que citer
+               au hasard. */
+            <p className={s.empty}>
+              La transcription ne distingue pas qui parle : aucune expression n'a pu être
+              attribuée au patient avec certitude. Le bouton « Mot du patient », pendant la
+              séance, horodate ceux que vous voulez retenir.
+            </p>
+          )}
         </section>
         <section className={s.card}>
           <h2 className={s.h21}>Fil rouge</h2>
@@ -397,12 +459,24 @@ export function DraftStep() {
       <section className={s.sendBar}>
         <div className={s.sendText}>
           <span className={s.sendTitle}>
-            {state.sent ? `Envoyé au dossier de ${firstName}` : 'Prêt à envoyer'}
+            {state.draftMaquette
+              ? 'Envoi impossible'
+              : state.sent
+                ? `Envoyé au dossier de ${firstName}`
+                : envoi === 'en-cours'
+                  ? 'Envoi en cours…'
+                  : echecEnvoi
+                    ? "L'envoi a échoué"
+                    : 'Prêt à envoyer'}
           </span>
           <span className={s.sendSub}>
-            {state.sent
-              ? 'La note est archivée et les modules retenus apparaissent dans son parcours de la semaine.'
-              : "La note rejoint le dossier, les modules retenus partent dans son espace patient. La transcription brute est supprimée."}
+            {state.draftMaquette
+              ? "Ce brouillon est un texte de maquette. Rien de fictif n'entre dans un dossier de santé."
+              : state.sent
+                ? 'La note est archivée et les modules retenus apparaissent dans son parcours de la semaine.'
+                : echecEnvoi
+                  ? echecEnvoi
+                  : "La note rejoint le dossier, les modules retenus partent dans son espace patient. La transcription brute est supprimée."}
           </span>
         </div>
         <div className={s.sendActions}>
@@ -424,8 +498,9 @@ export function DraftStep() {
             type="button"
             className={cx(s.sendBtn, state.sent && s.sendBtnDone)}
             onClick={sendDraft}
+            disabled={state.draftMaquette || envoi === 'en-cours'}
           >
-            {state.sent ? '✓ Envoyé' : 'Valider et envoyer'}
+            {state.sent ? '✓ Envoyé' : envoi === 'en-cours' ? 'Envoi…' : 'Valider et envoyer'}
           </button>
         </div>
       </section>

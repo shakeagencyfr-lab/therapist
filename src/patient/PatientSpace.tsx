@@ -4,7 +4,24 @@ import { supabase } from '@/lib/supabase'
 import { timecode } from '@/lib/format'
 import { useAuth } from '@/auth/session'
 import { usePatientData } from './usePatientData'
+import { RendezVous } from './RendezVous'
+import { Boutique } from './Boutique'
 import s from './PatientSpace.module.css'
+
+type Onglet = 'jour' | 'rdv' | 'boutique'
+
+/** Retour de Stripe : la session à vérifier, ou l'annulation. Lus une fois. */
+function retourPaiement(): { commande: string | null; annule: boolean } {
+  if (typeof window === 'undefined') return { commande: null, annule: false }
+  const q = new URLSearchParams(window.location.search)
+  const commande = q.get('commande')
+  const annule = q.get('annule') === '1'
+  if (commande || annule) {
+    // On nettoie l'adresse : recharger ne doit pas revérifier ni ré-annoncer.
+    window.history.replaceState(null, '', window.location.pathname)
+  }
+  return { commande, annule }
+}
 
 /** Le prénom seul : c'est ainsi que la thérapeute s'adresse à lui. */
 function prenom(nom: string): string {
@@ -25,8 +42,25 @@ function aujourdhui(): string {
 export function PatientSpace() {
   const { context, seDeconnecter } = useAuth()
   const patient = context?.patient ?? null
-  const { modules, affirmations, audios, scaleToday, scaleQuestion, chargement, erreur, recharger } =
-    usePatientData(patient?.id ?? null)
+  const {
+    modules,
+    affirmations,
+    audios,
+    scaleToday,
+    scaleQuestion,
+    trafftUrl,
+    shopEnabled,
+    chargement,
+    erreur,
+    recharger,
+  } = usePatientData(patient?.id ?? null)
+
+  const [retour] = useState(retourPaiement)
+  const [onglet, setOnglet] = useState<Onglet>(retour.commande || retour.annule ? 'boutique' : 'jour')
+
+  /** L'audio en cours d'écoute : son identifiant et son URL signée. */
+  const [lecture, setLecture] = useState<{ id: string; url: string } | null>(null)
+  const [lectureErreur, setLectureErreur] = useState('')
 
   const [affIdx, setAffIdx] = useState(0)
   const [affFige, setAffFige] = useState(false)
@@ -57,6 +91,32 @@ export function PatientSpace() {
     if (!error) await recharger()
   }
 
+  /**
+   * Écouter : une URL signée d'une heure sur le fichier privé, obtenue sous
+   * ses propres droits — elle ne voit que ce qui lui a été envoyé. L'écoute
+   * est comptée au démarrage, comme avant.
+   */
+  async function ecouter(id: string, chemin: string | undefined) {
+    const db = supabase()
+    if (!db) return
+    if (lecture?.id === id) {
+      setLecture(null)
+      return
+    }
+    setLectureErreur('')
+    if (!chemin) {
+      setLectureErreur("Cet audio n'a pas de fichier associé.")
+      return
+    }
+    const { data, error } = await db.storage.from('audios').createSignedUrl(chemin, 3600)
+    if (error || !data?.signedUrl) {
+      setLectureErreur("L'audio n'a pas pu être ouvert. Réessayez dans un instant.")
+      return
+    }
+    setLecture({ id, url: data.signedUrl })
+    void db.rpc('patient_count_listen', { p_audio: id }).then(() => recharger())
+  }
+
   async function noterEchelle(valeur: number) {
     const db = supabase()
     if (!db) return
@@ -72,8 +132,17 @@ export function PatientSpace() {
 
   const valeurEchelle = echelle ?? scaleToday
 
+  const onglets: Array<{ value: Onglet; label: string }> = [
+    { value: 'jour', label: "Aujourd'hui" },
+    ...(trafftUrl ? [{ value: 'rdv' as const, label: 'Rendez-vous' }] : []),
+    ...(shopEnabled ? [{ value: 'boutique' as const, label: 'Boutique' }] : []),
+  ]
+  const avecOnglets = onglets.length > 1
+  // Un onglet qui n'existe plus (boutique fermée entre-temps) ramène au jour.
+  const courant: Onglet = onglets.some((o) => o.value === onglet) ? onglet : 'jour'
+
   return (
-    <div className={s.page}>
+    <div className={avecOnglets ? `${s.page} ${s.pageOnglets}` : s.page}>
       <header className={s.head} style={{ background: patient.branding?.dark }}>
         <div className={s.date}>{aujourdhui()}</div>
         <h1 className={s.hello}>Bonjour {prenom(patient.display_name)}</h1>
@@ -105,7 +174,20 @@ export function PatientSpace() {
         {erreur ? <Notice tone="warn">{erreur}</Notice> : null}
         {chargement ? <p className={s.count}>Chargement…</p> : null}
 
-        {taches.length > 0 ? (
+        {courant === 'rdv' && trafftUrl ? (
+          <RendezVous url={trafftUrl} accent={patient.branding?.accent} />
+        ) : null}
+
+        {courant === 'boutique' ? (
+          <Boutique
+            accent={patient.branding?.accent}
+            retourCommande={retour.commande}
+            retourAnnule={retour.annule}
+            onLivre={recharger}
+          />
+        ) : null}
+
+        {courant === 'jour' && taches.length > 0 ? (
           <section className={s.section}>
             <div className={s.sectionHead}>
               <span className={s.sectionTitle}>Aujourd'hui</span>
@@ -145,35 +227,46 @@ export function PatientSpace() {
           </section>
         ) : null}
 
-        {audios.length > 0 ? (
+        {courant === 'jour' && audios.length > 0 ? (
           <section className={s.section}>
             <div className={s.sectionHead}>
               <span className={s.sectionTitle}>Vos audios</span>
               <span className={s.count}>Écoutables hors connexion</span>
             </div>
-            {audios.map((a) => (
-              <div key={a.id} className={s.audio}>
-                <button
-                  type="button"
-                  className={s.play}
-                  style={{ color: patient.branding?.accent }}
-                  aria-label={`Écouter ${a.audio?.title ?? 'cet audio'}`}
-                  onClick={() => void supabase()?.rpc('patient_count_listen', { p_audio: a.id })}
-                >
-                  ▶
-                </button>
-                <span>
-                  <span className={s.audioTitle}>{a.audio?.title}</span>
-                  <span className={s.audioMeta}>
-                    {a.listens > 0 ? `Écouté ${a.listens} fois` : 'Jamais écouté'}
-                  </span>
-                </span>
-                <span className={s.duration}>{timecode(a.audio?.duration_seconds ?? 0)}</span>
-              </div>
-            ))}
+            {lectureErreur ? <p className={s.frameNote}>{lectureErreur}</p> : null}
+            {audios.map((a) => {
+              const enCours = lecture?.id === a.id
+              return (
+                <div key={a.id}>
+                  <div className={s.audio}>
+                    <button
+                      type="button"
+                      className={s.play}
+                      style={{ color: patient.branding?.accent }}
+                      aria-label={`${enCours ? 'Fermer' : 'Écouter'} ${a.audio?.title ?? 'cet audio'}`}
+                      aria-pressed={enCours}
+                      onClick={() => void ecouter(a.id, a.audio?.storage_path)}
+                    >
+                      {enCours ? '■' : '▶'}
+                    </button>
+                    <span>
+                      <span className={s.audioTitle}>{a.audio?.title ?? 'Audio'}</span>
+                      <span className={s.audioMeta}>
+                        {a.listens > 0 ? `Écouté ${a.listens} fois` : 'Jamais écouté'}
+                      </span>
+                    </span>
+                    <span className={s.duration}>{timecode(a.audio?.duration_seconds ?? 0)}</span>
+                  </div>
+                  {enCours ? (
+                    <audio className={s.lecteur} controls autoPlay preload="auto" src={lecture.url} />
+                  ) : null}
+                </div>
+              )
+            })}
           </section>
         ) : null}
 
+        {courant === 'jour' ? (
         <section className={s.section}>
           <div className={s.sectionHead}>
             <span className={s.sectionTitle}>Ce soir</span>
@@ -203,6 +296,7 @@ export function PatientSpace() {
             </p>
           ) : null}
         </section>
+        ) : null}
 
         <p className={s.foot}>
           {patient.cabinet_name}
@@ -212,6 +306,23 @@ export function PatientSpace() {
           </button>
         </p>
       </div>
+
+      {avecOnglets ? (
+        <nav className={s.tabs} aria-label="Sections">
+          {onglets.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              className={courant === o.value ? `${s.tab} ${s.tabOn}` : s.tab}
+              aria-current={courant === o.value ? 'page' : undefined}
+              style={courant === o.value && patient.branding?.accent ? { color: patient.branding.accent } : undefined}
+              onClick={() => setOnglet(o.value)}
+            >
+              {o.label}
+            </button>
+          ))}
+        </nav>
+      ) : null}
     </div>
   )
 }

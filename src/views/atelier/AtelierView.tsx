@@ -2,6 +2,7 @@ import { Button, Card, Overline, SquareCheck, TextArea, TextInput, Title } from 
 import { ATELIER_SEEDS, ATELIER_SEED_BRIEFS, ATELIER_TYPES } from '@/data/atelier'
 import { plural } from '@/lib/format'
 import { AiError, generateModule } from '@/services/aiClient'
+import { useMaybeCabinet } from '@/cabinet/context'
 import { useStore } from '@/state/store'
 import type { AppState } from '@/state/state'
 import type { CustomModule, PatientId, QuizQuestion } from '@/types/domain'
@@ -69,6 +70,7 @@ function QuizItem({ question }: { question: QuizQuestion }) {
  */
 export function AtelierView() {
   const { state, set } = useStore()
+  const cabinet = useMaybeCabinet()
   const mod = state.aMod
   const rows = libraryRows(state)
   const selected = state.patientOrder.filter((key) => state.aAssign[key])
@@ -91,12 +93,26 @@ export function AtelierView() {
     }
   }
 
-  function assign() {
+  async function assign() {
     if (!mod || !selected.length) return
     const title = mod.titre || 'Module sur mesure'
     const duree = mod.duree || 'Quelques minutes'
     const quand = mod.quand || 'Comme indiqué sur le module'
     const entry: CustomModule = { ...mod, titre: title, duree, quand }
+
+    // Cabinet réel : bibliothèque et parcours s'écrivent en base, puis la
+    // fiche est rechargée depuis là.
+    if (cabinet?.reel) {
+      set({ aGen: true, aNotice: '' })
+      const r = await cabinet.assignerModule(entry, selected)
+      set({
+        aGen: false,
+        aNotice: r.ok ? '' : r.message,
+        aAssign: r.ok ? {} : state.aAssign,
+        aLastAssigned: r.ok ? selected.map((key) => state.patients[key]?.name ?? '').filter(Boolean).join(', ') : '',
+      })
+      return
+    }
     set((prev) => {
       const extra = { ...prev.extra }
       selected.forEach((key) => {
@@ -344,7 +360,7 @@ export function AtelierView() {
                   variant="primary"
                   className={s.assignBtn}
                   disabled={selected.length === 0}
-                  onClick={assign}
+                  onClick={() => void assign()}
                 >
                   {selected.length
                     ? `Assigner à ${plural(selected.length, 'patient', 'patients')}`

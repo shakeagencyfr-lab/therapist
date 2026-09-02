@@ -43,7 +43,7 @@ function rendu(label: string, initial: Partial<AppState>): string {
 }
 
 // 1. Les six vues du cabinet rendent.
-const MODES: ViewMode[] = ['therapist', 'patient', 'session', 'atelier', 'audios', 'notif']
+const MODES: ViewMode[] = ['therapist', 'patient', 'session', 'atelier', 'audios', 'notif', 'boutique', 'integrations']
 for (const mode of MODES) {
   const html = rendu(`cabinet/${mode}`, { space: 'cabinet', mode })
   if (html) console.log(`✓ cabinet/${mode.padEnd(9)} ${String(html.length).padStart(6)} octets`)
@@ -122,6 +122,62 @@ if (seanceVide && !seanceVide.includes('Aucune fiche dans ce cabinet')) {
   echecs++
 } else if (seanceVide) {
   console.log(`✓ vide/session-sans-fiche ${String(seanceVide.length).padStart(6)} octets`)
+}
+
+// 1 quinquies. Un brouillon de maquette ne doit JAMAIS pouvoir passer pour une
+// analyse : l'écran le dit, et la barre d'envoi refuse de le verser au dossier.
+// C'est le défaut qui a produit une « analyse » hors sujet en production.
+const BROUILLON = {
+  synthese: 'Texte de maquette.',
+  mots: [],
+  themes: [],
+  propositions: [],
+  induction: '',
+  questions: [],
+  vigilance: [],
+  categories_audio: [],
+  message: '',
+}
+const maquette = rendu('cabinet/session-maquette', {
+  space: 'cabinet',
+  mode: 'session',
+  sessionPatient: choisie,
+  consent: true,
+  draft: BROUILLON,
+  draftMaquette: true,
+})
+if (maquette) {
+  /* Les apostrophes sont échappées au rendu (&#x27;) : on cherche des
+     fragments qui n'en contiennent pas. */
+  const avant = maquette.slice(0, maquette.indexOf('Valider et envoyer'))
+  const manque = [
+    !maquette.includes('pas une analyse de votre séance') && "l'avertissement manque",
+    !maquette.includes('Envoi impossible') && "la barre d'envoi ne dit pas qu'elle refuse",
+    !avant.slice(-400).includes('disabled') && "le bouton d'envoi n'est pas barré",
+  ].filter(Boolean)
+  if (manque.length) {
+    console.error(`✗ session/maquette : ${manque.join(', ')}`)
+    echecs++
+  } else {
+    console.log(`✓ session/maquette    ${String(maquette.length).padStart(6)} octets · annoncée et non envoyable`)
+  }
+}
+
+// Sans distinction des locuteurs, « les mots du patient » est légitimement
+// vide : l'écran doit le dire, pas laisser un blanc.
+const sansMots = rendu('cabinet/session-sans-mots', {
+  space: 'cabinet',
+  mode: 'session',
+  sessionPatient: choisie,
+  consent: true,
+  draft: BROUILLON,
+  draftMaquette: false,
+})
+if (sansMots && !sansMots.includes('ne distingue pas qui parle')) {
+  console.error("✗ session/sans-mots : la rubrique vide n'explique pas pourquoi")
+  echecs++
+} else if (sansMots) {
+  console.log(`✓ session/sans-mots   ${String(sansMots.length).padStart(6)} octets · rubrique vide expliquée`)
 }
 
 // 2. Les trois vues du revendeur rendent, et ne montrent aucun patient.

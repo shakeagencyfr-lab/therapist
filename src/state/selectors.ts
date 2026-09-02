@@ -110,6 +110,7 @@ export function axisBand(value: number, margin: number): { lo: number; hi: numbe
 export function nouvelleSeance(patient: PatientId = ''): Partial<AppState> {
   return {
     sessionPatient: patient,
+    sessionId: null,
     consent: false,
     recording: false,
     elapsed: 0,
@@ -120,6 +121,7 @@ export function nouvelleSeance(patient: PatientId = ''): Partial<AppState> {
     sample: null,
     generating: false,
     draft: null,
+    draftMaquette: false,
     syntheseOk: false,
     proposalOff: {},
     sent: false,

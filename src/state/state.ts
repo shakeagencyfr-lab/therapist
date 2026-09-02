@@ -30,7 +30,15 @@ export type Space = 'cabinet' | 'reseller'
 export type ResellerView = 'portfolio' | 'brand' | 'plans'
 
 /** Vue affichée par le commutateur de l'en-tête. Une seule à la fois. */
-export type ViewMode = 'therapist' | 'patient' | 'session' | 'atelier' | 'audios' | 'notif'
+export type ViewMode =
+  | 'therapist'
+  | 'patient'
+  | 'session'
+  | 'atelier'
+  | 'audios'
+  | 'notif'
+  | 'boutique'
+  | 'integrations'
 
 /** Vue interne de la maquette téléphone. */
 export type PatientView = 'home' | 'journal'
@@ -97,6 +105,8 @@ export interface AppState {
    * pas déplacer une captation en cours.                                 */
   /** Fiche de la séance en cours. Vide tant qu'aucune n'est choisie. */
   sessionPatient: PatientId
+  /** La séance en base, ouverte à la signature du consentement. */
+  sessionId: string | null
   consent: boolean
   capture: CaptureMode
   recording: boolean
@@ -114,6 +124,8 @@ export interface AppState {
   /* Brouillon de note --------------------------------------------- */
   generating: boolean
   draft: SessionDraft | null
+  /** Le brouillon affiché est un texte de maquette, pas une analyse. */
+  draftMaquette: boolean
   /** La synthèse a été relue et validée par la thérapeute. */
   syntheseOk: boolean
   /** Propositions de modules décochées, par index. */
@@ -256,6 +268,7 @@ export const initialState: AppState = {
   extraAudios: {},
 
   sessionPatient: '',
+  sessionId: null,
   consent: false,
   capture: 'live',
   recording: false,
@@ -268,6 +281,7 @@ export const initialState: AppState = {
 
   generating: false,
   draft: null,
+  draftMaquette: false,
   syntheseOk: false,
   proposalOff: {},
   sent: false,

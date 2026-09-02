@@ -7,6 +7,7 @@ import {
 } from '@/data/notifications'
 import { plural } from '@/lib/format'
 import { NOTIF_SITUATIONS, notifRows } from '@/state/selectors'
+import { useMaybeCabinet } from '@/cabinet/context'
 import { useStore } from '@/state/store'
 import s from './NotificationsView.module.css'
 
@@ -26,17 +27,28 @@ export function NotificationsView() {
   const recipients = rows.filter((row) => row.on)
   const canSend = recipients.length > 0 && state.nMsg.trim().length > 0
 
+  const cabinet = useMaybeCabinet()
   const previewTitle = state.nTitle.trim()
   const previewMsg = state.nMsg.trim()
 
-  function send() {
+  async function send() {
     if (!canSend) return
     const entry = {
-      title: state.nTitle.trim() || 'Un mot de Laetitia',
+      title: state.nTitle.trim() || 'Un mot du cabinet',
       message: previewMsg,
       when: state.nWhen,
       names: recipients.map((row) => row.name),
       stamp: stampNow(),
+    }
+    // Cabinet réel : la notification et ses destinataires sont enregistrés ;
+    // le journal des envois est relu depuis la base.
+    if (cabinet?.reel) {
+      const r = await cabinet.envoyerNotification(
+        { title: entry.title, body: entry.message, when: entry.when },
+        recipients.map((row) => row.key),
+      )
+      if (r.ok) set({ nTitle: '', nMsg: '' })
+      return
     }
     set((prev) => ({ pushes: [entry].concat(prev.pushes), nTitle: '', nMsg: '' }))
   }
@@ -230,7 +242,7 @@ export function NotificationsView() {
             </div>
 
             <div className={s.sendRow}>
-              <Button variant="primary" className={s.send} disabled={!canSend} onClick={send}>
+              <Button variant="primary" className={s.send} disabled={!canSend} onClick={() => void send()}>
                 {canSend ? `Envoyer à ${plural(recipients.length, 'patient', 'patients')}` : 'Envoyer'}
               </Button>
               <span className={s.sendHint}>

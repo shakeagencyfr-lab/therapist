@@ -8,7 +8,10 @@ import cors from 'cors'
 import type { Request, Response } from 'express'
 
 import { AI_ROUTES, currentMode, describeError, handleAi, type AiRoute } from './ai.js'
+import { jetonDe } from './auth.js'
 import { envoyerInvitation } from './invitations.js'
+import { appliquerIntegration, etatIntegrations } from './integrations.js'
+import { demarrerPaiement, verifierPaiement } from './shop.js'
 
 const PORT = Number(process.env.PORT) || 8787
 const PRODUCTION = process.env.NODE_ENV === 'production'
@@ -25,7 +28,7 @@ if (!PRODUCTION) app.use(cors())
 for (const route of AI_ROUTES) {
   app.post(`/api/ai/${route}`, async (req: Request, res: Response): Promise<void> => {
     try {
-      res.json(await handleAi(route as AiRoute, req.body))
+      res.json(await handleAi(route as AiRoute, req.body, jetonDe(req.headers.authorization)))
     } catch (err) {
       const { status, message } = describeError(err)
       // Journal technique seulement : aucune donnée patient n'y figure.
@@ -34,6 +37,41 @@ for (const route of AI_ROUTES) {
     }
   })
 }
+
+/** Intégrations du cabinet : lecture de l'état, puis actions. */
+app.get('/api/integrations', async (req: Request, res: Response): Promise<void> => {
+  try {
+    res.json(await etatIntegrations(jetonDe(req.headers.authorization)))
+  } catch (err) {
+    const { status, message } = describeError(err)
+    res.status(status).json({ error: message })
+  }
+})
+app.post('/api/integrations', async (req: Request, res: Response): Promise<void> => {
+  try {
+    res.json(await appliquerIntegration(jetonDe(req.headers.authorization), req.body))
+  } catch (err) {
+    const { status, message } = describeError(err)
+    // Journal technique seulement : jamais une clé, jamais un corps de requête.
+    console.error(`[integrations] ${status} · ${message}`)
+    res.status(status).json({ error: message })
+  }
+})
+
+/** Boutique : démarrer un paiement, le vérifier au retour. */
+app.post('/api/shop', async (req: Request, res: Response): Promise<void> => {
+  const token = jetonDe(req.headers.authorization)
+  const action = (req.body as { action?: string } | undefined)?.action
+  try {
+    if (action === 'demarrer') res.json(await demarrerPaiement(token, req.body))
+    else if (action === 'verifier') res.json(await verifierPaiement(token, req.body))
+    else res.status(400).json({ error: 'Action inconnue.' })
+  } catch (err) {
+    const { status, message } = describeError(err)
+    console.error(`[boutique] ${action ?? '?'} — ${status} · ${message}`)
+    res.status(status).json({ error: message })
+  }
+})
 
 app.post('/api/invitations', async (req: Request, res: Response): Promise<void> => {
   try {

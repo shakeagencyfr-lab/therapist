@@ -14,9 +14,9 @@ export function timecode(seconds: number): string {
   return `${m}:${s < 10 ? '0' : ''}${s}`
 }
 
-/** Durée `mm:ss` en secondes. */
+/** Durée `mm:ss` en secondes. Une durée inconnue (« — ») vaut 0, pas NaN. */
 export function durationToSeconds(duration: string): number {
-  const [m, s] = duration.split(':').map((n) => parseInt(n, 10) || 0)
+  const [m = 0, s = 0] = duration.split(':').map((n) => parseInt(n, 10) || 0)
   return m * 60 + s
 }
 

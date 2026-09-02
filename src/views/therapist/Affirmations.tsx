@@ -2,6 +2,7 @@ import { Card, Title } from '@/components/ui'
 import { plural } from '@/lib/format'
 import { buildPatientContext, generateAffirmations } from '@/services/aiClient'
 import { patientOf } from '@/state/selectors'
+import { useMaybeCabinet } from '@/cabinet/context'
 import { useStore } from '@/state/store'
 import s from './Affirmations.module.css'
 
@@ -22,6 +23,7 @@ export function Affirmations() {
   if (!p) return null
   const first = p.name.split(' ')[0]
 
+  const cabinet = useMaybeCabinet()
   const auto = !!state.affAuto[key]
   const published = state.affs[key] ?? []
   const pending = state.affPending[key]
@@ -50,6 +52,12 @@ export function Affirmations() {
     try {
       const result = await generateAffirmations({ context: buildPatientContext(state, key) })
       const list = (result.affirmations ?? []).filter((x) => typeof x === 'string')
+      // En automatique sur un cabinet réel, la série générée est publiée en base.
+      if (auto && cabinet?.reel) {
+        const r = await cabinet.publierAffirmations(key, list)
+        set({ affGen: '', affIdx: 0, affSaved: r.ok ? 'Publiées chez le patient.' : r.message })
+        return
+      }
       set((prev) =>
         auto
           ? {
@@ -69,11 +77,21 @@ export function Affirmations() {
     }
   }
 
-  function publish() {
+  async function publish() {
     const cur = (pending !== undefined ? pending : published)
       .map((x) => x.trim())
       .filter((x) => x)
     if (!cur.length) return
+    if (cabinet?.reel) {
+      const r = await cabinet.publierAffirmations(key, cur)
+      set((prev) => ({
+        affPending: { ...prev.affPending, [key]: cur },
+        affIdx: 0,
+        affPaused: false,
+        affSaved: r.ok ? `${plural(cur.length, 'affirmation envoyée', 'affirmations envoyées')} à ${first}.` : r.message,
+      }))
+      return
+    }
     set((prev) => ({
       affs: { ...prev.affs, [key]: cur },
       affPending: { ...prev.affPending, [key]: cur },
@@ -105,12 +123,14 @@ export function Affirmations() {
         role="checkbox"
         aria-checked={auto}
         className={s.auto}
-        onClick={() =>
+        onClick={() => {
+          // Le réglage du lundi se conserve en base sur un cabinet réel.
+          if (cabinet?.reel) void cabinet.reglerAffirmationsAuto(key, !auto)
           set((prev) => ({
             affAuto: { ...prev.affAuto, [key]: !prev.affAuto[key] },
             affSaved: '',
           }))
-        }
+        }}
       >
         <span className={auto ? `${s.box} ${s.boxOn}` : s.box} aria-hidden>
           {auto ? '✓' : ''}
@@ -170,7 +190,7 @@ export function Affirmations() {
           {busy ? 'Écriture…' : auto ? 'Regénérer maintenant' : 'Proposer avec l\'IA'}
         </button>
         {!auto ? (
-          <button type="button" className={s.publish} onClick={publish}>
+          <button type="button" className={s.publish} onClick={() => void publish()}>
             Envoyer au patient
           </button>
         ) : null}

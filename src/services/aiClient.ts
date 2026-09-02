@@ -7,6 +7,7 @@
  * de santé ; elle ne doit transiter que par une origine que le cabinet
  * maîtrise.
  */
+import { supabase } from '@/lib/supabase'
 import { allModules, isModuleDone, profileOf } from '@/state/selectors'
 import type { AppState } from '@/state/state'
 import type {
@@ -88,13 +89,41 @@ interface Envelope<T> {
   error?: string
 }
 
+/**
+ * Le dernier appel a-t-il rendu un texte de maquette ?
+ *
+ * Le serveur le dit dans chaque réponse ; personne ne le lisait, et un
+ * brouillon inventé arrivait à l'écran comme une vraie analyse. Les écrans qui
+ * affichent une production de l'IA doivent pouvoir le dire.
+ */
+let dernierEstMaquette = false
+
+export function derniereReponseEstMaquette(): boolean {
+  return dernierEstMaquette
+}
+
+/**
+ * Le jeton de session, s'il y en a un : le serveur n'agit que pour un compte
+ * qu'il reconnaît. Sans base (démonstration), il n'y a pas de jeton à donner.
+ */
+async function jeton(): Promise<string | null> {
+  const db = supabase()
+  if (!db) return null
+  const { data } = await db.auth.getSession()
+  return data.session?.access_token ?? null
+}
+
 async function post<T>(route: string, body: unknown, fallback: string): Promise<T> {
   let response: Response
   let payload: Envelope<T>
   try {
+    const token = await jeton()
     response = await fetch(`/api/ai/${route}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify(body),
     })
     payload = (await response.json()) as Envelope<T>
@@ -105,6 +134,7 @@ async function post<T>(route: string, body: unknown, fallback: string): Promise<
   if (!response.ok || payload.data === undefined) {
     throw new AiError(payload.error ?? fallback)
   }
+  dernierEstMaquette = payload.mock === true
   return payload.data
 }
 

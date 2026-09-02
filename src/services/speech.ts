@@ -1,10 +1,24 @@
 /**
  * Transcription en direct, par l'API Web Speech du navigateur.
  *
- * Rien ne part du poste : la reconnaissance est celle du navigateur, et le
- * texte reste dans la page tant que la thérapeute n'a pas demandé le brouillon.
- * Seuls Chrome et Edge la proposent ; ailleurs, l'écran de séance propose la
- * séance d'exemple.
+ * DEUX LIMITES, à connaître avant de s'appuyer dessus.
+ *
+ * 1. L'AUDIO SORT DU POSTE. Contrairement à ce que « API du navigateur »
+ *    laisse croire, Chrome et Edge envoient le son à un service de
+ *    reconnaissance distant (Google pour Chrome). La parole d'un patient en
+ *    séance transite donc par un tiers, hors du cadre HDS que ce produit
+ *    promet. C'est le point qui interdit aujourd'hui un usage clinique réel :
+ *    il se règle en captant l'audio localement et en le confiant à un service
+ *    de transcription sous contrat, pas en changeant une ligne ici.
+ *
+ * 2. AUCUNE DIARISATION. La spécification n'a pas de notion de locuteur : ce
+ *    module rend un flux de texte unique où la voix de la thérapeute et celle
+ *    du patient sont fondues, sans marque. Le serveur le détecte
+ *    (hasSpeakerLabels) et l'annonce au modèle, pour qu'il cesse d'attribuer
+ *    au patient des phrases qu'il ne peut pas lui attribuer.
+ *
+ * Seuls Chrome et Edge proposent cette API ; ailleurs, l'écran de séance
+ * propose la séance d'exemple.
  *
  * L'API n'est pas dans les typages DOM standard : les interfaces minimales
  * dont ce module a besoin sont déclarées ici.
@@ -62,6 +76,22 @@ function recognizerClass(): SpeechRecognizerConstructor | null {
 /** Faux hors navigateur compatible : l'appelant affiche alors son message. */
 export function isSpeechSupported(): boolean {
   return recognizerClass() !== null
+}
+
+/**
+ * Ajoute un segment validé à la transcription, sur sa propre ligne.
+ *
+ * Chaque segment final correspond à une prise de parole séparée par un
+ * silence : c'est le SEUL indice de tour de parole que l'API fournisse. Tout
+ * concaténer à plat le détruisait — et c'est précisément ce qui manque au
+ * modèle pour rattacher une phrase à l'un ou à l'autre. Une ligne par segment
+ * le lui rend, sans rien inventer : la ligne dit « ici, quelqu'un a repris la
+ * parole », elle ne dit pas qui.
+ */
+export function appendSegment(transcript: string, segment: string): string {
+  const propre = segment.replace(/\s+/g, ' ').trim()
+  if (!propre) return transcript
+  return transcript ? transcript + '\n' + propre : propre
 }
 
 export interface TranscriberHandlers {
