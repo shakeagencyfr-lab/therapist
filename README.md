@@ -105,6 +105,18 @@ créée par la thérapeute, une invitation de cabinet, une invitation de revende
 Une adresse que personne n'a invitée obtient un compte valide et aucune donnée.
 C'est le quatrième cas de `supabase/tests/connexion.sql`, et le plus important.
 
+**L'envoi des liens exige un SMTP à soi.** Le service intégré de Supabase
+(`noreply@mail.app.supabase.io`) plafonne à quelques courriels par heure, pour
+tout le projet, et sa disponibilité est « au mieux » : deux liens partis
+suffisent à refuser le troisième par un `429 over_email_send_rate_limit`,
+même s'il vient de quelqu'un d'autre. C'est un service de développement.
+Tant qu'un SMTP maison n'est pas branché (Authentication → Emails → SMTP
+Settings), la connexion tombe en panne dès que deux personnes se connectent
+dans la même heure — et les liens partent d'une adresse qui n'est pas celle
+du produit. L'écran de connexion distingue ce refus d'une adresse invalide
+(`src/lib/messageAuth.ts`) : renvoyer quelqu'un relire une adresse correcte
+lui fait chercher une faute qui n'existe pas.
+
 Deux surfaces, deux adresses :
 
 | Surface | Adresse | Pour |

@@ -17,6 +17,7 @@ import {
   type ReactNode,
 } from 'react'
 import type { Session } from '@supabase/supabase-js'
+import { messageEnvoiLien } from '@/lib/messageAuth'
 import { isConfigured, supabase } from '@/lib/supabase'
 import type { CabinetBranding } from '@/types/reseller'
 
@@ -145,7 +146,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       options: { emailRedirectTo: window.location.origin + window.location.pathname },
     })
     if (err) {
-      setError("L'envoi a échoué. Vérifiez l'adresse et réessayez.")
+      setError(messageEnvoiLien(err))
       return
     }
     setSent(email.trim())
