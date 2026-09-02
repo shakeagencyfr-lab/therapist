@@ -47,6 +47,15 @@ export interface EtatIntegrations {
   chiffrement: boolean
   /** La plateforme a-t-elle sa propre clé d'analyse, en repli ? */
   cleplateforme: boolean
+  /**
+   * Le serveur tourne-t-il en mode maquette ?
+   *
+   * Tant qu'il y tourne, AUCUNE clé n'est appelée : les analyses sont des
+   * textes écrits d'avance. Une praticienne pouvait poser sa clé, la voir
+   * vérifiée et enregistrée, et ne comprendre qu'en séance que rien ne
+   * s'en servait. L'écran doit le dire avant la saisie, pas après.
+   */
+  maquette: boolean
 }
 
 export type IntegrationAction =
@@ -90,6 +99,7 @@ function versEtat(row: SettingsRow | null): EtatIntegrations {
     shopEnabled: row?.shop_enabled ?? false,
     chiffrement: chiffrementConfigure(),
     cleplateforme: Boolean((process.env.ANTHROPIC_API_KEY ?? process.env.ANTHROPIC_AUTH_TOKEN ?? '').trim()),
+    maquette: process.env.AI_MOCK === '1',
   }
 }
 

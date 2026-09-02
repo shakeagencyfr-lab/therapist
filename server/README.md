@@ -28,7 +28,7 @@ Le serveur lit quatre variables, toutes optionnelles sauf la clé (voir le mode 
 
 ## Mode maquette
 
-Si `AI_MOCK` vaut `1`, ou si aucune clé n'est configurée, les quatre routes répondent depuis `mock.ts` avec des sorties de démonstration bien formées : le brouillon de séance, le module sur mesure, les affirmations et le profil actualisé. Aucun appel réseau n'est fait et aucune donnée de séance ne quitte la machine, ce qui permet de développer et de montrer toute l'interface sans clé. Les réponses portent un drapeau `mock` sur l'enveloppe (`{ "mock": true, "data": … }`) et non dans les données elles-mêmes : l'interface affiche les mêmes objets dans les deux modes, et peut signaler la maquette si elle le souhaite. Ces textes sont de la démonstration ; ils n'ont aucune valeur clinique.
+Si `AI_MOCK` vaut `1`, les quatre routes répondent depuis `mock.ts` avec des sorties de démonstration bien formées : le brouillon de séance, le module sur mesure, les affirmations et le profil actualisé. Aucun appel réseau n'est fait et aucune donnée de séance ne quitte la machine, ce qui permet de développer et de montrer toute l'interface sans clé. Les réponses portent un drapeau `mock` sur l'enveloppe (`{ "mock": true, "data": … }`) et non dans les données elles-mêmes : l'interface affiche les mêmes objets dans les deux modes, et peut signaler la maquette si elle le souhaite. Ces textes sont de la démonstration ; ils n'ont aucune valeur clinique.
 
 ## Avant la production
 

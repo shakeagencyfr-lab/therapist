@@ -98,6 +98,15 @@ export function IntegrationsView() {
           {erreur ? <Notice tone="warn">{erreur}</Notice> : null}
           {notice ? <Notice tone="ok">{notice}</Notice> : null}
 
+          {etat?.maquette ? (
+            <Notice tone="warn">
+              <strong>Le serveur tourne en mode maquette.</strong> Les analyses de séance sont des
+              textes écrits d'avance : aucune clé n'est appelée, et celle que vous poseriez ici ne
+              servirait à rien. Retirez la variable <code>AI_MOCK</code> de l'environnement du
+              serveur, puis redéployez.
+            </Notice>
+          ) : null}
+
           {etat && !etat.chiffrement ? (
             <Notice tone="warn">
               Le serveur ne peut pas encore chiffrer les clés (variable <code>INTEGRATIONS_KEY</code>{' '}

@@ -3,8 +3,10 @@
  *
  * Renvoie des sorties de démonstration bien formées, sans appeler l'API : il
  * permet de développer et de démontrer l'interface sans clé, et sans envoyer
- * la moindre donnée de séance à l'extérieur. Activé par AI_MOCK=1, ou dès
- * qu'aucune clé n'est configurée sur le serveur.
+ * la moindre donnée de séance à l'extérieur. Il ne s'active QUE par
+ * AI_MOCK=1, et se demande donc explicitement : sans clé et sans cette
+ * variable, les routes refusent par un 503 qui le dit. Un brouillon inventé
+ * a déjà été pris pour une analyse, faute de cette distinction.
  *
  * Ces textes sont de la démonstration : ils n'ont aucune valeur clinique.
  */
