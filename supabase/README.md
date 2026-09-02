@@ -40,6 +40,7 @@ actifs — dans un cabinet d'un patient, une moyenne est un chiffre individuel.
 | `0013_programmes_et_reservation.sql` | chaque cabinet nomme ses programmes ; la réservation perd son nom d'éditeur et sait s'encadrer |
 | `0014_vitrine_du_cabinet.sql` | nom, sur-titre et couleurs d'un cabinet, lisibles avant toute connexion |
 | `0015_logo_du_cabinet.sql` | compartiment public `logos`, écrit par le cabinet seul, lu par tous |
+| `0018_hypnose_comptee.sql` | l'énumération `ai_call_kind` connaît enfin « hypnose » : sa consommation s'inscrivait dans le vide |
 | `0017_hypnose_et_profil_detaille.sql` | l'hypnose en quatre mouvements, activée fiche par fiche ; le profil gagne ce qui bouge et l'alliance |
 | `0016_revente_ia.sql` | deux façons de vendre l'IA, au choix cabinet par cabinet ; grand livre des crédits, paquets, achats |
 
