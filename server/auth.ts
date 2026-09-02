@@ -60,6 +60,8 @@ export interface Appelant {
   cabinetId: string | null
   resellerId: string | null
   patientId: string | null
+  /** Le cabinet de sa fiche patiente, quand il en a une. */
+  patientCabinetId: string | null
   /** Client agissant en son nom, pour les lectures et écritures sous RLS. */
   client: SupabaseClient
 }
@@ -69,7 +71,7 @@ interface Contexte {
   email: string | null
   cabinet: { id: string } | null
   reseller: { id: string } | null
-  patient: { id: string } | null
+  patient: { id: string; cabinet_id: string } | null
 }
 
 /**
@@ -97,6 +99,7 @@ export async function identifier(token: string | null): Promise<Appelant> {
     cabinetId: ctx.cabinet?.id ?? null,
     resellerId: ctx.reseller?.id ?? null,
     patientId: ctx.patient?.id ?? null,
+    patientCabinetId: ctx.patient?.cabinet_id ?? null,
     client,
   }
 }

@@ -11,6 +11,7 @@ import { AI_ROUTES, currentMode, describeError, handleAi, type AiRoute } from '.
 import { jetonDe } from './auth.js'
 import { envoyerInvitation } from './invitations.js'
 import { appliquerIntegration, etatIntegrations } from './integrations.js'
+import { demarrerPaiement, verifierPaiement } from './shop.js'
 
 const PORT = Number(process.env.PORT) || 8787
 const PRODUCTION = process.env.NODE_ENV === 'production'
@@ -53,6 +54,21 @@ app.post('/api/integrations', async (req: Request, res: Response): Promise<void>
     const { status, message } = describeError(err)
     // Journal technique seulement : jamais une clé, jamais un corps de requête.
     console.error(`[integrations] ${status} · ${message}`)
+    res.status(status).json({ error: message })
+  }
+})
+
+/** Boutique : démarrer un paiement, le vérifier au retour. */
+app.post('/api/shop', async (req: Request, res: Response): Promise<void> => {
+  const token = jetonDe(req.headers.authorization)
+  const action = (req.body as { action?: string } | undefined)?.action
+  try {
+    if (action === 'demarrer') res.json(await demarrerPaiement(token, req.body))
+    else if (action === 'verifier') res.json(await verifierPaiement(token, req.body))
+    else res.status(400).json({ error: 'Action inconnue.' })
+  } catch (err) {
+    const { status, message } = describeError(err)
+    console.error(`[boutique] ${action ?? '?'} — ${status} · ${message}`)
     res.status(status).json({ error: message })
   }
 })
