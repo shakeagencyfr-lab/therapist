@@ -37,6 +37,7 @@ export type ViewMode =
   | 'atelier'
   | 'audios'
   | 'notif'
+  | 'boutique'
   | 'integrations'
 
 /** Vue interne de la maquette téléphone. */
