@@ -32,8 +32,10 @@ export function FicheSettings() {
   const [question, setQuestion] = useState('')
   const [prochaine, setProchaine] = useState('')
 
-  // Les champs suivent la fiche ouverte ; on ne garde pas les saisies d'une
-  // patiente quand on passe à la suivante.
+  // Les champs suivent la fiche OUVERTE : on ne garde pas les saisies d'une
+  // patiente quand on passe à la suivante. Ils ne suivent pas chaque
+  // rechargement du dossier — cocher un module ailleurs sur la page ne doit
+  // pas vider un formulaire en cours de frappe.
   useEffect(() => {
     if (!fiche) return
     setProgramme(fiche.program.replace(/^Programme\s+/i, ''))
@@ -43,7 +45,8 @@ export function FicheSettings() {
     setProchaine(fiche.nextSession === REPLI_PROCHAINE ? '' : fiche.nextSession)
     setNotice(null)
     setOuvert(false)
-  }, [state.sel, fiche])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.sel])
 
   if (!fiche || !cabinet?.reel) return null
 
