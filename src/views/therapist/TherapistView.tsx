@@ -3,6 +3,7 @@ import { useMaybeCabinet } from '@/cabinet/context'
 import { useAppState } from '@/state/store'
 import { PatientSidebar } from './PatientSidebar'
 import { PatientHeader } from './PatientHeader'
+import { FicheSettings } from './FicheSettings'
 import { StatsRow } from './StatsRow'
 import { WeekModules } from './WeekModules'
 import { PsychProfile } from '@/views/therapist/PsychProfile'
@@ -43,6 +44,7 @@ export function TherapistView() {
         {fiche ? (
           <>
             <PatientHeader />
+            <FicheSettings />
             <StatsRow />
             <PsychProfile />
 

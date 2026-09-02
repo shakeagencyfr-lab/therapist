@@ -134,6 +134,23 @@ const PROFIL_VIDE: PsychProfile = {
 }
 
 /**
+ * « Liberté · 2 / 6 séances » — dérivé du programme et des compteurs plutôt
+ * que stocké : il reste juste quand une séance s'ajoute.
+ */
+function sousTitre(p: PatientRow): string {
+  if (!p.program) return 'Programme à définir'
+  const prog = p.program.replace(/^Programme\s+/i, '')
+  return p.sessions_total ? `${prog} · ${p.sessions_done} / ${p.sessions_total} séances` : prog
+}
+
+/** « 2 séances sur 6 » */
+function libelleSemaine(p: PatientRow): string {
+  if (!p.program) return 'Programme à définir'
+  const faites = `${p.sessions_done} séance${p.sessions_done > 1 ? 's' : ''}`
+  return p.sessions_total ? `${faites} sur ${p.sessions_total}` : faites
+}
+
+/**
  * Assemble une fiche à la forme des écrans à partir des lignes de la base.
  * Les valeurs dérivées — assiduité, écoutes, série d'échelle — sont calculées
  * ici plutôt que stockées : elles se déduisent, elles ne se saisissent pas.
@@ -164,8 +181,8 @@ function assembler(
        disent plutôt que d'afficher un vide : c'est un état normal, pas une
        donnée manquante. */
     program: p.program,
-    subtitle: p.subtitle || 'Programme à définir',
-    weekLabel: p.week_label || 'Programme à définir',
+    subtitle: p.subtitle || sousTitre(p),
+    weekLabel: p.week_label || libelleSemaine(p),
     nextSession: p.next_session ?? 'Aucune séance planifiée',
     adherence: mods.length ? Math.round((faits / mods.length) * 100) : 0,
     listens: auds.reduce((n, a) => n + a.listens, 0),
@@ -225,6 +242,17 @@ export interface Envoi {
   audioIds: string[]
 }
 
+/** Ce qui se règle depuis la fiche, une fois la patiente reçue. */
+export interface ReglagesFiche {
+  /** « Programme Liberté », ou vide. */
+  programme: string
+  seances: number
+  /** Ce qu'elle s'auto-évalue le soir : le titre de la courbe. */
+  echelle: string
+  question: string
+  prochaine: string
+}
+
 /** Un profil actualisé par l'analyse, tel que le serveur le rend. */
 export interface ProfilGenere {
   portrait: string
@@ -243,6 +271,8 @@ export interface CabinetData {
   creerPatiente: (input: NouvellePatiente) => Promise<Resultat>
   /** Coche ou décoche un module du parcours. */
   basculerModule: (patientId: PatientId, position: number, fait: boolean) => Promise<Resultat>
+  /** Règle la fiche : programme, échelle, question du soir, prochaine séance. */
+  majFiche: (patientId: PatientId, input: ReglagesFiche) => Promise<Resultat>
   /* La séance ------------------------------------------------------ *
    * Elle s'ouvre à la signature du consentement — c'est la pièce qui
    * autorise la captation, elle est horodatée et conservée. Le brouillon
@@ -400,6 +430,30 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     [cabinetId, recharger],
   )
 
+  const majFiche = useCallback(
+    async (patientId: PatientId, input: ReglagesFiche): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const { error } = await db
+        .from('patients')
+        .update({
+          program: input.programme,
+          sessions_total: Math.max(0, Math.round(input.seances)),
+          scale_label: input.echelle,
+          scale_question: input.question,
+          next_session: input.prochaine || null,
+          // Les libellés dérivés se recalculent à la lecture.
+          subtitle: '',
+          week_label: '',
+        })
+        .eq('id', patientId)
+      if (error) return { ok: false, message: "La fiche n'a pas pu être mise à jour." }
+      await recharger()
+      return { ok: true, message: '' }
+    },
+    [cabinetId, recharger],
+  )
+
   /* ---- La séance ----------------------------------------------------- */
 
   const ouvrirSeance = useCallback(
@@ -548,6 +602,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     recharger,
     creerPatiente,
     basculerModule,
+    majFiche,
     ouvrirSeance,
     enregistrerBrouillon,
     envoyerSeance,
