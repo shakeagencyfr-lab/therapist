@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { Notice, Overline } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
+import { useFacturationIA } from '@/cabinet/useFacturationIA'
 import { NOTE_TAGS, NOTE_TAG_PREFIXES, TRANSCRIPT_SAMPLES } from '@/data/session'
 import { clock, euro } from '@/lib/format'
 import {
@@ -28,6 +29,12 @@ const cx = (...parts: Array<string | false>) => parts.filter(Boolean).join(' ')
 export function RecordStep() {
   const { state, set, read } = useStore()
   const cabinet = useMaybeCabinet()
+  /**
+   * En mode « crédits », l'analyse ne coûte pas des euros à la thérapeute
+   * mais un crédit acheté à son revendeur. Le devis change de monnaie.
+   */
+  const facturation = useFacturationIA(Boolean(cabinet?.reel))
+  const enCredits = facturation.mode === 'credits'
   const transcriber = useRef<Transcriber | null>(null)
 
   // Le minuteur n'avance que pendant l'enregistrement, et jamais après.
@@ -240,8 +247,10 @@ export function RecordStep() {
             </div>
           </div>
           <div className={s.fact}>
-            <div className={s.factLabel}>Coût d'analyse</div>
-            <div className={s.factValue}>{devis.euros === 0 ? '—' : euro(devis.euros)}</div>
+            <div className={s.factLabel}>{enCredits ? 'Crédits restants' : "Coût d'analyse"}</div>
+            <div className={s.factValue}>
+              {enCredits ? facturation.solde : devis.euros === 0 ? '—' : euro(devis.euros)}
+            </div>
           </div>
         </div>
 
@@ -249,9 +258,17 @@ export function RecordStep() {
           {state.elapsed >= 5400
             ? "Séance longue. L'enregistrement est découpé en segments de quinze minutes envoyés au fur et à mesure : aucune limite de durée, et rien n'est perdu si la connexion tombe."
             : "Aucune limite de durée : l'enregistrement est découpé en segments de quinze minutes transcrits au fil de la séance."}{' '}
-          {devis.euros === 0
-            ? "Le coût d'analyse s'affiche dès les premiers mots transcrits, et suit ce qui est réellement dit."
-            : `Estimation au tarif de ${MODELE_ANALYSE} — ${TARIF.entree} $ le million de jetons envoyés, ${TARIF.sortie} $ le million rendus — sur ${devis.entree.toLocaleString('fr-FR')} jetons envoyés et ${devis.sortie.toLocaleString('fr-FR')} attendus en retour. Elle ne dépassera pas ${euro(devis.eurosMax)} : la longueur du brouillon est plafonnée. L'appel est facturé sur le compte Anthropic de votre cabinet.`}
+          {enCredits
+            ? `Votre revendeur fournit l'analyse : elle vous coûte un crédit, quelle que soit la longueur de la séance. ${
+                facturation.solde > 0
+                  ? `Il vous en reste ${facturation.solde}.`
+                  : facturation.solde > -facturation.decouvert
+                    ? `Vous êtes sur le découvert qu'il vous accorde : ${facturation.solde + facturation.decouvert} ${facturation.solde + facturation.decouvert > 1 ? 'analyses' : 'analyse'} avant l'arrêt.`
+                    : 'Vos crédits sont épuisés : rechargez depuis vos réglages pour reprendre.'
+              }`
+            : devis.euros === 0
+              ? "Le coût d'analyse s'affiche dès les premiers mots transcrits, et suit ce qui est réellement dit."
+              : `Estimation au tarif de ${MODELE_ANALYSE} — ${TARIF.entree} $ le million de jetons envoyés, ${TARIF.sortie} $ le million rendus — sur ${devis.entree.toLocaleString('fr-FR')} jetons envoyés et ${devis.sortie.toLocaleString('fr-FR')} attendus en retour. Elle ne dépassera pas ${euro(devis.eurosMax)} : la longueur du brouillon est plafonnée. L'appel est facturé sur le compte Anthropic de votre cabinet.`}
         </div>
 
         <div className={s.body}>
@@ -340,7 +357,12 @@ export function RecordStep() {
             {/* Le prix se lit là où l'on décide de le payer. Il est déjà en
                 haut de l'écran, mais personne ne remonte vérifier un chiffre
                 avant de cliquer : c'est ici que la dépense est engagée. */}
-            {devis.euros > 0 ? (
+            {enCredits ? (
+              <span className={s.devis}>
+                Cette analyse consommera <strong>1 crédit</strong>
+                {facturation.solde > 0 ? ` — il vous en reste ${facturation.solde}.` : '.'}
+              </span>
+            ) : devis.euros > 0 ? (
               <span className={s.devis}>
                 Cet appel vous coûtera environ <strong>{euro(devis.euros)}</strong>, au plus{' '}
                 {euro(devis.eurosMax)}.

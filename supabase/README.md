@@ -40,6 +40,7 @@ actifs — dans un cabinet d'un patient, une moyenne est un chiffre individuel.
 | `0013_programmes_et_reservation.sql` | chaque cabinet nomme ses programmes ; la réservation perd son nom d'éditeur et sait s'encadrer |
 | `0014_vitrine_du_cabinet.sql` | nom, sur-titre et couleurs d'un cabinet, lisibles avant toute connexion |
 | `0015_logo_du_cabinet.sql` | compartiment public `logos`, écrit par le cabinet seul, lu par tous |
+| `0016_revente_ia.sql` | deux façons de vendre l'IA, au choix cabinet par cabinet ; grand livre des crédits, paquets, achats |
 
 Les tests de `tests/` se jouent sous les droits réels de chaque acteur, dans
 un seul bloc qui se rétracte (`RAISE EXCEPTION 'REUSSITE …'`) : rien ne
@@ -62,6 +63,17 @@ persiste, et le message dit ce qui a été vérifié.
 - **Le journal privé du patient est invisible au cabinet** tant qu'il n'est pas
   partagé : la politique de lecture du cabinet exige `shared = true`.
 - **`audit_log` est en ajout seul** : `update` et `delete` sont révoqués.
+- **Un solde de crédits ne s'écrit pas, il se somme.** `credit_ledger` est en
+  ajout seul, et `insert`, `update`, `delete` y sont révoqués pour le rôle
+  authentifié : seul le serveur y écrit. Une thérapeute ne peut donc pas se
+  créditer, ni effacer une consommation, et chaque mouvement garde sa raison.
+  `cabinet_credit_balance()` fait la somme ; `cabinet_ai_billing()` rend au
+  cabinet son mode, son solde et son découvert — rien du revendeur.
+- **`reseller_secrets` n'a ni politique ni droit pour `authenticated`**, comme
+  `cabinet_secrets` (0009) : la clé Anthropic et la clé Stripe du revendeur
+  vivent chiffrées, et ne sortent que côté serveur. `reseller_ai_settings` se
+  lit par son revendeur mais ne s'écrit que par le serveur, qui éprouve chaque
+  clé par un appel réel avant de l'enregistrer.
 
 ## Hébergement — à régler avant toute donnée réelle
 
