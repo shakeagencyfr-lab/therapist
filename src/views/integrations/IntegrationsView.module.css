@@ -250,3 +250,23 @@
   font-size: 14px;
   font-weight: 500;
 }
+
+/* Le code d'intégration : plusieurs lignes, en chasse fixe, sans correction
+   orthographique — c'est du balisage, pas une phrase. */
+.code {
+  width: 100%;
+  min-width: 0;
+  resize: vertical;
+  border: 1px solid var(--c-border);
+  background: var(--c-field);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--c-text);
+}
+.code:focus {
+  outline: none;
+  border-color: var(--c-border-accent);
+}
