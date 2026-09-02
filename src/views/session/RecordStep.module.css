@@ -344,3 +344,10 @@
 .notice {
   margin-top: 14px;
 }
+
+/* La case d'hypnose, entre les notes et le bouton d'analyse : c'est là qu'on
+   décide de ce qu'on lance, et là que le coût s'affiche. */
+.hypnose {
+  margin: 18px 0 4px;
+  max-width: 640px;
+}

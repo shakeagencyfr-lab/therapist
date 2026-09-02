@@ -103,3 +103,15 @@ export function estimationBrouillon(transcript: string, notes = ''): Estimation 
     eurosMax: euros(entree, PLAFOND_SORTIE),
   }
 }
+
+/**
+ * Ce que coûte une hypnose de trente minutes, en euros.
+ *
+ * Quatre appels d'environ 2 000 jetons envoyés et 2 200 rendus — le contexte
+ * repart à chaque mouvement, c'est le prix de la continuité entre eux. Aux
+ * tarifs d'Opus 5 : (8 000 × 5 + 8 800 × 25) / 1 000 000 × 0,92.
+ *
+ * Chiffre estimé, pas mesuré. Il sera à reprendre sur les premières hypnoses
+ * réelles, comme l'estimation du brouillon ci-dessus.
+ */
+export const COUT_HYPNOSE = 0.24
