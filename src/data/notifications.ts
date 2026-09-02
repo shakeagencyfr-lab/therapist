@@ -8,7 +8,6 @@
 import type { AdherenceFilter } from '@/state/state'
 
 /** Programmes servant de filtre de ciblage. */
-export const NOTIF_PROGRAMS: string[] = ['Liberté', 'Équilibre', 'Harmonie', 'Compétences']
 
 /** Une tranche d'assiduité du ciblage. */
 export interface NotifAdherenceOption {
@@ -49,4 +48,3 @@ export const NOTIF_TEMPLATES: NotifTemplate[] = [
 ]
 
 /** Moments d'envoi proposés. */
-export const NOTIF_WHEN_OPTIONS: string[] = ['Maintenant', 'Ce soir, 20 h', 'Demain, 8 h']

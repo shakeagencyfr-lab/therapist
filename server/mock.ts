@@ -70,15 +70,6 @@ export function mockSessionDraft(context: PatientContext, categories: string[]):
         type: 'Échelle',
       },
     ],
-    induction:
-      'Installez-vous, et laissez votre regard se poser quelque part, sans rien chercher de particulier. ' +
-      'Vous pouvez sentir l\'appui du dossier, le poids des mains, la température de l\'air sur le visage. ' +
-      'Et pendant que la respiration trouve son propre rythme, vous pouvez poser une main sur le sternum, ' +
-      'comme on pose une pierre chaude au creux de soi. Il y a une porte, vous la connaissez bien. ' +
-      'Aujourd\'hui vous n\'avez rien à faire d\'autre que la regarder, de ce côté-ci, à votre rythme. ' +
-      'La chaleur de la main reste là, disponible, et vous savez maintenant que le temps existe entre le moment ' +
-      'où la porte bouge et le moment où vous décidez. Ce temps vous appartient, et il s\'allonge à chaque fois ' +
-      'que vous le remarquez.',
     questions: [
       "Qu'est-ce qui se passe dans le corps, juste avant que la porte ne bouge ?",
       "Jeudi, qu'est-ce qui a rendu possible d'attendre vingt minutes, alors que c'était immédiat avant ?",
@@ -200,10 +191,49 @@ export function mockGeneratedProfile(context: PatientContext): GeneratedProfile 
         body: 'Vingt minutes là où il n\'y en avait aucune : le dire en séance donne un repère mesurable à la suite du travail.',
       },
     ],
+    dynamique:
+      "Trois séances plus tôt, la bascule était décrite comme instantanée et sans signe avant-coureur. " +
+      "Elle est aujourd'hui repérée, nommée, et un délai s'y est installé. Le mouvement porte donc sur la " +
+      "conscience du processus plus que sur sa fréquence, qui n'a pas encore bougé. Ce qui résiste : la " +
+      "demande d'aide à l'entourage, restée au même point depuis le début.",
+    alliance:
+      "Répond au concret et au mesurable : un repère chiffré ou une consigne datée engage, une invitation " +
+      "à ressentir la laisse froide. Se ferme quand on interprète à sa place ; se rouvre dès qu'on lui " +
+      "rend ses propres mots.",
     care: [
       'Vérifier à la prochaine séance que le travail sur la bascule ne réactive pas de tension entre les séances.',
     ],
     resume:
       'Profil de démonstration : le délai avant la bascule est désormais explicite, la régulation corporelle progresse.',
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Hypnose de maquette
+ * ------------------------------------------------------------------ */
+
+/**
+ * Un mouvement d'hypnose factice, reconnaissable comme tel.
+ *
+ * Comme le brouillon de séance, il ne doit jamais pouvoir passer pour une
+ * vraie hypnose : c'est un texte de démonstration, il le dit dans sa
+ * première phrase.
+ */
+export function mockHypnoseMouvement(mouvement: string): { titre: string; texte: string } {
+  const titres: Record<string, string> = {
+    induction: 'Le poids du siège',
+    approfondissement: "L'escalier de pierre",
+    travail: 'La porte, de ce côté-ci',
+    retour: 'Remonter avec ce qui reste',
+  }
+  return {
+    titre: titres[mouvement] ?? 'Mouvement de maquette',
+    texte:
+      "Ceci est un texte de maquette, et non une hypnose écrite pour votre patiente.\n\n" +
+      "Installez-vous confortablement, et laissez votre regard se poser quelque part, sans rien chercher " +
+      "de particulier. Vous pouvez sentir l'appui du dossier, le poids des mains, la température de l'air " +
+      "sur le visage… et pendant que la respiration trouve son propre rythme, il n'y a rien à réussir ici.\n\n" +
+      "Le serveur tourne en mode maquette : aucune clé n'a été appelée. Retirez la variable AI_MOCK de " +
+      "son environnement pour obtenir de vraies séances."
   }
 }

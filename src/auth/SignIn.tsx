@@ -28,15 +28,23 @@ export function SignIn({
   cabinet?: string
   tagline?: string
 }) {
-  const { envoyerLien, error, sent } = useAuth()
+  const { envoyerLien, connecterParMotDePasse, error, sent } = useAuth()
   const [email, setEmail] = useState('')
   const [envoi, setEnvoi] = useState(false)
+  /**
+   * Le lien reste la voie par défaut : rien à retenir, rien à voler. Le mot
+   * de passe est la porte de secours, repliée — pour la praticienne qui a
+   * une patiente en face d'elle et ne peut pas attendre un courriel.
+   */
+  const [avecMotDePasse, setAvecMotDePasse] = useState(false)
+  const [motDePasse, setMotDePasse] = useState('')
 
   async function soumettre(e: FormEvent) {
     e.preventDefault()
     if (!email.includes('@')) return
     setEnvoi(true)
-    await envoyerLien(email)
+    if (avecMotDePasse) await connecterParMotDePasse(email, motDePasse)
+    else await envoyerLien(email)
     setEnvoi(false)
   }
 
@@ -83,6 +91,19 @@ export function SignIn({
                 />
               </div>
 
+              {avecMotDePasse ? (
+                <div className={s.field}>
+                  <FieldLabel>Votre mot de passe</FieldLabel>
+                  <TextInput
+                    type="password"
+                    autoComplete="current-password"
+                    value={motDePasse}
+                    onChange={(e) => setMotDePasse(e.target.value)}
+                    required
+                  />
+                </div>
+              ) : null}
+
               {error ? (
                 <Notice tone="warn" style={{ marginBottom: 14 }}>
                   {error}
@@ -90,15 +111,40 @@ export function SignIn({
               ) : null}
 
               <div className={s.actions}>
-                <Button type="submit" variant="primary" big disabled={envoi || !email.includes('@')}>
-                  {envoi ? 'Envoi…' : 'Recevoir mon lien'}
+                <Button
+                  type="submit"
+                  variant="primary"
+                  big
+                  disabled={envoi || !email.includes('@') || (avecMotDePasse && !motDePasse)}
+                >
+                  {envoi
+                    ? avecMotDePasse
+                      ? 'Connexion…'
+                      : 'Envoi…'
+                    : avecMotDePasse
+                      ? 'Se connecter'
+                      : 'Recevoir mon lien'}
                 </Button>
               </div>
             </form>
 
+            <button
+              type="button"
+              className={s.bascule}
+              onClick={() => {
+                setAvecMotDePasse(!avecMotDePasse)
+                setMotDePasse('')
+              }}
+            >
+              {avecMotDePasse
+                ? 'Recevoir plutôt un lien de connexion'
+                : 'Ou se connecter avec un mot de passe'}
+            </button>
+
             <p className={s.note}>
-              Aucun mot de passe : vous recevez un lien qui vous connecte. Se connecter ne donne
-              accès à rien en soi — il faut qu'une fiche ou une invitation vous attende.
+              {avecMotDePasse
+                ? "Le mot de passe se pose depuis votre espace, une fois connectée. Si vous n'en avez pas encore, demandez un lien."
+                : 'Vous recevez un lien qui vous connecte, sans rien à retenir. Se connecter ne donne accès à rien en soi — il faut qu’une fiche ou une invitation vous attende.'}
             </p>
           </>
         )}

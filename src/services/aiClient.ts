@@ -186,3 +186,73 @@ export interface ProfileInput {
 export function refreshProfile(input: ProfileInput): Promise<GeneratedProfile> {
   return post<GeneratedProfile>('profile', input, "L'actualisation a échoué. Réessayez.")
 }
+
+/* ------------------------------------------------------------------ *
+ * 5. Hypnose personnalisée
+ * ------------------------------------------------------------------ */
+
+export const MOUVEMENTS_HYPNOSE = ['induction', 'approfondissement', 'travail', 'retour'] as const
+export type MouvementHypnose = (typeof MOUVEMENTS_HYPNOSE)[number]
+
+/** Le nom que la thérapeute voit passer pendant la génération. */
+export const NOM_MOUVEMENT: Record<MouvementHypnose, string> = {
+  induction: 'Induction',
+  approfondissement: 'Approfondissement',
+  travail: 'Travail thérapeutique',
+  retour: 'Retour',
+}
+
+export interface HypnoseInput {
+  context: PatientContext
+  /** Les formulations marquantes relevées dans la séance. */
+  mots: string[]
+  themes: string[]
+  synthese: string
+  /** Ce que la thérapeute veut travailler, si elle le précise. */
+  intention: string
+}
+
+export interface MouvementEcrit {
+  mouvement: MouvementHypnose
+  titre: string
+  texte: string
+}
+
+/**
+ * Écrit la séance d'hypnose, un mouvement à la fois.
+ *
+ * QUATRE APPELS, PAS UN. Trente minutes de lecture font près de cinq mille
+ * jetons, soit deux à trois minutes de génération — au-delà des soixante
+ * secondes qu'accorde l'hébergeur. Chaque mouvement tient largement dans ce
+ * budget, et le modèle écrit mieux sept minutes qu'il n'en écrit trente
+ * d'affilée.
+ *
+ * SÉQUENTIEL, PAS EN PARALLÈLE : chaque mouvement reçoit les précédents,
+ * sans quoi le travail reprendrait des images que l'induction n'a pas
+ * posées et la séance se sentirait recousue.
+ *
+ * `onMouvement` est appelé après chacun : l'écran montre l'avancement au
+ * lieu d'un rond qui tourne trois minutes, et un échec au troisième laisse
+ * les deux premiers acquis.
+ */
+export async function genererHypnose(
+  input: HypnoseInput,
+  onMouvement?: (ecrit: MouvementEcrit, rang: number) => void | Promise<void>,
+): Promise<MouvementEcrit[]> {
+  const ecrits: MouvementEcrit[] = []
+  for (const mouvement of MOUVEMENTS_HYPNOSE) {
+    const rendu = await post<{ titre: string; texte: string }>(
+      'hypnose',
+      {
+        ...input,
+        mouvement,
+        precedents: ecrits.map((e) => ({ mouvement: e.mouvement, texte: e.texte })),
+      },
+      "L'hypnose n'a pas pu être écrite. Réessayez.",
+    )
+    const ecrit: MouvementEcrit = { mouvement, titre: rendu.titre, texte: rendu.texte }
+    ecrits.push(ecrit)
+    await onMouvement?.(ecrit, ecrits.length)
+  }
+  return ecrits
+}

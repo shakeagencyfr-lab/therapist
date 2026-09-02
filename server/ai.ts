@@ -32,14 +32,19 @@ import {
   mockGeneratedAffirmations,
   mockGeneratedModule,
   mockGeneratedProfile,
+  mockHypnoseMouvement,
   mockSessionDraft,
 } from './mock.js'
 import {
   AFFIRMATIONS_SYSTEM,
+  HYPNOSE_SYSTEM,
   MODULE_SYSTEM,
+  MOUVEMENTS,
   PROFILE_SYSTEM,
   SESSION_DRAFT_SYSTEM,
+  type Mouvement,
   affirmationsPrompt,
+  hypnosePrompt,
   modulePrompt,
   profilePrompt,
   hasSpeakerLabels,
@@ -48,12 +53,14 @@ import {
 } from './prompts.js'
 import {
   generatedAffirmationsSchema,
+  generatedHypnoseSchema,
   generatedModuleSchema,
   generatedProfileSchema,
   sessionDraftSchema,
 } from './schemas.js'
 import type {
   AffirmationsBody,
+  HypnoseBody,
   ModuleContext,
   PatientContext,
   ProfileBody,
@@ -67,6 +74,10 @@ import type { ModuleKind } from '../src/types/domain.js'
 
 /**
  * Le modèle et l'effort de RAISONNEMENT, par type d'action.
+ *
+ * Choix assumé : la qualité prime sur le coût. Ces textes sont lus par une
+ * praticienne et, pour l'hypnose, lus À VOIX HAUTE à quelqu'un — ce n'est
+ * pas l'endroit où économiser trois centimes.
  *
  * Les quatre actions n'ont pas la même exigence, et les faire toutes tourner
  * sur le modèle le plus cher au réglage le plus bavard revenait à prendre un
@@ -97,11 +108,13 @@ interface Reglage {
 }
 
 const REGLAGES: Record<AiRoute, Reglage> = {
-  'session-draft': { model: 'claude-opus-5', effort: 'medium' },
-  profile: { model: 'claude-sonnet-5', effort: 'low' },
-  module: { model: 'claude-sonnet-5', effort: 'low' },
-  // Pas d'effort ici : Haiku 4.5 refuse output_config.effort (400), et ne
-  // raisonne pas par défaut — ce qui est exactement ce qu'on veut.
+  'session-draft': { model: 'claude-opus-5', effort: 'high' },
+  profile: { model: 'claude-opus-5', effort: 'high' },
+  module: { model: 'claude-opus-5', effort: 'high' },
+  hypnose: { model: 'claude-opus-5', effort: 'high' },
+  // La seule exception. Écrire sept affirmations ne demande ni le meilleur
+  // modèle ni la moindre réflexion : Haiku refuse output_config.effort (400)
+  // et ne raisonne pas par défaut, ce qui est exactement ce qu'on veut.
   affirmations: { model: 'claude-haiku-4-5' },
 }
 
@@ -317,9 +330,9 @@ function asStrings(value: unknown): string[] {
  * ------------------------------------------------------------------ */
 
 /** Les quatre chemins exposés, tels que le client les appelle. */
-export type AiRoute = 'session-draft' | 'module' | 'affirmations' | 'profile'
+export type AiRoute = 'session-draft' | 'module' | 'affirmations' | 'profile' | 'hypnose'
 
-export const AI_ROUTES: AiRoute[] = ['session-draft', 'module', 'affirmations', 'profile']
+export const AI_ROUTES: AiRoute[] = ['session-draft', 'module', 'affirmations', 'profile', 'hypnose']
 
 /** Enveloppe de réponse : les données, et le drapeau du mode maquette. */
 export interface AiResult {
@@ -386,6 +399,47 @@ async function affirmations(body: Partial<AffirmationsBody>, cle: Cle | null): P
   })
 }
 
+/**
+ * Un mouvement d'hypnose.
+ *
+ * Un appel par mouvement, et non un pour toute la séance. Trente minutes de
+ * lecture font près de cinq mille jetons : deux à trois minutes de
+ * génération, quand l'hébergeur en accorde soixante secondes. Un mouvement
+ * de sept minutes tient largement dans ce budget — et le modèle écrit mieux
+ * sept minutes qu'il n'en écrit trente d'affilée.
+ */
+async function hypnose(body: Partial<HypnoseBody>, cle: Cle | null): Promise<Produit<unknown>> {
+  const mouvement = asText(body.mouvement).trim() as Mouvement
+  if (!MOUVEMENTS.includes(mouvement)) {
+    throw new HttpError(400, "Ce mouvement d'hypnose n'existe pas.")
+  }
+  if (mockMode()) return { data: mockHypnoseMouvement(mouvement), usage: null }
+
+  const context = asContext(body.context)
+  const precedents = (Array.isArray(body.precedents) ? body.precedents : [])
+    .filter((p): p is { mouvement: string; texte: string } => Boolean(p && typeof p === 'object'))
+    .map((p) => ({ mouvement: asText(p.mouvement).trim() as Mouvement, texte: asText(p.texte) }))
+    .filter((p) => MOUVEMENTS.includes(p.mouvement) && p.texte.trim().length > 0)
+
+  return callClaude({
+    route: 'hypnose',
+    schema: generatedHypnoseSchema,
+    system: HYPNOSE_SYSTEM,
+    prompt: hypnosePrompt(mouvement, {
+      context,
+      mots: (Array.isArray(body.mots) ? body.mots : []).map(asText).filter(Boolean),
+      themes: (Array.isArray(body.themes) ? body.themes : []).map(asText).filter(Boolean),
+      synthese: asText(body.synthese).trim(),
+      intention: asText(body.intention).trim(),
+      precedents,
+    }),
+    // Un mouvement fait 500 à 900 mots. Le plafond laisse de la marge au
+    // raisonnement sans jamais approcher les soixante secondes.
+    maxTokens: 2600,
+    cle,
+  })
+}
+
 async function profile(body: Partial<ProfileBody>, cle: Cle | null): Promise<Produit<unknown>> {
   const context = asContext(body.context)
   if (mockMode()) return { data: mockGeneratedProfile(context), usage: null }
@@ -438,6 +492,7 @@ const GENRES: Record<AiRoute, string> = {
   module: 'module',
   affirmations: 'affirmations',
   profile: 'profil',
+  hypnose: 'hypnose',
 }
 
 /**
@@ -533,6 +588,8 @@ function produire(route: AiRoute, body: Record<string, unknown>, cle: Cle | null
       return affirmations(body as Partial<AffirmationsBody>, cle)
     case 'profile':
       return profile(body as Partial<ProfileBody>, cle)
+    case 'hypnose':
+      return hypnose(body as Partial<HypnoseBody>, cle)
   }
 }
 

@@ -24,6 +24,8 @@ export const PATIENTS: Record<PatientId, Patient> = {
     scaleQuestion: "Où en est l'envie de fumer ?",
     scaleDelta: '8 → 3 en trois semaines',
     scale: [8, 8, 7, 7, 6, 6, 4, 5, 4, 3, 3],
+    hypnoseActivee: false,
+    hypnoses: [],
     profile: {
       updated: 'Mis à jour après la séance du 4 septembre',
       portrait: "Fonctionne au contrat clair : ce qui est nommé et daté est fait. L'envie de fumer s'est déplacée du manque physique vers un réflexe de soulagement après les tensions relationnelles. Bonne réceptivité aux inductions courtes ; l'attention décroche autour de la dixième minute sur les imageries longues.",
@@ -131,6 +133,8 @@ export const PATIENTS: Record<PatientId, Patient> = {
     scaleQuestion: 'Où en est votre niveau de stress ?',
     scaleDelta: '9 → 7, début de programme',
     scale: [9, 9, 8, 9, 8, 7, 7],
+    hypnoseActivee: false,
+    hypnoses: [],
     profile: {
       updated: "Première esquisse, après la séance d'anamnèse",
       portrait: "Une seule séance : tout est encore à confirmer. L'anticipation domine, le corps se tend avant l'événement plutôt que pendant. Exécution des consignes irréprochable, au point que l'assiduité peut devenir une performance de plus à réussir.",
@@ -212,6 +216,8 @@ export const PATIENTS: Record<PatientId, Patient> = {
     scaleQuestion: "Comment étaient vos échanges aujourd'hui ?",
     scaleDelta: 'Stagnation depuis 10 jours',
     scale: [4, 5, 5, 6, 6, 5, 5, 5, 5],
+    hypnoseActivee: false,
+    hypnoses: [],
     profile: {
       updated: 'Mis à jour après la séance du 21 août',
       portrait: "Évitement du conflit ancien et bien installé, appris tôt en famille. Les séances sont vécues comme utiles, l'entre-séances comme une charge supplémentaire. Le décrochage actuel ne signale pas un désaccord thérapeutique mais une difficulté à s'accorder du temps sans justification extérieure.",
@@ -306,6 +312,8 @@ export const PATIENTS: Record<PatientId, Patient> = {
     scaleQuestion: 'Quelle confiance avant de prendre la parole ?',
     scaleDelta: '3 → 6 en deux semaines',
     scale: [3, 3, 4, 4, 5, 5, 6],
+    hypnoseActivee: false,
+    hypnoses: [],
     profile: {
       updated: 'Mis à jour après la séance du 30 août',
       portrait: "Progression rapide, portée par une exigence de soi qui est à la fois le moteur et le risque. La confiance monte tant que les tentatives réussissent ; un seul épisode raté peut faire retomber la courbe d'un coup. Imagerie mentale très nette : la visualisation donne plus que l'analyse.",
@@ -388,6 +396,8 @@ export const PATIENTS: Record<PatientId, Patient> = {
     scaleQuestion: 'Où en est votre niveau de stress ?',
     scaleDelta: '8 → 2, maintenu',
     scale: [8, 7, 6, 5, 4, 4, 3, 2, 2, 2],
+    hypnoseActivee: false,
+    hypnoses: [],
     profile: {
       updated: 'Profil consolidé en fin de programme',
       portrait: "Programme terminé, acquis stables depuis trois semaines. Il a intégré ses outils et les utilise sans consigne. Le risque n'est plus le stress lui-même mais l'arrêt complet du suivi : il considère volontiers qu'un problème résolu ne revient pas.",

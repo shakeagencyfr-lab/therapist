@@ -41,10 +41,29 @@ export interface ModuleContext {
   intent: string
   type: ModuleKind
   quiz: boolean
+  /**
+   * Le dossier de la personne à qui ce module est destiné, s'il y en a une.
+   *
+   * Facultatif à dessein : l'atelier sert aussi à fabriquer un module
+   * générique qu'on assigne ensuite à plusieurs patientes. Quand il est
+   * présent, le module est écrit pour quelqu'un — c'est ce qui sépare un
+   * exercice de manuel d'un exercice qui tombe juste.
+   */
+  context?: PatientContext
 }
 
 export interface AffirmationsBody {
   context: PatientContext
+}
+
+export interface HypnoseBody {
+  context: PatientContext
+  mouvement: string
+  mots: string[]
+  themes: string[]
+  synthese: string
+  intention: string
+  precedents: Array<{ mouvement: string; texte: string }>
 }
 
 export interface ProfileBody {
@@ -79,7 +98,6 @@ export const sessionDraftSchema = z.object({
       type: proposalKindSchema,
     }),
   ),
-  induction: z.string(),
   questions: z.array(z.string()),
   vigilance: z.array(z.object({ point: z.string(), conduite: z.string() })),
   categories_audio: z.array(z.object({ categorie: z.string(), pourquoi: z.string() })),
@@ -109,8 +127,16 @@ export const generatedProfileSchema = z.object({
     }),
   ),
   levers: z.array(z.object({ title: z.string(), body: z.string() })),
+  dynamique: z.string(),
+  alliance: z.string(),
   care: z.array(z.string()),
   resume: z.string(),
+})
+
+/** Un mouvement d'hypnose : son nom pour la thérapeute, et ce qui se dit. */
+export const generatedHypnoseSchema = z.object({
+  titre: z.string(),
+  texte: z.string(),
 })
 
 /* ------------------------------------------------------------------ *

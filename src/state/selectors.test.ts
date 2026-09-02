@@ -76,3 +76,31 @@ describe('barre latérale', () => {
     }
   })
 })
+
+describe('profilePrecision — le compteur de séances', () => {
+  const fiche = (sessions: number, totalSessions: number) => ({
+    ...initialState,
+    patients: {
+      ...initialState.patients,
+      camille: { ...initialState.patients['camille']!, sessions, totalSessions },
+    },
+  })
+
+  it('sans actualisation, compte les séances de la fiche et rien de plus', () => {
+    expect(profilePrecision(fiche(1, 6), 'camille').sessions).toBe(1)
+    expect(profilePrecision(fiche(1, 6), 'camille').label).toBe('Ébauche · 1 séance')
+  })
+
+  it('une actualisation compte la séance en cours, que la fiche ignore encore', () => {
+    const etat = { ...fiche(1, 6), profNew: { camille: initialState.patients['camille']!.profile } }
+    expect(profilePrecision(etat, 'camille').sessions).toBe(2)
+  })
+
+  it('ne dit jamais « stabilisé » sans nombre de séances prévu', () => {
+    // C'était le cas d'une fiche neuve : 1 / 0 à l'écran, et un profil déclaré
+    // stabilisé dès la quatrième séance parce que 4 dépasse 0.
+    expect(profilePrecision(fiche(8, 0), 'camille').maturity).toBe('Consolidé')
+    expect(profilePrecision(fiche(8, 8), 'camille').maturity).toBe('Stabilisé')
+    expect(profilePrecision(fiche(5, 8), 'camille').maturity).toBe('Consolidé')
+  })
+})

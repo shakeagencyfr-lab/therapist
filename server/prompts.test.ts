@@ -22,14 +22,23 @@ describe('hasSpeakerLabels', () => {
 })
 
 describe('sessionDraftPrompt', () => {
-  it('sans locuteurs, avertit le modèle et lui interdit d’attribuer', () => {
+  it('sans locuteurs, avertit le modèle sans pour autant lui interdire de relever', () => {
     const p = sessionDraftPrompt(MICRO, ['Détente'], false)
     expect(p).toContain('NE DISTINGUE PAS')
-    expect(p).toContain('tableau VIDE')
+    // L'ancienne consigne ordonnait le vide faute d'attribution certaine : la
+    // rubrique « les mots » ne se remplissait donc JAMAIS en production. On
+    // demande maintenant les formulations marquantes, sans prétendre les
+    // attribuer — une image forte reste réutilisable.
+    expect(p).toContain('FORMULATIONS MARQUANTES')
+    expect(p).toContain('ne cherche pas à attribuer')
+    expect(p).not.toMatch(/rends un tableau VIDE/)
   })
   it('avec locuteurs, le prompt métier part tel quel', () => {
     const p = sessionDraftPrompt(DIALOGUE, ['Détente'], true)
     expect(p).not.toContain('NE DISTINGUE PAS')
+  })
+  it('ne demande plus d’induction : l’hypnose est une fonction à part', () => {
+    expect(sessionDraftPrompt(DIALOGUE, ['Détente'])).not.toContain('"induction"')
   })
   it('les catégories d’audios sont citées telles quelles', () => {
     expect(sessionDraftPrompt('x', ['Détente', 'Sommeil'])).toContain('« Détente, Sommeil »')

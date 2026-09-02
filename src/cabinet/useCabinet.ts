@@ -17,6 +17,7 @@ import { durationToSeconds } from '@/lib/format'
 import type { CabinetBranding } from '@/types/reseller'
 import type {
   CustomModule,
+  HypnoseMouvement,
   JournalEntry,
   LibraryAudio,
   ModuleKind,
@@ -49,6 +50,7 @@ interface PatientRow {
   sessions_total: number
   scale_label: string
   scale_question: string
+  hypnose_activee: boolean
   scale_delta: string | null
   email: string | null
   auth_user_id: string | null
@@ -141,7 +143,26 @@ interface ProfileRow {
   portrait: string
   axes: ProfileAxis[]
   levers: ProfileLever[]
+  dynamique: string | null
+  alliance: string | null
   care: string[]
+}
+
+interface HypnoseRow {
+  id: string
+  patient_id: string
+  titre: string
+  intention: string | null
+  complete: boolean
+  created_at: string
+}
+
+interface MouvementRow {
+  hypnose_id: string
+  mouvement: HypnoseMouvement['mouvement']
+  rang: number
+  titre: string
+  texte: string
 }
 
 /**
@@ -216,6 +237,8 @@ function assembler(
   echelles: ScaleRow[],
   journal: JournalRow[],
   profil: ProfileRow | undefined,
+  hypnoses: HypnoseRow[],
+  mouvements: MouvementRow[],
 ): Patient {
   const mods = modules
     .filter((m) => m.patient_id === p.id)
@@ -246,12 +269,28 @@ function assembler(
     scaleQuestion: p.scale_question,
     scaleDelta: p.scale_delta ?? '',
     scale: serie,
+    hypnoseActivee: Boolean(p.hypnose_activee),
+    hypnoses: hypnoses
+      .filter((h) => h.patient_id === p.id)
+      .map((h) => ({
+        id: h.id,
+        titre: h.titre,
+        intention: h.intention ?? '',
+        complete: h.complete,
+        createdAt: h.created_at,
+        mouvements: mouvements
+          .filter((m) => m.hypnose_id === h.id)
+          .sort((a, b) => a.rang - b.rang)
+          .map((m) => ({ mouvement: m.mouvement, titre: m.titre, texte: m.texte })),
+      })),
     profile: profil
       ? {
           updated: `Établi après ${profil.sessions_count} ${profil.sessions_count > 1 ? 'séances' : 'séance'}`,
           portrait: profil.portrait,
           axes: profil.axes ?? [],
           levers: profil.levers ?? [],
+          dynamique: profil.dynamique ?? undefined,
+          alliance: profil.alliance ?? undefined,
           care: profil.care ?? [],
         }
       : PROFIL_VIDE,
@@ -312,6 +351,8 @@ export interface ProfilGenere {
   portrait: string
   axes: ProfileAxis[]
   levers: ProfileLever[]
+  dynamique?: string
+  alliance?: string
   care: string[]
   resume: string
 }
@@ -363,7 +404,10 @@ export interface CabinetData {
   publierAffirmations: (patientId: PatientId, textes: string[]) => Promise<Resultat>
   reglerAffirmationsAuto: (patientId: PatientId, auto: boolean) => Promise<Resultat>
   /** Enregistre une notification et ses destinataires. L'envoi réel attend un service de push. */
-  envoyerNotification: (input: { title: string; body: string; when: string }, patientIds: PatientId[]) => Promise<Resultat>
+  envoyerNotification: (
+    input: { title: string; body: string; when: string; quand: Date | null },
+    patientIds: PatientId[],
+  ) => Promise<Resultat>
   /* La séance ------------------------------------------------------ *
    * Elle s'ouvre à la signature du consentement — c'est la pièce qui
    * autorise la captation, elle est horodatée et conservée. Le brouillon
@@ -372,6 +416,16 @@ export interface CabinetData {
   enregistrerBrouillon: (sessionId: string, input: Brouillon) => Promise<Resultat>
   envoyerSeance: (sessionId: string, patientId: PatientId, input: Envoi) => Promise<Resultat>
   enregistrerProfil: (patientId: PatientId, sessionId: string | null, profil: ProfilGenere) => Promise<Resultat>
+  /** Ouvre ou ferme l'hypnose pour une patiente. */
+  reglerHypnose: (patientId: PatientId, active: boolean) => Promise<Resultat>
+  /** Ouvre une hypnose vide et rend son identifiant. */
+  creerHypnose: (patientId: PatientId, sessionId: string | null, intention: string) => Promise<string | null>
+  /** Ajoute un mouvement à une hypnose en cours d'écriture. */
+  ajouterMouvement: (hypnoseId: string, m: HypnoseMouvement, rang: number) => Promise<Resultat>
+  /** Referme l'hypnose : les quatre mouvements sont là. */
+  acheverHypnose: (hypnoseId: string, titre: string) => Promise<Resultat>
+  /** Supprime une fiche et tout ce qu'elle porte. Irréversible. */
+  supprimerPatiente: (patientId: PatientId) => Promise<Resultat>
 }
 
 export function useCabinet(cabinetId: string | null): CabinetData {
@@ -389,13 +443,13 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     setErreur('')
     setChargement(true)
 
-    const [fiches, modules, audios, echelles, journal, profils, categories, progs, rdv, bibliotheque, ateliers, affs, reglages, pushes] = await Promise.all([
+    const [fiches, modules, audios, echelles, journal, profils, categories, progs, rdv, bibliotheque, ateliers, affs, reglages, pushes, hypnoses, mouvements] = await Promise.all([
       db.from('patients').select('*').is('archived_at', null).order('created_at'),
       db.from('patient_modules').select('id, patient_id, title, meta, kind, position, done_at'),
       db.from('patient_audios').select('patient_id, listens, last_listened_at, audio:audio_library (title, duration_seconds)'),
       db.from('scale_entries').select('patient_id, value, recorded_at'),
       db.from('journal_pages').select('patient_id, title, body, trigger_label, written_at'),
-      db.from('psych_profiles').select('patient_id, version, sessions_count, portrait, axes, levers, care').order('version', { ascending: false }),
+      db.from('psych_profiles').select('patient_id, version, sessions_count, portrait, axes, levers, dynamique, alliance, care').order('version', { ascending: false }),
       db.from('audio_categories').select('id, label, position').order('position').order('label'),
       db.from('cabinet_programs').select('label, position').is('archived_at', null).order('position').order('label'),
       db.from('cabinet_settings').select('booking_url, booking_mode, booking_widget_url').eq('cabinet_id', cabinetId).maybeSingle(),
@@ -408,6 +462,11 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         .select('id, title, body, scheduled_for, created_at, recipients:push_recipients (patient:patients (display_name))')
         .order('created_at', { ascending: false })
         .limit(30),
+      db
+        .from('hypnoses')
+        .select('id, patient_id, titre, intention, complete, created_at')
+        .order('created_at', { ascending: false }),
+      db.from('hypnose_mouvements').select('hypnose_id, mouvement, rang, titre, texte').order('rang'),
     ])
 
     const premiere = [fiches, modules, audios, echelles, journal, profils, categories, bibliotheque].find((r) => r.error)
@@ -433,6 +492,8 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         (echelles.data ?? []) as ScaleRow[],
         (journal.data ?? []) as JournalRow[],
         dernierProfil.get(ligne.id),
+        (hypnoses.data ?? []) as HypnoseRow[],
+        (mouvements.data ?? []) as MouvementRow[],
       )
     }
 
@@ -1098,12 +1159,23 @@ export function useCabinet(cabinetId: string | null): CabinetData {
   )
 
   const envoyerNotification = useCallback(
-    async (input: { title: string; body: string; when: string }, patientIds: PatientId[]): Promise<Resultat> => {
+    async (
+      input: { title: string; body: string; when: string; quand: Date | null },
+      patientIds: PatientId[],
+    ): Promise<Resultat> => {
       const db = supabase()
       if (!db || !cabinetId || !patientIds.length) return { ok: false, message: '' }
       const { data, error: e1 } = await db
         .from('push_notifications')
-        .insert({ cabinet_id: cabinetId, title: input.title, body: input.body, scheduled_for: input.when })
+        .insert({
+          cabinet_id: cabinetId,
+          title: input.title,
+          body: input.body,
+          // Le libellé se lit, l'horodatage décide. « Ce soir, 20 h » se
+          // comprend d'un coup d'œil ; un timestamp, non.
+          scheduled_for: input.when,
+          scheduled_at: input.quand ? input.quand.toISOString() : null,
+        })
         .select('id')
         .single<{ id: string }>()
       if (e1 || !data) return { ok: false, message: "La notification n'a pas pu être enregistrée." }
@@ -1225,6 +1297,101 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     [cabinetId, recharger],
   )
 
+  const reglerHypnose = useCallback(
+    async (patientId: PatientId, active: boolean): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const { error } = await db
+        .from('patients')
+        .update({ hypnose_activee: active })
+        .eq('id', patientId)
+      if (error) return { ok: false, message: "Le réglage n'a pas pu être enregistré." }
+      await recharger()
+      return { ok: true, message: '' }
+    },
+    [cabinetId, recharger],
+  )
+
+  /**
+   * L'hypnose s'ouvre AVANT d'être écrite, et se remplit mouvement par
+   * mouvement. Une écriture interrompue au troisième laisse donc les deux
+   * premiers en base : la thérapeute reprend au lieu de tout reperdre.
+   */
+  const creerHypnose = useCallback(
+    async (patientId: PatientId, sessionId: string | null, intention: string): Promise<string | null> => {
+      const db = supabase()
+      if (!db || !cabinetId) return null
+      const { data, error } = await db
+        .from('hypnoses')
+        .insert({
+          cabinet_id: cabinetId,
+          patient_id: patientId,
+          session_id: sessionId,
+          titre: 'Séance en cours d’écriture',
+          intention: intention || null,
+        })
+        .select('id')
+        .maybeSingle<{ id: string }>()
+      if (error || !data) return null
+      return data.id
+    },
+    [cabinetId],
+  )
+
+  const ajouterMouvement = useCallback(
+    async (hypnoseId: string, m: HypnoseMouvement, rang: number): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const { error } = await db.from('hypnose_mouvements').upsert(
+        {
+          hypnose_id: hypnoseId,
+          cabinet_id: cabinetId,
+          mouvement: m.mouvement,
+          rang,
+          titre: m.titre,
+          texte: m.texte,
+        },
+        { onConflict: 'hypnose_id,mouvement' },
+      )
+      if (error) return { ok: false, message: "Ce mouvement n'a pas pu être conservé." }
+      return { ok: true, message: '' }
+    },
+    [cabinetId],
+  )
+
+  const acheverHypnose = useCallback(
+    async (hypnoseId: string, titre: string): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const { error } = await db
+        .from('hypnoses')
+        .update({ complete: true, titre })
+        .eq('id', hypnoseId)
+      if (error) return { ok: false, message: "L'hypnose n'a pas pu être refermée." }
+      await recharger()
+      return { ok: true, message: '' }
+    },
+    [cabinetId, recharger],
+  )
+
+  /**
+   * Supprime une fiche. Tout ce qui s'y rattache part avec elle : la base le
+   * fait en cascade, sur les clés étrangères. Le compte de connexion de la
+   * patiente, lui, survit — il ne nous appartient pas, et il peut être
+   * rattaché à une autre fiche ailleurs.
+   */
+  const supprimerPatiente = useCallback(
+    async (patientId: PatientId): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const { error } = await db.from('patients').delete().eq('id', patientId)
+      if (error) return { ok: false, message: "La fiche n'a pas pu être supprimée." }
+      await recharger()
+      return { ok: true, message: '' }
+    },
+    [cabinetId, recharger],
+  )
+
   const enregistrerProfil = useCallback(
     async (patientId: PatientId, sessionId: string | null, profil: ProfilGenere): Promise<Resultat> => {
       const db = supabase()
@@ -1248,6 +1415,8 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         portrait: profil.portrait,
         axes: profil.axes,
         levers: profil.levers,
+        dynamique: profil.dynamique || null,
+        alliance: profil.alliance || null,
         care: profil.care,
         resume: profil.resume || null,
         source_session_id: sessionId,
@@ -1286,6 +1455,11 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     enregistrerBrouillon,
     envoyerSeance,
     enregistrerProfil,
+    reglerHypnose,
+    creerHypnose,
+    ajouterMouvement,
+    acheverHypnose,
+    supprimerPatiente,
   }
 }
 

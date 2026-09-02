@@ -31,6 +31,9 @@ export function FicheSettings() {
   /** Saisie du programme qu'on est en train de nommer. */
   const [nouveau, setNouveau] = useState('')
   const [ajout, setAjout] = useState(false)
+  /** La suppression se confirme en toutes lettres : elle est irréversible. */
+  const [suppression, setSuppression] = useState('')
+  const [supprime, setSupprime] = useState(false)
 
   // Les champs suivent la fiche OUVERTE : on ne garde pas les saisies d'une
   // patiente quand on passe à la suivante. Ils ne suivent pas chaque
@@ -46,6 +49,7 @@ export function FicheSettings() {
     setNotice(null)
     setOuvert(false)
     setNouveau('')
+    setSuppression('')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.sel])
 
@@ -228,6 +232,33 @@ export function FicheSettings() {
             />
           </label>
 
+          {/* L'hypnose : une option, pas un automatisme. Toutes les patientes
+              n'en ont pas besoin, et c'est de loin l'analyse la plus coûteuse
+              du produit — la thérapeute décide, fiche par fiche. */}
+          <div className={s.option}>
+            <label className={s.optionLigne}>
+              <input
+                type="checkbox"
+                checked={fiche.hypnoseActivee}
+                disabled={envoi}
+                onChange={(e) => {
+                  const active = e.target.checked
+                  void cabinet?.reglerHypnose(state.sel, active).then((r) => {
+                    if (!r.ok) setNotice({ tone: 'warn', text: r.message })
+                  })
+                }}
+              />
+              <span>
+                <span className={s.optionTitre}>Écrire une hypnose personnalisée</span>
+                <span className={s.hint}>
+                  Chaque séance produira une hypnose complète — environ trente minutes à lire à
+                  voix haute — bâtie sur les formulations relevées pendant la captation. Elle
+                  reste consultable depuis cette fiche.
+                </span>
+              </span>
+            </label>
+          </div>
+
           <div className={s.actions}>
             <Button variant="primary" type="submit" disabled={envoi}>
               {envoi ? 'Enregistrement…' : 'Enregistrer'}
@@ -235,6 +266,42 @@ export function FicheSettings() {
             <Button variant="ghost" onClick={() => setOuvert(false)} disabled={envoi}>
               Annuler
             </Button>
+          </div>
+
+          {/* Supprimer une fiche emporte un dossier de santé entier. On fait
+              écrire le nom : un bouton seul se clique par erreur, un nom
+              recopié ne s'écrit pas par accident. */}
+          <div className={s.danger}>
+            <span className={s.dangerTitre}>Supprimer la fiche de {fiche.name}</span>
+            <span className={s.hint}>
+              Son dossier, ses modules, ses audios, son journal et ses hypnoses partent avec
+              elle. Rien ne se récupère. Pour confirmer, recopiez son nom.
+            </span>
+            <div className={s.dangerLigne}>
+              <TextInput
+                value={suppression}
+                onChange={(e) => setSuppression(e.target.value)}
+                placeholder={fiche.name}
+                aria-label={`Recopiez « ${fiche.name} » pour confirmer la suppression`}
+                disabled={supprime}
+              />
+              <Button
+                variant="danger"
+                type="button"
+                disabled={supprime || suppression.trim() !== fiche.name}
+                onClick={() => {
+                  setSupprime(true)
+                  void cabinet?.supprimerPatiente(state.sel).then((r) => {
+                    if (!r.ok) {
+                      setSupprime(false)
+                      setNotice({ tone: 'warn', text: r.message })
+                    }
+                  })
+                }}
+              >
+                {supprime ? 'Suppression…' : 'Supprimer définitivement'}
+              </Button>
+            </div>
           </div>
         </form>
       ) : null}

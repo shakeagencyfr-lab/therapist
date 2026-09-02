@@ -42,8 +42,29 @@ export interface PsychProfile {
   portrait: string
   axes: ProfileAxis[]
   levers: ProfileLever[]
+  /** Ce qui a bougé depuis le début du suivi, et ce qui résiste encore. */
+  dynamique?: string
+  /** Ce à quoi cette personne répond dans la relation de travail. */
+  alliance?: string
   /** Points d'attention pour la praticienne. */
   care: string[]
+}
+
+/** Un mouvement d'une séance d'hypnose. */
+export interface HypnoseMouvement {
+  mouvement: 'induction' | 'approfondissement' | 'travail' | 'retour'
+  titre: string
+  texte: string
+}
+
+/** Une séance d'hypnose écrite pour une patiente (fonction IA n° 5). */
+export interface Hypnose {
+  id: string
+  titre: string
+  intention: string
+  complete: boolean
+  createdAt: string
+  mouvements: HypnoseMouvement[]
 }
 
 /** Un module du parcours de la semaine. */
@@ -98,10 +119,14 @@ export interface Patient {
   scaleDelta: string
   /** Série de l'auto-évaluation, 0–10, du plus ancien au plus récent. */
   scale: number[]
+  /** Sa séance produit-elle aussi une hypnose personnalisée ? */
+  hypnoseActivee: boolean
   profile: PsychProfile
   modules: PatientModule[]
   audios: PatientAudio[]
   journal: JournalEntry[]
+  /** Les hypnoses écrites pour elle, de la plus récente à la plus ancienne. */
+  hypnoses: Hypnose[]
 }
 
 /** Une question de quiz de compréhension. */
@@ -181,11 +206,15 @@ export interface DraftAudioCategory {
 /** Brouillon de note de séance (fonction IA n° 1). */
 export interface SessionDraft {
   synthese: string
-  /** Les mots et métaphores du patient, cités littéralement. */
+  /**
+   * Les formulations marquantes de la séance, citées littéralement.
+   *
+   * Sans distinction des locuteurs, on ne prétend pas les attribuer : une
+   * image forte reste réutilisable même si son auteur est incertain.
+   */
   mots: string[]
   themes: string[]
   propositions: DraftProposal[]
-  induction: string
   questions: string[]
   vigilance: DraftVigilance[]
   categories_audio: DraftAudioCategory[]
@@ -212,6 +241,10 @@ export interface GeneratedProfile {
   portrait: string
   axes: ProfileAxis[]
   levers: ProfileLever[]
+  /** Ce qui a bougé depuis le début du suivi, et ce qui résiste encore. */
+  dynamique: string
+  /** Ce à quoi cette personne répond dans la relation de travail. */
+  alliance: string
   care: string[]
   /** Une phrase disant ce qui a changé depuis la version précédente. */
   resume: string

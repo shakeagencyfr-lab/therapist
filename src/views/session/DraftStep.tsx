@@ -6,6 +6,7 @@ import { buildPatientContext, derniereReponseEstMaquette as derniereEstMaquette,
 import { profileOf } from '@/state/selectors'
 import { useStore } from '@/state/store'
 import type { LibraryAudio, PatientModule, PsychProfile } from '@/types/domain'
+import { HypnoseCard } from './HypnoseCard'
 import s from './DraftStep.module.css'
 
 type SuggestedAudio = LibraryAudio & { why: string }
@@ -107,8 +108,17 @@ export function DraftStep() {
       .envoyerSeance(state.sessionId, key, { modules: retained, audioIds: sugOn.map((a) => a.id) })
       .then((r) => {
         setEnvoi('repos')
-        if (r.ok) set({ sent: true })
-        else setEchecEnvoi(r.message || "L'envoi a échoué. Réessayez.")
+        if (r.ok) {
+          /* La séance est versée : le compteur de la fiche la connaît
+             désormais. On oublie le profil « fraîchement généré », sans quoi
+             son +1 s'ajouterait à un compteur qui compte déjà cette séance —
+             et le badge annonçait deux séances pour une. */
+          set((prev) => {
+            const profNew = { ...prev.profNew }
+            delete profNew[key]
+            return { sent: true, profNew }
+          })
+        } else setEchecEnvoi(r.message || "L'envoi a échoué. Réessayez.")
       })
   }
 
@@ -145,6 +155,8 @@ export function DraftStep() {
             note: axis.note || '',
           })),
         levers: result.levers.filter((lever) => lever && lever.title),
+        dynamique: result.dynamique || current?.dynamique,
+        alliance: result.alliance || current?.alliance,
         care: result.care.filter((item) => typeof item === 'string'),
       }
       set((prev) => ({
@@ -159,6 +171,8 @@ export function DraftStep() {
           portrait: next.portrait,
           axes: next.axes,
           levers: next.levers,
+          dynamique: next.dynamique,
+          alliance: next.alliance,
           care: next.care,
           resume: result.resume ?? '',
         })
@@ -225,8 +239,8 @@ export function DraftStep() {
       {/* Mots du patient et fil rouge ------------------------------------ */}
       <div className={s.pair}>
         <section className={s.card}>
-          <h2 className={s.h21}>Les mots du patient</h2>
-          <div className={s.sub}>À réutiliser tels quels dans la prochaine induction.</div>
+          <h2 className={s.h21}>Les mots de la séance</h2>
+          <div className={s.sub}>À reprendre tels quels dans votre hypnose et vos formulations.</div>
           {draft.mots.length ? (
             <div className={s.words}>
               {draft.mots.map((word, i) => (
@@ -236,13 +250,13 @@ export function DraftStep() {
               ))}
             </div>
           ) : (
-            /* Vide à dessein : sans distinction des locuteurs, rien ne permet
-               d'attribuer une phrase au patient. Mieux vaut le dire que citer
-               au hasard. */
+            /* Le prompt ordonnait autrefois de rendre vide faute d'attribution
+               certaine : la rubrique ne se remplissait donc jamais. On demande
+               maintenant les formulations marquantes, sans prétendre dire qui
+               les a dites — une image forte reste réutilisable. */
             <p className={s.empty}>
-              La transcription ne distingue pas qui parle : aucune expression n'a pu être
-              attribuée au patient avec certitude. Le bouton « Mot du patient », pendant la
-              séance, horodate ceux que vous voulez retenir.
+              Rien de saillant n'a été relevé dans cette transcription. Le bouton « Mot du
+              patient », pendant la séance, horodate les formulations que vous voulez retenir.
             </p>
           )}
         </section>
@@ -387,26 +401,8 @@ export function DraftStep() {
         </section>
       ) : null}
 
-      {/* Induction ------------------------------------------------------------------ */}
-      <section className={s.card}>
-        <div className={s.headTight}>
-          <Title large as="h2">
-            Brouillon d'induction
-          </Title>
-          <span className={s.hot}>Brouillon, à retravailler par vous</span>
-        </div>
-        <div className={s.sub}>Construit avec les mots de {firstName}, pas les vôtres.</div>
-        <textarea
-          className={cx(s.field, s.fieldLoose)}
-          rows={8}
-          aria-label="Brouillon d'induction"
-          value={draft.induction}
-          onChange={(e) => {
-            const induction = e.target.value
-            set((prev) => (prev.draft ? { draft: { ...prev.draft, induction } } : {}))
-          }}
-        />
-      </section>
+      {/* Hypnose personnalisée ------------------------------------------------------- */}
+      <HypnoseCard />
 
       {/* Message au patient ------------------------------------------------------------ */}
       <section className={s.card}>

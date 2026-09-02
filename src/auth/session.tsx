@@ -65,6 +65,10 @@ export interface AuthState {
   /** Le lien magique vient d'être envoyé à cette adresse. */
   sent: string
   envoyerLien: (email: string) => Promise<void>
+  /** Connexion classique, pour qui a posé un mot de passe. */
+  connecterParMotDePasse: (email: string, motDePasse: string) => Promise<void>
+  /** Pose ou remplace le mot de passe du compte connecté. */
+  definirMotDePasse: (motDePasse: string) => Promise<{ ok: boolean; message: string }>
   seDeconnecter: () => Promise<void>
   /**
    * Relit le rôle et la marque du compte connecté.
@@ -152,14 +156,92 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setSent(email.trim())
   }, [])
 
+  /**
+   * La porte de secours.
+   *
+   * Le lien magique reste la voie normale, et la meilleure : rien à retenir,
+   * rien à voler. Mais il dépend du courriel, qui peut mettre du temps,
+   * finir dans les indésirables, ou buter sur le quota d'envoi du service —
+   * c'est arrivé en production. Une praticienne qui a une patiente en face
+   * d'elle ne peut pas attendre.
+   *
+   * Le mot de passe n'est donc jamais imposé : il se pose depuis l'espace,
+   * une fois connectée, par qui le souhaite.
+   */
+  const connecterParMotDePasse = useCallback(async (email: string, motDePasse: string) => {
+    const db = supabase()
+    if (!db) {
+      setError("L'application n'est pas reliée à sa base de données.")
+      return
+    }
+    setError('')
+    const { error: err } = await db.auth.signInWithPassword({
+      email: email.trim(),
+      password: motDePasse,
+    })
+    if (err) {
+      // On ne distingue jamais « adresse inconnue » de « mot de passe faux » :
+      // ce serait dire à un inconnu quelles adresses existent chez nous.
+      setError(
+        err.status === 400
+          ? "Adresse ou mot de passe incorrect. Vous pouvez aussi demander un lien de connexion."
+          : messageEnvoiLien(err),
+      )
+    }
+  }, [])
+
+  const definirMotDePasse = useCallback(
+    async (motDePasse: string): Promise<{ ok: boolean; message: string }> => {
+      const db = supabase()
+      if (!db) return { ok: false, message: "L'application n'est pas reliée à sa base." }
+      if (motDePasse.length < 10) {
+        return { ok: false, message: 'Choisissez un mot de passe d’au moins dix caractères.' }
+      }
+      const { error: err } = await db.auth.updateUser({ password: motDePasse })
+      if (err) {
+        return {
+          ok: false,
+          message:
+            err.message && /weak|password/i.test(err.message)
+              ? 'Ce mot de passe est trop faible. Allongez-le, ou mélangez-y des mots sans rapport.'
+              : "Le mot de passe n'a pas pu être enregistré. Réessayez.",
+        }
+      }
+      return { ok: true, message: '' }
+    },
+    [],
+  )
+
   const seDeconnecter = useCallback(async () => {
     await supabase()?.auth.signOut()
     setSent('')
   }, [])
 
   const value = useMemo<AuthState>(
-    () => ({ phase, session, context, error, sent, envoyerLien, seDeconnecter, rafraichir: charger }),
-    [phase, session, context, error, sent, envoyerLien, seDeconnecter, charger],
+    () => ({
+      phase,
+      session,
+      context,
+      error,
+      sent,
+      envoyerLien,
+      connecterParMotDePasse,
+      definirMotDePasse,
+      seDeconnecter,
+      rafraichir: charger,
+    }),
+    [
+      phase,
+      session,
+      context,
+      error,
+      sent,
+      envoyerLien,
+      connecterParMotDePasse,
+      definirMotDePasse,
+      seDeconnecter,
+      charger,
+    ],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

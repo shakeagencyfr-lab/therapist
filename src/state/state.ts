@@ -176,6 +176,8 @@ export interface AppState {
   nTitle: string
   nMsg: string
   nWhen: string
+  /** Saisie du champ date-heure, quand la thérapeute sort des raccourcis. */
+  nQuand: string
   /** Programmes cochés. */
   nProgs: Record<string, boolean>
   nAdh: AdherenceFilter
@@ -321,6 +323,7 @@ export const initialState: AppState = {
   nTitle: '',
   nMsg: '',
   nWhen: 'Ce soir, 20 h',
+  nQuand: '',
   nProgs: {},
   nAdh: 'all',
   nSits: {},

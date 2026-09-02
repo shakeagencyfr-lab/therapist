@@ -74,6 +74,15 @@ export interface ProfilePrecision {
 
 export function profilePrecision(state: AppState, key: PatientId): ProfilePrecision {
   const p = state.patients[key] ?? { sessions: 0, totalSessions: 0 }
+  /*
+   * Le « +1 » d'une actualisation IA ne vaut QUE tant que la séance n'est pas
+   * versée au dossier. Le profil est tiré de la séance en cours, que le
+   * compteur ne connaît pas encore : on l'ajoute donc à la main.
+   *
+   * Dès l'envoi de la séance, le compteur la connaît — et `profNew` est vidé
+   * au même moment. Sans cela le badge annonçait « 2 séances » à une patiente
+   * qui n'en avait fait qu'une : la séance était comptée deux fois.
+   */
   const fresh = !!state.profNew[key]
   const sessions = (p.sessions || 0) + (fresh ? 1 : 0)
   const margin = Math.max(3, Math.round(26 - sessions * 3))
@@ -82,9 +91,12 @@ export function profilePrecision(state: AppState, key: PatientId): ProfilePrecis
       ? 'Ébauche'
       : sessions <= 3
         ? 'Se précise'
-        : sessions < p.totalSessions
-          ? 'Consolidé'
-          : 'Stabilisé'
+        : // « Stabilisé » veut dire « le suivi prévu est allé à son terme ».
+          // Sans nombre de séances prévu, ce terme n'existe pas : on ne peut
+          // pas l'avoir atteint.
+          p.totalSessions > 0 && sessions >= p.totalSessions
+          ? 'Stabilisé'
+          : 'Consolidé'
   return {
     sessions,
     margin,

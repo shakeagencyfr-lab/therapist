@@ -237,3 +237,21 @@
     gap: 22px;
   }
 }
+
+/* Les deux rubriques qui disent le mouvement plutôt que l'état. Elles se
+   lisent après le portrait et avant les axes : c'est l'ordre dans lequel une
+   praticienne pense — qui est cette personne, où elle en va, puis les
+   mesures. */
+.bloc {
+  margin: 18px 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--c-border-light);
+}
+
+.blocTexte {
+  max-width: 64ch;
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--c-text-2);
+}

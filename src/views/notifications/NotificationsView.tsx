@@ -1,11 +1,13 @@
 import { Avatar, Button, Card, Overline, TextArea, TextInput, Title } from '@/components/ui'
-import {
-  NOTIF_ADHERENCE_OPTIONS,
-  NOTIF_PROGRAMS,
-  NOTIF_TEMPLATES,
-  NOTIF_WHEN_OPTIONS,
-} from '@/data/notifications'
+import { NOTIF_ADHERENCE_OPTIONS, NOTIF_TEMPLATES } from '@/data/notifications'
 import { plural } from '@/lib/format'
+import {
+  RACCOURCIS,
+  libelleDuMoment,
+  momentDuRaccourci,
+  momentSaisi,
+  valeurChamp,
+} from '@/lib/planification'
 import { NOTIF_SITUATIONS, notifRows } from '@/state/selectors'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { useStore } from '@/state/store'
@@ -29,6 +31,14 @@ export function NotificationsView() {
 
   const cabinet = useMaybeCabinet()
   const previewTitle = state.nTitle.trim()
+  /* Les fiches portent le libellé nu ; le catalogue peut être vide sur un
+     cabinet qui n'a encore rien nommé. On retombe alors sur les programmes
+     réellement portés par les fiches, pour ne pas afficher une liste morte. */
+  const programmes = state.programmes.length
+    ? state.programmes
+    : [...new Set(Object.values(state.patients).map((p) => p.program.replace(/^Programme\s+/i, '')))]
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, 'fr'))
   const previewMsg = state.nMsg.trim()
 
   async function send() {
@@ -43,8 +53,9 @@ export function NotificationsView() {
     // Cabinet réel : la notification et ses destinataires sont enregistrés ;
     // le journal des envois est relu depuis la base.
     if (cabinet?.reel) {
+      const moment = state.nQuand ? momentSaisi(state.nQuand) : momentDuRaccourci(state.nWhen)
       const r = await cabinet.envoyerNotification(
-        { title: entry.title, body: entry.message, when: entry.when },
+        { title: entry.title, body: entry.message, when: entry.when, quand: moment },
         recipients.map((row) => row.key),
       )
       if (r.ok) set({ nTitle: '', nMsg: '' })
@@ -84,7 +95,10 @@ export function NotificationsView() {
               <Overline>Programme</Overline>
             </span>
             <div className={s.chips}>
-              {NOTIF_PROGRAMS.map((program) => {
+              {/* Les programmes du cabinet, pas ceux de la démonstration :
+                  filtrer sur « Liberté » quand aucune patiente ne le suit ne
+                  rend jamais personne. */}
+              {programmes.map((program) => {
                 const on = !!state.nProgs[program]
                 return (
                   <button
@@ -211,7 +225,7 @@ export function NotificationsView() {
               <Overline>Moment d'envoi</Overline>
             </span>
             <div className={s.chips}>
-              {NOTIF_WHEN_OPTIONS.map((when) => {
+              {RACCOURCIS.map((when) => {
                 const on = state.nWhen === when
                 return (
                   <button
@@ -219,13 +233,48 @@ export function NotificationsView() {
                     type="button"
                     className={on ? `${s.chip} ${s.chipOn}` : s.chip}
                     aria-pressed={on}
-                    onClick={() => set({ nWhen: when })}
+                    onClick={() => set({ nWhen: when, nQuand: '' })}
                   >
                     {when}
                   </button>
                 )
               })}
+              <button
+                type="button"
+                className={state.nQuand ? `${s.chip} ${s.chipOn}` : s.chip}
+                aria-pressed={Boolean(state.nQuand)}
+                onClick={() => {
+                  // On ouvre sur demain 9 h : une date vide oblige à tout
+                  // saisir, et personne ne programme un envoi dans le passé.
+                  const demain = new Date()
+                  demain.setDate(demain.getDate() + 1)
+                  demain.setHours(9, 0, 0, 0)
+                  const valeur = valeurChamp(demain)
+                  set({ nQuand: valeur, nWhen: libelleDuMoment(demain) })
+                }}
+              >
+                Date précise…
+              </button>
             </div>
+
+            {state.nQuand ? (
+              <div className={s.quand}>
+                <input
+                  type="datetime-local"
+                  className={s.quandChamp}
+                  value={state.nQuand}
+                  aria-label="Date et heure de l'envoi"
+                  onChange={(e) => {
+                    const valeur = e.target.value
+                    const moment = momentSaisi(valeur)
+                    set({ nQuand: valeur, nWhen: moment ? libelleDuMoment(moment) : 'Date incomplète' })
+                  }}
+                />
+                <button type="button" className={s.quandAnnuler} onClick={() => set({ nQuand: '', nWhen: 'Ce soir, 20 h' })}>
+                  Revenir aux raccourcis
+                </button>
+              </div>
+            ) : null}
 
             <div className={s.preview}>
               <div className={s.previewTop}>
