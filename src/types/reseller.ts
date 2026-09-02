@@ -30,7 +30,7 @@ export interface CabinetBranding {
 export interface Cabinet {
   id: CabinetId
   name: string
-  /** Sous-domaine : voir adresseCabinet() dans src/lib/domaine.ts */
+  /** Identifiant public : voir adresseCabinet() dans src/lib/domaine.ts */
   slug: string
   tagline: string
   branding: CabinetBranding

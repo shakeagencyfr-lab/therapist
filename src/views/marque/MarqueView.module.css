@@ -59,8 +59,10 @@
   color: var(--c-text-muted);
 }
 
-/* Le sous-domaine se montre, il ne se saisit pas ici. */
+/* L'adresse se montre et s'ouvre, elle ne se saisit pas ici. */
 .readonly {
+  display: block;
+  text-decoration: none;
   border: 1px dashed var(--c-border);
   background: var(--c-surface-2);
   border-radius: var(--r-sm);

@@ -3,7 +3,7 @@ import { Button, Card, FieldLabel, Notice, Overline, TextInput, Title } from '@/
 import { useMaybeAuth } from '@/auth/session'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { BRAND_PRESETS } from '@/data/reseller'
-import { adresseCabinet } from '@/lib/domaine'
+import { adresseCabinet, lienCabinet } from '@/lib/domaine'
 import type { CabinetBranding } from '@/types/reseller'
 import s from './MarqueView.module.css'
 
@@ -52,7 +52,7 @@ function memeFiche(a: Fiche, b: Fiche): boolean {
  * La marque du cabinet, réglée par la praticienne.
  *
  * Le revendeur a le même écran pour tous ses cabinets ; celui-ci ne montre
- * que le sien, et lui retire le sous-domaine — c'est l'adresse publique du
+ * que le sien, et lui retire l'identifiant — c'est l'adresse publique du
  * cabinet, elle se change chez le revendeur.
  *
  * L'édition se fait sur un brouillon : l'aperçu suit la frappe, la base n'est
@@ -164,9 +164,12 @@ function Editeur({ publie, slug }: { publie: Fiche; slug: string }) {
 
         <div className={s.field}>
           <FieldLabel>Adresse de votre espace</FieldLabel>
-          <div className={s.readonly}>{adresseCabinet(slug)}</div>
+          <a className={s.readonly} href={lienCabinet(slug)} target="_blank" rel="noreferrer">
+            {adresseCabinet(slug)} ↗
+          </a>
           <span className={s.hint}>
-            Fixée par votre revendeur : c'est l'adresse publique de votre cabinet.
+            L'adresse à donner à vos patientes : elle ouvre une page à votre nom et à vos
+            couleurs, avant même qu'elles se connectent. Elle est fixée par votre revendeur.
           </span>
         </div>
 

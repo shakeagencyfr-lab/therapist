@@ -49,7 +49,7 @@ export const PLANS: Plan[] = [
     includes: [
       'Tout le Cabinet',
       'Plusieurs praticiennes par cabinet',
-      'Marque blanche et sous-domaine dédié',
+      'Marque blanche et adresse dédiée',
     ],
   },
 ]

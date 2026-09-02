@@ -1,13 +1,44 @@
+import { useEffect, useState, type CSSProperties } from 'react'
 import { App } from './App'
 import { CabinetProvider } from './cabinet/context'
 import { SignIn } from './auth/SignIn'
 import { SessionProvider, useAuth } from './auth/session'
 import { Button } from './components/ui'
 import { AppStoreProvider } from './state/store'
+import { lireVitrine, slugDuChemin, type Vitrine } from './lib/vitrine'
 import s from './Root.module.css'
 
 /** Adresse de l'espace patient — un site à part, pensé pour le téléphone. */
 const ESPACE_PATIENT = '/mon'
+
+/**
+ * La vitrine du cabinet dont l'adresse a été ouverte.
+ *
+ * Trois états, et ils comptent tous les trois : on cherche (on n'affiche
+ * rien, plutôt que de montrer Klaro une demi-seconde avant de le remplacer),
+ * on a trouvé (on affiche sa marque), ou le chemin ne désigne aucun cabinet
+ * (on affiche Klaro, comme sur la page d'accueil).
+ */
+function useVitrine(): { vitrine: Vitrine | null; cherche: boolean } {
+  const slug = typeof window === 'undefined' ? null : slugDuChemin(window.location.pathname)
+  const [vitrine, setVitrine] = useState<Vitrine | null>(null)
+  const [cherche, setCherche] = useState(Boolean(slug))
+
+  useEffect(() => {
+    if (!slug) return
+    let vivant = true
+    void lireVitrine(slug).then((v) => {
+      if (!vivant) return
+      setVitrine(v)
+      setCherche(false)
+    })
+    return () => {
+      vivant = false
+    }
+  }, [slug])
+
+  return { vitrine, cherche }
+}
 
 function Attente() {
   return (
@@ -39,6 +70,7 @@ function Message({
 
 function Portail() {
   const { phase, context, seDeconnecter } = useAuth()
+  const { vitrine, cherche } = useVitrine()
 
   // Sans base configurée, l'application tourne sur ses données de
   // démonstration : c'est ce qui permet de montrer les écrans sans compte.
@@ -58,6 +90,33 @@ function Portail() {
   if (phase === 'chargement') return <Attente />
 
   if (phase === 'deconnecte') {
+    if (cherche) return <Attente />
+    // Sur l'adresse d'un cabinet, la porte porte SA marque : c'est tout
+    // l'intérêt de l'adresse. Ailleurs, celle du produit — avant la
+    // connexion, on ne sait pas encore qui arrive.
+    if (vitrine) {
+      const b = vitrine.branding
+      return (
+        <div
+          style={
+            {
+              '--c-accent': b?.accent,
+              '--c-accent-hover': b?.accentHover,
+              '--c-accent-deep': b?.accentDeep,
+              '--c-dark': b?.dark,
+            } as CSSProperties
+          }
+        >
+          <SignIn
+            titre={`Entrer chez ${vitrine.name}`}
+            intro="Entrez l'adresse que connaît votre cabinet : vous recevrez un lien qui vous connecte, sans mot de passe à retenir."
+            marque={b?.logo ?? 'KL'}
+            cabinet={vitrine.name}
+            tagline={vitrine.tagline || 'Espace thérapie'}
+          />
+        </div>
+      )
+    }
     return (
       <SignIn
         titre="Entrer dans votre espace"

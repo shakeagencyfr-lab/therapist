@@ -10,8 +10,8 @@ import s from './SignIn.module.css'
  *
  * Avant la connexion, on ne sait pas qui arrive : l'écran porte donc
  * l'identité du produit, jamais celle d'un cabinet. La marque du cabinet
- * n'apparaît qu'une fois le compte reconnu — ou sur son propre sous-domaine,
- * quand ils seront en place.
+ * n'apparaît qu'une fois le compte reconnu — ou d'emblée, sur l'adresse du
+ * cabinet, /c/son-identifiant.
  */
 export function SignIn({
   titre,

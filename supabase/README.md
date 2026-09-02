@@ -38,6 +38,7 @@ actifs — dans un cabinet d'un patient, une moyenne est un chiffre individuel.
 | `0011_stockage_audios.sql` | compartiment privé `audios`, rangé par cabinet, URL signées |
 | `0012_lectures_de_la_patiente.sql` | la patiente lit les audios et notifications qui lui sont envoyés |
 | `0013_programmes_et_reservation.sql` | chaque cabinet nomme ses programmes ; la réservation perd son nom d'éditeur et sait s'encadrer |
+| `0014_vitrine_du_cabinet.sql` | nom, sur-titre et couleurs d'un cabinet, lisibles avant toute connexion |
 
 Les tests de `tests/` se jouent sous les droits réels de chaque acteur, dans
 un seul bloc qui se rétracte (`RAISE EXCEPTION 'REUSSITE …'`) : rien ne

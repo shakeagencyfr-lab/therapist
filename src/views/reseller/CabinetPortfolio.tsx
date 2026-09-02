@@ -317,7 +317,7 @@ export function CabinetPortfolio() {
                     placeholder="Cabinet Claire Fontaine"
                   />
                   <div className={s.slugHint}>
-                    {adresseCabinet(state.rNewSlug.trim() || slugify(state.rNewName) || 'sous-domaine')}
+                    {adresseCabinet(state.rNewSlug.trim() || slugify(state.rNewName) || 'identifiant')}
                   </div>
                 </div>
                 <div className={s.formRow}>

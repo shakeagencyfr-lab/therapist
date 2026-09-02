@@ -261,7 +261,7 @@ export function useReseller(): ResellerData {
         return {
           ok: false,
           message: doublon
-            ? `Le sous-domaine « ${slug} » est déjà pris. Choisissez-en un autre.`
+            ? `L'identifiant « ${slug} » est déjà pris. Choisissez-en un autre.`
             : "Le cabinet n'a pas pu être créé. Réessayez.",
         }
       }
