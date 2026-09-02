@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { ButtonHTMLAttributes, CSSProperties, ReactNode, TextareaHTMLAttributes, InputHTMLAttributes } from 'react'
 import s from './ui.module.css'
 
@@ -356,4 +357,36 @@ export function TextInput({ className, ...rest }: InputHTMLAttributes<HTMLInputE
 
 export function TextArea({ className, ...rest }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea className={cx(s.textarea, className)} {...rest} />
+}
+
+/**
+ * La marque d'un cabinet : son logo s'il en a déposé un, ses initiales sinon.
+ *
+ * Le même carré partout — en-tête, page de connexion, aperçu, portefeuille —
+ * pour qu'un cabinet se reconnaisse d'un écran à l'autre. L'image couvre le
+ * carré sans le déformer ; une image qui ne charge pas laisse les initiales,
+ * plutôt qu'un carré vide.
+ */
+export function Marque({
+  logo,
+  url,
+  className,
+  style,
+}: {
+  logo: string
+  url?: string | null
+  className?: string
+  style?: CSSProperties
+}) {
+  const [casse, setCasse] = useState(false)
+  const image = url && !casse
+  return (
+    <div className={className} style={image ? { ...style, background: 'none', padding: 0 } : style}>
+      {image ? (
+        <img className={s.marqueImage} src={url} alt="" onError={() => setCasse(true)} />
+      ) : (
+        logo
+      )}
+    </div>
+  )
 }

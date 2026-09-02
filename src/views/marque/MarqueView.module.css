@@ -297,3 +297,38 @@
     font-size: 32px;
   }
 }
+
+/* Le logo : son aperçu à gauche, les gestes à droite. */
+.logoRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.logoApercu {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border-light);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-serif);
+  font-size: 19px;
+  color: var(--c-text-4);
+  flex: none;
+  overflow: hidden;
+}
+
+.logoActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Le champ natif reste hors de vue : c'est le bouton qui l'ouvre. */
+.fichier {
+  display: none;
+}

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Button, FieldLabel, Notice, TextInput } from '@/components/ui'
+import { Button, FieldLabel, Marque, Notice, TextInput } from '@/components/ui'
 import { useAuth } from './session'
 import s from './SignIn.module.css'
 
@@ -17,12 +17,14 @@ export function SignIn({
   titre,
   intro,
   marque = 'KL',
+  logoUrl = null,
   cabinet = 'Klaro',
   tagline = 'Suivi entre les séances',
 }: {
   titre: string
   intro: string
   marque?: string
+  logoUrl?: string | null
   cabinet?: string
   tagline?: string
 }) {
@@ -42,7 +44,7 @@ export function SignIn({
     <div className={s.page}>
       <div className={s.card}>
         <div className={s.brand}>
-          <div className={s.logo}>{marque}</div>
+          <Marque className={s.logo} logo={marque} url={logoUrl} />
           <div>
             <div className={s.name}>{cabinet}</div>
             <div className={s.tagline}>{tagline}</div>

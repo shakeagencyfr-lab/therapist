@@ -111,6 +111,7 @@ function Portail() {
             titre={`Entrer chez ${vitrine.name}`}
             intro="Entrez l'adresse que connaît votre cabinet : vous recevrez un lien qui vous connecte, sans mot de passe à retenir."
             marque={b?.logo ?? 'KL'}
+            logoUrl={b?.logoUrl}
             cabinet={vitrine.name}
             tagline={vitrine.tagline || 'Espace thérapie'}
           />
