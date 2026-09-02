@@ -46,7 +46,7 @@
 .entete {
   width: 100%;
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr;
   align-items: baseline;
   gap: 4px 14px;
   padding: 14px 0;
@@ -73,15 +73,6 @@
   color: var(--c-text-muted);
 }
 
-.chevron {
-  grid-row: 1 / span 2;
-  grid-column: 2;
-  align-self: center;
-  font-size: 18px;
-  color: var(--c-text-muted);
-  width: 22px;
-  text-align: center;
-}
 
 .corps {
   padding: 4px 0 22px;
@@ -111,4 +102,207 @@
   font-size: 15px;
   line-height: 1.75;
   color: var(--c-text);
+}
+
+/* Réécrire : une hypnose ratée ne se corrige pas, on en refait une avec une
+   autre intention. */
+.relance {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 14px 0 4px;
+}
+
+.champ {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+
+.input {
+  border: 1px solid var(--c-border);
+  background: var(--c-field);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--c-text);
+  min-width: 0;
+}
+.input:focus {
+  outline: none;
+  border-color: var(--c-border-accent);
+}
+.input:disabled {
+  opacity: 0.55;
+}
+
+.hint {
+  margin: 10px 0 0;
+  max-width: 66ch;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+}
+
+/* L'avancement, annoncé dès le clic. */
+.progression {
+  margin: 16px 0 4px;
+  padding: 14px 16px;
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border-light);
+  border-radius: 12px;
+}
+
+.encours {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+  font-size: 13.5px;
+  color: var(--c-text-2);
+}
+
+.point {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c-accent);
+  animation: battement 1.2s ease-in-out infinite;
+}
+
+@keyframes battement {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .point {
+    animation: none;
+  }
+}
+
+.avancement {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.avancement li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+}
+
+.puce {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 11.5px;
+  border: 1px solid var(--c-border);
+  color: var(--c-text-muted);
+}
+
+.fait {
+  color: var(--c-text);
+}
+.fait .puce {
+  background: var(--c-accent);
+  border-color: var(--c-accent);
+  color: #fff;
+}
+
+.attente {
+  color: var(--c-text-muted);
+}
+
+.finiLigne {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.finiLigne > :first-child {
+  flex: 1 1 260px;
+}
+
+/* Chaque ligne porte son dépliant et sa suppression. */
+.ligne {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.ligne .entete {
+  flex: 1 1 auto;
+}
+
+.effacer,
+.oui,
+.non {
+  flex: none;
+  align-self: center;
+  border: none;
+  background: none;
+  padding: 4px 2px;
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.effacer {
+  color: var(--c-text-muted);
+}
+.effacer:hover {
+  color: var(--c-danger);
+  text-decoration: underline;
+}
+
+.confirme {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  align-self: center;
+}
+
+.oui {
+  color: var(--c-danger);
+  font-weight: 500;
+}
+.oui:hover {
+  text-decoration: underline;
+}
+
+.non {
+  color: var(--c-text-muted);
+}
+.non:hover {
+  text-decoration: underline;
 }
