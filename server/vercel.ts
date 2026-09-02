@@ -25,7 +25,20 @@ export function aiFunction(route: AiRoute) {
     } catch (err) {
       const { status, message } = describeError(err)
       // Journal technique seulement : aucune donnée patient n'y figure.
-      console.error(`[ia] ${route} — ${status} · ${message}`)
+      //
+      // Une 500 est, par définition, une erreur que describeError n'a pas su
+      // nommer : son message est générique et ne dit rien de la cause. Sans
+      // la trace, un défaut a pu rester invisible des semaines, chaque appel
+      // réel échouant sans laisser d'indice. On journalise donc l'erreur
+      // brute dans ce seul cas — le nom, le message et la pile viennent du
+      // code, jamais du contenu d'une séance.
+      if (status === 500) {
+        const cause = err instanceof Error ? `${err.name}: ${err.message}` : String(err)
+        console.error(`[ia] ${route} — 500 · ${cause}`)
+        if (err instanceof Error && err.stack) console.error(err.stack)
+      } else {
+        console.error(`[ia] ${route} — ${status} · ${message}`)
+      }
       res.status(status).json({ error: message })
     }
   }
