@@ -70,3 +70,18 @@ select {
     opacity: 0;
   }
 }
+
+/* Le jour marqué au calendrier de la prise de rendez-vous : une respiration
+   lente, assez discrète pour qu'on la remarque sans la regarder. */
+@keyframes omRdvPastille {
+  0%,
+  70%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  85% {
+    transform: scale(1.35);
+    opacity: 0.75;
+  }
+}

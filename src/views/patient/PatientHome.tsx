@@ -1,12 +1,86 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { RoundCheck } from '@/components/ui'
 import { durationToSeconds, timecode } from '@/lib/format'
 import { buildPatientContext, generateAffirmations } from '@/services/aiClient'
 import { allModules, isModuleDone, patientOf, toggleModulePatch } from '@/state/selectors'
 import { useStore } from '@/state/store'
+import type { Reservation } from '@/types/domain'
 import s from './PatientHome.module.css'
 
 const SCALE_STEPS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+/** Calendrier, du même trait que le livre du journal. */
+function IconeAgenda() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={s.rdvIcon}
+      fill="none"
+      stroke="var(--c-accent)"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="3.4" y="5.2" width="17.2" height="15.4" rx="2.6" />
+      <path d="M3.4 10 H 20.6" />
+      <path d="M8.2 3.4 V 6.6" />
+      <path d="M15.8 3.4 V 6.6" />
+      <circle className={s.rdvPastille} cx="12" cy="15.2" r="1.5" fill="var(--c-accent)" stroke="none" />
+    </svg>
+  )
+}
+
+/**
+ * La ligne « Prendre rendez-vous » de l'aperçu.
+ *
+ * Elle fait ce que fera celle de la patiente : ouvrir l'agenda dans un
+ * onglet, ou déplier le cadre sur place. Une image figée n'aurait pas permis
+ * à la thérapeute de vérifier que son agenda accepte d'être encadré — c'est
+ * pourtant la seule chose qu'elle a besoin d'éprouver ici.
+ */
+function ApercuRendezVous({ booking }: { booking: Reservation }) {
+  const [ouvert, setOuvert] = useState(false)
+  const cadre = booking.mode === 'widget' ? (booking.widgetUrl ?? booking.url) : null
+
+  if (!cadre) {
+    return (
+      <a className={s.journalBtn} href={booking.url} target="_blank" rel="noreferrer">
+        <IconeAgenda />
+        <span className={s.journalBody}>
+          <span className={s.journalTitle}>Prendre rendez-vous</span>
+          <span className={s.journalSub}>Ouvre votre agenda dans un nouvel onglet</span>
+        </span>
+        <span className={s.chevron} aria-hidden>
+          ↗
+        </span>
+      </a>
+    )
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        className={s.journalBtn}
+        aria-expanded={ouvert}
+        onClick={() => setOuvert((o) => !o)}
+      >
+        <IconeAgenda />
+        <span className={s.journalBody}>
+          <span className={s.journalTitle}>Prendre rendez-vous</span>
+          <span className={s.journalSub}>
+            {ouvert ? 'Refermer l’agenda' : 'Choisir un créneau sans quitter l’espace'}
+          </span>
+        </span>
+        <span className={ouvert ? `${s.chevron} ${s.chevronOuvert}` : s.chevron} aria-hidden>
+          ›
+        </span>
+      </button>
+      {ouvert ? <iframe className={s.rdvFrame} src={cadre} title="Prise de rendez-vous" /> : null}
+    </>
+  )
+}
 
 /** Accueil de l'application patient : une à trois tâches, un audio, une échelle. */
 export function PatientHome() {
@@ -358,23 +432,10 @@ export function PatientHome() {
         </button>
 
         {/* La prise de rendez-vous, sous le journal, telle que la patiente la
-            verra. Rien tant que la thérapeute ne l'a pas réglée : mieux vaut
-            un aperçu fidèle qu'un bouton qui n'existera pas. */}
-        {state.booking ? (
-          <div className={s.rdv}>
-            <span className={s.rdvBody}>
-              <span className={s.journalTitle}>Prendre rendez-vous</span>
-              <span className={s.journalSub}>
-                {state.booking.mode === 'widget'
-                  ? 'Le widget se déplie ici, sans quitter l’espace'
-                  : 'Ouvre votre agenda dans un nouvel onglet'}
-              </span>
-            </span>
-            <span className={s.chevron} aria-hidden>
-              {state.booking.mode === 'widget' ? '›' : '↗'}
-            </span>
-          </div>
-        ) : null}
+            verra — et qui marche vraiment ici : la thérapeute doit pouvoir
+            éprouver son agenda sans sortir de son espace. Rien tant qu'elle
+            ne l'a pas réglée. */}
+        {state.booking ? <ApercuRendezVous booking={state.booking} /> : null}
       </div>
     </div>
   )
