@@ -167,8 +167,10 @@ if (maquette) {
   }
 }
 
-// Sans distinction des locuteurs, « les mots du patient » est légitimement
-// vide : l'écran doit le dire, pas laisser un blanc.
+// Une rubrique de mots vide reste possible sur une transcription pauvre :
+// l'écran doit le dire, pas laisser un blanc. Il ne l'impute plus à
+// l'absence de locuteurs — le prompt relève désormais les formulations
+// marquantes sans prétendre les attribuer.
 const sansMots = rendu('cabinet/session-sans-mots', {
   space: 'cabinet',
   mode: 'session',
@@ -177,7 +179,7 @@ const sansMots = rendu('cabinet/session-sans-mots', {
   draft: BROUILLON,
   draftMaquette: false,
 })
-if (sansMots && !sansMots.includes('ne distingue pas qui parle')) {
+if (sansMots && !sansMots.includes('Rien de saillant')) {
   console.error("✗ session/sans-mots : la rubrique vide n'explique pas pourquoi")
   echecs++
 } else if (sansMots) {

@@ -19,9 +19,15 @@ describe('reglageDe — le bon modèle et le bon effort par action', () => {
     expect(reglageDe('session-draft').model).toBe('claude-opus-5')
   })
 
-  it('les actions mécaniques descendent de modèle', () => {
-    expect(reglageDe('profile').model).toBe('claude-sonnet-5')
-    expect(reglageDe('module').model).toBe('claude-sonnet-5')
+  it('tout ce qui demande du jugement clinique reste sur Opus', () => {
+    // La qualité prime sur le coût : ces textes sont lus par une praticienne
+    // et, pour l'hypnose, lus à voix haute à quelqu'un.
+    expect(reglageDe('profile').model).toBe('claude-opus-5')
+    expect(reglageDe('module').model).toBe('claude-opus-5')
+    expect(reglageDe('hypnose').model).toBe('claude-opus-5')
+  })
+
+  it('seules les affirmations descendent : sept phrases ne valent pas Opus', () => {
     expect(reglageDe('affirmations').model).toBe('claude-haiku-4-5')
   })
 
@@ -32,6 +38,7 @@ describe('reglageDe — le bon modèle et le bon effort par action', () => {
       'claude-opus-5': 3000,
       'claude-sonnet-5': 1200,
       'claude-haiku-4-5': 600,
+      'claude-fable-5-1': 6000,
     }
     for (const route of AI_ROUTES) {
       const { model } = reglageDe(route)
@@ -45,9 +52,10 @@ describe('reglageDe — le bon modèle et le bon effort par action', () => {
     // Haiku 4.5 répond 400 à output_config.effort. Un effort posé là ferait
     // échouer l'appel au lieu de le rendre moins cher.
     expect(reglageDe('affirmations').effort).toBeUndefined()
-    expect(reglageDe('session-draft').effort).toBe('medium')
-    expect(reglageDe('profile').effort).toBe('low')
-    expect(reglageDe('module').effort).toBe('low')
+    expect(reglageDe('session-draft').effort).toBe('high')
+    expect(reglageDe('profile').effort).toBe('high')
+    expect(reglageDe('module').effort).toBe('high')
+    expect(reglageDe('hypnose').effort).toBe('high')
   })
 
   it('le mode courant nomme chaque action, pour le journal de démarrage', () => {
