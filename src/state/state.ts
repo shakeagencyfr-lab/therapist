@@ -38,6 +38,7 @@ export type ViewMode =
   | 'audios'
   | 'notif'
   | 'boutique'
+  | 'marque'
   | 'integrations'
 
 /** Vue interne de la maquette téléphone. */

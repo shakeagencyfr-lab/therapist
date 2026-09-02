@@ -10,6 +10,7 @@ import {
   StatCard,
   TextInput,
 } from '@/components/ui'
+import { adresseCabinet } from '@/lib/domaine'
 import { euroCents, plural } from '@/lib/format'
 import {
   adherenceLabel,
@@ -52,7 +53,7 @@ function CabinetRow({ row, on, onSelect }: { row: PortfolioRow; on: boolean; onS
       <span>
         <span className={s.name}>{row.cabinet.name}</span>
         <span className={s.sub}>
-          {row.cabinet.therapist} · {row.cabinet.slug}.entre-seances.fr
+          {row.cabinet.therapist} · {adresseCabinet(row.cabinet.slug)}
         </span>
       </span>
 
@@ -316,8 +317,7 @@ export function CabinetPortfolio() {
                     placeholder="Cabinet Claire Fontaine"
                   />
                   <div className={s.slugHint}>
-                    {(state.rNewSlug.trim() || slugify(state.rNewName) || 'sous-domaine')}
-                    .entre-seances.fr
+                    {adresseCabinet(state.rNewSlug.trim() || slugify(state.rNewName) || 'sous-domaine')}
                   </div>
                 </div>
                 <div className={s.formRow}>

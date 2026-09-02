@@ -65,6 +65,15 @@ export interface AuthState {
   sent: string
   envoyerLien: (email: string) => Promise<void>
   seDeconnecter: () => Promise<void>
+  /**
+   * Relit le rôle et la marque du compte connecté.
+   *
+   * Le contexte est lu une fois à la connexion : il ne bouge pas tout seul.
+   * Quand l'écran vient de changer ce qu'il contient — la marque du cabinet,
+   * par exemple — il faut le redemander, sinon l'en-tête garde l'ancien nom
+   * jusqu'au prochain rechargement de la page.
+   */
+  rafraichir: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthState | null>(null)
@@ -148,8 +157,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo<AuthState>(
-    () => ({ phase, session, context, error, sent, envoyerLien, seDeconnecter }),
-    [phase, session, context, error, sent, envoyerLien, seDeconnecter],
+    () => ({ phase, session, context, error, sent, envoyerLien, seDeconnecter, rafraichir: charger }),
+    [phase, session, context, error, sent, envoyerLien, seDeconnecter, charger],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

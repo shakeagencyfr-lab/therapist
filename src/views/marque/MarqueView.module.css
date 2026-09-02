@@ -1,0 +1,297 @@
+/* La marque, réglée par la praticienne. Même gabarit de page que les
+   Intégrations (largeur, en-tête, accroche) ; les commandes reprennent
+   celles de l'éditeur du revendeur, pour que ce soit le même geste. */
+
+.wrap {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 42px 34px 80px;
+}
+
+.crumb {
+  margin-bottom: 8px;
+}
+
+.h1 {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 40px;
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+
+.intro {
+  max-width: 66ch;
+  margin: 0 0 26px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--c-text-2);
+}
+
+.muted {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--c-text-muted);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.95fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.panel {
+  border-radius: var(--r-xl);
+}
+
+.field {
+  margin: 14px 0;
+}
+
+.hint {
+  display: block;
+  margin-top: 5px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--c-text-muted);
+}
+
+/* Le sous-domaine se montre, il ne se saisit pas ici. */
+.readonly {
+  border: 1px dashed var(--c-border);
+  background: var(--c-surface-2);
+  border-radius: var(--r-sm);
+  padding: 9px 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  color: var(--c-text-2);
+}
+
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 6px 0 16px;
+}
+
+.preset {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px 6px 7px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--c-text-4);
+}
+.preset:hover {
+  background: var(--c-surface-2);
+}
+.presetOn {
+  border-color: var(--c-accent);
+  color: var(--c-accent);
+  background: var(--c-accent-soft-2);
+}
+
+.swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--r-pill);
+  flex: none;
+}
+
+.colors {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.colorField {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--c-border);
+  background: var(--c-field);
+  border-radius: var(--r-sm);
+  padding: 7px 10px;
+}
+.colorInput {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  flex: none;
+}
+.colorText {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 12.5px;
+  font-family: inherit;
+  color: var(--c-text);
+  width: 100%;
+  min-width: 0;
+  text-transform: uppercase;
+}
+
+.noticeSlot {
+  margin-bottom: 14px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ---- Aperçu ------------------------------------------------------------ */
+
+.apercu {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.preview {
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  background: var(--c-surface);
+  overflow: hidden;
+}
+
+.previewHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.previewLogo {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-serif);
+  font-size: 15px;
+  flex: none;
+}
+
+.previewName {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.previewTagline {
+  font-size: 11px;
+  color: var(--c-text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.previewBody {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  flex-wrap: wrap;
+}
+
+.previewPrimary {
+  color: #fff;
+  border-radius: var(--r-pill);
+  padding: 8px 15px;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.previewSecondary {
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-pill);
+  padding: 8px 15px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--c-text-4);
+  background: var(--c-surface);
+}
+
+/* Le téléphone de la patiente : c'est là que la marque se voit le plus. */
+.phone {
+  max-width: 300px;
+  border: 1px solid var(--c-border);
+  border-radius: 22px;
+  overflow: hidden;
+  background: var(--c-surface);
+}
+
+.phoneHead {
+  padding: 18px 16px 16px;
+  color: #fff;
+}
+
+.phoneName {
+  font-family: var(--font-serif);
+  font-size: 17px;
+}
+
+.phoneDay {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  margin-top: 2px;
+}
+
+.phoneBody {
+  padding: 14px 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.phoneRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.phoneCheck {
+  width: 17px;
+  height: 17px;
+  border-radius: 5px;
+  border: 1.5px solid var(--c-border);
+  flex: none;
+}
+
+.phoneLink {
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+@media (max-width: 980px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .wrap {
+    padding: 28px 18px 60px;
+  }
+  .h1 {
+    font-size: 32px;
+  }
+}

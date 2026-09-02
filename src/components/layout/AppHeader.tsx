@@ -14,6 +14,7 @@ const VIEWS: Array<{ value: ViewMode; label: string }> = [
   { value: 'audios', label: 'Audios' },
   { value: 'notif', label: 'Notifications' },
   { value: 'boutique', label: 'Boutique' },
+  { value: 'marque', label: 'Marque' },
   { value: 'integrations', label: 'Intégrations' },
 ]
 
