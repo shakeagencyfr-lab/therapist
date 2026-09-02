@@ -1,0 +1,70 @@
+/* Le mot de passe : un bloc de réglages parmi les autres, au même gabarit
+   que les intégrations. Facultatif, et l'écran le dit. */
+
+.bloc {
+  border-radius: var(--r-xl);
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.etat {
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: var(--r-pill);
+  padding: 4px 10px;
+  white-space: nowrap;
+  color: var(--c-text-muted);
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border-light);
+}
+
+.texte {
+  max-width: 70ch;
+  margin: 0 0 18px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--c-text-2);
+}
+
+.form {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.champ {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+
+.hint {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--c-text-muted);
+  min-height: 1.45em;
+}
+
+.form > div {
+  padding-top: 22px;
+}

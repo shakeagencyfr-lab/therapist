@@ -105,6 +105,13 @@ créée par la thérapeute, une invitation de cabinet, une invitation de revende
 Une adresse que personne n'a invitée obtient un compte valide et aucune donnée.
 C'est le quatrième cas de `supabase/tests/connexion.sql`, et le plus important.
 
+Le lien reste la voie normale, mais **un mot de passe est possible** : il se
+pose depuis l'onglet Intégrations, une fois connectée, et n'est jamais imposé.
+C'est une porte de secours pour le jour où le courriel tarde et qu'une
+patiente attend — les deux voies restent valables ensuite. La connexion ne
+distingue jamais « adresse inconnue » de « mot de passe faux » : ce serait
+dire à un inconnu quelles adresses existent dans la base.
+
 **L'envoi des liens exige un SMTP à soi.** Le service intégré de Supabase
 (`noreply@mail.app.supabase.io`) plafonne à quelques courriels par heure, pour
 tout le projet, et sa disponibilité est « au mieux » : deux liens partis

@@ -90,3 +90,22 @@
   font-weight: 500;
   color: var(--c-accent);
 }
+
+/* La bascule vers le mot de passe : une phrase, pas un bouton. Le lien reste
+   la voie par défaut ; celle-ci est la porte de secours. */
+.bascule {
+  display: block;
+  width: 100%;
+  margin: 16px 0 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--c-accent);
+  text-align: center;
+  cursor: pointer;
+}
+.bascule:hover {
+  text-decoration: underline;
+}
