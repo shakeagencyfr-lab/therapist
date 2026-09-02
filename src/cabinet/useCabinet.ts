@@ -15,6 +15,7 @@ import { demanderInvitation } from '@/services/invitations'
 import { useStore } from '@/state/store'
 import { durationToSeconds } from '@/lib/format'
 import type {
+  CustomModule,
   JournalEntry,
   LibraryAudio,
   ModuleKind,
@@ -25,6 +26,8 @@ import type {
   ProfileAxis,
   ProfileLever,
   PsychProfile,
+  PushRecord,
+  QuizQuestion,
   SessionDraft,
 } from '@/types/domain'
 
@@ -95,6 +98,38 @@ interface LibraryRow {
   duration_seconds: number
   storage_path: string
   created_at: string
+}
+
+interface CustomModuleRow {
+  id: string
+  title: string
+  kind: ModuleKind
+  duree: string
+  quand: string
+  steps: string[]
+  pourquoi: string | null
+  quiz: QuizQuestion[]
+}
+
+interface AffirmationRow {
+  patient_id: string
+  text: string
+  position: number
+  published_at: string | null
+}
+
+interface SettingsRow {
+  patient_id: string
+  affirmations_auto: boolean
+}
+
+interface PushRow {
+  id: string
+  title: string
+  body: string
+  scheduled_for: string
+  created_at: string
+  recipients: Array<{ patient: { display_name: string } | null }>
 }
 
 interface ProfileRow {
@@ -300,6 +335,14 @@ export interface CabinetData {
   renommerAudio: (audioId: string, title: string) => Promise<Resultat>
   recategoriserAudio: (audioId: string, categorie: string) => Promise<Resultat>
   urlEcoute: (audioId: string) => Promise<string | null>
+  /* L'atelier, les affirmations, les notifications --------------------- */
+  /** Le module rejoint la bibliothèque du cabinet et le parcours des patientes choisies. */
+  assignerModule: (module: CustomModule, patientIds: PatientId[]) => Promise<Resultat>
+  /** Remplace les affirmations visibles par la patiente. */
+  publierAffirmations: (patientId: PatientId, textes: string[]) => Promise<Resultat>
+  reglerAffirmationsAuto: (patientId: PatientId, auto: boolean) => Promise<Resultat>
+  /** Enregistre une notification et ses destinataires. L'envoi réel attend un service de push. */
+  envoyerNotification: (input: { title: string; body: string; when: string }, patientIds: PatientId[]) => Promise<Resultat>
   /* La séance ------------------------------------------------------ *
    * Elle s'ouvre à la signature du consentement — c'est la pièce qui
    * autorise la captation, elle est horodatée et conservée. Le brouillon
@@ -325,7 +368,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     setErreur('')
     setChargement(true)
 
-    const [fiches, modules, audios, echelles, journal, profils, categories, bibliotheque] = await Promise.all([
+    const [fiches, modules, audios, echelles, journal, profils, categories, bibliotheque, ateliers, affs, reglages, pushes] = await Promise.all([
       db.from('patients').select('*').is('archived_at', null).order('created_at'),
       db.from('patient_modules').select('id, patient_id, title, meta, kind, position, done_at'),
       db.from('patient_audios').select('patient_id, listens, last_listened_at, audio:audio_library (title, duration_seconds)'),
@@ -334,6 +377,14 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       db.from('psych_profiles').select('patient_id, version, sessions_count, portrait, axes, levers, care').order('version', { ascending: false }),
       db.from('audio_categories').select('id, label, position').order('position').order('label'),
       db.from('audio_library').select('id, category_id, title, meta, duration_seconds, storage_path, created_at').order('created_at', { ascending: false }),
+      db.from('custom_modules').select('id, title, kind, duree, quand, steps, pourquoi, quiz').order('created_at'),
+      db.from('affirmations').select('patient_id, text, position, published_at').order('position'),
+      db.from('patient_settings').select('patient_id, affirmations_auto'),
+      db
+        .from('push_notifications')
+        .select('id, title, body, scheduled_for, created_at, recipients:push_recipients (patient:patients (display_name))')
+        .order('created_at', { ascending: false })
+        .limit(30),
     ])
 
     const premiere = [fiches, modules, audios, echelles, journal, profils, categories, bibliotheque].find((r) => r.error)
@@ -374,8 +425,45 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     }))
     const catLabels = cats.map((c) => c.label)
 
+    // L'atelier : les modules du cabinet, rangés par type.
+    const customs: Record<string, CustomModule[]> = {}
+    for (const m of (ateliers.data ?? []) as CustomModuleRow[]) {
+      const entree: CustomModule = {
+        titre: m.title,
+        duree: m.duree,
+        quand: m.quand,
+        steps: m.steps ?? [],
+        pourquoi: m.pourquoi ?? '',
+        quiz: m.quiz ?? [],
+        type: m.kind,
+      }
+      customs[m.kind] = (customs[m.kind] ?? []).concat([entree])
+    }
+
+    // Les affirmations publiées, par patiente ; et le réglage du lundi.
+    const affirmations: Record<PatientId, string[]> = {}
+    for (const a of (affs.data ?? []) as AffirmationRow[]) {
+      if (!a.published_at) continue
+      affirmations[a.patient_id] = (affirmations[a.patient_id] ?? []).concat([a.text])
+    }
+    const affAuto: Record<PatientId, boolean> = {}
+    for (const r of (reglages.data ?? []) as SettingsRow[]) affAuto[r.patient_id] = r.affirmations_auto
+
+    // Le journal des envois.
+    const envois = ((pushes.data ?? []) as unknown as PushRow[]).map<PushRecord>((n) => ({
+      title: n.title,
+      message: n.body,
+      when: n.scheduled_for,
+      names: n.recipients.map((r) => r.patient?.display_name ?? '').filter(Boolean),
+      stamp: new Date(n.created_at).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
+    }))
+
     const ordre = lignes.map((l) => l.id)
     set((prev) => ({
+      customs,
+      affs: affirmations,
+      affAuto,
+      pushes: envois,
       patients: assemblees,
       patientOrder: ordre,
       patientsReels: true,
@@ -658,6 +746,132 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     [],
   )
 
+  /* ---- L'atelier, les affirmations, les notifications ---------------- */
+
+  const assignerModule = useCallback(
+    async (module: CustomModule, patientIds: PatientId[]): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+
+      // La bibliothèque du cabinet : un titre par type, mis à jour s'il existe.
+      const { data: existant } = await db
+        .from('custom_modules')
+        .select('id')
+        .eq('cabinet_id', cabinetId)
+        .eq('kind', module.type)
+        .eq('title', module.titre)
+        .maybeSingle<{ id: string }>()
+      const ligne = {
+        cabinet_id: cabinetId,
+        title: module.titre,
+        kind: module.type,
+        duree: module.duree,
+        quand: module.quand,
+        steps: module.steps,
+        pourquoi: module.pourquoi || null,
+        quiz: module.quiz,
+      }
+      const { error: e1 } = existant
+        ? await db.from('custom_modules').update(ligne).eq('id', existant.id)
+        : await db.from('custom_modules').insert(ligne)
+      if (e1) return { ok: false, message: "Le module n'a pas pu être enregistré." }
+
+      // Le parcours de chaque patiente choisie, à la suite de l'existant.
+      const consigne = {
+        duree: module.duree,
+        quand: module.quand,
+        steps: module.steps,
+        why: module.pourquoi,
+        quiz: module.quiz,
+      }
+      for (const patientId of patientIds) {
+        const { data: dernier } = await db
+          .from('patient_modules')
+          .select('position')
+          .eq('patient_id', patientId)
+          .order('position', { ascending: false })
+          .limit(1)
+          .maybeSingle<{ position: number }>()
+        const { error } = await db.from('patient_modules').insert({
+          cabinet_id: cabinetId,
+          patient_id: patientId,
+          title: module.titre,
+          meta: `${module.duree} · ${module.quand}`,
+          kind: module.type,
+          source: 'atelier',
+          position: (dernier?.position ?? -1) + 1,
+          consigne,
+        })
+        if (error) return { ok: false, message: "Le module n'a pas pu être ajouté au parcours." }
+      }
+      await recharger()
+      return { ok: true, message: '' }
+    },
+    [cabinetId, recharger],
+  )
+
+  const publierAffirmations = useCallback(
+    async (patientId: PatientId, textes: string[]): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const propres = textes.map((t) => t.trim()).filter(Boolean)
+      // Remplacer : ce que la patiente lit est exactement la liste publiée.
+      const { error: e1 } = await db.from('affirmations').delete().eq('patient_id', patientId)
+      if (e1) return { ok: false, message: "Les affirmations n'ont pas pu être remplacées." }
+      if (propres.length) {
+        const maintenant = new Date().toISOString()
+        const { error: e2 } = await db.from('affirmations').insert(
+          propres.map((text, position) => ({
+            cabinet_id: cabinetId,
+            patient_id: patientId,
+            text,
+            position,
+            source: 'manuel',
+            published_at: maintenant,
+          })),
+        )
+        if (e2) return { ok: false, message: "Les affirmations n'ont pas pu être publiées." }
+      }
+      await recharger()
+      return { ok: true, message: '' }
+    },
+    [cabinetId, recharger],
+  )
+
+  const reglerAffirmationsAuto = useCallback(
+    async (patientId: PatientId, auto: boolean): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const { error } = await db
+        .from('patient_settings')
+        .upsert({ patient_id: patientId, cabinet_id: cabinetId, affirmations_auto: auto }, { onConflict: 'patient_id' })
+      if (error) return { ok: false, message: "Le réglage n'a pas pu être enregistré." }
+      await recharger()
+      return { ok: true, message: '' }
+    },
+    [cabinetId, recharger],
+  )
+
+  const envoyerNotification = useCallback(
+    async (input: { title: string; body: string; when: string }, patientIds: PatientId[]): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId || !patientIds.length) return { ok: false, message: '' }
+      const { data, error: e1 } = await db
+        .from('push_notifications')
+        .insert({ cabinet_id: cabinetId, title: input.title, body: input.body, scheduled_for: input.when })
+        .select('id')
+        .single<{ id: string }>()
+      if (e1 || !data) return { ok: false, message: "La notification n'a pas pu être enregistrée." }
+      const { error: e2 } = await db
+        .from('push_recipients')
+        .insert(patientIds.map((patient_id) => ({ push_id: data.id, patient_id, cabinet_id: cabinetId })))
+      if (e2) return { ok: false, message: "Les destinataires n'ont pas pu être enregistrés." }
+      await recharger()
+      return { ok: true, message: '' }
+    },
+    [cabinetId, recharger],
+  )
+
   /* ---- La séance ----------------------------------------------------- */
 
   const ouvrirSeance = useCallback(
@@ -813,6 +1027,10 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     renommerAudio,
     recategoriserAudio,
     urlEcoute,
+    assignerModule,
+    publierAffirmations,
+    reglerAffirmationsAuto,
+    envoyerNotification,
     ouvrirSeance,
     enregistrerBrouillon,
     envoyerSeance,
