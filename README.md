@@ -169,6 +169,16 @@ qu'on veut pouvoir vendre.
 | **Clé du cabinet** (défaut) | elle, sur son compte Anthropic | son onglet **Intégrations**, où elle pose sa clé, et le coût en euros de chaque analyse avant de la lancer |
 | **Crédits** | le revendeur, sur sa clé | son solde de crédits, les paquets de son revendeur, et « cette analyse consommera 1 crédit » |
 
+Les quatre actions ne tournent pas sur le même modèle, ni au même effort de
+raisonnement (`REGLAGES`, `server/ai.ts`) : le brouillon de séance garde Opus,
+le profil et le module descendent sur Sonnet, les affirmations sur Haiku. La
+raison tient dans une mesure — sur un jeu d'affirmations, 533 jetons facturés
+en sortie pour environ 160 jetons de JSON rendus : le reste était du
+raisonnement que personne ne lit, au tarif de sortie. Sur les quatre premiers
+appels réels, la sortie pesait 80 % de la facture. `CLAUDE_MODEL`, s'il est
+posé, impose un modèle à toutes les actions ; l'effort n'est alors transmis
+qu'aux modèles qui l'acceptent.
+
 **Un crédit vaut une action** — un brouillon de séance, un module, un jeu
 d'affirmations, un profil — quelle que soit la longueur de la séance. Une
 thérapeute comprend « il me reste douze analyses » ; elle ne compte pas des

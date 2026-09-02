@@ -65,8 +65,71 @@ import type { ModuleKind } from '../src/types/domain.js'
  * Configuration
  * ------------------------------------------------------------------ */
 
-/** Aucun suffixe de date : l'identifiant du modèle est complet tel quel. */
-const MODEL = process.env.CLAUDE_MODEL ?? 'claude-opus-5'
+/**
+ * Le modèle et l'effort de RAISONNEMENT, par type d'action.
+ *
+ * Les quatre actions n'ont pas la même exigence, et les faire toutes tourner
+ * sur le modèle le plus cher au réglage le plus bavard revenait à prendre un
+ * taxi pour traverser la rue. Mesuré sur les premiers appels réels : sur un
+ * jeu d'affirmations, 533 jetons facturés en sortie pour environ 160 jetons
+ * de JSON rendus — les 370 autres étaient du raisonnement que personne ne
+ * lit, facturé au tarif de sortie. Quatre appels sur quatre montraient le
+ * même motif, et la sortie pesait 80 % de la facture.
+ *
+ * D'où deux réglages, et non un seul :
+ *
+ *   LE MODÈLE. Le brouillon de séance est la pièce clinique : il garde Opus.
+ *   Le profil et le module descendent sur Sonnet (tarif ÷ 2,5), les
+ *   affirmations sur Haiku (÷ 5) — écrire sept phrases ne demande pas le
+ *   meilleur modèle du monde.
+ *
+ *   L'EFFORT. Sur Opus 5 le raisonnement est actif par défaut, à l'effort
+ *   « high ». C'est le bon réglage pour une note de séance, pas pour remplir
+ *   un gabarit. On le baisse partout où la tâche est mécanique.
+ *
+ * Aucun suffixe de date : l'identifiant d'un modèle est complet tel quel.
+ */
+type Effort = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+
+interface Reglage {
+  model: string
+  effort?: Effort
+}
+
+const REGLAGES: Record<AiRoute, Reglage> = {
+  'session-draft': { model: 'claude-opus-5', effort: 'medium' },
+  profile: { model: 'claude-sonnet-5', effort: 'low' },
+  module: { model: 'claude-sonnet-5', effort: 'low' },
+  // Pas d'effort ici : Haiku 4.5 refuse output_config.effort (400), et ne
+  // raisonne pas par défaut — ce qui est exactement ce qu'on veut.
+  affirmations: { model: 'claude-haiku-4-5' },
+}
+
+/** Les modèles qui acceptent `output_config.effort`. Les autres répondent 400. */
+const EFFORT_ACCEPTE = new Set([
+  'claude-opus-5',
+  'claude-opus-4-8',
+  'claude-opus-4-7',
+  'claude-opus-4-6',
+  'claude-sonnet-5',
+  'claude-sonnet-4-6',
+])
+
+/** Échappatoire d'exploitation : impose un modèle à toutes les actions. */
+const MODELE_IMPOSE = (process.env.CLAUDE_MODEL ?? '').trim()
+
+/**
+ * Le réglage effectif d'une action.
+ *
+ * L'effort n'est transmis que si le modèle l'accepte : `CLAUDE_MODEL` peut
+ * imposer n'importe quoi, et un effort envoyé à un modèle qui le refuse ferait
+ * échouer l'appel au lieu de le rendre moins cher.
+ */
+export function reglageDe(route: AiRoute): Reglage {
+  const base = REGLAGES[route]
+  const model = MODELE_IMPOSE || base.model
+  return base.effort && EFFORT_ACCEPTE.has(model) ? { model, effort: base.effort } : { model }
+}
 
 /**
  * Le mode maquette évite tout appel réseau. Il se DEMANDE explicitement.
@@ -179,6 +242,7 @@ interface CallOptions<T> {
   schema: ZodType<T>
   system: string
   prompt: string
+  route: AiRoute
   maxTokens: number
   cle: Cle | null
 }
@@ -202,13 +266,15 @@ interface Produit<T> {
   usage: Usage | null
 }
 
-async function callClaude<T>({ schema, system, prompt, maxTokens, cle }: CallOptions<T>): Promise<Produit<T>> {
+async function callClaude<T>({ route, schema, system, prompt, maxTokens, cle }: CallOptions<T>): Promise<Produit<T>> {
+  const { model, effort } = reglageDe(route)
+  const format = zodOutputFormat(schema)
   const message = await client(cle).messages.parse({
-    model: MODEL,
+    model,
     max_tokens: maxTokens,
     system,
     messages: [{ role: 'user', content: prompt }],
-    output_config: { format: zodOutputFormat(schema) },
+    output_config: effort ? { format, effort } : { format },
   })
 
   // Un refus est un succès HTTP : il se lit sur stop_reason, avant le contenu.
@@ -274,6 +340,7 @@ async function sessionDraft(body: Partial<SessionDraftBody>, cle: Cle | null): P
   }
   if (mockMode()) return { data: mockSessionDraft(context, categories), usage: null }
   return callClaude({
+    route: 'session-draft',
     schema: sessionDraftSchema,
     system: SESSION_DRAFT_SYSTEM,
     prompt: sessionDraftPrompt(material, categories, hasSpeakerLabels(transcript)),
@@ -297,6 +364,7 @@ async function customModule(body: Partial<ModuleContext>, cle: Cle | null): Prom
   }
   if (mockMode()) return { data: mockGeneratedModule(brief), usage: null }
   return callClaude({
+    route: 'module',
     schema: generatedModuleSchema,
     system: MODULE_SYSTEM,
     prompt: modulePrompt(brief),
@@ -309,6 +377,7 @@ async function affirmations(body: Partial<AffirmationsBody>, cle: Cle | null): P
   const context = asContext(body.context)
   if (mockMode()) return { data: mockGeneratedAffirmations(context), usage: null }
   return callClaude({
+    route: 'affirmations',
     schema: generatedAffirmationsSchema,
     system: AFFIRMATIONS_SYSTEM,
     prompt: affirmationsPrompt(context),
@@ -321,6 +390,7 @@ async function profile(body: Partial<ProfileBody>, cle: Cle | null): Promise<Pro
   const context = asContext(body.context)
   if (mockMode()) return { data: mockGeneratedProfile(context), usage: null }
   const { data: generated, usage } = await callClaude({
+    route: 'profile',
     schema: generatedProfileSchema,
     system: PROFILE_SYSTEM,
     prompt: profilePrompt({
@@ -379,13 +449,14 @@ const GENRES: Record<AiRoute, string> = {
 async function compter(route: AiRoute, cabinetId: string, usage: Usage): Promise<void> {
   const admin = clientAdmin()
   if (!admin) return
+  const { model: modele } = reglageDe(route)
   const { error } = await admin.from('ai_usage').insert({
     cabinet_id: cabinetId,
     kind: GENRES[route],
-    model: MODEL,
+    model: modele,
     input_tokens: usage.input,
     output_tokens: usage.output,
-    cost_cents: coutCentimes(MODEL, usage),
+    cost_cents: coutCentimes(modele, usage),
   })
   if (error) console.warn(`[ia] consommation non inscrite — ${error.message}`)
 }
@@ -467,5 +538,10 @@ function produire(route: AiRoute, body: Record<string, unknown>, cle: Cle | null
 
 /** Le mode courant, pour les journaux de démarrage. */
 export function currentMode(): string {
-  return mockMode() ? 'maquette' : MODEL
+  if (mockMode()) return 'maquette'
+  if (MODELE_IMPOSE) return `${MODELE_IMPOSE} (imposé)`
+  return AI_ROUTES.map((r) => {
+    const { model, effort } = reglageDe(r)
+    return `${r}=${model.replace('claude-', '')}${effort ? `/${effort}` : ''}`
+  }).join(' ')
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { coutCentimes } from './ai.js'
+import { AI_ROUTES, coutCentimes, currentMode, reglageDe } from './ai.js'
 
 describe('coutCentimes — au tarif du modèle', () => {
   it('Opus 5 : 5 $ / 25 $ le million', () => {
@@ -11,5 +11,47 @@ describe('coutCentimes — au tarif du modèle', () => {
   })
   it('modèle inconnu : tarif Opus, jamais zéro', () => {
     expect(coutCentimes('claude-inconnu', { input: 1000, output: 0 })).toBeGreaterThan(0)
+  })
+})
+
+describe('reglageDe — le bon modèle et le bon effort par action', () => {
+  it('le brouillon de séance garde Opus : c’est la pièce clinique', () => {
+    expect(reglageDe('session-draft').model).toBe('claude-opus-5')
+  })
+
+  it('les actions mécaniques descendent de modèle', () => {
+    expect(reglageDe('profile').model).toBe('claude-sonnet-5')
+    expect(reglageDe('module').model).toBe('claude-sonnet-5')
+    expect(reglageDe('affirmations').model).toBe('claude-haiku-4-5')
+  })
+
+  it('aucun modèle n’est un identifiant fantaisiste', () => {
+    // Un identifiant inconnu retomberait sur le tarif Opus sans rien dire, et
+    // la facture du revendeur serait fausse dans le silence le plus complet.
+    const TARIFS_PUBLIES: Record<string, number> = {
+      'claude-opus-5': 3000,
+      'claude-sonnet-5': 1200,
+      'claude-haiku-4-5': 600,
+    }
+    for (const route of AI_ROUTES) {
+      const { model } = reglageDe(route)
+      const attendu = TARIFS_PUBLIES[model]
+      expect(attendu, `tarif inconnu pour ${model}`).toBeDefined()
+      expect(coutCentimes(model, { input: 1_000_000, output: 1_000_000 })).toBeCloseTo(attendu as number)
+    }
+  })
+
+  it('l’effort n’est envoyé qu’aux modèles qui l’acceptent', () => {
+    // Haiku 4.5 répond 400 à output_config.effort. Un effort posé là ferait
+    // échouer l'appel au lieu de le rendre moins cher.
+    expect(reglageDe('affirmations').effort).toBeUndefined()
+    expect(reglageDe('session-draft').effort).toBe('medium')
+    expect(reglageDe('profile').effort).toBe('low')
+    expect(reglageDe('module').effort).toBe('low')
+  })
+
+  it('le mode courant nomme chaque action, pour le journal de démarrage', () => {
+    const mode = currentMode()
+    for (const route of AI_ROUTES) expect(mode).toContain(route)
   })
 })
