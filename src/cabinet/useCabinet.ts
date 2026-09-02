@@ -336,6 +336,9 @@ export interface CabinetData {
   majFiche: (patientId: PatientId, input: ReglagesFiche) => Promise<Resultat>
   /** Publie la marque du cabinet : nom affiché, sur-titre, initiales, couleurs. */
   enregistrerMarque: (input: MarqueCabinet) => Promise<Resultat>
+  /* Les programmes du cabinet : c'est lui qui les nomme, pas le produit. */
+  creerProgramme: (label: string) => Promise<Resultat>
+  retirerProgramme: (label: string) => Promise<Resultat>
   /* La bibliothèque audio ------------------------------------------- *
    * Les fichiers vont dans un compartiment privé, rangé par cabinet ; la
    * base n'en garde que le chemin. Une écoute passe par une URL signée,
@@ -379,7 +382,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     setErreur('')
     setChargement(true)
 
-    const [fiches, modules, audios, echelles, journal, profils, categories, bibliotheque, ateliers, affs, reglages, pushes] = await Promise.all([
+    const [fiches, modules, audios, echelles, journal, profils, categories, progs, bibliotheque, ateliers, affs, reglages, pushes] = await Promise.all([
       db.from('patients').select('*').is('archived_at', null).order('created_at'),
       db.from('patient_modules').select('id, patient_id, title, meta, kind, position, done_at'),
       db.from('patient_audios').select('patient_id, listens, last_listened_at, audio:audio_library (title, duration_seconds)'),
@@ -387,6 +390,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       db.from('journal_pages').select('patient_id, title, body, trigger_label, written_at'),
       db.from('psych_profiles').select('patient_id, version, sessions_count, portrait, axes, levers, care').order('version', { ascending: false }),
       db.from('audio_categories').select('id, label, position').order('position').order('label'),
+      db.from('cabinet_programs').select('label, position').is('archived_at', null).order('position').order('label'),
       db.from('audio_library').select('id, category_id, title, meta, duration_seconds, storage_path, created_at').order('created_at', { ascending: false }),
       db.from('custom_modules').select('id, title, kind, duree, quand, steps, pourquoi, quiz').order('created_at'),
       db.from('affirmations').select('patient_id, text, position, published_at').order('position'),
@@ -436,6 +440,10 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     }))
     const catLabels = cats.map((c) => c.label)
 
+    // Les programmes du cabinet. Un cabinet neuf n'en a aucun : l'écran de la
+    // fiche le dit et propose d'en créer un, plutôt que d'en inventer quatre.
+    const programmes = ((progs.data ?? []) as Array<{ label: string }>).map((r) => r.label)
+
     // L'atelier : les modules du cabinet, rangés par type.
     const customs: Record<string, CustomModule[]> = {}
     for (const m of (ateliers.data ?? []) as CustomModuleRow[]) {
@@ -483,6 +491,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       sel: ordre.includes(prev.sel) ? prev.sel : (ordre[0] ?? ''),
       lib,
       cats: catLabels,
+      programmes,
       libSel: lib.some((a) => a.id === prev.libSel) ? prev.libSel : (lib[0]?.id ?? null),
       libFilter: catLabels.includes(prev.libFilter) ? prev.libFilter : 'Toutes',
       upCat: catLabels.includes(prev.upCat) ? prev.upCat : (catLabels[0] ?? ''),
@@ -631,6 +640,56 @@ export function useCabinet(cabinetId: string | null): CabinetData {
           }
     },
     [cabinetId],
+  )
+
+  /* ---- Les programmes du cabinet -------------------------------------- */
+
+  /**
+   * Nommer un programme. Le libellé est ce que la fiche d'une patiente garde,
+   * en clair : renommer un programme ne renomme donc pas celui des fiches
+   * déjà réglées, et c'est voulu — on ne réécrit pas un dossier au passage.
+   */
+  const creerProgramme = useCallback(
+    async (label: string): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: 'Connectez-vous à votre cabinet.' }
+      const propre = label.trim()
+      if (!propre) return { ok: false, message: 'Donnez un nom au programme.' }
+      const { error } = await db.from('cabinet_programs').insert({ cabinet_id: cabinetId, label: propre })
+      if (error) {
+        return {
+          ok: false,
+          message:
+            error.code === '23505'
+              ? `« ${propre} » existe déjà dans vos programmes.`
+              : "Le programme n'a pas pu être créé. Réessayez.",
+        }
+      }
+      await recharger()
+      return { ok: true, message: `« ${propre} » ajouté à vos programmes.` }
+    },
+    [cabinetId, recharger],
+  )
+
+  /**
+   * Retirer un programme du catalogue. Archivé, pas supprimé : les fiches qui
+   * le portent gardent leur libellé, et l'historique reste lisible.
+   */
+  const retirerProgramme = useCallback(
+    async (label: string): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: 'Connectez-vous à votre cabinet.' }
+      const { error } = await db
+        .from('cabinet_programs')
+        .update({ archived_at: new Date().toISOString() })
+        .eq('cabinet_id', cabinetId)
+        .eq('label', label)
+        .is('archived_at', null)
+      if (error) return { ok: false, message: "Le programme n'a pas pu être retiré." }
+      await recharger()
+      return { ok: true, message: `« ${label} » retiré de vos programmes.` }
+    },
+    [cabinetId, recharger],
   )
 
   /* ---- La bibliothèque audio ------------------------------------------ */
@@ -1067,6 +1126,8 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     basculerModule,
     majFiche,
     enregistrerMarque,
+    creerProgramme,
+    retirerProgramme,
     importerAudio,
     envoyerAudio,
     creerCategorie,

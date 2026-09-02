@@ -444,3 +444,12 @@ export const PATIENTS: Record<PatientId, Patient> = {
 
 /** Ordre d'affichage dans la barre latérale. */
 export const PATIENT_ORDER: PatientId[] = ['camille', 'nadia', 'julien', 'sofia', 'marc']
+
+/**
+ * Les programmes affichés dans la démonstration.
+ *
+ * Ce sont ceux d'UNE thérapeute, pas ceux du produit : chaque cabinet nomme
+ * les siens dans la base (`cabinet_programs`). Ils ne servent plus qu'à
+ * peupler les écrans quand l'application tourne sans compte.
+ */
+export const PROGRAMMES_DEMO: string[] = ['Liberté', 'Équilibre', 'Harmonie', 'Compétences']

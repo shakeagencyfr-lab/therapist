@@ -1,6 +1,6 @@
 /**
  * Intégrations du cabinet : clé d'analyse (Anthropic), paiement (Stripe),
- * prise de rendez-vous (Trafft).
+ * prise de rendez-vous (BookRDV, ou tout autre agenda en ligne).
  *
  * Trois règles, et tout le fichier en découle :
  *
@@ -36,7 +36,12 @@ export interface CleAffichee {
 export interface EtatIntegrations {
   anthropic: CleAffichee | null
   stripe: CleAffichee | null
-  trafftUrl: string | null
+  /** Adresse de la page de réservation, sans marque : chacun son agenda. */
+  bookingUrl: string | null
+  /** « bouton » ouvre la page, « widget » l'encadre dans l'espace patiente. */
+  bookingMode: 'bouton' | 'widget'
+  /** Adresse du widget, quand elle diffère de celle de la page. */
+  bookingWidgetUrl: string | null
   shopEnabled: boolean
   /** Le serveur sait-il chiffrer ? Sinon, l'écran le dit avant la saisie. */
   chiffrement: boolean
@@ -49,8 +54,8 @@ export type IntegrationAction =
   | 'anthropic-retirer'
   | 'stripe'
   | 'stripe-retirer'
-  | 'trafft'
-  | 'trafft-retirer'
+  | 'rdv'
+  | 'rdv-retirer'
   | 'boutique'
 
 interface SettingsRow {
@@ -59,7 +64,9 @@ interface SettingsRow {
   stripe_hint: string | null
   stripe_account_label: string | null
   stripe_set_at: string | null
-  trafft_url: string | null
+  booking_url: string | null
+  booking_mode: string | null
+  booking_widget_url: string | null
   shop_enabled: boolean
 }
 
@@ -77,7 +84,9 @@ function versEtat(row: SettingsRow | null): EtatIntegrations {
       row?.stripe_hint && row.stripe_set_at
         ? { hint: row.stripe_hint, setAt: row.stripe_set_at, label: row.stripe_account_label ?? undefined }
         : null,
-    trafftUrl: row?.trafft_url ?? null,
+    bookingUrl: row?.booking_url ?? null,
+    bookingMode: row?.booking_mode === 'widget' ? 'widget' : 'bouton',
+    bookingWidgetUrl: row?.booking_widget_url ?? null,
     shopEnabled: row?.shop_enabled ?? false,
     chiffrement: chiffrementConfigure(),
     cleplateforme: Boolean((process.env.ANTHROPIC_API_KEY ?? process.env.ANTHROPIC_AUTH_TOKEN ?? '').trim()),
@@ -90,7 +99,9 @@ export async function etatIntegrations(token: string | null): Promise<EtatIntegr
   const cabinetId = exigerCabinet(appelant)
   const { data, error } = await appelant.client
     .from('cabinet_settings')
-    .select('anthropic_hint, anthropic_set_at, stripe_hint, stripe_account_label, stripe_set_at, trafft_url, shop_enabled')
+    .select(
+      'anthropic_hint, anthropic_set_at, stripe_hint, stripe_account_label, stripe_set_at, booking_url, booking_mode, booking_widget_url, shop_enabled',
+    )
     .eq('cabinet_id', cabinetId)
     .maybeSingle<SettingsRow>()
   if (error) throw new HttpError(502, 'Les réglages n’ont pas pu être lus.')
@@ -188,17 +199,24 @@ async function eprouverStripe(secretKey: string): Promise<string> {
   }
 }
 
-/* ---- Trafft ---------------------------------------------------------- */
+/* ---- Prise de rendez-vous -------------------------------------------- */
 
-function urlTrafft(valeur: string): string {
+/**
+ * Une adresse de réservation, éprouvée avant d'être écrite.
+ *
+ * L'exigence du https n'est pas une coquetterie : cette adresse finit dans
+ * un cadre, chez la patiente, sur une page servie en https. Un cadre en http
+ * y serait bloqué par le navigateur, sans un mot d'explication.
+ */
+function urlReservation(valeur: string, quoi: string): string {
   let url: URL
   try {
     url = new URL(valeur.trim())
   } catch {
-    throw new HttpError(400, "Cette adresse n'est pas une URL complète (elle doit commencer par https://).")
+    throw new HttpError(400, `Cette adresse n'est pas une URL complète (elle doit commencer par https://).`)
   }
   if (url.protocol !== 'https:') {
-    throw new HttpError(400, "L'adresse de réservation doit être en https://.")
+    throw new HttpError(400, `${quoi} doit être en https://.`)
   }
   return url.toString()
 }
@@ -211,8 +229,12 @@ export interface IntegrationBody {
   action: IntegrationAction
   /** Clé Anthropic ou Stripe, selon l'action. */
   key?: string
-  /** Adresse Trafft. */
+  /** Adresse de la page de réservation. */
   url?: string
+  /** Adresse du widget à encadrer, si elle diffère de la page. */
+  widgetUrl?: string
+  /** « bouton » ou « widget ». */
+  mode?: string
   /** Ouverture de la boutique. */
   enabled?: boolean
 }
@@ -277,11 +299,32 @@ export async function appliquerIntegration(token: string | null, raw: unknown): 
       )
       break
 
-    case 'trafft':
-      await ecrire(cabinetId, { trafft_url: urlTrafft(String(body.url ?? '')) }, null, 'integration.trafft_posee', appelant.userId)
+    case 'rdv': {
+      const page = urlReservation(String(body.url ?? ''), "L'adresse de réservation")
+      const brut = String(body.widgetUrl ?? '').trim()
+      // Un widget vide n'est pas une erreur : c'est la page qui sera encadrée.
+      const widget = brut ? urlReservation(brut, "L'adresse du widget") : null
+      await ecrire(
+        cabinetId,
+        {
+          booking_url: page,
+          booking_mode: body.mode === 'widget' ? 'widget' : 'bouton',
+          booking_widget_url: widget,
+        },
+        null,
+        'integration.rdv_posee',
+        appelant.userId,
+      )
       break
-    case 'trafft-retirer':
-      await ecrire(cabinetId, { trafft_url: null }, null, 'integration.trafft_retiree', appelant.userId)
+    }
+    case 'rdv-retirer':
+      await ecrire(
+        cabinetId,
+        { booking_url: null, booking_widget_url: null, booking_mode: 'bouton' },
+        null,
+        'integration.rdv_retiree',
+        appelant.userId,
+      )
       break
 
     case 'boutique': {

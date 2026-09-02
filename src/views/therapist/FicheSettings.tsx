@@ -5,9 +5,6 @@ import { patientOf } from '@/state/selectors'
 import { useAppState } from '@/state/store'
 import s from './FicheSettings.module.css'
 
-/** Les quatre programmes du cabinet. */
-const PROGRAMMES = ['Liberté', 'Équilibre', 'Harmonie', 'Compétences']
-
 /** Les valeurs de repli que l'assemblage affiche : à l'édition, elles valent « vide ». */
 const REPLI_ECHELLE = 'Auto-évaluation'
 const REPLI_PROCHAINE = 'Aucune séance planifiée'
@@ -31,6 +28,9 @@ export function FicheSettings() {
   const [echelle, setEchelle] = useState('')
   const [question, setQuestion] = useState('')
   const [prochaine, setProchaine] = useState('')
+  /** Saisie du programme qu'on est en train de nommer. */
+  const [nouveau, setNouveau] = useState('')
+  const [ajout, setAjout] = useState(false)
 
   // Les champs suivent la fiche OUVERTE : on ne garde pas les saisies d'une
   // patiente quand on passe à la suivante. Ils ne suivent pas chaque
@@ -45,6 +45,7 @@ export function FicheSettings() {
     setProchaine(fiche.nextSession === REPLI_PROCHAINE ? '' : fiche.nextSession)
     setNotice(null)
     setOuvert(false)
+    setNouveau('')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.sel])
 
@@ -64,6 +65,44 @@ export function FicheSettings() {
     setEnvoi(false)
     setNotice({ tone: r.ok ? 'ok' : 'warn', text: r.ok ? 'Fiche mise à jour.' : r.message })
     if (r.ok) setOuvert(false)
+  }
+
+  // Le programme déjà porté par la fiche reste proposé même s'il ne figure
+  // plus au catalogue : une fiche réglée l'an dernier ne doit pas perdre son
+  // programme parce qu'il a été retiré depuis.
+  const choix = state.programmes.includes(programme) || !programme
+    ? state.programmes
+    : [programme, ...state.programmes]
+
+  /**
+   * Nommer un programme depuis la fiche : c'est là qu'on s'aperçoit qu'il
+   * manque, pas dans un écran de réglages qu'il faudrait aller chercher.
+   */
+  async function ajouterProgramme() {
+    if (!cabinet || ajout) return
+    const propre = nouveau.trim()
+    if (!propre) return
+    setAjout(true)
+    setNotice(null)
+    const r = await cabinet.creerProgramme(propre)
+    setAjout(false)
+    if (r.ok) {
+      setNouveau('')
+      setProgramme(propre)
+      return
+    }
+    setNotice({ tone: 'warn', text: r.message })
+  }
+
+  /** Retirer du catalogue. Les fiches qui le portent gardent leur libellé. */
+  async function retirerProgramme(label: string) {
+    if (!cabinet || ajout) return
+    setAjout(true)
+    setNotice(null)
+    const r = await cabinet.retirerProgramme(label)
+    setAjout(false)
+    if (r.ok && programme === label) setProgramme('')
+    if (!r.ok) setNotice({ tone: 'warn', text: r.message })
   }
 
   const resume = [
@@ -106,12 +145,43 @@ export function FicheSettings() {
               <Chip on={!programme} onClick={() => setProgramme('')}>
                 Aucun
               </Chip>
-              {PROGRAMMES.map((p) => (
+              {choix.map((p) => (
                 <Chip key={p} on={programme === p} onClick={() => setProgramme(p)}>
                   {p}
                 </Chip>
               ))}
             </div>
+            <div className={s.ajout}>
+              <TextInput
+                value={nouveau}
+                onChange={(e) => setNouveau(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter') return
+                  e.preventDefault()
+                  void ajouterProgramme()
+                }}
+                placeholder="Nommer un programme…"
+                aria-label="Nom du nouveau programme"
+              />
+              <Button variant="secondary" onClick={() => void ajouterProgramme()} disabled={ajout || !nouveau.trim()}>
+                {ajout ? 'Ajout…' : 'Ajouter'}
+              </Button>
+            </div>
+            <span className={s.hint}>
+              {state.programmes.length === 0
+                ? "Vous n'avez pas encore nommé de programme. Écrivez le vôtre : il servira à toutes vos fiches."
+                : 'Vos programmes, tels que vous les avez nommés. Ils sont propres à votre cabinet.'}
+            </span>
+            {programme && state.programmes.includes(programme) ? (
+              <button
+                type="button"
+                className={s.retirer}
+                disabled={ajout}
+                onClick={() => void retirerProgramme(programme)}
+              >
+                Retirer « {programme} » de mes programmes
+              </button>
+            ) : null}
           </div>
 
           <div className={s.row}>

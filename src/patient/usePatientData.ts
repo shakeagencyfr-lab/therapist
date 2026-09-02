@@ -33,7 +33,11 @@ export interface PatientData {
   scaleToday: number | null
   scaleQuestion: string
   /** Page de réservation du cabinet, si la thérapeute l'a réglée. */
-  trafftUrl: string | null
+  bookingUrl: string | null
+  /** « bouton » ouvre la page, « widget » l'encadre ici même. */
+  bookingMode: 'bouton' | 'widget'
+  /** Adresse du widget quand elle diffère de celle de la page. */
+  bookingWidgetUrl: string | null
   /** La boutique est ouverte par la thérapeute. */
   shopEnabled: boolean
   chargement: boolean
@@ -47,7 +51,9 @@ export function usePatientData(patientId: string | null): PatientData {
   const [audios, setAudios] = useState<PatientAudioRow[]>([])
   const [scaleToday, setScaleToday] = useState<number | null>(null)
   const [scaleQuestion, setScaleQuestion] = useState('Où en êtes-vous ce soir ?')
-  const [trafftUrl, setTrafftUrl] = useState<string | null>(null)
+  const [bookingUrl, setBookingUrl] = useState<string | null>(null)
+  const [bookingMode, setBookingMode] = useState<'bouton' | 'widget'>('bouton')
+  const [bookingWidgetUrl, setBookingWidgetUrl] = useState<string | null>(null)
   const [shopEnabled, setShopEnabled] = useState(false)
   const [chargement, setChargement] = useState(true)
   const [erreur, setErreur] = useState('')
@@ -82,8 +88,15 @@ export function usePatientData(patientId: string | null): PatientData {
     setAffirmations(((affs.data ?? []) as Array<{ text: string }>).map((a) => a.text))
     setAudios((auds.data ?? []) as unknown as PatientAudioRow[])
     if (fiche.data?.scale_question) setScaleQuestion(fiche.data.scale_question)
-    const r = (reglages.data ?? null) as { trafft_url?: string | null; shop_enabled?: boolean } | null
-    setTrafftUrl(r?.trafft_url ?? null)
+    const r = (reglages.data ?? null) as {
+      booking_url?: string | null
+      booking_mode?: string | null
+      booking_widget_url?: string | null
+      shop_enabled?: boolean
+    } | null
+    setBookingUrl(r?.booking_url ?? null)
+    setBookingMode(r?.booking_mode === 'widget' ? 'widget' : 'bouton')
+    setBookingWidgetUrl(r?.booking_widget_url ?? null)
     setShopEnabled(Boolean(r?.shop_enabled))
 
     const derniere = (echelle.data ?? [])[0] as { value: number; recorded_at: string } | undefined
@@ -96,5 +109,18 @@ export function usePatientData(patientId: string | null): PatientData {
     void recharger()
   }, [recharger])
 
-  return { modules, affirmations, audios, scaleToday, scaleQuestion, trafftUrl, shopEnabled, chargement, erreur, recharger }
+  return {
+    modules,
+    affirmations,
+    audios,
+    scaleToday,
+    scaleQuestion,
+    bookingUrl,
+    bookingMode,
+    bookingWidgetUrl,
+    shopEnabled,
+    chargement,
+    erreur,
+    recharger,
+  }
 }
