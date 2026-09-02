@@ -4,6 +4,7 @@ import {
   Chip,
   EmptyState,
   FieldLabel,
+  Marque,
   Notice,
   Pill,
   ProgressBar,
@@ -46,9 +47,12 @@ function CabinetRow({ row, on, onSelect }: { row: PortfolioRow; on: boolean; onS
       onClick={onSelect}
       aria-pressed={on}
     >
-      <span className={s.mark} style={{ background: row.cabinet.branding.accent }} aria-hidden>
-        {row.cabinet.branding.logo}
-      </span>
+      <Marque
+        className={s.mark}
+        style={{ background: row.cabinet.branding.accent }}
+        logo={row.cabinet.branding.logo}
+        url={row.cabinet.branding.logoUrl}
+      />
 
       <span>
         <span className={s.name}>{row.cabinet.name}</span>

@@ -1,5 +1,5 @@
 import { useState, type CSSProperties } from 'react'
-import { Segmented } from '@/components/ui'
+import { Marque, Segmented } from '@/components/ui'
 import { useMaybeAuth } from '@/auth/session'
 import { cabinetById } from '@/state/resellerSelectors'
 import { useStore } from '@/state/store'
@@ -74,7 +74,11 @@ export function AppHeader() {
       style={reseller ? undefined : ({ '--c-accent': cabinet.branding.accent } as CSSProperties)}
     >
       <div className={s.brand}>
-        <div className={s.logo}>{reseller ? logoRevendeur : cabinet.branding.logo}</div>
+        <Marque
+          className={s.logo}
+          logo={reseller ? logoRevendeur : cabinet.branding.logo}
+          url={reseller ? null : cabinet.branding.logoUrl}
+        />
         <div className={s.names}>
           <span className={s.cabinet}>{reseller ? marqueRevendeur : cabinet.name}</span>
           <span className={s.tagline}>{reseller ? 'Espace revendeur' : cabinet.tagline}</span>
@@ -92,6 +96,7 @@ export function AppHeader() {
           débordement caché serait rogné sur écran étroit. */}
       <Compte
         initiales={reseller ? logoRevendeur : cabinet.branding.logo}
+        logoUrl={reseller ? null : cabinet.branding.logoUrl}
         email={identite?.email ?? null}
         role={reseller ? marqueRevendeur : cabinet.name}
         seDeconnecter={auth?.seDeconnecter}
@@ -109,18 +114,20 @@ export function AppHeader() {
  */
 function Compte({
   initiales,
+  logoUrl,
   email,
   role,
   seDeconnecter,
 }: {
   initiales: string
+  logoUrl?: string | null
   email: string | null
   role: string
   seDeconnecter?: () => Promise<void>
 }) {
   const [ouvert, setOuvert] = useState(false)
 
-  if (!seDeconnecter) return <div className={s.me}>{initiales}</div>
+  if (!seDeconnecter) return <Marque className={s.me} logo={initiales} url={logoUrl} />
 
   return (
     <div className={s.compte}>
@@ -132,7 +139,7 @@ function Compte({
         aria-expanded={ouvert}
         aria-label="Votre compte"
       >
-        {initiales}
+        {logoUrl ? <Marque className={s.meImage} logo={initiales} url={logoUrl} /> : initiales}
       </button>
 
       {ouvert ? (

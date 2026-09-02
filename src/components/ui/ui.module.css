@@ -359,3 +359,13 @@
   color: var(--c-text-muted);
   margin-bottom: 7px;
 }
+
+/* Le logo d'un cabinet, dans le carré de sa marque. « contain » plutôt que
+   « cover » : un logo se lit en entier, il ne se recadre pas. */
+.marqueImage {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: inherit;
+  display: block;
+}

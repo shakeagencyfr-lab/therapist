@@ -23,8 +23,10 @@ export interface CabinetBranding {
   accentHover: string
   accentDeep: string
   dark: string
-  /** Initiales du logo, en attendant un vrai fichier. */
+  /** Initiales, affichées tant qu'aucun fichier n'a été déposé. */
   logo: string
+  /** Adresse publique du logo déposé, s'il y en a un. */
+  logoUrl?: string | null
 }
 
 export interface Cabinet {

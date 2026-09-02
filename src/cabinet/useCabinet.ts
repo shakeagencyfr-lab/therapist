@@ -337,6 +337,8 @@ export interface CabinetData {
   majFiche: (patientId: PatientId, input: ReglagesFiche) => Promise<Resultat>
   /** Publie la marque du cabinet : nom affiché, sur-titre, initiales, couleurs. */
   enregistrerMarque: (input: MarqueCabinet) => Promise<Resultat>
+  /** Dépose une image dans le compartiment public et rend son adresse. */
+  televerserLogo: (file: File) => Promise<Resultat & { url?: string }>
   /* Les programmes du cabinet : c'est lui qui les nomme, pas le produit. */
   creerProgramme: (label: string) => Promise<Resultat>
   retirerProgramme: (label: string) => Promise<Resultat>
@@ -639,6 +641,45 @@ export function useCabinet(cabinetId: string | null): CabinetData {
             message:
               'Marque publiée. Elle habille votre espace et l’application de vos patientes.',
           }
+    },
+    [cabinetId],
+  )
+
+  /**
+   * Déposer le logo du cabinet.
+   *
+   * Le compartiment est public : le logo doit s'afficher sur l'adresse du
+   * cabinet, ouverte par quelqu'un qui n'est pas encore connecté. Une URL
+   * signée demanderait une session, il n'y en a pas — et un logo est de toute
+   * façon ce qu'un cabinet montre à tout le monde.
+   *
+   * Le fichier ne remplace pas le précédent : il prend un nom neuf. Une image
+   * remplacée reste ainsi affichée jusqu'à la publication, et les navigateurs
+   * qui gardaient l'ancienne en cache ne montrent pas la nouvelle à sa place.
+   */
+  const televerserLogo = useCallback(
+    async (file: File): Promise<Resultat & { url?: string }> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: 'Connectez-vous à votre cabinet.' }
+      if (file.size > 1_000_000) {
+        return { ok: false, message: 'Le fichier dépasse 1 Mo. Réduisez-le et réessayez.' }
+      }
+      const extension = (file.name.split('.').pop() ?? 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png'
+      const chemin = `${cabinetId}/${crypto.randomUUID()}.${extension}`
+      const { error } = await db.storage.from('logos').upload(chemin, file, {
+        contentType: file.type || 'image/png',
+        upsert: false,
+      })
+      if (error) {
+        return {
+          ok: false,
+          message: /mime|type/i.test(error.message)
+            ? "Ce format n'est pas accepté : PNG, JPEG ou WebP."
+            : "Le logo n'a pas pu être déposé. Réessayez.",
+        }
+      }
+      const { data } = db.storage.from('logos').getPublicUrl(chemin)
+      return { ok: true, message: 'Logo déposé. Publiez votre marque pour l’appliquer.', url: data.publicUrl }
     },
     [cabinetId],
   )
@@ -1127,6 +1168,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     basculerModule,
     majFiche,
     enregistrerMarque,
+    televerserLogo,
     creerProgramme,
     retirerProgramme,
     importerAudio,

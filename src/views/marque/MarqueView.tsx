@@ -1,5 +1,5 @@
-import { useState, type CSSProperties } from 'react'
-import { Button, Card, FieldLabel, Notice, Overline, TextInput, Title } from '@/components/ui'
+import { useRef, useState, type CSSProperties } from 'react'
+import { Button, Card, FieldLabel, Marque, Notice, Overline, TextInput, Title } from '@/components/ui'
 import { useMaybeAuth } from '@/auth/session'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { BRAND_PRESETS } from '@/data/reseller'
@@ -27,6 +27,7 @@ const ORIGINE: CabinetBranding = {
   accentDeep: '#6E5230',
   dark: '#33291C',
   logo: 'CB',
+  logoUrl: null,
 }
 
 /** Le brouillon en cours d'édition. */
@@ -44,7 +45,8 @@ function memeFiche(a: Fiche, b: Fiche): boolean {
     a.branding.accentHover === b.branding.accentHover &&
     a.branding.accentDeep === b.branding.accentDeep &&
     a.branding.dark === b.branding.dark &&
-    a.branding.logo === b.branding.logo
+    a.branding.logo === b.branding.logo &&
+    (a.branding.logoUrl ?? null) === (b.branding.logoUrl ?? null)
   )
 }
 
@@ -100,6 +102,8 @@ function Editeur({ publie, slug }: { publie: Fiche; slug: string }) {
   const cabinet = useMaybeCabinet()
   const [draft, setDraft] = useState<Fiche>(publie)
   const [publication, setPublication] = useState(false)
+  const [depot, setDepot] = useState(false)
+  const fichier = useRef<HTMLInputElement>(null)
   const [notice, setNotice] = useState<{ tone: 'ok' | 'warn'; text: string } | null>(null)
   const branding = draft.branding
   const modifie = !memeFiche(draft, publie)
@@ -112,6 +116,25 @@ function Editeur({ publie, slug }: { publie: Fiche; slug: string }) {
   /** L'accent choisi donne ses deux variantes : survol et lien appuyé. */
   function setAccent(accent: string) {
     patch({ accent, accentHover: shade(accent, 0.84), accentDeep: shade(accent, 0.7) })
+  }
+
+  /**
+   * Déposer un logo. Le fichier part tout de suite dans le compartiment, mais
+   * la marque n'en tient compte qu'à la publication : c'est le brouillon qui
+   * change, comme pour une couleur, et l'aperçu le montre avant de s'engager.
+   */
+  async function deposer(f: File) {
+    if (!cabinet || depot) return
+    setDepot(true)
+    setNotice(null)
+    const r = await cabinet.televerserLogo(f)
+    setDepot(false)
+    if (r.ok && r.url) {
+      patch({ logoUrl: r.url })
+      setNotice({ tone: 'ok', text: r.message })
+      return
+    }
+    setNotice({ tone: 'warn', text: r.message })
   }
 
   async function publier() {
@@ -153,13 +176,46 @@ function Editeur({ publie, slug }: { publie: Fiche; slug: string }) {
         </div>
 
         <div className={s.field}>
+          <FieldLabel>Logo</FieldLabel>
+          <div className={s.logoRow}>
+            <Marque className={s.logoApercu} logo={branding.logo} url={branding.logoUrl} />
+            <div className={s.logoActions}>
+              <input
+                ref={fichier}
+                type="file"
+                className={s.fichier}
+                accept="image/png,image/jpeg,image/webp"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  // Réarmer le champ : redéposer deux fois le même fichier doit
+                  // marcher, or un input file ne change pas de valeur.
+                  e.target.value = ''
+                  if (f) void deposer(f)
+                }}
+              />
+              <Button variant="secondary" disabled={depot} onClick={() => fichier.current?.click()}>
+                {depot ? 'Dépôt…' : branding.logoUrl ? 'Remplacer le logo' : 'Choisir un fichier'}
+              </Button>
+              {branding.logoUrl ? (
+                <Button variant="ghost" disabled={depot} onClick={() => patch({ logoUrl: null })}>
+                  Retirer
+                </Button>
+              ) : null}
+            </div>
+          </div>
+          <span className={s.hint}>PNG, JPEG ou WebP, 1 Mo au plus. Un carré donne le meilleur résultat.</span>
+        </div>
+
+        <div className={s.field}>
           <FieldLabel>Initiales</FieldLabel>
           <TextInput
             value={branding.logo}
             maxLength={3}
             onChange={(e) => patch({ logo: e.target.value.toUpperCase() })}
           />
-          <span className={s.hint}>Deux ou trois lettres, en attendant votre vrai logo.</span>
+          <span className={s.hint}>
+            Affichées tant qu'aucun logo n'est déposé, et si l'image ne charge pas.
+          </span>
         </div>
 
         <div className={s.field}>
@@ -266,9 +322,12 @@ function Editeur({ publie, slug }: { publie: Fiche; slug: string }) {
       <section className={s.apercu}>
         <div className={s.preview}>
           <div className={s.previewHead}>
-            <div className={s.previewLogo} style={{ background: branding.accent }}>
-              {branding.logo}
-            </div>
+            <Marque
+              className={s.previewLogo}
+              style={{ background: branding.accent }}
+              logo={branding.logo}
+              url={branding.logoUrl}
+            />
             <div>
               <div className={s.previewName}>{draft.nom || 'Nom du cabinet'}</div>
               <div className={s.previewTagline}>{draft.surTitre}</div>
