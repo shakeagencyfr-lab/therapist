@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
+import { messageEnvoiLien } from '@/lib/messageAuth'
 import { supabase } from '@/lib/supabase'
 import { lireVitrine, slugDuChemin, type Vitrine } from '@/lib/vitrine'
 import s from './EmbedSignIn.module.css'
@@ -55,7 +56,7 @@ export function EmbedSignIn() {
     })
     setEnvoi(false)
     if (error) {
-      setErreur("L'envoi a échoué. Vérifiez l'adresse et réessayez.")
+      setErreur(messageEnvoiLien(error))
       return
     }
     setEnvoye(email.trim())
