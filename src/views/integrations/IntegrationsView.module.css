@@ -191,3 +191,62 @@
     font-size: 32px;
   }
 }
+
+/* Formulaire en colonne : la prise de rendez-vous a plusieurs champs et un
+   choix, là où les clés n'ont qu'une ligne. */
+.formCol {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.choix {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: none;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.choix legend {
+  padding: 0;
+  margin-bottom: 8px;
+}
+
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--c-border-light);
+  border-radius: 12px;
+  background: var(--c-surface);
+  cursor: pointer;
+}
+.option:hover {
+  background: var(--c-surface-2);
+}
+.optionOn {
+  border-color: var(--c-border-accent);
+  background: var(--c-accent-soft);
+}
+
+.option input {
+  margin-top: 3px;
+  accent-color: var(--c-accent);
+  flex: none;
+}
+
+.option > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.optionTitle {
+  font-size: 14px;
+  font-weight: 500;
+}

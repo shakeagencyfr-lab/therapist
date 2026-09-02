@@ -20,9 +20,9 @@ export interface CabinetTheme {
 }
 
 export const defaultTheme: CabinetTheme = {
-  name: 'Entre-séances',
+  name: 'Klaro',
   tagline: 'Suivi entre les séances',
-  logo: 'ES',
+  logo: 'KL',
 }
 
 /** Applique les couleurs paramétrables sur la racine du document. */

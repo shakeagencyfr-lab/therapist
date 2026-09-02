@@ -48,7 +48,9 @@ export function PatientSpace() {
     audios,
     scaleToday,
     scaleQuestion,
-    trafftUrl,
+    bookingUrl,
+    bookingMode,
+    bookingWidgetUrl,
     shopEnabled,
     chargement,
     erreur,
@@ -134,7 +136,7 @@ export function PatientSpace() {
 
   const onglets: Array<{ value: Onglet; label: string }> = [
     { value: 'jour', label: "Aujourd'hui" },
-    ...(trafftUrl ? [{ value: 'rdv' as const, label: 'Rendez-vous' }] : []),
+    ...(bookingUrl ? [{ value: 'rdv' as const, label: 'Rendez-vous' }] : []),
     ...(shopEnabled ? [{ value: 'boutique' as const, label: 'Boutique' }] : []),
   ]
   const avecOnglets = onglets.length > 1
@@ -174,8 +176,13 @@ export function PatientSpace() {
         {erreur ? <Notice tone="warn">{erreur}</Notice> : null}
         {chargement ? <p className={s.count}>Chargement…</p> : null}
 
-        {courant === 'rdv' && trafftUrl ? (
-          <RendezVous url={trafftUrl} accent={patient.branding?.accent} />
+        {courant === 'rdv' && bookingUrl ? (
+          <RendezVous
+            url={bookingUrl}
+            widgetUrl={bookingWidgetUrl}
+            mode={bookingMode}
+            accent={patient.branding?.accent}
+          />
         ) : null}
 
         {courant === 'boutique' ? (

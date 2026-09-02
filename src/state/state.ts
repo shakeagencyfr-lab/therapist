@@ -15,7 +15,7 @@ import type {
 import { AUDIO_CATEGORIES, AUDIO_LIBRARY } from '@/data/audioLibrary'
 import { JOURNAL_PAGES } from '@/data/journalPages'
 import { INITIAL_AFFIRMATIONS, INITIAL_AFF_AUTO } from '@/data/affirmations'
-import { PATIENTS, PATIENT_ORDER } from '@/data/patients'
+import { PATIENTS, PATIENT_ORDER, PROGRAMMES_DEMO } from '@/data/patients'
 import { CABINETS, SUBSCRIPTIONS } from '@/data/reseller'
 import type { Cabinet, CabinetId, PlanCode, Subscription } from '@/types/reseller'
 
@@ -163,6 +163,8 @@ export interface AppState {
   /** Catégorie choisie à l'import. */
   upCat: string
   cats: string[]
+  /** Les programmes du cabinet, tels qu'il les a nommés. */
+  programmes: string[]
   catAdd: boolean
   catName: string
 
@@ -307,6 +309,7 @@ export const initialState: AppState = {
   libNotice: '',
   upCat: 'Détente',
   cats: AUDIO_CATEGORIES,
+  programmes: PROGRAMMES_DEMO,
   catAdd: false,
   catName: '',
 

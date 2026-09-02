@@ -1,4 +1,4 @@
-# Entre-séances — Cabinet Laetitia Ollivier
+# Klaro — le suivi entre les séances
 
 Application de suivi entre les séances d'hypnothérapie. Elle relie deux espaces :
 

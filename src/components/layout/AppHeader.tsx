@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { Segmented } from '@/components/ui'
 import { useMaybeAuth } from '@/auth/session'
 import { cabinetById } from '@/state/resellerSelectors'
@@ -87,8 +87,81 @@ export function AppHeader() {
         {montrerCommutateur && (
           <Segmented options={SPACES} value={state.space} onChange={(space) => set({ space })} />
         )}
-        <div className={s.me}>{reseller ? logoRevendeur : cabinet.branding.logo}</div>
       </div>
+      {/* Hors de la rangée qui défile : un menu posé dans un conteneur à
+          débordement caché serait rogné sur écran étroit. */}
+      <Compte
+        initiales={reseller ? logoRevendeur : cabinet.branding.logo}
+        email={identite?.email ?? null}
+        role={reseller ? marqueRevendeur : cabinet.name}
+        seDeconnecter={auth?.seDeconnecter}
+      />
     </header>
+  )
+}
+
+/**
+ * Le compte connecté, et la porte de sortie.
+ *
+ * Sans session — démonstration publique, banc de rendu — il ne reste que les
+ * initiales : il n'y a rien à quitter. Le voile derrière le menu ferme au
+ * premier clic ailleurs, sans écouteur posé sur le document.
+ */
+function Compte({
+  initiales,
+  email,
+  role,
+  seDeconnecter,
+}: {
+  initiales: string
+  email: string | null
+  role: string
+  seDeconnecter?: () => Promise<void>
+}) {
+  const [ouvert, setOuvert] = useState(false)
+
+  if (!seDeconnecter) return <div className={s.me}>{initiales}</div>
+
+  return (
+    <div className={s.compte}>
+      <button
+        type="button"
+        className={s.me}
+        onClick={() => setOuvert((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={ouvert}
+        aria-label="Votre compte"
+      >
+        {initiales}
+      </button>
+
+      {ouvert ? (
+        <>
+          <button
+            type="button"
+            className={s.voile}
+            aria-label="Fermer le menu du compte"
+            onClick={() => setOuvert(false)}
+          />
+          <div className={s.menu} role="menu">
+            <div className={s.menuTete}>
+              <span className={s.menuRole}>{role}</span>
+              {email ? <span className={s.menuMail}>{email}</span> : null}
+            </div>
+            <button
+              type="button"
+              className={s.menuItem}
+              role="menuitem"
+              onClick={() => {
+                setOuvert(false)
+                void seDeconnecter()
+              }}
+            >
+              Se déconnecter
+            </button>
+          </div>
+        </>
+      ) : null}
+    </div>
   )
 }

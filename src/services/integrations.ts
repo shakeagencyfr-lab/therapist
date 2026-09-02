@@ -17,7 +17,9 @@ export interface CleAffichee {
 export interface EtatIntegrations {
   anthropic: CleAffichee | null
   stripe: CleAffichee | null
-  trafftUrl: string | null
+  bookingUrl: string | null
+  bookingMode: 'bouton' | 'widget'
+  bookingWidgetUrl: string | null
   shopEnabled: boolean
   chiffrement: boolean
   cleplateforme: boolean
@@ -28,8 +30,8 @@ export type ActionIntegration =
   | { action: 'anthropic-retirer' }
   | { action: 'stripe'; key: string }
   | { action: 'stripe-retirer' }
-  | { action: 'trafft'; url: string }
-  | { action: 'trafft-retirer' }
+  | { action: 'rdv'; url: string; mode: 'bouton' | 'widget'; widgetUrl?: string }
+  | { action: 'rdv-retirer' }
   | { action: 'boutique'; enabled: boolean }
 
 async function jeton(): Promise<string> {

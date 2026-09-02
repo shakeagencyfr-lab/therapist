@@ -16,8 +16,8 @@ import s from './SignIn.module.css'
 export function SignIn({
   titre,
   intro,
-  marque = 'ES',
-  cabinet = 'Entre-séances',
+  marque = 'KL',
+  cabinet = 'Klaro',
   tagline = 'Suivi entre les séances',
 }: {
   titre: string

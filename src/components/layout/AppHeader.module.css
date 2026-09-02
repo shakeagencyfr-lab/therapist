@@ -53,6 +53,7 @@
   align-items: center;
   gap: 16px;
   min-width: 0;
+  margin-left: auto;
 }
 
 /* Neuf vues dans le commutateur : sur un écran moyen, la rangée défile
@@ -79,6 +80,77 @@
   font-size: 12px;
   font-weight: 600;
   color: var(--c-text-4);
+  border: none;
+  padding: 0;
+  font-family: inherit;
+}
+button.me {
+  cursor: pointer;
+}
+
+/* Le compte et sa sortie ------------------------------------------------- */
+
+.compte {
+  position: relative;
+  flex: none;
+}
+
+/* Un voile transparent : le clic ailleurs referme, sans écouteur global. */
+.voile {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  border: none;
+  background: transparent;
+  cursor: default;
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 31;
+  min-width: 220px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(27, 26, 23, 0.14);
+  overflow: hidden;
+}
+
+.menuTete {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--c-border-light);
+}
+
+.menuRole {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.menuMail {
+  font-size: 12px;
+  color: var(--c-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.menuItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 11px 14px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--c-text);
+}
+.menuItem:hover {
+  background: var(--c-surface-2);
 }
 
 @media (max-width: 900px) {
