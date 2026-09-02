@@ -32,6 +32,10 @@ export interface PatientData {
   /** Dernière valeur d'échelle enregistrée aujourd'hui, s'il y en a une. */
   scaleToday: number | null
   scaleQuestion: string
+  /** Page de réservation du cabinet, si la thérapeute l'a réglée. */
+  trafftUrl: string | null
+  /** La boutique est ouverte par la thérapeute. */
+  shopEnabled: boolean
   chargement: boolean
   erreur: string
   recharger: () => Promise<void>
@@ -43,6 +47,8 @@ export function usePatientData(patientId: string | null): PatientData {
   const [audios, setAudios] = useState<PatientAudioRow[]>([])
   const [scaleToday, setScaleToday] = useState<number | null>(null)
   const [scaleQuestion, setScaleQuestion] = useState('Où en êtes-vous ce soir ?')
+  const [trafftUrl, setTrafftUrl] = useState<string | null>(null)
+  const [shopEnabled, setShopEnabled] = useState(false)
   const [chargement, setChargement] = useState(true)
   const [erreur, setErreur] = useState('')
 
@@ -54,12 +60,15 @@ export function usePatientData(patientId: string | null): PatientData {
     }
     setErreur('')
 
-    const [mods, affs, auds, fiche, echelle] = await Promise.all([
+    const [mods, affs, auds, fiche, echelle, reglages] = await Promise.all([
       db.from('patient_modules').select('id, title, meta, kind, position, done_at, patient_note').order('position'),
       db.from('affirmations').select('text, position').not('published_at', 'is', null).order('position'),
       db.from('patient_audios').select('id, listens, audio:audio_library (title, duration_seconds, meta)'),
       db.from('patients').select('scale_question').limit(1).maybeSingle(),
       db.from('scale_entries').select('value, recorded_at').order('recorded_at', { ascending: false }).limit(1),
+      // Ce que la patiente voit de son cabinet : l'agenda et la boutique, rien
+      // des clés. Un échec ici ne bloque pas le reste de l'espace.
+      db.rpc('patient_cabinet_settings'),
     ])
 
     const premiere = [mods.error, affs.error, auds.error, fiche.error, echelle.error].find(Boolean)
@@ -73,6 +82,9 @@ export function usePatientData(patientId: string | null): PatientData {
     setAffirmations(((affs.data ?? []) as Array<{ text: string }>).map((a) => a.text))
     setAudios((auds.data ?? []) as unknown as PatientAudioRow[])
     if (fiche.data?.scale_question) setScaleQuestion(fiche.data.scale_question)
+    const r = (reglages.data ?? null) as { trafft_url?: string | null; shop_enabled?: boolean } | null
+    setTrafftUrl(r?.trafft_url ?? null)
+    setShopEnabled(Boolean(r?.shop_enabled))
 
     const derniere = (echelle.data ?? [])[0] as { value: number; recorded_at: string } | undefined
     const aujourdhui = new Date().toISOString().slice(0, 10)
@@ -84,5 +96,5 @@ export function usePatientData(patientId: string | null): PatientData {
     void recharger()
   }, [recharger])
 
-  return { modules, affirmations, audios, scaleToday, scaleQuestion, chargement, erreur, recharger }
+  return { modules, affirmations, audios, scaleToday, scaleQuestion, trafftUrl, shopEnabled, chargement, erreur, recharger }
 }

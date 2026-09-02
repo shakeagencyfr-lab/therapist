@@ -4,7 +4,24 @@ import { supabase } from '@/lib/supabase'
 import { timecode } from '@/lib/format'
 import { useAuth } from '@/auth/session'
 import { usePatientData } from './usePatientData'
+import { RendezVous } from './RendezVous'
+import { Boutique } from './Boutique'
 import s from './PatientSpace.module.css'
+
+type Onglet = 'jour' | 'rdv' | 'boutique'
+
+/** Retour de Stripe : la session à vérifier, ou l'annulation. Lus une fois. */
+function retourPaiement(): { commande: string | null; annule: boolean } {
+  if (typeof window === 'undefined') return { commande: null, annule: false }
+  const q = new URLSearchParams(window.location.search)
+  const commande = q.get('commande')
+  const annule = q.get('annule') === '1'
+  if (commande || annule) {
+    // On nettoie l'adresse : recharger ne doit pas revérifier ni ré-annoncer.
+    window.history.replaceState(null, '', window.location.pathname)
+  }
+  return { commande, annule }
+}
 
 /** Le prénom seul : c'est ainsi que la thérapeute s'adresse à lui. */
 function prenom(nom: string): string {
@@ -25,8 +42,21 @@ function aujourdhui(): string {
 export function PatientSpace() {
   const { context, seDeconnecter } = useAuth()
   const patient = context?.patient ?? null
-  const { modules, affirmations, audios, scaleToday, scaleQuestion, chargement, erreur, recharger } =
-    usePatientData(patient?.id ?? null)
+  const {
+    modules,
+    affirmations,
+    audios,
+    scaleToday,
+    scaleQuestion,
+    trafftUrl,
+    shopEnabled,
+    chargement,
+    erreur,
+    recharger,
+  } = usePatientData(patient?.id ?? null)
+
+  const [retour] = useState(retourPaiement)
+  const [onglet, setOnglet] = useState<Onglet>(retour.commande || retour.annule ? 'boutique' : 'jour')
 
   const [affIdx, setAffIdx] = useState(0)
   const [affFige, setAffFige] = useState(false)
@@ -72,8 +102,17 @@ export function PatientSpace() {
 
   const valeurEchelle = echelle ?? scaleToday
 
+  const onglets: Array<{ value: Onglet; label: string }> = [
+    { value: 'jour', label: "Aujourd'hui" },
+    ...(trafftUrl ? [{ value: 'rdv' as const, label: 'Rendez-vous' }] : []),
+    ...(shopEnabled ? [{ value: 'boutique' as const, label: 'Boutique' }] : []),
+  ]
+  const avecOnglets = onglets.length > 1
+  // Un onglet qui n'existe plus (boutique fermée entre-temps) ramène au jour.
+  const courant: Onglet = onglets.some((o) => o.value === onglet) ? onglet : 'jour'
+
   return (
-    <div className={s.page}>
+    <div className={avecOnglets ? `${s.page} ${s.pageOnglets}` : s.page}>
       <header className={s.head} style={{ background: patient.branding?.dark }}>
         <div className={s.date}>{aujourdhui()}</div>
         <h1 className={s.hello}>Bonjour {prenom(patient.display_name)}</h1>
@@ -105,7 +144,20 @@ export function PatientSpace() {
         {erreur ? <Notice tone="warn">{erreur}</Notice> : null}
         {chargement ? <p className={s.count}>Chargement…</p> : null}
 
-        {taches.length > 0 ? (
+        {courant === 'rdv' && trafftUrl ? (
+          <RendezVous url={trafftUrl} accent={patient.branding?.accent} />
+        ) : null}
+
+        {courant === 'boutique' ? (
+          <Boutique
+            accent={patient.branding?.accent}
+            retourCommande={retour.commande}
+            retourAnnule={retour.annule}
+            onLivre={recharger}
+          />
+        ) : null}
+
+        {courant === 'jour' && taches.length > 0 ? (
           <section className={s.section}>
             <div className={s.sectionHead}>
               <span className={s.sectionTitle}>Aujourd'hui</span>
@@ -145,7 +197,7 @@ export function PatientSpace() {
           </section>
         ) : null}
 
-        {audios.length > 0 ? (
+        {courant === 'jour' && audios.length > 0 ? (
           <section className={s.section}>
             <div className={s.sectionHead}>
               <span className={s.sectionTitle}>Vos audios</span>
@@ -174,6 +226,7 @@ export function PatientSpace() {
           </section>
         ) : null}
 
+        {courant === 'jour' ? (
         <section className={s.section}>
           <div className={s.sectionHead}>
             <span className={s.sectionTitle}>Ce soir</span>
@@ -203,6 +256,7 @@ export function PatientSpace() {
             </p>
           ) : null}
         </section>
+        ) : null}
 
         <p className={s.foot}>
           {patient.cabinet_name}
@@ -212,6 +266,23 @@ export function PatientSpace() {
           </button>
         </p>
       </div>
+
+      {avecOnglets ? (
+        <nav className={s.tabs} aria-label="Sections">
+          {onglets.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              className={courant === o.value ? `${s.tab} ${s.tabOn}` : s.tab}
+              aria-current={courant === o.value ? 'page' : undefined}
+              style={courant === o.value && patient.branding?.accent ? { color: patient.branding.accent } : undefined}
+              onClick={() => setOnglet(o.value)}
+            >
+              {o.label}
+            </button>
+          ))}
+        </nav>
+      ) : null}
     </div>
   )
 }
