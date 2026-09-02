@@ -299,6 +299,18 @@
   flex-wrap: wrap;
   margin-top: 18px;
 }
+
+/* Le devis, à côté du bouton qui l'engage. Discret : c'est un repère, pas un
+   avertissement — un cent et demi n'a pas à faire hésiter. */
+.devis {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--c-text-muted);
+}
+.devis strong {
+  font-weight: 500;
+  color: var(--c-text-2);
+}
 .generate {
   font-size: 13px;
   font-weight: 500;
