@@ -144,6 +144,18 @@ export function RecordStep() {
 
   const segCount = Math.max(1, Math.ceil(Math.max(state.elapsed, 1) / SEGMENT))
   const wordsNow = state.transcript ? state.transcript.trim().split(/\s+/).length : 0
+  /**
+   * Le volume sur lequel l'analyse sera facturée.
+   *
+   * Ce n'est PAS un compte de mots : c'est le plus grand des deux, ce qui a
+   * été transcrit et ce qu'une parole normale aurait produit dans le temps
+   * écoulé (2,3 mots par seconde). Il monte donc pendant un silence, et c'est
+   * voulu — une estimation de coût qui sous-estime ne sert à rien.
+   *
+   * Il a longtemps été affiché sous l'étiquette « mots transcrits », ce qui
+   * était faux et donnait à croire que le micro entendait des choses. Le vrai
+   * compte, lui, est au-dessus de la transcription.
+   */
   const estWords = Math.max(wordsNow, Math.round(state.elapsed * 2.3))
   // Transcription + rédaction du brouillon, aux tarifs du modèle, par segment envoyé.
   const estCost =
@@ -224,9 +236,9 @@ export function RecordStep() {
             </div>
           </div>
           <div className={s.fact}>
-            <div className={s.factLabel}>Volume</div>
+            <div className={s.factLabel}>Volume estimé</div>
             <div className={s.factValue}>
-              {estWords > 0 ? `≈ ${estWords.toLocaleString('fr-FR')} mots transcrits` : ''}
+              {estWords > 0 ? `≈ ${estWords.toLocaleString('fr-FR')} mots à analyser` : ''}
             </div>
           </div>
           <div className={s.fact}>
@@ -241,7 +253,7 @@ export function RecordStep() {
             : "Aucune limite de durée : l'enregistrement est découpé en segments de quinze minutes transcrits au fil de la séance."}{' '}
           {estCost === 0
             ? "Le coût d'analyse s'affiche dès que la captation commence."
-            : 'Estimation pour cette captation : transcription et rédaction du brouillon comprises. Une séance de deux heures coûte environ 0,12 € à analyser.'}
+            : "Le volume est estimé d'après la durée écoulée tant qu'elle dépasse ce qui a été transcrit : il monte donc aussi pendant les silences. Le nombre de mots réellement transcrits est affiché au-dessus de la transcription. Une séance de deux heures coûte environ 0,12 € à analyser."}
         </div>
 
         <div className={s.body}>
