@@ -36,6 +36,17 @@ export function HypnoseCard() {
   const patient = state.patients[key]
 
   const [intention, setIntention] = useState('')
+  /*
+   * L'option se décide AUSSI ici, au moment où la question se pose vraiment :
+   * la séance vient de se dérouler, la thérapeute sait maintenant si cette
+   * patiente-là en tirera quelque chose. L'envoyer régler une case sur la
+   * fiche à ce moment-là lui ferait perdre le fil.
+   *
+   * C'est le même réglage que sur la fiche, pas un doublon : cocher ici
+   * l'ouvre aussi pour les séances suivantes. Une copie locale garde l'écran
+   * réactif — et laisse la démonstration fonctionner sans base.
+   */
+  const [ouverteIci, setOuverteIci] = useState<boolean | null>(null)
   const [ecrits, setEcrits] = useState<MouvementEcrit[]>([])
   const [enCours, setEnCours] = useState<string>('')
   const [erreur, setErreur] = useState('')
@@ -44,7 +55,7 @@ export function HypnoseCard() {
   if (!patient) return null
 
   const prenom = patient.name.split(' ')[0] ?? patient.name
-  const ouverte = patient.hypnoseActivee
+  const ouverte = ouverteIci ?? patient.hypnoseActivee
   const draft = state.draft
 
   async function ecrire() {
@@ -95,20 +106,31 @@ export function HypnoseCard() {
         <Title large as="h2">
           Hypnose personnalisée
         </Title>
-        {ouverte ? (
-          <span className={s.duree}>≈ 30 minutes de lecture</span>
-        ) : (
-          <span className={s.ferme}>Non activée pour {prenom}</span>
-        )}
+        {ouverte ? <span className={s.duree}>≈ 30 minutes de lecture</span> : null}
       </div>
 
-      {!ouverte ? (
-        <p className={s.sub}>
-          Une séance d'hypnose complète, écrite sur les mots de {prenom} et lisible à voix haute.
-          Elle s'active depuis sa fiche — toutes vos patientes n'en ont pas besoin, et c'est
-          l'analyse la plus coûteuse du produit.
-        </p>
-      ) : (
+      <label className={s.bascule}>
+        <input
+          type="checkbox"
+          checked={ouverte}
+          disabled={ecriture}
+          onChange={(e) => {
+            const active = e.target.checked
+            setOuverteIci(active)
+            void cabinet?.reglerHypnose(key, active)
+          }}
+        />
+        <span>
+          <span className={s.basculeTitre}>Écrire une hypnose pour {prenom}</span>
+          <span className={s.basculeHint}>
+            Une séance complète, bâtie sur les formulations relevées ci-dessus et lisible à voix
+            haute. C'est l'analyse la plus coûteuse du produit : cochez-la quand elle sert.
+            Le réglage vaut aussi pour ses prochaines séances.
+          </span>
+        </span>
+      </label>
+
+      {!ouverte ? null : (
         <>
           <p className={s.sub}>
             Écrite sur les formulations relevées ci-dessus, en quatre mouvements : induction,

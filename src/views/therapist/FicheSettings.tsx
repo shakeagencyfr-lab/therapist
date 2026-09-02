@@ -116,6 +116,7 @@ export function FicheSettings() {
     fiche.program || 'Aucun programme',
     fiche.totalSessions ? `${fiche.totalSessions} séances prévues` : null,
     fiche.scaleLabel === REPLI_ECHELLE ? "Rien de suivi le soir" : `Suivi : ${fiche.scaleLabel}`,
+    fiche.hypnoseActivee ? 'Hypnose activée' : null,
   ]
     .filter(Boolean)
     .join(' · ')
@@ -126,9 +127,14 @@ export function FicheSettings() {
         <div className={s.headText}>
           <Title>Réglages de la fiche</Title>
           <span className={s.resume}>{resume}</span>
+          {!ouvert ? (
+            <span className={s.contenu}>
+              Programme, échelle du soir, hypnose, et suppression de la fiche.
+            </span>
+          ) : null}
         </div>
         <Button variant={ouvert ? 'ghost' : 'secondary'} onClick={() => setOuvert((o) => !o)}>
-          {ouvert ? 'Fermer' : 'Modifier'}
+          {ouvert ? 'Fermer' : 'Modifier la fiche'}
         </Button>
       </div>
 
