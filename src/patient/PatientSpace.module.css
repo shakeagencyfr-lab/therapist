@@ -7,10 +7,12 @@
   padding-bottom: 40px;
 }
 
+/* La barre d'état du téléphone recouvre le haut de la page : sans cette
+   marge, « Bonjour Eugénie » se fait rogner le sommet des lettres. */
 .head {
   background: var(--c-dark);
   color: var(--c-on-dark);
-  padding: 26px 20px 22px;
+  padding: max(26px, calc(env(safe-area-inset-top) + 14px)) 20px 22px;
 }
 
 .date {
@@ -111,7 +113,18 @@
   background: var(--c-accent-tint);
 }
 
+.task > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+/* Deux <span> en ligne se collaient : « Noter le passage des pensées
+   intrusivesAjouté depuis la séance du 3 septembre ». Ils sont maintenant
+   empilés, comme ils l'ont toujours été dans l'aperçu de la thérapeute. */
 .taskTitle {
+  display: block;
   font-size: 14.5px;
   font-weight: 500;
   line-height: 1.35;
@@ -121,7 +134,9 @@
   text-decoration: line-through;
 }
 .taskMeta {
+  display: block;
   font-size: 11.5px;
+  line-height: 1.4;
   color: var(--c-text-muted);
   margin-top: 3px;
 }

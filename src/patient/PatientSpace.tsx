@@ -6,6 +6,7 @@ import { useAuth } from '@/auth/session'
 import { usePatientData } from './usePatientData'
 import { RendezVous } from './RendezVous'
 import { Boutique } from './Boutique'
+import { Journal } from './Journal'
 import s from './PatientSpace.module.css'
 
 type Onglet = 'jour' | 'boutique'
@@ -44,6 +45,7 @@ export function PatientSpace() {
   const patient = context?.patient ?? null
   const {
     modules,
+    journal,
     affirmations,
     audios,
     scaleToday,
@@ -293,6 +295,16 @@ export function PatientSpace() {
             </p>
           ) : null}
         </section>
+        ) : null}
+
+        {courant === 'jour' ? (
+          <Journal
+            pages={journal}
+            patientId={patient.id}
+            cabinetId={patient.cabinet_id}
+            accent={patient.branding?.accent}
+            onEcrit={recharger}
+          />
         ) : null}
 
         {courant === 'jour' && bookingUrl ? (
