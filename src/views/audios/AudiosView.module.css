@@ -520,3 +520,10 @@
     font-size: 32px;
   }
 }
+
+/* Écoute de contrôle d'un audio réel : le lecteur natif, à la largeur du bloc. */
+.player {
+  display: block;
+  width: 100%;
+  margin: 10px 0 4px;
+}

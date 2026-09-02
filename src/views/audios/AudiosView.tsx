@@ -1,5 +1,6 @@
-import type { ChangeEvent, KeyboardEvent } from 'react'
+import { useEffect, useState, type ChangeEvent, type KeyboardEvent } from 'react'
 import { Button, Card, Overline } from '@/components/ui'
+import { useMaybeCabinet } from '@/cabinet/context'
 import { plural } from '@/lib/format'
 import { useStore } from '@/state/store'
 import type { AppState } from '@/state/state'
@@ -11,7 +12,7 @@ import s from './AudiosView.module.css'
 /** Le patient a-t-il déjà cet audio, dans sa fiche d'origine ou après un envoi ? */
 function hasAudio(state: AppState, key: PatientId, title: string): boolean {
   return (
-    state.patients[key].audios.some((audio) => audio.title === title) ||
+    (state.patients[key]?.audios ?? []).some((audio) => audio.title === title) ||
     (state.extraAudios[key] ?? []).some((audio) => audio.title === title)
   )
 }
@@ -51,6 +52,13 @@ function Waveform({ on }: { on: boolean }) {
  */
 export function AudiosView() {
   const { state, set } = useStore()
+  const cabinet = useMaybeCabinet()
+  const reel = Boolean(cabinet?.reel)
+  const [occupe, setOccupe] = useState(false)
+  /** Le titre en cours de frappe : il n'est écrit en base qu'au blur. */
+  const [titreSaisi, setTitreSaisi] = useState<string | null>(null)
+  /** Lecture : l'URL signée de l'audio sélectionné, quand il est réel. */
+  const [ecoute, setEcoute] = useState<string | null>(null)
 
   const filtered =
     state.libFilter === 'Toutes'
@@ -59,11 +67,48 @@ export function AudiosView() {
   const selected = state.lib.find((audio) => audio.id === state.libSel) ?? null
   const targets = state.patientOrder.filter((key) => state.libAssign[key])
 
+  // L'écoute suit la sélection : une URL signée, courte, par audio réel.
+  useEffect(() => {
+    setEcoute(null)
+    setTitreSaisi(null)
+    if (!reel || !cabinet || !state.libSel) return
+    let vivant = true
+    void cabinet.urlEcoute(state.libSel).then((url) => {
+      if (vivant) setEcoute(url)
+    })
+    return () => {
+      vivant = false
+    }
+  }, [reel, cabinet, state.libSel])
+
   /** Import : les fichiers rejoignent le catalogue, rangés dans la catégorie choisie. */
-  function upload(event: ChangeEvent<HTMLInputElement>) {
+  async function upload(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? [])
     if (!files.length) return
     const cat = state.upCat
+    event.target.value = ''
+
+    // Cabinet réel : le fichier monte dans le compartiment privé, la fiche
+    // entre en base, et la bibliothèque est rechargée depuis là.
+    if (reel && cabinet) {
+      setOccupe(true)
+      let dernier = ''
+      let echec = ''
+      for (const file of files) {
+        const r = await cabinet.importerAudio(file, cat)
+        if (r.ok && r.id) dernier = r.id
+        else echec = r.message
+      }
+      setOccupe(false)
+      set({
+        libSel: dernier || state.libSel,
+        libAssign: {},
+        libFilter: 'Toutes',
+        libNotice: echec || `${plural(files.length, 'audio importé', 'audios importés')}, rangé${files.length > 1 ? 's' : ''} dans ${cat}.`,
+      })
+      return
+    }
+
     files.forEach((file, n) => {
       const id = `u${Date.now()}_${n}`
       const title = titleFromFile(file.name)
@@ -95,12 +140,23 @@ export function AudiosView() {
         }))
       })
     })
-    event.target.value = ''
   }
 
   /** Envoi : un audio déjà présent dans un compte n'y est pas ajouté deux fois. */
-  function dispatch() {
+  async function dispatch() {
     if (!selected || !targets.length) return
+    if (reel && cabinet) {
+      setOccupe(true)
+      const r = await cabinet.envoyerAudio(selected.id, targets)
+      setOccupe(false)
+      set({
+        libAssign: {},
+        libNotice: r.ok
+          ? `Envoyé dans le compte de ${targets.map((key) => state.patients[key]?.name ?? '').filter(Boolean).join(', ')}.`
+          : r.message,
+      })
+      return
+    }
     set((prev) => {
       const extraAudios = { ...prev.extraAudios }
       targets.forEach((key) => {
@@ -125,10 +181,23 @@ export function AudiosView() {
   }
 
   /** Création de catégorie à la volée : elle devient aussitôt le filtre et la catégorie d'import. */
-  function addCat() {
+  async function addCat() {
     const name = state.catName.trim()
     if (!name) {
       set({ catAdd: false, catName: '' })
+      return
+    }
+    if (reel && cabinet) {
+      const r = await cabinet.creerCategorie(name)
+      set({
+        catAdd: false,
+        catName: '',
+        libFilter: r.ok ? name : state.libFilter,
+        upCat: r.ok ? name : state.upCat,
+        libNotice: r.ok
+          ? `Catégorie « ${name} » créée. Elle est proposée à l'import et à l'IA en fin de séance.`
+          : r.message,
+      })
       return
     }
     set((prev) => ({
@@ -142,16 +211,35 @@ export function AudiosView() {
   }
 
   function catKey(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key === 'Enter') addCat()
+    if (event.key === 'Enter') void addCat()
   }
 
   function renameSelected(title: string) {
+    // Réel : on tape librement, l'écriture attend le blur.
+    if (reel) {
+      setTitreSaisi(title)
+      return
+    }
     set((prev) => ({
       lib: prev.lib.map((audio) => (audio.id === prev.libSel ? { ...audio, title } : audio)),
     }))
   }
 
-  function recategorise(cat: string) {
+  async function commitTitle() {
+    if (!reel || !cabinet || !selected || titreSaisi === null) return
+    if (titreSaisi.trim() && titreSaisi.trim() !== selected.title) {
+      const r = await cabinet.renommerAudio(selected.id, titreSaisi)
+      if (!r.ok) set({ libNotice: r.message })
+    }
+    setTitreSaisi(null)
+  }
+
+  async function recategorise(cat: string) {
+    if (reel && cabinet && selected) {
+      const r = await cabinet.recategoriserAudio(selected.id, cat)
+      if (!r.ok) set({ libNotice: r.message })
+      return
+    }
     set((prev) => ({
       lib: prev.lib.map((audio) => (audio.id === prev.libSel ? { ...audio, cat } : audio)),
     }))
@@ -192,16 +280,19 @@ export function AudiosView() {
             <label className={s.drop}>
               <span className={s.dropTitle}>Choisir des fichiers audio</span>
               <span className={s.dropHint}>
-                MP3 ou M4A. La durée est lue automatiquement, le fichier reste sur votre poste dans
-                cette démo.
+                {reel
+                  ? 'MP3, M4A, AAC, WAV ou OGG, 50 Mo au plus. Le fichier est déposé dans votre espace privé ; la durée est lue automatiquement.'
+                  : 'MP3 ou M4A. La durée est lue automatiquement, le fichier reste sur votre poste dans cette démo.'}
               </span>
               <input
                 className={s.file}
                 type="file"
                 accept="audio/*"
                 multiple
-                onChange={upload}
+                disabled={occupe}
+                onChange={(e) => void upload(e)}
               />
+              {occupe ? <span className={s.dropHint}>Dépôt en cours…</span> : null}
             </label>
             {state.libNotice ? <div className={s.libNotice}>{state.libNotice}</div> : null}
           </Card>
@@ -239,7 +330,7 @@ export function AudiosView() {
                     onChange={(e) => set({ catName: e.target.value })}
                     onKeyDown={catKey}
                   />
-                  <button type="button" className={s.catSave} onClick={addCat}>
+                  <button type="button" className={s.catSave} onClick={() => void addCat()}>
                     Créer
                   </button>
                   <button
@@ -306,13 +397,26 @@ export function AudiosView() {
             </div>
             <input
               className={s.detailTitle}
-              value={selected.title}
+              value={titreSaisi ?? selected.title}
               aria-label="Titre de l'audio"
               onChange={(e) => renameSelected(e.target.value)}
+              onBlur={() => void commitTitle()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+              }}
             />
             <div className={s.detailMeta}>
               {selected.duration} · {selected.meta}
             </div>
+            {reel ? (
+              ecoute ? (
+                // L'écoute de contrôle : l'URL est signée et expire ; elle ne
+                // se partage pas.
+                <audio className={s.player} controls preload="none" src={ecoute} />
+              ) : (
+                <div className={s.detailMeta}>Préparation de l'écoute…</div>
+              )
+            ) : null}
 
             <div className={s.detailSection}>
               <Overline>Catégorie</Overline>
@@ -324,7 +428,7 @@ export function AudiosView() {
                   type="button"
                   className={cat === selected.cat ? `${s.chip} ${s.chipOn}` : s.chip}
                   aria-pressed={cat === selected.cat}
-                  onClick={() => recategorise(cat)}
+                  onClick={() => void recategorise(cat)}
                 >
                   {cat}
                 </button>
@@ -366,10 +470,14 @@ export function AudiosView() {
               <Button
                 variant="primary"
                 className={s.dispatch}
-                disabled={targets.length === 0}
-                onClick={dispatch}
+                disabled={targets.length === 0 || occupe}
+                onClick={() => void dispatch()}
               >
-                {targets.length ? `Envoyer à ${plural(targets.length, 'patient', 'patients')}` : 'Envoyer'}
+                {occupe
+                  ? 'Envoi…'
+                  : targets.length
+                    ? `Envoyer à ${plural(targets.length, 'patient', 'patients')}`
+                    : 'Envoyer'}
               </Button>
               <span className={s.dispatchHint}>
                 L'audio apparaît dans leur bibliothèque, écoutable hors connexion.

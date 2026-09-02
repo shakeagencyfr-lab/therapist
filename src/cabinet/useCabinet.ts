@@ -16,6 +16,7 @@ import { useStore } from '@/state/store'
 import { durationToSeconds } from '@/lib/format'
 import type {
   JournalEntry,
+  LibraryAudio,
   ModuleKind,
   Patient,
   PatientAudio,
@@ -78,6 +79,22 @@ interface JournalRow {
   body: string
   trigger_label: string | null
   written_at: string
+}
+
+interface CategoryRow {
+  id: string
+  label: string
+  position: number
+}
+
+interface LibraryRow {
+  id: string
+  category_id: string | null
+  title: string
+  meta: string | null
+  duration_seconds: number
+  storage_path: string
+  created_at: string
 }
 
 interface ProfileRow {
@@ -273,6 +290,16 @@ export interface CabinetData {
   basculerModule: (patientId: PatientId, position: number, fait: boolean) => Promise<Resultat>
   /** Règle la fiche : programme, échelle, question du soir, prochaine séance. */
   majFiche: (patientId: PatientId, input: ReglagesFiche) => Promise<Resultat>
+  /* La bibliothèque audio ------------------------------------------- *
+   * Les fichiers vont dans un compartiment privé, rangé par cabinet ; la
+   * base n'en garde que le chemin. Une écoute passe par une URL signée,
+   * courte, obtenue sous les droits de qui écoute.                       */
+  importerAudio: (file: File, categorie: string) => Promise<Resultat & { id?: string }>
+  envoyerAudio: (audioId: string, patientIds: PatientId[]) => Promise<Resultat>
+  creerCategorie: (label: string) => Promise<Resultat>
+  renommerAudio: (audioId: string, title: string) => Promise<Resultat>
+  recategoriserAudio: (audioId: string, categorie: string) => Promise<Resultat>
+  urlEcoute: (audioId: string) => Promise<string | null>
   /* La séance ------------------------------------------------------ *
    * Elle s'ouvre à la signature du consentement — c'est la pièce qui
    * autorise la captation, elle est horodatée et conservée. Le brouillon
@@ -298,16 +325,18 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     setErreur('')
     setChargement(true)
 
-    const [fiches, modules, audios, echelles, journal, profils] = await Promise.all([
+    const [fiches, modules, audios, echelles, journal, profils, categories, bibliotheque] = await Promise.all([
       db.from('patients').select('*').is('archived_at', null).order('created_at'),
       db.from('patient_modules').select('id, patient_id, title, meta, kind, position, done_at'),
       db.from('patient_audios').select('patient_id, listens, last_listened_at, audio:audio_library (title, duration_seconds)'),
       db.from('scale_entries').select('patient_id, value, recorded_at'),
       db.from('journal_pages').select('patient_id, title, body, trigger_label, written_at'),
       db.from('psych_profiles').select('patient_id, version, sessions_count, portrait, axes, levers, care').order('version', { ascending: false }),
+      db.from('audio_categories').select('id, label, position').order('position').order('label'),
+      db.from('audio_library').select('id, category_id, title, meta, duration_seconds, storage_path, created_at').order('created_at', { ascending: false }),
     ])
 
-    const premiere = [fiches, modules, audios, echelles, journal, profils].find((r) => r.error)
+    const premiere = [fiches, modules, audios, echelles, journal, profils, categories, bibliotheque].find((r) => r.error)
     if (premiere?.error) {
       setErreur("Le dossier du cabinet n'a pas pu être chargé. Réessayez dans un instant.")
       setChargement(false)
@@ -333,6 +362,18 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       )
     }
 
+    // La bibliothèque du cabinet, à la forme que l'écran des audios attend.
+    const cats = (categories.data ?? []) as CategoryRow[]
+    const libelle = new Map(cats.map((c) => [c.id, c.label]))
+    const lib = ((bibliotheque.data ?? []) as LibraryRow[]).map<LibraryAudio>((a) => ({
+      id: a.id,
+      title: a.title,
+      cat: (a.category_id && libelle.get(a.category_id)) || 'Sans catégorie',
+      duration: duree(a.duration_seconds),
+      meta: a.meta ?? '',
+    }))
+    const catLabels = cats.map((c) => c.label)
+
     const ordre = lignes.map((l) => l.id)
     set((prev) => ({
       patients: assemblees,
@@ -341,6 +382,11 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       cabinetId,
       // Garder le patient ouvert s'il existe encore ; sinon prendre le premier.
       sel: ordre.includes(prev.sel) ? prev.sel : (ordre[0] ?? ''),
+      lib,
+      cats: catLabels,
+      libSel: lib.some((a) => a.id === prev.libSel) ? prev.libSel : (lib[0]?.id ?? null),
+      libFilter: catLabels.includes(prev.libFilter) ? prev.libFilter : 'Toutes',
+      upCat: catLabels.includes(prev.upCat) ? prev.upCat : (catLabels[0] ?? ''),
     }))
     setChargement(false)
   }, [cabinetId, set])
@@ -452,6 +498,164 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       return { ok: true, message: '' }
     },
     [cabinetId, recharger],
+  )
+
+  /* ---- La bibliothèque audio ------------------------------------------ */
+
+  /** L'identifiant d'une catégorie par son libellé, créée si elle manque. */
+  const categorieId = useCallback(
+    async (label: string): Promise<string | null> => {
+      const db = supabase()
+      if (!db || !cabinetId) return null
+      const propre = label.trim()
+      if (!propre) return null
+      const { data } = await db
+        .from('audio_categories')
+        .select('id')
+        .eq('cabinet_id', cabinetId)
+        .eq('label', propre)
+        .maybeSingle<{ id: string }>()
+      if (data) return data.id
+      const { data: creee } = await db
+        .from('audio_categories')
+        .insert({ cabinet_id: cabinetId, label: propre })
+        .select('id')
+        .single<{ id: string }>()
+      return creee?.id ?? null
+    },
+    [cabinetId],
+  )
+
+  const creerCategorie = useCallback(
+    async (label: string): Promise<Resultat> => {
+      const id = await categorieId(label)
+      if (!id) return { ok: false, message: "La catégorie n'a pas pu être créée." }
+      await recharger()
+      return { ok: true, message: '' }
+    },
+    [categorieId, recharger],
+  )
+
+  /** La durée d'un fichier audio, lue dans ses métadonnées. 0 si illisible. */
+  const dureeFichier = (file: File): Promise<number> =>
+    new Promise((resolve) => {
+      const url = URL.createObjectURL(file)
+      const element = new Audio(url)
+      const fin = (n: number) => {
+        URL.revokeObjectURL(url)
+        resolve(n)
+      }
+      element.addEventListener('loadedmetadata', () =>
+        fin(Number.isFinite(element.duration) && element.duration > 0 ? Math.round(element.duration) : 0),
+      )
+      element.addEventListener('error', () => fin(0))
+    })
+
+  const importerAudio = useCallback(
+    async (file: File, categorie: string): Promise<Resultat & { id?: string }> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: 'Connectez-vous à votre cabinet pour importer.' }
+      const extension = (file.name.split('.').pop() ?? 'mp3').toLowerCase().replace(/[^a-z0-9]/g, '') || 'mp3'
+      const chemin = `${cabinetId}/${crypto.randomUUID()}.${extension}`
+      const secondes = await dureeFichier(file)
+
+      const { error: e1 } = await db.storage.from('audios').upload(chemin, file, {
+        contentType: file.type || 'audio/mpeg',
+        upsert: false,
+      })
+      if (e1) {
+        return {
+          ok: false,
+          message: /mime|type/i.test(e1.message)
+            ? 'Ce format n’est pas accepté : MP3, M4A, AAC, WAV ou OGG.'
+            : "Le fichier n'a pas pu être déposé. Réessayez.",
+        }
+      }
+      const catId = await categorieId(categorie)
+      const taille = Math.round(file.size / 100000) / 10
+      const { data, error: e2 } = await db
+        .from('audio_library')
+        .insert({
+          cabinet_id: cabinetId,
+          category_id: catId,
+          title: file.name.replace(/\.[a-z0-9]+$/i, '').replace(/[_-]+/g, ' ').trim() || 'Sans titre',
+          meta: `${taille} Mo · importé le ${new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`,
+          // La base exige une durée positive : un fichier illisible vaut une seconde.
+          duration_seconds: Math.max(1, secondes),
+          storage_path: chemin,
+        })
+        .select('id')
+        .single<{ id: string }>()
+      if (e2 || !data) {
+        // Le fichier est monté mais la fiche a échoué : on ne laisse pas d'orphelin.
+        await db.storage.from('audios').remove([chemin])
+        return { ok: false, message: "L'audio n'a pas pu être catalogué. Réessayez." }
+      }
+      await recharger()
+      return { ok: true, message: '', id: data.id }
+    },
+    [cabinetId, categorieId, recharger],
+  )
+
+  const envoyerAudio = useCallback(
+    async (audioId: string, patientIds: PatientId[]): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId || !patientIds.length) return { ok: false, message: '' }
+      const { error } = await db
+        .from('patient_audios')
+        .upsert(
+          patientIds.map((patient_id) => ({ cabinet_id: cabinetId, patient_id, audio_id: audioId })),
+          { onConflict: 'patient_id,audio_id', ignoreDuplicates: true },
+        )
+      if (error) return { ok: false, message: "L'audio n'a pas pu être envoyé." }
+      await recharger()
+      return { ok: true, message: '' }
+    },
+    [cabinetId, recharger],
+  )
+
+  const renommerAudio = useCallback(
+    async (audioId: string, title: string): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const propre = title.trim()
+      if (!propre) return { ok: false, message: 'Un audio a besoin d’un titre.' }
+      const { error } = await db.from('audio_library').update({ title: propre }).eq('id', audioId)
+      if (error) return { ok: false, message: "Le titre n'a pas pu être enregistré." }
+      await recharger()
+      return { ok: true, message: '' }
+    },
+    [cabinetId, recharger],
+  )
+
+  const recategoriserAudio = useCallback(
+    async (audioId: string, categorie: string): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const catId = await categorieId(categorie)
+      const { error } = await db.from('audio_library').update({ category_id: catId }).eq('id', audioId)
+      if (error) return { ok: false, message: "La catégorie n'a pas pu être changée." }
+      await recharger()
+      return { ok: true, message: '' }
+    },
+    [cabinetId, categorieId, recharger],
+  )
+
+  /** Une URL signée d'une heure : la seule façon d'écouter un fichier privé. */
+  const urlEcoute = useCallback(
+    async (audioId: string): Promise<string | null> => {
+      const db = supabase()
+      if (!db) return null
+      const { data: ligne } = await db
+        .from('audio_library')
+        .select('storage_path')
+        .eq('id', audioId)
+        .maybeSingle<{ storage_path: string }>()
+      if (!ligne) return null
+      const { data } = await db.storage.from('audios').createSignedUrl(ligne.storage_path, 3600)
+      return data?.signedUrl ?? null
+    },
+    [],
   )
 
   /* ---- La séance ----------------------------------------------------- */
@@ -603,6 +807,12 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     creerPatiente,
     basculerModule,
     majFiche,
+    importerAudio,
+    envoyerAudio,
+    creerCategorie,
+    renommerAudio,
+    recategoriserAudio,
+    urlEcoute,
     ouvrirSeance,
     enregistrerBrouillon,
     envoyerSeance,
