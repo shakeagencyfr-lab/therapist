@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Notice, Overline } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
+import { HypnoseToggle } from './HypnoseToggle'
 import { useFacturationIA } from '@/cabinet/useFacturationIA'
 import { NOTE_TAGS, NOTE_TAG_PREFIXES, TRANSCRIPT_SAMPLES } from '@/data/session'
 import { clock, euro } from '@/lib/format'
@@ -10,7 +11,7 @@ import {
   derniereReponseEstMaquette,
   draftSessionNote,
 } from '@/services/aiClient'
-import { MODELE_ANALYSE, TARIF, estimationBrouillon } from '@/lib/coutIA'
+import { COUT_HYPNOSE, MODELE_ANALYSE, TARIF, estimationBrouillon } from '@/lib/coutIA'
 import {
   appendSegment,
   createTranscriber,
@@ -35,6 +36,11 @@ export function RecordStep() {
    */
   const facturation = useFacturationIA(Boolean(cabinet?.reel))
   const enCredits = facturation.mode === 'credits'
+  /* La case mirroite la fiche, pour que l'écran réponde au clic sans attendre
+     la base — et que la démonstration fonctionne sans base du tout. */
+  const fichePatiente = state.patients[state.sessionPatient]
+  const [hypnoseIci, setHypnose] = useState<boolean | null>(null)
+  const hypnose = hypnoseIci ?? Boolean(fichePatiente?.hypnoseActivee)
   const transcriber = useRef<Transcriber | null>(null)
 
   // Le minuteur n'avance que pendant l'enregistrement, et jamais après.
@@ -337,6 +343,19 @@ export function RecordStep() {
             />
           </div>
 
+          {/* La décision se prend AVANT de lancer, là où le coût s'affiche.
+              C'est le même réglage que sur la fiche et que dans la note :
+              certaines praticiennes savent d'avance, d'autres découvrent en
+              lisant la synthèse qu'il y a matière. */}
+          <div className={s.hypnose}>
+            <HypnoseToggle
+              actif={hypnose}
+              onChange={setHypnose}
+              compact
+              disabled={state.generating}
+            />
+          </div>
+
           <div className={s.actions}>
             <button
               type="button"
@@ -366,6 +385,7 @@ export function RecordStep() {
               <span className={s.devis}>
                 Cet appel vous coûtera environ <strong>{euro(devis.euros)}</strong>, au plus{' '}
                 {euro(devis.eurosMax)}.
+                {hypnose ? ` L'hypnose s'ajoutera après la note, pour ${euro(COUT_HYPNOSE)} environ.` : ''}
               </span>
             ) : null}
           </div>

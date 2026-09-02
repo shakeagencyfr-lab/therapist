@@ -1,0 +1,57 @@
+/* La case qui décide de l'hypnose, posée à deux moments de la séance : avant
+   de lancer l'analyse, et après avoir lu la note. Même composant, deux
+   densités — l'écran d'enregistrement a moins de place. */
+.bascule {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 6px 0 4px;
+  padding: 14px;
+  border: 1px solid var(--c-border-light);
+  border-radius: 12px;
+  background: var(--c-surface-2);
+  cursor: pointer;
+}
+.bascule:hover {
+  border-color: var(--c-border);
+}
+
+.bascule input {
+  margin-top: 3px;
+  accent-color: var(--c-accent);
+  flex: none;
+}
+
+.bascule input:disabled {
+  cursor: not-allowed;
+}
+
+.bascule > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.titre {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.hint {
+  max-width: 68ch;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+}
+
+/* Version courte : sur l'écran d'enregistrement, la case s'insère entre le
+   devis et le bouton d'analyse, là où la dépense s'engage. */
+.compact {
+  margin: 0;
+  padding: 12px 14px;
+}
+
+.compact .hint {
+  font-size: 11.5px;
+}

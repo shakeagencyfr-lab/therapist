@@ -10,6 +10,7 @@ import {
   type MouvementEcrit,
 } from '@/services/aiClient'
 import { useStore } from '@/state/store'
+import { HypnoseToggle } from './HypnoseToggle'
 import s from './HypnoseCard.module.css'
 
 /**
@@ -109,26 +110,7 @@ export function HypnoseCard() {
         {ouverte ? <span className={s.duree}>≈ 30 minutes de lecture</span> : null}
       </div>
 
-      <label className={s.bascule}>
-        <input
-          type="checkbox"
-          checked={ouverte}
-          disabled={ecriture}
-          onChange={(e) => {
-            const active = e.target.checked
-            setOuverteIci(active)
-            void cabinet?.reglerHypnose(key, active)
-          }}
-        />
-        <span>
-          <span className={s.basculeTitre}>Écrire une hypnose pour {prenom}</span>
-          <span className={s.basculeHint}>
-            Une séance complète, bâtie sur les formulations relevées ci-dessus et lisible à voix
-            haute. C'est l'analyse la plus coûteuse du produit : cochez-la quand elle sert.
-            Le réglage vaut aussi pour ses prochaines séances.
-          </span>
-        </span>
-      </label>
+      <HypnoseToggle actif={ouverte} onChange={setOuverteIci} disabled={ecriture} />
 
       {!ouverte ? null : (
         <>

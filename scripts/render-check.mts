@@ -167,9 +167,28 @@ if (maquette) {
   }
 }
 
-// 1 quinquies bis. L'hypnose se décide DANS la séance, au moment où la
-// question se pose. Elle vivait auparavant sur la seule fiche patiente, ce
-// qui obligeait la thérapeute à quitter la séance pour cocher une case.
+// 1 quinquies bis. L'hypnose se décide DANS la séance, aux deux moments où la
+// question se pose : au démarrage, avant de lancer l'analyse et là où le coût
+// s'affiche ; puis dans la note, quand on découvre qu'il y a matière. Elle
+// vivait auparavant sur la seule fiche patiente, ce qui obligeait la
+// thérapeute à quitter la séance pour cocher une case.
+const enregistrement = rendu('cabinet/session-hypnose-demarrage', {
+  space: 'cabinet',
+  mode: 'session',
+  sessionPatient: choisie,
+  consent: true,
+})
+if (enregistrement) {
+  if (!enregistrement.includes('Écrire une hypnose pour')) {
+    console.error("✗ session/hypnose-démarrage : la case manque à l'écran d'enregistrement")
+    echecs++
+  } else {
+    console.log(
+      `✓ session/hypnose-départ ${String(enregistrement.length).padStart(6)} octets · case au démarrage`,
+    )
+  }
+}
+
 const hypnose = rendu('cabinet/session-hypnose', {
   space: 'cabinet',
   mode: 'session',
