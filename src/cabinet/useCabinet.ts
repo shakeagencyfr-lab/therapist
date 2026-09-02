@@ -342,6 +342,9 @@ export interface CabinetData {
   televerserLogo: (file: File) => Promise<Resultat & { url?: string }>
   /* Les programmes du cabinet : c'est lui qui les nomme, pas le produit. */
   creerProgramme: (label: string) => Promise<Resultat>
+  renommerProgramme: (ancien: string, nouveau: string) => Promise<Resultat>
+  /** Fixe qui suit ce programme : la liste remplace l'ancienne. */
+  attribuerProgramme: (label: string, patientIds: PatientId[]) => Promise<Resultat>
   retirerProgramme: (label: string) => Promise<Resultat>
   /* La bibliothèque audio ------------------------------------------- *
    * Les fichiers vont dans un compartiment privé, rangé par cabinet ; la
@@ -727,6 +730,84 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       }
       await recharger()
       return { ok: true, message: `« ${propre} » ajouté à vos programmes.` }
+    },
+    [cabinetId, recharger],
+  )
+
+  /**
+   * Renommer un programme.
+   *
+   * Le libellé est ce que la fiche d'une patiente garde, en clair : renommer
+   * le catalogue sans toucher aux fiches les laisserait rattachées à un
+   * programme qui n'existe plus. Les deux écritures vont donc ensemble.
+   */
+  const renommerProgramme = useCallback(
+    async (ancien: string, nouveau: string): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: 'Connectez-vous à votre cabinet.' }
+      const propre = nouveau.trim()
+      if (!propre) return { ok: false, message: 'Donnez un nom au programme.' }
+      if (propre === ancien) return { ok: true, message: '' }
+
+      const { error } = await db
+        .from('cabinet_programs')
+        .update({ label: propre })
+        .eq('cabinet_id', cabinetId)
+        .eq('label', ancien)
+        .is('archived_at', null)
+      if (error) {
+        return {
+          ok: false,
+          message:
+            error.code === '23505'
+              ? `« ${propre} » existe déjà dans vos programmes.`
+              : "Le programme n'a pas pu être renommé. Réessayez.",
+        }
+      }
+      // Les fiches suivent. Un échec ici laisse un catalogue renommé et des
+      // fiches sur l'ancien nom : on le dit plutôt que de le taire.
+      const { error: e2 } = await db
+        .from('patients')
+        .update({ program: propre })
+        .eq('cabinet_id', cabinetId)
+        .eq('program', ancien)
+      await recharger()
+      return e2
+        ? { ok: false, message: `Programme renommé, mais les fiches sont restées sur « ${ancien} ».` }
+        : { ok: true, message: `« ${ancien} » s'appelle désormais « ${propre} ».` }
+    },
+    [cabinetId, recharger],
+  )
+
+  /**
+   * Rattacher des patientes à un programme, et en détacher les autres.
+   *
+   * L'écran envoie la liste complète de celles qui doivent le suivre : celles
+   * qui le suivaient et n'y sont plus repassent à « aucun programme ». Les
+   * fiches rattachées à un AUTRE programme ne sont pas touchées.
+   */
+  const attribuerProgramme = useCallback(
+    async (label: string, patientIds: PatientId[]): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: 'Connectez-vous à votre cabinet.' }
+
+      const { error: e1 } = patientIds.length
+        ? await db.from('patients').update({ program: label }).in('id', patientIds)
+        : { error: null }
+      if (e1) return { ok: false, message: "Le rattachement n'a pas pu être enregistré." }
+
+      // Détacher : celles qui portent ce programme sans figurer dans la liste.
+      let detache = db.from('patients').update({ program: '' }).eq('cabinet_id', cabinetId).eq('program', label)
+      if (patientIds.length) detache = detache.not('id', 'in', `(${patientIds.join(',')})`)
+      const { error: e2 } = await detache
+      await recharger()
+      if (e2) return { ok: false, message: 'Les rattachements sont posés, mais les retraits ont échoué.' }
+      return {
+        ok: true,
+        message: patientIds.length
+          ? `${patientIds.length} ${patientIds.length > 1 ? 'patientes suivent' : 'patiente suit'} « ${label} ».`
+          : `Plus personne ne suit « ${label} ».`,
+      }
     },
     [cabinetId, recharger],
   )
@@ -1188,6 +1269,8 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     enregistrerMarque,
     televerserLogo,
     creerProgramme,
+    renommerProgramme,
+    attribuerProgramme,
     retirerProgramme,
     importerAudio,
     envoyerAudio,

@@ -7,13 +7,14 @@ import type { Space, ViewMode } from '@/state/state'
 import s from './AppHeader.module.css'
 
 const VIEWS: Array<{ value: ViewMode; label: string }> = [
-  { value: 'therapist', label: 'Vue thérapeute' },
+  { value: 'therapist', label: "Tableau d'évolution" },
   { value: 'patient', label: 'Vue patient' },
   { value: 'session', label: 'Séance' },
   { value: 'atelier', label: 'Atelier' },
   { value: 'audios', label: 'Audios' },
   { value: 'notif', label: 'Notifications' },
   { value: 'boutique', label: 'Boutique' },
+  { value: 'programmes', label: 'Programmes' },
   { value: 'marque', label: 'Marque' },
   { value: 'integrations', label: 'Intégrations' },
 ]
@@ -84,6 +85,7 @@ export function AppHeader() {
           <span className={s.tagline}>{reseller ? 'Espace revendeur' : cabinet.tagline}</span>
         </div>
       </div>
+      {/* Grand écran : les vues en pilules, à plat. */}
       <div className={s.right}>
         {!reseller && (
           <Segmented options={VIEWS} value={state.mode} onChange={(mode) => set({ mode })} />
@@ -92,7 +94,8 @@ export function AppHeader() {
           <Segmented options={SPACES} value={state.space} onChange={(space) => set({ space })} />
         )}
       </div>
-      {/* Hors de la rangée qui défile : un menu posé dans un conteneur à
+
+      {/* Hors de la rangée qui défile : un panneau posé dans un conteneur à
           débordement caché serait rogné sur écran étroit. */}
       <Compte
         initiales={reseller ? logoRevendeur : cabinet.branding.logo}
@@ -101,7 +104,140 @@ export function AppHeader() {
         role={reseller ? marqueRevendeur : cabinet.name}
         seDeconnecter={auth?.seDeconnecter}
       />
+
+      {/* Téléphone : neuf pilules dans une rangée qui défile, ce sont huit
+          vues qu'on ne voit pas. Un menu les montre toutes. */}
+      <MenuMobile
+        vues={reseller ? [] : VIEWS}
+        vue={state.mode}
+        espaces={montrerCommutateur ? SPACES : []}
+        espace={state.space}
+        role={reseller ? marqueRevendeur : cabinet.name}
+        email={identite?.email ?? null}
+        onVue={(mode) => set({ mode })}
+        onEspace={(space) => set({ space })}
+        seDeconnecter={auth?.seDeconnecter}
+      />
     </header>
+  )
+}
+
+/**
+ * Le menu des petits écrans.
+ *
+ * Il ne double pas la navigation : il la remplace sous 900 px, où la rangée
+ * de pilules ne montrait que deux vues sur neuf et demandait de deviner
+ * qu'elle défilait. Tout y tient à plat — les vues, l'espace quand le compte
+ * en porte deux, le compte lui-même et sa sortie — parce qu'un menu qu'il
+ * faut parcourir en plusieurs gestes n'est pas un progrès.
+ */
+function MenuMobile({
+  vues,
+  vue,
+  espaces,
+  espace,
+  role,
+  email,
+  onVue,
+  onEspace,
+  seDeconnecter,
+}: {
+  vues: Array<{ value: ViewMode; label: string }>
+  vue: ViewMode
+  espaces: Array<{ value: Space; label: string }>
+  espace: Space
+  role: string
+  email: string | null
+  onVue: (v: ViewMode) => void
+  onEspace: (e: Space) => void
+  seDeconnecter?: () => Promise<void>
+}) {
+  const [ouvert, setOuvert] = useState(false)
+  const courante = vues.find((v) => v.value === vue)
+
+  return (
+    <div className={s.mobile}>
+      <button
+        type="button"
+        className={s.burger}
+        aria-haspopup="menu"
+        aria-expanded={ouvert}
+        onClick={() => setOuvert((o) => !o)}
+      >
+        <span className={s.burgerLabel}>{courante?.label ?? 'Menu'}</span>
+        <span className={ouvert ? `${s.burgerTrait} ${s.burgerTraitOn}` : s.burgerTrait} aria-hidden>
+          <i />
+          <i />
+          <i />
+        </span>
+      </button>
+
+      {ouvert ? (
+        <>
+          <button
+            type="button"
+            className={s.voile}
+            aria-label="Fermer le menu"
+            onClick={() => setOuvert(false)}
+          />
+          <div className={s.panneau} role="menu">
+            {vues.map((v) => (
+              <button
+                key={v.value}
+                type="button"
+                role="menuitem"
+                className={v.value === vue ? `${s.panneauItem} ${s.panneauItemOn}` : s.panneauItem}
+                aria-current={v.value === vue ? 'page' : undefined}
+                onClick={() => {
+                  onVue(v.value)
+                  setOuvert(false)
+                }}
+              >
+                {v.label}
+              </button>
+            ))}
+
+            {espaces.length > 0 ? (
+              <div className={s.panneauGroupe}>
+                <span className={s.panneauTitre}>Espace</span>
+                {espaces.map((e) => (
+                  <button
+                    key={e.value}
+                    type="button"
+                    role="menuitem"
+                    className={e.value === espace ? `${s.panneauItem} ${s.panneauItemOn}` : s.panneauItem}
+                    onClick={() => {
+                      onEspace(e.value)
+                      setOuvert(false)
+                    }}
+                  >
+                    {e.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            {seDeconnecter ? (
+              <div className={s.panneauGroupe}>
+                <span className={s.panneauTitre}>{role}</span>
+                {email ? <span className={s.panneauMail}>{email}</span> : null}
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={s.panneauItem}
+                  onClick={() => {
+                    setOuvert(false)
+                    void seDeconnecter()
+                  }}
+                >
+                  Se déconnecter
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </>
+      ) : null}
+    </div>
   )
 }
 

@@ -160,6 +160,122 @@ button.me {
   background: var(--c-surface-2);
 }
 
+/* Le menu des petits écrans ---------------------------------------------- */
+
+/* Au-dessus de 900 px, la rangée de pilules suffit : le menu n'existe pas. */
+.mobile {
+  display: none;
+}
+
+.burger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-pill);
+  background: var(--c-surface);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--c-text);
+  max-width: 62vw;
+}
+
+/* La vue ouverte donne son nom au bouton : on sait où l'on est sans ouvrir. */
+.burgerLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.burgerTrait {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 15px;
+  height: 11px;
+  flex: none;
+}
+.burgerTrait i {
+  display: block;
+  height: 1.5px;
+  border-radius: 1px;
+  background: var(--c-text-4);
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+.burgerTraitOn i:nth-child(1) {
+  transform: translateY(4.75px) rotate(45deg);
+}
+.burgerTraitOn i:nth-child(2) {
+  opacity: 0;
+}
+.burgerTraitOn i:nth-child(3) {
+  transform: translateY(-4.75px) rotate(-45deg);
+}
+
+/* Le panneau prend toute la largeur : sur un téléphone, une colonne étroite
+   au bord de l'écran se lit mal et se touche encore moins bien. */
+.panneau {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 31;
+  max-height: calc(100vh - 100%);
+  overflow-y: auto;
+  padding: 8px;
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-border);
+  box-shadow: 0 18px 40px rgba(27, 26, 23, 0.14);
+}
+
+.panneauItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 13px 14px;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--c-text);
+}
+.panneauItem:hover {
+  background: var(--c-surface-2);
+}
+.panneauItemOn {
+  background: var(--c-accent-soft);
+  color: var(--c-accent);
+  font-weight: 500;
+}
+
+.panneauGroupe {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--c-border-light);
+}
+
+.panneauTitre {
+  display: block;
+  padding: 4px 14px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+
+.panneauMail {
+  display: block;
+  padding: 0 14px 6px;
+  font-size: 12px;
+  color: var(--c-text-muted);
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 900px) {
   .header {
     padding: 12px 16px;
@@ -168,7 +284,16 @@ button.me {
   .tagline {
     display: none;
   }
-  .right {
-    overflow-x: auto;
+  /* La rangée de pilules et l'avatar laissent la place au menu. Le sélecteur
+     vise aussi .me seul : sans session, l'avatar n'est pas dans .compte. */
+  .right,
+  .compte,
+  .me {
+    display: none;
+  }
+  .mobile {
+    display: block;
+    margin-left: auto;
+    min-width: 0;
   }
 }

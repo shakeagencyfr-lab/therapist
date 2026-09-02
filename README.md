@@ -53,8 +53,9 @@ npm run check      # typecheck, puis rendu des neuf vues et contrôle de cloison
 
 ```
 design-reference/     le prototype HTML et sa spécification (référence de design)
-scripts/              banc de rendu : les neuf vues du cabinet rendent, et
-                      l'espace revendeur ne montre aucun contenu de patient
+scripts/              banc de rendu : les dix vues du cabinet rendent, l'espace
+                      revendeur ne montre aucun contenu de patient, et la prise
+                      de rendez-vous monte bien son cadre
 index.html            hôte Vite, polices Google (à auto-héberger en production)
 api/                  fonctions serverless Vercel : une par route IA
 server/               les quatre appels IA : prompts, schémas, mode maquette
@@ -71,7 +72,7 @@ src/
   styles/             jetons de design et styles globaux
   theme/              marque blanche : accent et sombre paramétrables
   types/              modèle de domaine
-  views/              les neuf écrans du cabinet, plus l'espace revendeur
+  views/              les dix écrans du cabinet, plus l'espace revendeur
 ```
 
 ## Ce qui est porté depuis le prototype
@@ -148,6 +149,13 @@ ajoute le portefeuille de cabinets, l'éditeur de marque blanche avec aperçu, e
 les offres avec leur plafond de consommation IA. Les moyennes y disparaissent
 sous trois patients actifs : dans un cabinet d'un patient, une moyenne est un
 chiffre individuel.
+
+Les programmes sont nommés par le cabinet, dans son onglet **Programmes**
+(`src/views/programmes/`) : le catalogue à gauche, et à droite les patientes qui
+suivent celui qu'on a ouvert. Le rattachement se lit dans les deux sens — depuis
+la fiche d'une patiente on choisit son programme, depuis un programme on coche
+celles qui le suivent. C'est la même colonne, `patients.program`, et le libellé y
+est écrit en clair : renommer un programme renomme donc les fiches avec lui.
 
 La marque se règle des deux côtés, et c'est voulu : le revendeur la pose à
 l'ouverture d'un cabinet, la praticienne la reprend ensuite depuis son onglet

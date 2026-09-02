@@ -48,7 +48,11 @@ function IconeAgenda({ accent }: { accent?: string }) {
 
 export function RendezVous({ url, widgetUrl, mode, accent }: Props) {
   const cadre = mode === 'widget' ? (widgetUrl ?? url) : null
-  const [ouvert, setOuvert] = useState(false)
+  // Le widget est ce que la thérapeute a choisi de montrer : il est là en
+  // arrivant. Le repli reste offert, il n'est plus l'état de départ — une
+  // patiente qui ouvre son espace ne devine pas qu'un agenda dort derrière un
+  // chevron.
+  const [ouvert, setOuvert] = useState(true)
   const [etat, setEtat] = useState<'chargement' | 'affiche' | 'muet'>('chargement')
 
   useEffect(() => {
@@ -101,20 +105,22 @@ export function RendezVous({ url, widgetUrl, mode, accent }: Props) {
 
       {ouvert ? (
         <>
-          {etat !== 'muet' ? (
-            <iframe
-              className={s.frame}
-              src={cadre}
-              title="Prise de rendez-vous"
-              referrerPolicy="strict-origin-when-cross-origin"
-              onLoad={() => setEtat('affiche')}
-            />
-          ) : (
+          {/* Le cadre reste monté quoi qu'il arrive. Le démonter au bout de
+              huit secondes privait d'agenda quiconque a une connexion lente,
+              et sans retour possible. La phrase de secours se pose sous lui. */}
+          <iframe
+            className={s.frame}
+            src={cadre}
+            title="Prise de rendez-vous"
+            referrerPolicy="strict-origin-when-cross-origin"
+            onLoad={() => setEtat('affiche')}
+          />
+          {etat === 'muet' ? (
             <p className={s.frameNote}>
-              L'agenda ne s'affiche pas ici. Ouvrez-le dans un nouvel onglet : ce sont les mêmes
-              créneaux.
+              L'agenda tarde à s'afficher. S'il reste vide, ouvrez-le en plein écran : ce sont les
+              mêmes créneaux.
             </p>
-          )}
+          ) : null}
           <a
             className={s.cta}
             href={url}
