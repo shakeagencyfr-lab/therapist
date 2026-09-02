@@ -54,6 +54,11 @@ export function IntegrationsView() {
     setNotice('')
     try {
       setEtat(await agirIntegration(action))
+      // Le dossier du cabinet porte aussi ces réglages — l'aperçu du
+      // téléphone y lit la prise de rendez-vous. Sans cette relecture, il
+      // gardait l'état d'avant jusqu'au prochain chargement de la page : les
+      // réglages disaient « widget intégré » et l'aperçu montrait un bouton.
+      await cabinet?.recharger()
       setNotice(confirmation)
     } catch (err) {
       setErreur((err as Error).message)
