@@ -213,12 +213,59 @@ function urlReservation(valeur: string, quoi: string): string {
   try {
     url = new URL(valeur.trim())
   } catch {
-    throw new HttpError(400, `Cette adresse n'est pas une URL complète (elle doit commencer par https://).`)
+    throw new HttpError(400, `${quoi} n'est pas une adresse complète (elle doit commencer par https://).`)
   }
   if (url.protocol !== 'https:') {
     throw new HttpError(400, `${quoi} doit être en https://.`)
   }
   return url.toString()
+}
+
+/**
+ * L'adresse à encadrer, tirée du code d'intégration que l'agenda fournit.
+ *
+ * Ces codes ne sont pas des adresses : ce sont quelques lignes de HTML et un
+ * script à charger. Or nous ne chargerons jamais ce script. L'espace de la
+ * patiente contient son dossier et son jeton de session ; y exécuter le code
+ * d'un tiers reviendrait à le lui confier. On lit donc le code pour en tirer
+ * la seule chose dont on a besoin — l'adresse de la page de réservation — et
+ * c'est elle, et elle seule, qui ira dans un cadre.
+ *
+ * Trois formes reconnues, dans cet ordre :
+ *   - une adresse, quand la thérapeute en a déjà une ;
+ *   - le code de BookRDV : data-url porte le domaine, data-query les
+ *     paramètres du rendez-vous (le service, l'identifiant du calendrier) ;
+ *   - un <iframe src="…">, la forme qu'emploient la plupart des autres.
+ */
+export function urlDuCodeIntegration(brut: string): string {
+  const texte = brut.trim()
+  if (!texte) {
+    throw new HttpError(400, "Collez le code d'intégration donné par votre agenda.")
+  }
+
+  if (!texte.includes('<') && /^https?:\/\//i.test(texte)) {
+    return urlReservation(texte, "L'adresse du widget")
+  }
+
+  const dataUrl = /data-url\s*=\s*["']([^"']+)["']/i.exec(texte)
+  if (dataUrl) {
+    const url = new URL(urlReservation(dataUrl[1], "L'adresse du widget"))
+    const query = /data-query\s*=\s*["']([^"']*)["']/i.exec(texte)?.[1] ?? ''
+    for (const [cle, valeur] of new URLSearchParams(query.replace(/^[?&]+/, ''))) {
+      url.searchParams.set(cle, valeur)
+    }
+    return url.toString()
+  }
+
+  const iframe = /<iframe[^>]*\ssrc\s*=\s*["']([^"']+)["']/i.exec(texte)
+  if (iframe) {
+    return urlReservation(iframe[1], "L'adresse du widget")
+  }
+
+  throw new HttpError(
+    400,
+    "Ce code d'intégration n'a pas été compris. Collez-le en entier, tel que votre agenda vous le donne — ou, à défaut, l'adresse du widget seule.",
+  )
 }
 
 /* ------------------------------------------------------------------ *
@@ -229,10 +276,10 @@ export interface IntegrationBody {
   action: IntegrationAction
   /** Clé Anthropic ou Stripe, selon l'action. */
   key?: string
-  /** Adresse de la page de réservation. */
+  /** Adresse de la page de réservation, en mode « bouton ». */
   url?: string
-  /** Adresse du widget à encadrer, si elle diffère de la page. */
-  widgetUrl?: string
+  /** Code d'intégration de l'agenda, en mode « widget ». */
+  embed?: string
   /** « bouton » ou « widget ». */
   mode?: string
   /** Ouverture de la boutique. */
@@ -300,15 +347,16 @@ export async function appliquerIntegration(token: string | null, raw: unknown): 
       break
 
     case 'rdv': {
-      const page = urlReservation(String(body.url ?? ''), "L'adresse de réservation")
-      const brut = String(body.widgetUrl ?? '').trim()
-      // Un widget vide n'est pas une erreur : c'est la page qui sera encadrée.
-      const widget = brut ? urlReservation(brut, "L'adresse du widget") : null
+      // Deux modes, deux saisies : une adresse quand c'est un bouton, le code
+      // d'intégration de l'agenda quand c'est un widget. Dans les deux cas,
+      // ce qui est enregistré est une adresse — jamais du code à exécuter.
+      const widget = body.mode === 'widget' ? urlDuCodeIntegration(String(body.embed ?? '')) : null
+      const page = widget ?? urlReservation(String(body.url ?? ''), "L'adresse de réservation")
       await ecrire(
         cabinetId,
         {
           booking_url: page,
-          booking_mode: body.mode === 'widget' ? 'widget' : 'bouton',
+          booking_mode: widget ? 'widget' : 'bouton',
           booking_widget_url: widget,
         },
         null,

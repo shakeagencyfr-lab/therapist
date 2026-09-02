@@ -315,8 +315,9 @@ export interface ProfilGenere {
   resume: string
 }
 
-/** Ce qu'une praticienne règle de sa propre marque. Le sous-domaine n'en est
- *  pas : il identifie le cabinet chez son revendeur, et se change là-bas. */
+/** Ce qu'une praticienne règle de sa propre marque. L'identifiant n'en est
+ *  pas : il donne l'adresse publique du cabinet, et se change chez le
+ *  revendeur. */
 export interface MarqueCabinet {
   nom: string
   surTitre: string
@@ -612,8 +613,8 @@ export function useCabinet(cabinetId: string | null): CabinetData {
    * La marque du cabinet, publiée par la praticienne elle-même.
    *
    * La même ligne que règle le revendeur depuis son espace : la RLS autorise
-   * les deux, chacun sur ses cabinets. Le sous-domaine et le rattachement au
-   * revendeur ne bougent pas d'ici — le premier est une adresse publique, le
+   * les deux, chacun sur ses cabinets. L'identifiant et le rattachement au
+   * revendeur ne bougent pas d'ici — le premier donne l'adresse publique, le
    * second est verrouillé en base par un déclencheur.
    *
    * Rien ne recharge le dossier : ce qui change est l'identité du cabinet,

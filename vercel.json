@@ -13,6 +13,14 @@
     {
       "source": "/mon/",
       "destination": "/patient.html"
+    },
+    {
+      "source": "/c/:slug",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/c/:slug/",
+      "destination": "/index.html"
     }
   ]
 }

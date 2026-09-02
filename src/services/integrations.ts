@@ -30,7 +30,8 @@ export type ActionIntegration =
   | { action: 'anthropic-retirer' }
   | { action: 'stripe'; key: string }
   | { action: 'stripe-retirer' }
-  | { action: 'rdv'; url: string; mode: 'bouton' | 'widget'; widgetUrl?: string }
+  | { action: 'rdv'; mode: 'bouton'; url: string }
+  | { action: 'rdv'; mode: 'widget'; embed: string }
   | { action: 'rdv-retirer' }
   | { action: 'boutique'; enabled: boolean }
 

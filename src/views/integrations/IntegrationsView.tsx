@@ -292,15 +292,15 @@ function CleStripe({ etat, enCours, onAgir }: BlocProps) {
 /* ---- Prise de rendez-vous ------------------------------------------------- */
 
 function RendezVous({ etat, enCours, onAgir }: BlocProps) {
-  const [url, setUrl] = useState(etat.bookingUrl ?? '')
-  const [widget, setWidget] = useState(etat.bookingWidgetUrl ?? '')
+  const posee = Boolean(etat.bookingUrl)
   const [mode, setMode] = useState<'bouton' | 'widget'>(etat.bookingMode)
+  /** L'adresse, en mode bouton. Repartir vide quand un widget est en place. */
+  const [url, setUrl] = useState(etat.bookingMode === 'bouton' ? (etat.bookingUrl ?? '') : '')
+  /** Le code d'intégration, en mode widget. Jamais relu : il n'est pas stocké. */
+  const [code, setCode] = useState('')
   const occupe = enCours === 'rdv' || enCours === 'rdv-retirer'
 
-  const inchange =
-    url.trim() === (etat.bookingUrl ?? '') &&
-    widget.trim() === (etat.bookingWidgetUrl ?? '') &&
-    mode === etat.bookingMode
+  const pret = mode === 'bouton' ? Boolean(url.trim()) : Boolean(code.trim())
 
   return (
     <Card className={s.bloc}>
@@ -308,118 +308,114 @@ function RendezVous({ etat, enCours, onAgir }: BlocProps) {
         <Title large as="h2">
           Prise de rendez-vous
         </Title>
-        <span className={etat.bookingUrl ? s.etatOn : s.etatOff}>
-          {etat.bookingUrl ? (etat.bookingMode === 'widget' ? 'Widget intégré' : 'Bouton') : 'Non réglée'}
+        <span className={posee ? s.etatOn : s.etatOff}>
+          {posee ? (etat.bookingMode === 'widget' ? 'Widget intégré' : 'Bouton') : 'Non réglée'}
         </span>
       </div>
       <p className={s.blocText}>
-        L'adresse à laquelle vos patientes réservent. Elle apparaît dans leur espace, sous
-        « Rendez-vous », de la façon que vous choisissez ci-dessous.
+        Là où vos patientes réservent, quel que soit votre agenda. Vous choisissez ce qu'elles
+        voient dans leur espace, sous « Rendez-vous ».
       </p>
+
+      {posee ? (
+        <div className={s.posee}>
+          <span className={s.poseeText}>
+            {etat.bookingMode === 'widget'
+              ? 'Le widget est intégré à leur espace.'
+              : 'Un bouton ouvre votre agenda.'}{' '}
+            <a className={s.link} href={etat.bookingUrl ?? '#'} target="_blank" rel="noreferrer">
+              Voir la page ↗
+            </a>
+          </span>
+          <Button
+            variant="ghost"
+            disabled={occupe}
+            onClick={() =>
+              void onAgir({ action: 'rdv-retirer' }, 'Prise de rendez-vous retirée.').then(() => {
+                setUrl('')
+                setCode('')
+                setMode('bouton')
+              })
+            }
+          >
+            {enCours === 'rdv-retirer' ? 'Retrait…' : 'Retirer'}
+          </Button>
+        </div>
+      ) : null}
 
       <form
         className={s.formCol}
         onSubmit={(e) => {
           e.preventDefault()
           void onAgir(
-            { action: 'rdv', url, mode, widgetUrl: widget.trim() || undefined },
-            'Prise de rendez-vous enregistrée.',
-          )
+            mode === 'widget'
+              ? { action: 'rdv', mode: 'widget', embed: code }
+              : { action: 'rdv', mode: 'bouton', url },
+            mode === 'widget' ? 'Widget de réservation intégré.' : 'Adresse de réservation enregistrée.',
+          ).then(() => setCode(''))
         }}
       >
-        <label className={s.field}>
-          <span className={s.label}>Adresse de réservation</span>
-          <TextInput
-            type="url"
-            inputMode="url"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://reservation.votre-cabinet.fr/"
-            disabled={occupe}
-          />
-          <span className={s.hint}>
-            La page publique de votre agenda, quel qu'il soit. Elle doit être en https.
-          </span>
-        </label>
-
         <fieldset className={s.choix} disabled={occupe}>
           <legend className={s.label}>Comment vos patientes y accèdent</legend>
           <label className={mode === 'bouton' ? `${s.option} ${s.optionOn}` : s.option}>
-            <input
-              type="radio"
-              name="mode-rdv"
-              checked={mode === 'bouton'}
-              onChange={() => setMode('bouton')}
-            />
+            <input type="radio" name="mode-rdv" checked={mode === 'bouton'} onChange={() => setMode('bouton')} />
             <span>
               <span className={s.optionTitle}>Un bouton</span>
               <span className={s.hint}>
-                La réservation s'ouvre dans un nouvel onglet. Marche avec tous les agendas, sans
-                réglage.
+                Votre agenda s'ouvre dans un nouvel onglet. Marche avec tous les agendas, sans
+                réglage. Vous donnez son adresse.
               </span>
             </span>
           </label>
           <label className={mode === 'widget' ? `${s.option} ${s.optionOn}` : s.option}>
-            <input
-              type="radio"
-              name="mode-rdv"
-              checked={mode === 'widget'}
-              onChange={() => setMode('widget')}
-            />
+            <input type="radio" name="mode-rdv" checked={mode === 'widget'} onChange={() => setMode('widget')} />
             <span>
               <span className={s.optionTitle}>Le widget, dans leur espace</span>
               <span className={s.hint}>
-                Elles choisissent leur créneau sans quitter l'application. BookRDV fournit une
-                adresse de widget prévue pour cela ; le bouton reste affiché dessous, au cas où
-                l'agenda refuse d'être encadré.
+                Elles choisissent leur créneau sans quitter l'application. Vous collez le code
+                d'intégration que votre agenda vous donne.
               </span>
             </span>
           </label>
         </fieldset>
 
-        {mode === 'widget' ? (
+        {mode === 'bouton' ? (
           <label className={s.field}>
-            <span className={s.label}>Adresse du widget (facultatif)</span>
+            <span className={s.label}>Adresse de réservation</span>
             <TextInput
               type="url"
               inputMode="url"
-              value={widget}
-              onChange={(e) => setWidget(e.target.value)}
-              placeholder="https://reservation.votre-cabinet.fr/widget"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://mon-cabinet.bookrdv.com/"
+              disabled={occupe}
+            />
+            <span className={s.hint}>La page publique de votre agenda. Elle doit être en https.</span>
+          </label>
+        ) : (
+          <label className={s.field}>
+            <span className={s.label}>Code d'intégration</span>
+            <textarea
+              className={s.code}
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              spellCheck={false}
+              rows={5}
+              placeholder={'<!-- Embedded booking begin -->\n<div class="embedded-booking" data-url="…" data-query="…"></div>\n…'}
               disabled={occupe}
             />
             <span className={s.hint}>
-              Dans BookRDV, c'est l'adresse donnée par « Intégrer sur mon site ». Si votre code
-              d'intégration contient un <code>&lt;iframe src="…"&gt;</code>, collez ce qui est entre
-              les guillemets. Laissée vide, c'est la page de réservation qui est encadrée.
+              Dans BookRDV : « Intégrer sur mon site », puis collez le bloc en entier. Nous n'en
+              gardons que l'adresse de réservation — le script de votre agenda n'est jamais exécuté
+              dans l'espace de vos patientes, qui contient leur dossier.
             </span>
           </label>
-        ) : null}
+        )}
 
         <div className={s.actions}>
-          <Button variant="primary" type="submit" disabled={occupe || !url.trim() || inchange}>
-            {enCours === 'rdv' ? 'Enregistrement…' : 'Enregistrer'}
+          <Button variant="primary" type="submit" disabled={occupe || !pret}>
+            {enCours === 'rdv' ? 'Enregistrement…' : posee ? 'Remplacer' : 'Enregistrer'}
           </Button>
-          {etat.bookingUrl ? (
-            <>
-              <a className={s.link} href={etat.bookingUrl} target="_blank" rel="noreferrer">
-                Voir la page ↗
-              </a>
-              <Button
-                variant="ghost"
-                disabled={occupe}
-                onClick={() =>
-                  void onAgir({ action: 'rdv-retirer' }, 'Prise de rendez-vous retirée.').then(() => {
-                    setUrl('')
-                    setWidget('')
-                    setMode('bouton')
-                  })
-                }
-              >
-                {enCours === 'rdv-retirer' ? 'Retrait…' : 'Retirer'}
-              </Button>
-            </>
-          ) : null}
         </div>
       </form>
     </Card>

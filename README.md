@@ -108,11 +108,20 @@ Deux surfaces, deux adresses :
 | Surface | Adresse | Pour |
 | --- | --- | --- |
 | Espace cabinet | `/` | la thérapeute, et le revendeur |
+| Vitrine d'un cabinet | `/c/<identifiant>` | la même porte, aux couleurs du cabinet |
 | Espace patient | `/mon` | le patient, sur son téléphone |
 
 Ce ne sont pas deux vues d'une même page : ce sont deux points d'entrée Vite
 distincts. Le téléchargement du patient ne contient pas une ligne du code de
 l'espace cabinet — vérifié sur le build, pas supposé.
+
+`/c/<identifiant>` est l'adresse qu'une thérapeute donne : la page s'ouvre à son
+nom et à ses couleurs **avant** la connexion. Personne n'étant connecté à ce
+moment-là, aucune politique RLS ne rendrait la ligne : une fonction dédiée,
+`cabinet_vitrine()`, rend le nom, le sur-titre et les couleurs, et rien d'autre
+(`supabase/tests/vitrine.sql`). Un chemin plutôt qu'un sous-domaine : pas de DNS
+à poser ni de certificat à émettre par cabinet, et l'adresse marche le jour où
+le revendeur ouvre le cabinet.
 
 ## Trois niveaux
 

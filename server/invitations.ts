@@ -98,13 +98,21 @@ export async function envoyerInvitation(
   // ---- Le droit d'inviter, vérifié sous la RLS de l'appelant --------------
   const appelant = clientAppelant(token)
 
+  /** L'identifiant public du cabinet : il donne l'adresse de sa vitrine. */
+  let slugCabinet: string | null = null
+
   if (kind === 'praticienne') {
     // Un revendeur ne voit que ses propres cabinets : si la ligne remonte,
     // c'est qu'il en est le vendeur.
-    const { data, error } = await appelant.from('cabinets').select('id').eq('id', cabinetId).maybeSingle()
+    const { data, error } = await appelant
+      .from('cabinets')
+      .select('id, slug')
+      .eq('id', cabinetId)
+      .maybeSingle<{ id: string; slug: string | null }>()
     if (error || !data) {
       return { status: 403, body: { message: "Ce cabinet n'est pas le vôtre." } }
     }
+    slugCabinet = data.slug
     const { data: invitation } = await appelant
       .from('cabinet_invitations')
       .select('email')
@@ -130,7 +138,10 @@ export async function envoyerInvitation(
   }
 
   // ---- L'envoi, avec la clé de service ------------------------------------
-  const destination = kind === 'patiente' ? `${SITE}/mon` : `${SITE}/`
+  // Une praticienne arrive sur l'adresse de son cabinet quand il en a une :
+  // la porte porte déjà sa marque, avant qu'elle ait entré son adresse.
+  const destination =
+    kind === 'patiente' ? `${SITE}/mon` : slugCabinet ? `${SITE}/c/${slugCabinet}` : `${SITE}/`
   const admin = clientAdmin()
   const { error } = await admin.auth.admin.inviteUserByEmail(email, {
     redirectTo: SITE ? destination : undefined,

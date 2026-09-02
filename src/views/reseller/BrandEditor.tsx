@@ -180,13 +180,13 @@ function Editeur({ row }: { row: PortfolioRow }) {
         </div>
 
         <div className={s.field}>
-          <FieldLabel>Sous-domaine</FieldLabel>
+          <FieldLabel>Identifiant du cabinet</FieldLabel>
           <TextInput
             value={cabinet.slug}
             onChange={(e) => patch({}, { slug: slugify(e.target.value) })}
           />
           <p className={s.panelSub} style={{ margin: '6px 0 0' }}>
-            {adresseCabinet(cabinet.slug || 'sous-domaine')}
+            {adresseCabinet(cabinet.slug || 'identifiant')}
           </p>
         </div>
 
