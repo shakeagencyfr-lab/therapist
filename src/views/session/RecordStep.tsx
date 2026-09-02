@@ -336,6 +336,16 @@ export function RecordStep() {
             >
               Effacer
             </button>
+
+            {/* Le prix se lit là où l'on décide de le payer. Il est déjà en
+                haut de l'écran, mais personne ne remonte vérifier un chiffre
+                avant de cliquer : c'est ici que la dépense est engagée. */}
+            {devis.euros > 0 ? (
+              <span className={s.devis}>
+                Cet appel vous coûtera environ <strong>{euro(devis.euros)}</strong>, au plus{' '}
+                {euro(devis.eurosMax)}.
+              </span>
+            ) : null}
           </div>
 
           {state.notice ? (
