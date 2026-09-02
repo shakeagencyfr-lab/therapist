@@ -58,6 +58,10 @@ export function PatientSpace() {
   const [retour] = useState(retourPaiement)
   const [onglet, setOnglet] = useState<Onglet>(retour.commande || retour.annule ? 'boutique' : 'jour')
 
+  /** L'audio en cours d'écoute : son identifiant et son URL signée. */
+  const [lecture, setLecture] = useState<{ id: string; url: string } | null>(null)
+  const [lectureErreur, setLectureErreur] = useState('')
+
   const [affIdx, setAffIdx] = useState(0)
   const [affFige, setAffFige] = useState(false)
   const [echelle, setEchelle] = useState<number | null>(null)
@@ -85,6 +89,32 @@ export function PatientSpace() {
     if (!db) return
     const { error } = await db.rpc('patient_set_module_done', { p_module: id, p_done: done })
     if (!error) await recharger()
+  }
+
+  /**
+   * Écouter : une URL signée d'une heure sur le fichier privé, obtenue sous
+   * ses propres droits — elle ne voit que ce qui lui a été envoyé. L'écoute
+   * est comptée au démarrage, comme avant.
+   */
+  async function ecouter(id: string, chemin: string | undefined) {
+    const db = supabase()
+    if (!db) return
+    if (lecture?.id === id) {
+      setLecture(null)
+      return
+    }
+    setLectureErreur('')
+    if (!chemin) {
+      setLectureErreur("Cet audio n'a pas de fichier associé.")
+      return
+    }
+    const { data, error } = await db.storage.from('audios').createSignedUrl(chemin, 3600)
+    if (error || !data?.signedUrl) {
+      setLectureErreur("L'audio n'a pas pu être ouvert. Réessayez dans un instant.")
+      return
+    }
+    setLecture({ id, url: data.signedUrl })
+    void db.rpc('patient_count_listen', { p_audio: id }).then(() => recharger())
   }
 
   async function noterEchelle(valeur: number) {
@@ -203,26 +233,36 @@ export function PatientSpace() {
               <span className={s.sectionTitle}>Vos audios</span>
               <span className={s.count}>Écoutables hors connexion</span>
             </div>
-            {audios.map((a) => (
-              <div key={a.id} className={s.audio}>
-                <button
-                  type="button"
-                  className={s.play}
-                  style={{ color: patient.branding?.accent }}
-                  aria-label={`Écouter ${a.audio?.title ?? 'cet audio'}`}
-                  onClick={() => void supabase()?.rpc('patient_count_listen', { p_audio: a.id })}
-                >
-                  ▶
-                </button>
-                <span>
-                  <span className={s.audioTitle}>{a.audio?.title}</span>
-                  <span className={s.audioMeta}>
-                    {a.listens > 0 ? `Écouté ${a.listens} fois` : 'Jamais écouté'}
-                  </span>
-                </span>
-                <span className={s.duration}>{timecode(a.audio?.duration_seconds ?? 0)}</span>
-              </div>
-            ))}
+            {lectureErreur ? <p className={s.frameNote}>{lectureErreur}</p> : null}
+            {audios.map((a) => {
+              const enCours = lecture?.id === a.id
+              return (
+                <div key={a.id}>
+                  <div className={s.audio}>
+                    <button
+                      type="button"
+                      className={s.play}
+                      style={{ color: patient.branding?.accent }}
+                      aria-label={`${enCours ? 'Fermer' : 'Écouter'} ${a.audio?.title ?? 'cet audio'}`}
+                      aria-pressed={enCours}
+                      onClick={() => void ecouter(a.id, a.audio?.storage_path)}
+                    >
+                      {enCours ? '■' : '▶'}
+                    </button>
+                    <span>
+                      <span className={s.audioTitle}>{a.audio?.title ?? 'Audio'}</span>
+                      <span className={s.audioMeta}>
+                        {a.listens > 0 ? `Écouté ${a.listens} fois` : 'Jamais écouté'}
+                      </span>
+                    </span>
+                    <span className={s.duration}>{timecode(a.audio?.duration_seconds ?? 0)}</span>
+                  </div>
+                  {enCours ? (
+                    <audio className={s.lecteur} controls autoPlay preload="auto" src={lecture.url} />
+                  ) : null}
+                </div>
+              )
+            })}
           </section>
         ) : null}
 

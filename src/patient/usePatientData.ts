@@ -22,7 +22,7 @@ export interface PatientModuleRow {
 export interface PatientAudioRow {
   id: string
   listens: number
-  audio: { title: string; duration_seconds: number; meta: string | null } | null
+  audio: { title: string; duration_seconds: number; meta: string | null; storage_path: string } | null
 }
 
 export interface PatientData {
@@ -63,7 +63,7 @@ export function usePatientData(patientId: string | null): PatientData {
     const [mods, affs, auds, fiche, echelle, reglages] = await Promise.all([
       db.from('patient_modules').select('id, title, meta, kind, position, done_at, patient_note').order('position'),
       db.from('affirmations').select('text, position').not('published_at', 'is', null).order('position'),
-      db.from('patient_audios').select('id, listens, audio:audio_library (title, duration_seconds, meta)'),
+      db.from('patient_audios').select('id, listens, audio:audio_library (title, duration_seconds, meta, storage_path)'),
       db.from('patients').select('scale_question').limit(1).maybeSingle(),
       db.from('scale_entries').select('value, recorded_at').order('recorded_at', { ascending: false }).limit(1),
       // Ce que la patiente voit de son cabinet : l'agenda et la boutique, rien
