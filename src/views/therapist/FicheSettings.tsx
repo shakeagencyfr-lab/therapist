@@ -15,11 +15,11 @@ const REPLI_PROCHAINE = 'Aucune séance planifiée'
  * et sa question, la prochaine séance. Replié par défaut : c'est un réglage,
  * pas une lecture quotidienne.
  */
-export function FicheSettings() {
+export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: boolean } = {}) {
   const state = useAppState()
   const cabinet = useMaybeCabinet()
   const fiche = patientOf(state)
-  const [ouvert, setOuvert] = useState(false)
+  const [ouvert, setOuvert] = useState(ouvertParDefaut)
   const [envoi, setEnvoi] = useState(false)
   const [notice, setNotice] = useState<{ tone: 'ok' | 'warn'; text: string } | null>(null)
 
@@ -47,7 +47,7 @@ export function FicheSettings() {
     setQuestion(fiche.scaleQuestion)
     setProchaine(fiche.nextSession === REPLI_PROCHAINE ? '' : fiche.nextSession)
     setNotice(null)
-    setOuvert(false)
+    setOuvert(ouvertParDefaut)
     setNouveau('')
     setSuppression('')
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -133,9 +133,11 @@ export function FicheSettings() {
             </span>
           ) : null}
         </div>
-        <Button variant={ouvert ? 'ghost' : 'secondary'} onClick={() => setOuvert((o) => !o)}>
-          {ouvert ? 'Fermer' : 'Modifier la fiche'}
-        </Button>
+        {ouvertParDefaut ? null : (
+          <Button variant={ouvert ? 'ghost' : 'secondary'} onClick={() => setOuvert((o) => !o)}>
+            {ouvert ? 'Fermer' : 'Modifier la fiche'}
+          </Button>
+        )}
       </div>
 
       {notice ? (

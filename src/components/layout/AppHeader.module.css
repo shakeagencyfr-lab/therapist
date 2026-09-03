@@ -56,18 +56,47 @@
   margin-left: auto;
 }
 
-/* Neuf vues dans le commutateur : sur un écran moyen, la rangée défile
-   horizontalement plutôt que de se tasser ou de casser la ligne. */
+/* Cinq vues et un menu : la rangée tient sur un écran moyen sans défiler. */
 .right > * {
   flex: none;
 }
-@media (max-width: 1240px) {
-  .right {
-    overflow-x: auto;
-    scrollbar-width: thin;
-    padding-bottom: 2px;
-    -webkit-overflow-scrolling: touch;
-  }
+
+/* Les réglages, derrière un bouton ------------------------------------- */
+
+.reglages {
+  position: relative;
+}
+
+.reglagesBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-pill);
+  background: var(--c-surface);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--c-text-4);
+}
+.reglagesBtn:hover {
+  background: var(--c-surface-2);
+}
+.reglagesBtnOn {
+  color: var(--c-text);
+  border-color: var(--c-accent);
+}
+
+.reglagesChevron {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.menuItemOn {
+  color: var(--c-accent);
+  font-weight: 500;
 }
 
 .me {

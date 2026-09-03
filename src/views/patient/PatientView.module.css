@@ -12,6 +12,21 @@
   padding-top: 18px;
 }
 
+.retour {
+  display: inline-block;
+  margin-bottom: 18px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--c-accent);
+  cursor: pointer;
+}
+.retour:hover {
+  text-decoration: underline;
+}
+
 .h1 {
   font-family: var(--font-serif);
   font-weight: 400;
