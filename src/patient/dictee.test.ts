@@ -5,53 +5,107 @@ import { ajouterDicte } from './useDictee'
  * Ce qui est dicté ne doit ni se perdre ni se répéter.
  *
  * Le navigateur renvoie la même phrase plusieurs fois, de plus en plus
- * complète, puis passe à la suivante. Sans la règle de remplacement, une
- * personne qui dicte trois phrases en relit sept.
+ * complète, puis passe à la suivante — et après une coupure, il republie ce
+ * qu'il vient de rendre. Sans la comparaison au dernier segment, une
+ * personne qui dicte une phrase la relit huit fois : c'est exactement ce qui
+ * s'est produit en production.
  */
+
+/** Rejoue une suite de segments comme le navigateur les envoie. */
+function dicter(segments: string[], depart = ''): string {
+  let texte = depart
+  let precedent = ''
+  for (const brut of segments) {
+    const suite = ajouterDicte(texte, brut, precedent)
+    texte = suite.texte
+    precedent = suite.segment
+  }
+  return texte
+}
+
 describe('ajouterDicte', () => {
   it('pose le premier segment tel quel', () => {
-    expect(ajouterDicte('', 'j’ai mal dormi', false)).toBe('j’ai mal dormi')
+    expect(dicter(['bonjour'])).toBe('bonjour')
+  })
+
+  /* LA RÉGRESSION. Le navigateur complète sa phrase mot à mot ; chaque envoi
+     doit remplacer le précédent, pas s'ajouter derrière. */
+  it("ne répète pas une phrase que le navigateur complète", () => {
+    expect(
+      dicter([
+        'bonjour je',
+        'bonjour je ne',
+        'bonjour je ne me sens',
+        'bonjour je ne me sens pas bien',
+      ]),
+    ).toBe('bonjour je ne me sens pas bien')
+  })
+
+  it('ignore une republication à l’identique, même répétée', () => {
+    expect(dicter(['je suis fatiguée', 'je suis fatiguée', 'je suis fatiguée'])).toBe(
+      'je suis fatiguée',
+    )
+  })
+
+  it('ignore une republication tronquée', () => {
+    expect(dicter(['j’ai mal dormi cette nuit', 'j’ai mal dormi'])).toBe('j’ai mal dormi cette nuit')
   })
 
   /* La séance met chaque segment sur sa ligne — c'est son seul indice de tour
      de parole. Un journal, lui, s'écrit en paragraphes. */
-  it('enchaîne en prose, pas une ligne par phrase', () => {
-    expect(ajouterDicte('J’ai mal dormi.', 'Je me suis levée à quatre heures.', false)).toBe(
+  it('enchaîne les phrases neuves en prose, séparées d’une espace', () => {
+    expect(dicter(['J’ai mal dormi.', 'Je me suis levée à quatre heures.'])).toBe(
       'J’ai mal dormi. Je me suis levée à quatre heures.',
     )
   })
 
-  it('remplace la phrase quand le navigateur la complète', () => {
-    expect(ajouterDicte('j’ai mal', 'j’ai mal dormi cette nuit', true)).toBe(
-      'j’ai mal dormi cette nuit',
+  it('reprend après ce que la personne avait déjà tapé', () => {
+    expect(dicter(['la nuit a été longue'], 'Déjà écrit à la main.')).toBe(
+      'Déjà écrit à la main. la nuit a été longue',
     )
   })
 
-  it('ignore une republication plus courte', () => {
-    expect(ajouterDicte('j’ai mal dormi cette nuit', 'j’ai mal dormi', true)).toBe(
-      'j’ai mal dormi cette nuit',
-    )
+  /* Après une coupure du navigateur, la même phrase revient alors que le
+     dernier segment a été oublié : la fin du texte sert de second garde-fou. */
+  it('ne réécrit pas une phrase déjà posée à la fin', () => {
+    expect(ajouterDicte('bonjour je suis là', 'je suis là', '').texte).toBe('bonjour je suis là')
   })
 
-  /* Une correction n'est pas une continuation : si la phrase repart
-     autrement, elle s'ajoute au lieu d'effacer ce qui précède. */
-  it('ajoute quand la nouvelle phrase ne prolonge pas la précédente', () => {
-    expect(ajouterDicte('j’ai mal dormi', 'la journée a été longue', true)).toBe(
-      'j’ai mal dormi la journée a été longue',
-    )
-  })
-
-  /* Les retours à la ligne tapés à la main sont à la personne : la dictée
-     complète le dernier paragraphe sans les écraser. */
-  it('préserve les retours à la ligne déjà écrits', () => {
-    expect(ajouterDicte('Premier paragraphe.\n\nDeuxième', ' Deuxième paragraphe.', true)).toBe(
-      'Premier paragraphe.\n\nDeuxième paragraphe.',
-    )
-    expect(ajouterDicte('Une ligne.\n', 'La suivante.', false)).toBe('Une ligne.\nLa suivante.')
+  it('répète une phrase que la personne redit vraiment, ailleurs', () => {
+    // « oui » deux fois de suite est une répétition volontaire quand une
+    // autre phrase les sépare : on ne la mange pas.
+    expect(dicter(['oui', 'je crois', 'oui'])).toBe('oui je crois oui')
   })
 
   it('ne double pas les espaces et ignore un segment vide', () => {
-    expect(ajouterDicte('Bonjour', '   ', false)).toBe('Bonjour')
-    expect(ajouterDicte('Bonjour ', 'madame', false)).toBe('Bonjour madame')
+    expect(dicter(['   '], 'Bonjour')).toBe('Bonjour')
+    expect(dicter(['madame'], 'Bonjour ')).toBe('Bonjour madame')
+  })
+})
+
+/**
+ * Le cas signalé en production, rejoué tel quel.
+ *
+ * Capture du 3 septembre : « 1 2 1 2 bonjour je ne me sens mal non » écrit
+ * huit fois d'affilée dans le mot pour la thérapeute. Le navigateur avait
+ * envoyé la phrase par morceaux croissants, puis l'avait republiée après ses
+ * coupures — et chaque envoi s'ajoutait.
+ */
+describe('la duplication constatée en production', () => {
+  it('rend une seule fois la phrase, quels que soient les renvois', () => {
+    const commeLeNavigateur = [
+      '1 2',
+      '1 2 1 2',
+      '1 2 1 2 bonjour',
+      '1 2 1 2 bonjour je ne',
+      '1 2 1 2 bonjour je ne me sens mal',
+      '1 2 1 2 bonjour je ne me sens mal non',
+      // Republications après coupure de la reconnaissance.
+      '1 2 1 2 bonjour je ne me sens mal non',
+      '1 2 1 2 bonjour je ne me sens mal non',
+    ]
+    const ecrit = dicter(commeLeNavigateur)
+    expect(ecrit).toBe('1 2 1 2 bonjour je ne me sens mal non')
+    expect(ecrit.match(/bonjour/g)).toHaveLength(1)
   })
 })
