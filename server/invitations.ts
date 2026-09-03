@@ -129,11 +129,14 @@ function corpsInvitation(
   cabinet: string,
   lien: string,
 ): { subject: string; text: string; html: string } {
-  const objet = kind === 'patiente' ? `Votre espace — ${cabinet}` : `Votre cabinet sur ${cabinet}`
+  /* `cabinet` est le nom du cabinet lui-même. L'objet disait donc « Votre
+     cabinet sur Cabinet Claire Fontaine » : son cabinet sur son cabinet. La
+     praticienne est invitée DANS le sien, pas sur quelque chose d'autre. */
+  const objet = kind === 'patiente' ? `Votre espace — ${cabinet}` : `${cabinet} vous attend`
   const intro =
     kind === 'patiente'
       ? `${cabinet} vous a ouvert votre espace entre les séances : vos exercices de la semaine, votre journal et vos audios.`
-      : `Votre cabinet est ouvert sur ${cabinet}. Ce lien vous connecte et vous en rend propriétaire.`
+      : `${cabinet} est ouvert. Ce lien vous y connecte et vous en rend propriétaire.`
   const text = `${intro}\n\nVotre lien de connexion :\n${lien}\n\nIl vous connecte directement, sans mot de passe à retenir. Si vous n'attendiez pas ce message, ignorez-le : personne n'a accès à votre espace sans ce lien.`
   const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.6;color:#1b1a17">
   <p>${echapper(intro)}</p>

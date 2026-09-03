@@ -75,7 +75,7 @@ export function NotificationsView() {
       <div className={s.crumb}>
         <Overline>Notifications</Overline>
       </div>
-      <h1 className={s.h1}>Écrire à un groupe de patients</h1>
+      <h1 className={s.h1}>Écrire à un groupe de patientes</h1>
       <p className={s.intro}>
         Les filtres composent le groupe à partir de ce que l'application sait déjà : programme,
         assiduité, modules en retard, rendez-vous manquant. Vous voyez la liste nominative avant
@@ -171,7 +171,7 @@ export function NotificationsView() {
             <div className={s.recipientsHead}>
               <h2 className={s.h2}>Destinataires</h2>
               <span className={s.count}>
-                {recipients.length} sur {rows.length} patients
+                {recipients.length} sur {rows.length} patientes
               </span>
             </div>
             <ul className={s.list}>
@@ -187,7 +187,7 @@ export function NotificationsView() {
             </ul>
             {recipients.length === 0 && (
               <div className={s.noRecipients}>
-                Aucun patient ne correspond à cette combinaison de filtres.
+                Aucune patiente ne correspond à cette combinaison de filtres.
               </div>
             )}
           </Card>
@@ -211,7 +211,7 @@ export function NotificationsView() {
               rows={4}
               value={state.nMsg}
               onChange={(e) => set({ nMsg: e.target.value })}
-              placeholder="Deux phrases suffisent. Le patient reçoit ceci sur son écran verrouillé."
+              placeholder="Deux phrases suffisent. Elle le lira en haut de sa journée, à sa prochaine ouverture."
               aria-label="Message de la notification"
             />
             <div className={s.templates}>
@@ -292,18 +292,18 @@ export function NotificationsView() {
               </div>
               <div className={previewMsg ? s.previewMsg : `${s.previewMsg} ${s.ghost}`}>
                 {previewMsg ||
-                  'Le message apparaîtra ici, tel que le patient le verra sur son écran verrouillé.'}
+                  'Le message apparaîtra ici, tel qu\u2019elle le verra en ouvrant son espace.'}
               </div>
             </div>
 
             <div className={s.sendRow}>
               <Button variant="primary" className={s.send} disabled={!canSend} onClick={() => void send()}>
-                {canSend ? `Envoyer à ${plural(recipients.length, 'patient', 'patients')}` : 'Envoyer'}
+                {canSend ? `Écrire à ${plural(recipients.length, 'patiente', 'patientes')}` : 'Envoyer'}
               </Button>
               <span className={s.sendHint}>
                 {state.pushes.length
-                  ? `Dernier envoi : ${state.pushes[0].names.length} destinataires.`
-                  : "Aucune notification n'est envoyée deux fois dans la même journée."}
+                  ? `Dernier envoi : ${plural(state.pushes[0].names.length, 'destinataire', 'destinataires')}.`
+                  : 'Le mot attend dans son espace : il ne sonne pas, il ne réveille personne.'}
               </span>
             </div>
           </Card>
@@ -314,7 +314,8 @@ export function NotificationsView() {
                 <Title>Envoyés</Title>
               </div>
               <div className={s.logSub}>
-                Une seule notification par patient et par jour, quel que soit le nombre d'envois.
+                Chaque mot attend dans son espace : elle le lit en haut de sa journée, à sa
+                prochaine ouverture.
               </div>
               <ul className={s.logList}>
                 {state.pushes.map((push, i) => (

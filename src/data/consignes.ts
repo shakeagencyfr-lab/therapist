@@ -140,7 +140,7 @@ export const CONSIGNES: Record<string, Consigne> = {
     quand: 'Dès que vous voyez ce module',
     steps: [
       "Ouvrez l'agenda et prenez le premier créneau qui vous convient.",
-      'Si aucun créneau ne convient, écrivez-le ici, Laetitia vous rappelle.',
+      'Si aucun créneau ne convient, écrivez-le ici : votre thérapeute vous rappelle.',
     ],
     why: "Un programme interrompu à la cinquième semaine sur six perd l'essentiel de ce qui a été construit. Reprendre maintenant coûte moins que recommencer.",
   },
@@ -211,7 +211,7 @@ export const CONSIGNE_PAR_TYPE: Partial<Record<ModuleKind, Consigne>> = {
     steps: [
       "Écrivez ce qui s'est passé, en deux phrases.",
       'Notez ce que le corps a fait avant les pensées.',
-      'Choisissez si vous le partagez avec Laetitia.',
+      'Choisissez si vous le partagez avec votre thérapeute.',
     ],
   },
   'Écriture': {

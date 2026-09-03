@@ -126,6 +126,23 @@
   line-height: 1.45;
 }
 
+/* La relance annoncée par l'encart : un geste, pas une promesse. */
+.slipAction {
+  margin-top: 9px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--c-accent);
+  text-align: left;
+}
+.slipAction:hover {
+  text-decoration: underline;
+}
+
 /* Sous 900px la barre latérale devient un tiroir posé sur la fiche. */
 @media (max-width: 900px) {
   .sidebar {

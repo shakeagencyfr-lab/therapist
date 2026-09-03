@@ -25,6 +25,20 @@ export interface PatientAudioRow {
   audio: { title: string; duration_seconds: number; meta: string | null; storage_path: string } | null
 }
 
+/**
+ * Un mot du cabinet, adressé à cette patiente.
+ *
+ * La thérapeute les écrit depuis l'écran Notifications. Ils étaient
+ * enregistrés, adressés, et jamais lus : aucun écran de l'espace ne les
+ * ouvrait. Ils s'affichent maintenant en haut de la journée, et se marquent
+ * lus à l'ouverture.
+ */
+export interface MotRow {
+  push_id: string
+  read_at: string | null
+  push: { title: string; body: string; created_at: string } | null
+}
+
 /** Une page du journal, telle que la patiente l'a écrite. */
 export interface JournalPageRow {
   id: string
@@ -36,6 +50,10 @@ export interface JournalPageRow {
 
 export interface PatientData {
   modules: PatientModuleRow[]
+  /** Les mots de son cabinet, du plus récent au plus ancien. */
+  mots: MotRow[]
+  /** Marque un mot comme lu. La pastille disparaît, le mot reste. */
+  marquerMotLu: (pushId: string) => Promise<void>
   /** Son journal, de la plus récente à la plus ancienne. */
   journal: JournalPageRow[]
   /**
@@ -66,6 +84,7 @@ export interface PatientData {
 
 export function usePatientData(patientId: string | null): PatientData {
   const [modules, setModules] = useState<PatientModuleRow[]>([])
+  const [mots, setMots] = useState<MotRow[]>([])
   const [journal, setJournal] = useState<JournalPageRow[]>([])
   const [journalIllisible, setJournalIllisible] = useState(false)
   const [affirmations, setAffirmations] = useState<string[]>([])
@@ -87,7 +106,7 @@ export function usePatientData(patientId: string | null): PatientData {
     }
     setErreur('')
 
-    const [mods, affs, auds, fiche, echelle, reglages, pages] = await Promise.all([
+    const [mods, affs, auds, fiche, echelle, reglages, pages, courriers] = await Promise.all([
       db.from('patient_modules').select('id, title, meta, kind, position, done_at, patient_note').order('position'),
       db.from('affirmations').select('text, position').not('published_at', 'is', null).order('position'),
       db.from('patient_audios').select('id, listens, audio:audio_library (title, duration_seconds, meta, storage_path)'),
@@ -101,6 +120,11 @@ export function usePatientData(patientId: string | null): PatientData {
         .select('id, title, body, shared, written_at')
         .order('written_at', { ascending: false })
         .limit(60),
+      // Les mots du cabinet. Un échec ici ne barre pas la journée.
+      db
+        .from('push_recipients')
+        .select('push_id, read_at, push:push_notifications (title, body, created_at)')
+        .limit(20),
     ])
 
     const premiere = [mods.error, affs.error, auds.error, fiche.error, echelle.error].find(Boolean)
@@ -115,6 +139,13 @@ export function usePatientData(patientId: string | null): PatientData {
        lisibles — mais il se dit, au lieu de passer pour un journal vide. */
     setJournalIllisible(Boolean(pages.error))
     setJournal((pages.data ?? []) as JournalPageRow[])
+    /* Du plus récent au plus ancien : le tri se fait ici, la date étant sur
+       la notification et non sur la ligne de destinataire. */
+    setMots(
+      ((courriers.data ?? []) as unknown as MotRow[])
+        .filter((m) => m.push)
+        .sort((a, b) => (b.push?.created_at ?? '').localeCompare(a.push?.created_at ?? '')),
+    )
     setAffirmations(((affs.data ?? []) as Array<{ text: string }>).map((a) => a.text))
     setAudios((auds.data ?? []) as unknown as PatientAudioRow[])
     if (fiche.data?.scale_question) setScaleQuestion(fiche.data.scale_question)
@@ -135,12 +166,35 @@ export function usePatientData(patientId: string | null): PatientData {
     setChargement(false)
   }, [patientId])
 
+  /**
+   * Marquer un mot comme lu.
+   *
+   * L'état local suit sans attendre la base : la pastille doit disparaître au
+   * doigt posé, pas au retour du réseau. Un échec d'écriture laisse le mot
+   * non lu en base — il se remarquera à la prochaine ouverture, ce qui est
+   * moins gênant que l'inverse.
+   */
+  const marquerMotLu = useCallback(async (pushId: string) => {
+    setMots((prev) =>
+      prev.map((m) => (m.push_id === pushId && !m.read_at ? { ...m, read_at: new Date().toISOString() } : m)),
+    )
+    const db = supabase()
+    if (!db) return
+    await db
+      .from('push_recipients')
+      .update({ read_at: new Date().toISOString() })
+      .eq('push_id', pushId)
+      .is('read_at', null)
+  }, [])
+
   useEffect(() => {
     void recharger()
   }, [recharger])
 
   return {
     modules,
+    mots,
+    marquerMotLu,
     journal,
     journalIllisible,
     affirmations,

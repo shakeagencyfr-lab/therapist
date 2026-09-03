@@ -161,20 +161,23 @@ export function PatientHome() {
 
   /* Échelle du soir ---------------------------------------------------- */
   const logged = (state.scaleLog[key] ?? []).length
+  /* Le retour ne commente que la note du jour. Il annonçait « en baisse par
+     rapport à la semaine dernière » sans avoir comparé quoi que ce soit —
+     une phrase qui a l'air d'un constat clinique et n'en est pas un. */
   const feedback =
     logged === 0
       ? "Quinze secondes, une fois par jour. C'est tout ce qui est demandé."
       : state.scale <= 2
-        ? `Noté à ${state.scale}. Laetitia le verra avant votre séance.`
+        ? `Noté à ${state.scale}. Votre thérapeute le verra avant votre séance.`
         : state.scale <= 5
-          ? `Noté à ${state.scale}. En baisse par rapport à la semaine dernière.`
+          ? `Noté à ${state.scale}. C'est enregistré ; rien d'autre n'est attendu ce soir.`
           : `Noté à ${state.scale}. Pensez à l'audio de la semaine ce soir.`
 
   /* Journal ------------------------------------------------------------ */
   const pages = state.pages[key] ?? []
   const shared = pages.filter((g) => g.shared).length
   const journalSubtitle = pages.length
-    ? `${pages.length} ${pages.length > 1 ? 'pages' : 'page'} · ${shared} partagée${shared > 1 ? 's' : ''} avec Laetitia`
+    ? `${pages.length} ${pages.length > 1 ? 'pages' : 'page'} · ${shared} partagée${shared > 1 ? 's' : ''} avec sa thérapeute`
     : 'Aucune page encore. Vous pouvez commencer quand vous voulez.'
 
   /* Notification récente ------------------------------------------------ */
@@ -261,7 +264,7 @@ export function PatientHome() {
           <div className={s.playerOverline}>Votre séance d'écoute</div>
           <div className={s.playerTitle}>{current ? current.title : '—'}</div>
           <div className={s.playerMeta}>
-            {`Enregistré par Laetitia · ${current ? current.duration : '00:00'}`}
+            {`Enregistré par sa thérapeute · ${current ? current.duration : '00:00'}`}
           </div>
           <div className={s.playerTrack}>
             <div
@@ -357,7 +360,7 @@ export function PatientHome() {
 
       <div className={s.section}>
         <div className={s.panel}>
-          <div className={s.panelTitle}>Un mot pour Laetitia</div>
+          <div className={s.panelTitle}>Un mot pour sa thérapeute</div>
           <div className={s.panelSub}>
             Ce que vous écrivez ici arrive dans son dossier avant la séance.
           </div>
@@ -367,14 +370,14 @@ export function PatientHome() {
             value={state.note}
             placeholder="Ce qui s'est passé, ce qui a déclenché…"
             onChange={(e) => set({ note: e.target.value, noteSent: false })}
-            aria-label="Un mot pour Laetitia"
+            aria-label="Un mot pour sa thérapeute"
           />
           <button
             type="button"
             className={state.note.trim() ? `${s.noteBtn} ${s.noteBtnOn}` : s.noteBtn}
             onClick={shareNote}
           >
-            {state.noteSent && !state.note ? '✓ Transmis à Laetitia' : 'Partager avec Laetitia'}
+            {state.noteSent && !state.note ? '✓ Transmis' : 'Partager avec sa thérapeute'}
           </button>
         </div>
       </div>

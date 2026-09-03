@@ -253,8 +253,18 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
               {slipping === 1 ? '1 patient décroche' : `${slipping} patients décrochent`}
             </div>
             <div className={s.slipBody}>
-              Moins de 50 % des modules réalisés cette semaine. Une relance est proposée.
+              Moins de 50 % des modules réalisés cette semaine.
             </div>
+            {/* L'encart annonçait « une relance est proposée » sans que rien
+                ne la propose. Elle l'est maintenant : le bouton ouvre l'écran
+                des notifications avec ce groupe déjà composé. */}
+            <button
+              type="button"
+              className={s.slipAction}
+              onClick={() => set({ mode: 'notif', nProgs: {}, nSits: {}, nAdh: 'low' })}
+            >
+              Leur écrire un mot →
+            </button>
           </div>
         ) : null}
       </aside>
