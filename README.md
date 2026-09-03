@@ -73,7 +73,7 @@ src/
   styles/             jetons de design et styles globaux
   theme/              marque blanche : accent et sombre paramétrables
   types/              modèle de domaine
-  views/              les dix écrans du cabinet, plus l'espace revendeur
+  views/              les écrans du cabinet, plus l'espace revendeur et la vitrine publique
 ```
 
 ## Ce qui est porté depuis le prototype
@@ -83,7 +83,7 @@ Le prototype est une **référence de design** : un fichier unique piloté par u
 Les différences volontaires :
 
 - **Les appels IA partent du serveur.** Le prototype appelait `window.claude.complete`
-  depuis la page. Ici, quatre routes `POST /api/ai/*` portent les prompts ; le client
+  depuis la page. Ici, cinq routes `POST /api/ai/*` portent les prompts ; le client
   n'a ni clé ni prompt. La logique vit dans `server/ai.ts` et deux enveloppes
   l'exposent : Express en développement, fonctions serverless sur Vercel.
 - **Sorties structurées** plutôt qu'extraction de JSON à la regex : le schéma de
