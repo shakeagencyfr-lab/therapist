@@ -1334,6 +1334,11 @@ export function useCabinet(cabinetId: string | null): CabinetData {
             meta: m.meta,
             kind: m.kind,
             source: 'seance',
+            /* Le « pourquoi » de la séance devient la consigne du module.
+               Il n'y a pas d'étapes — le brouillon n'en produit pas — mais
+               savoir à quoi sert un exercice change tout pour qui doit le
+               faire seul, un soir de semaine. */
+            consigne: m.pourquoi ? { why: m.pourquoi } : null,
             position: position++,
           })),
         )

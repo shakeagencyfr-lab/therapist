@@ -94,6 +94,14 @@ export interface PatientModule {
   fresh?: boolean
   /** Le mot que le patient a posé sur cet exercice, s'il y en a un. */
   note?: string
+  /**
+   * Pourquoi ce module, dans les mots de la séance.
+   *
+   * Le brouillon de séance le produit pour chaque proposition, et il était
+   * jeté au moment d'écrire le parcours : le patient recevait un titre à
+   * cocher, sans jamais savoir ce qu'on attendait de lui.
+   */
+  pourquoi?: string
 }
 
 /** Un audio envoyé à un patient. */

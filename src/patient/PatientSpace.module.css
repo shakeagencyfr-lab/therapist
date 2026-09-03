@@ -305,7 +305,12 @@
 
 .tab {
   flex: 1;
-  min-height: 54px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 58px;
   border: none;
   background: transparent;
   /* Quatre entrées au lieu de deux : le libellé se resserre plutôt que de
@@ -543,29 +548,8 @@
   margin-top: 5px;
 }
 
-/* La note libre d'une tâche ---------------------------------------------- *
-   La fonction existe en base depuis 0007 et la colonne était lue sans jamais
-   être écrite : aucun écran n'offrait d'écrire. C'est pourtant ce que
-   l'aperçu de la thérapeute promet depuis le début — un mot pour elle, posé
-   sur l'exercice plutôt que dans le journal. */
-
-.noteOuvrir {
-  align-self: flex-start;
-  margin-top: 6px;
-  padding: 0;
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--c-accent);
-  text-align: left;
-}
-.noteOuvrir:hover {
-  text-decoration: underline;
-}
-
+/* Le mot déjà écrit sur une tâche, visible dans la liste : il rappelle ce
+   qu'on en a dit sans avoir à l'ouvrir. */
 .noteEcrite {
   display: block;
   font-size: 12.5px;
@@ -576,48 +560,139 @@
   border-left: 2px solid var(--c-accent-soft);
 }
 
-.noteZone {
-  width: 100%;
-  margin-top: 8px;
-  padding: 9px 11px;
-  border: 1px solid var(--c-border);
-  border-radius: 11px;
-  background: var(--c-surface);
-  font-family: inherit;
-  font-size: 13.5px;
-  line-height: 1.5;
-  color: var(--c-text);
-  resize: vertical;
-}
-.noteZone:focus {
-  outline: none;
-  border-color: var(--c-accent);
+
+
+/* Les icônes de la barre du bas ------------------------------------------ *
+   Elles bougent à l'arrivée sur l'onglet, une fois, puis s'arrêtent : une
+   animation qui tourne en boucle dans un coin de l'écran tire l'œil vers un
+   endroit où il n'y a rien à faire. */
+
+.tabIcone {
+  width: 21px;
+  height: 21px;
+  flex: none;
+  transition: transform 0.2s ease;
 }
 
-.noteBoutons {
+.tabLabel {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* L'onglet actif : l'icône monte d'un cheveu, et son détail s'anime. */
+.tabOn .tabIcone {
+  transform: translateY(-1px);
+}
+
+.tabOn .tabIcone :global(.rayons) {
+  transform-origin: 12px 12px;
+  animation: rayonne 0.5s ease-out;
+}
+@keyframes rayonne {
+  from {
+    transform: scale(0.6) rotate(-25deg);
+    opacity: 0.3;
+  }
+  to {
+    transform: scale(1) rotate(0);
+    opacity: 1;
+  }
+}
+
+.tabOn .tabIcone :global(.page) {
+  transform-origin: 16px 12px;
+  animation: tourne 0.45s ease-out;
+}
+@keyframes tourne {
+  from {
+    transform: rotateY(-70deg);
+  }
+  to {
+    transform: rotateY(0);
+  }
+}
+
+.tabOn .tabIcone :global(.pastille) {
+  transform-origin: 12px 15px;
+  animation: bat 0.5s ease-out;
+}
+@keyframes bat {
+  0% {
+    transform: scale(0.2);
+  }
+  60% {
+    transform: scale(1.35);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.tabOn .tabIcone :global(.panier) {
+  transform-origin: 12px 8px;
+  animation: balance 0.55s ease-out;
+}
+@keyframes balance {
+  0% {
+    transform: rotate(-11deg);
+  }
+  55% {
+    transform: rotate(7deg);
+  }
+  100% {
+    transform: rotate(0);
+  }
+}
+
+.tabOn .tabIcone :global(.tete) {
+  animation: acquiesce 0.45s ease-out;
+}
+@keyframes acquiesce {
+  0% {
+    transform: translateY(-2.5px);
+  }
+  60% {
+    transform: translateY(1px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+/* Réduire les animations n'est pas un goût : c'est parfois un besoin
+   médical, et le système le dit déjà pour l'utilisateur. */
+@media (prefers-reduced-motion: reduce) {
+  .tabIcone,
+  .tabOn .tabIcone :global(*) {
+    animation: none !important;
+    transition: none;
+  }
+}
+
+/* La ligne d'une tâche : la case à gauche, tout le reste ouvre la consigne */
+
+.taskOuvrir {
+  flex: 1;
+  min-width: 0;
   display: flex;
-  gap: 8px;
-  margin-top: 7px;
+  flex-direction: column;
+  gap: 3px;
+  border: none;
+  background: none;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
 }
 
-.noteEnregistrer,
-.noteAnnuler {
-  padding: 7px 13px;
-  border-radius: 999px;
-  border: 1px solid var(--c-border);
-  background: var(--c-surface);
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 12.5px;
-  color: var(--c-text-3);
-}
-.noteEnregistrer {
-  border-color: transparent;
-  background: var(--c-dark);
-  color: #fff;
-  font-weight: 500;
-}
-.noteEnregistrer:disabled {
-  opacity: 0.5;
-  cursor: default;
+.chevron {
+  flex: none;
+  align-self: center;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--c-text-muted);
 }
