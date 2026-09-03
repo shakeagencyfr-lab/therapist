@@ -1,0 +1,264 @@
+import { useState, type CSSProperties, type FormEvent } from 'react'
+import { messageEnvoiLien } from '@/lib/messageAuth'
+import { supabase } from '@/lib/supabase'
+import type { SiteVitrine } from '@/lib/vitrine'
+import s from './VitrinePage.module.css'
+
+/** Où mène le lien reçu : l'espace de la patiente, sur son téléphone. */
+const DESTINATION = '/mon'
+
+/**
+ * La page d'accueil publique d'un cabinet.
+ *
+ * Elle sert deux personnes à la fois, et c'est tout son intérêt : celle qui
+ * cherche une thérapeute et lit la page, et celle qui est déjà suivie et vient
+ * seulement ouvrir son espace. La première trouve ce qu'une fiche Google
+ * donne, en plus lisible ; la seconde trouve le champ d'adresse, en haut à
+ * droite et rappelé en bas.
+ *
+ * Aucune donnée de santé n'y figure — la fonction qui l'alimente ne rend que
+ * ce que la thérapeute a écrit et publié.
+ *
+ * Trois modèles se partagent ce composant : ils ne changent que la mise en
+ * page, jamais les rubriques. Un changement de modèle ne doit rien perdre.
+ */
+export function VitrinePage({ site }: { site: SiteVitrine }) {
+  const b = site.branding
+  const couleurs = {
+    '--c-accent': b?.accent,
+    '--c-accent-hover': b?.accentHover,
+    '--c-accent-deep': b?.accentDeep,
+    '--c-dark': b?.dark,
+  } as CSSProperties
+
+  const modele = ['sobre', 'chaleur', 'clinique'].includes(site.modele) ? site.modele : 'sobre'
+  const couverture = site.photos[0] ?? null
+  const autres = site.photos.slice(1)
+  const joignable = site.adresse || site.telephone || site.horaires.some((h) => h.heures)
+
+  return (
+    <div className={`${s.page} ${s[modele]}`} style={couleurs}>
+      <header className={s.entete}>
+        <div className={s.marque}>
+          {b?.logoUrl ? (
+            <img className={s.logoImage} src={b.logoUrl} alt="" />
+          ) : (
+            <span className={s.logo}>{b?.logo ?? 'KL'}</span>
+          )}
+          <span className={s.noms}>
+            <span className={s.nom}>{site.name}</span>
+            <span className={s.surTitre}>{site.tagline || 'Espace thérapie'}</span>
+          </span>
+        </div>
+        <a className={s.acces} href="#espace">
+          Accéder à mon espace
+        </a>
+      </header>
+
+      <section className={s.hero}>
+        <div className={s.heroTexte}>
+          <h1 className={s.titre}>{site.titre || site.name}</h1>
+          {site.sous_titre ? <p className={s.sousTitre}>{site.sous_titre}</p> : null}
+          {site.google_note !== null ? (
+            <p className={s.note}>
+              <span className={s.etoiles} aria-hidden>
+                {'★'.repeat(Math.round(site.google_note))}
+              </span>
+              {site.google_note.toFixed(1).replace('.', ',')} sur 5
+              {site.google_avis ? ` · ${site.google_avis} avis Google` : ''}
+            </p>
+          ) : null}
+          <div className={s.heroActions}>
+            <a className={s.bouton} href="#espace">
+              Ouvrir mon espace
+            </a>
+            {site.telephone ? (
+              <a className={s.lien} href={`tel:${site.telephone.replace(/\s+/g, '')}`}>
+                {site.telephone}
+              </a>
+            ) : null}
+          </div>
+        </div>
+        {couverture ? (
+          <figure className={s.couverture}>
+            <img src={couverture.url} alt={couverture.alt} />
+            {couverture.attribution ? (
+              <figcaption className={s.credit}>{couverture.attribution}</figcaption>
+            ) : null}
+          </figure>
+        ) : null}
+      </section>
+
+      {site.presentation ? (
+        <section className={s.section}>
+          <h2 className={s.h2}>À propos</h2>
+          {site.presentation.split(/\n{2,}/).map((paragraphe, i) => (
+            <p key={i} className={s.texte}>
+              {paragraphe}
+            </p>
+          ))}
+        </section>
+      ) : null}
+
+      {site.services.length ? (
+        <section className={s.section}>
+          <h2 className={s.h2}>Ce que j'accompagne</h2>
+          <ul className={s.services}>
+            {site.services.map((service, i) => (
+              <li key={i} className={s.service}>
+                <h3 className={s.serviceTitre}>{service.titre}</h3>
+                {service.texte ? <p className={s.texte}>{service.texte}</p> : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {joignable ? (
+        <section className={s.section}>
+          <h2 className={s.h2}>Me trouver</h2>
+          <div className={s.pratique}>
+            <div>
+              {site.adresse ? <p className={s.texte}>{site.adresse}</p> : null}
+              {site.telephone ? (
+                <p className={s.texte}>
+                  <a className={s.lien} href={`tel:${site.telephone.replace(/\s+/g, '')}`}>
+                    {site.telephone}
+                  </a>
+                </p>
+              ) : null}
+              {site.site_web ? (
+                <p className={s.texte}>
+                  <a className={s.lien} href={site.site_web} target="_blank" rel="noreferrer">
+                    {site.site_web.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                  </a>
+                </p>
+              ) : null}
+            </div>
+            {site.horaires.some((h) => h.heures) ? (
+              <dl className={s.horaires}>
+                {site.horaires.map((h, i) => (
+                  <div key={`${h.jour}-${i}`} className={s.horaire}>
+                    <dt className={s.jour}>{h.jour}</dt>
+                    <dd className={s.heures}>{h.heures || 'Fermé'}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
+      {autres.length ? (
+        <section className={s.section}>
+          <div className={s.galerie}>
+            {autres.map((p) => (
+              <figure key={p.url} className={s.photo}>
+                <img src={p.url} alt={p.alt} loading="lazy" />
+                {p.attribution ? <figcaption className={s.credit}>{p.attribution}</figcaption> : null}
+              </figure>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {site.avis.length ? (
+        <section className={s.section}>
+          <h2 className={s.h2}>Ce qu'on en dit</h2>
+          <ul className={s.avis}>
+            {site.avis.map((a, i) => (
+              <li key={`${a.auteur}-${i}`} className={s.avisItem}>
+                <p className={s.avisTexte}>« {a.texte} »</p>
+                <p className={s.avisAuteur}>
+                  {a.auteur || 'Anonyme'}
+                  {a.date ? ` · ${a.date}` : ''}
+                </p>
+              </li>
+            ))}
+          </ul>
+          <p className={s.creditAvis}>Avis publiés sur Google.</p>
+        </section>
+      ) : null}
+
+      <AccesEspace cabinet={site.name} />
+
+      <footer className={s.pied}>
+        <span>
+          © {site.name}
+          {site.adresse ? ` · ${site.adresse}` : ''}
+        </span>
+      </footer>
+    </div>
+  )
+}
+
+/**
+ * La porte de l'espace, posée dans la page.
+ *
+ * Le même geste qu'ailleurs : une adresse, un lien reçu, aucune application
+ * montée ici. Tant que personne n'est connecté, cette page ne charge ni
+ * dossier ni session.
+ */
+function AccesEspace({ cabinet }: { cabinet: string }) {
+  const [email, setEmail] = useState('')
+  const [envoi, setEnvoi] = useState(false)
+  const [envoye, setEnvoye] = useState('')
+  const [erreur, setErreur] = useState('')
+
+  async function soumettre(e: FormEvent) {
+    e.preventDefault()
+    const db = supabase()
+    if (!db || !email.includes('@') || envoi) return
+    setEnvoi(true)
+    setErreur('')
+    const { error } = await db.auth.signInWithOtp({
+      email: email.trim(),
+      options: { emailRedirectTo: `${window.location.origin}${DESTINATION}` },
+    })
+    setEnvoi(false)
+    if (error) {
+      setErreur(messageEnvoiLien(error))
+      return
+    }
+    setEnvoye(email.trim())
+  }
+
+  return (
+    <section className={s.espace} id="espace">
+      <h2 className={s.h2}>Votre espace entre les séances</h2>
+      {envoye ? (
+        <p className={s.texte}>
+          Un lien vient de partir vers {envoye}. Ouvrez-le depuis votre téléphone : il vous
+          connecte directement, sans mot de passe à retenir.
+        </p>
+      ) : (
+        <>
+          <p className={s.texte}>
+            Vos exercices de la semaine, vos audios et votre journal. Entrez l'adresse que connaît
+            {` ${cabinet}`} : vous recevrez un lien de connexion.
+          </p>
+          <form className={s.formulaire} onSubmit={soumettre}>
+            <input
+              className={s.champ}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="votre@adresse.fr"
+              autoComplete="email"
+              aria-label="Votre adresse électronique"
+              required
+            />
+            <button className={s.bouton} type="submit" disabled={envoi || !email.includes('@')}>
+              {envoi ? 'Envoi…' : 'Recevoir mon lien'}
+            </button>
+          </form>
+          {erreur ? <p className={s.erreur}>{erreur}</p> : null}
+          <p className={s.mention}>
+            Réservé aux personnes suivies par le cabinet. Sans fiche à cette adresse, le lien
+            n'ouvre rien.
+          </p>
+        </>
+      )}
+    </section>
+  )
+}

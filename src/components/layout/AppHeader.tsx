@@ -29,6 +29,7 @@ const REGLAGES: Array<{ value: ViewMode; label: string }> = [
   { value: 'programmes', label: 'Programmes' },
   { value: 'boutique', label: 'Boutique' },
   { value: 'marque', label: 'Marque' },
+  { value: 'site', label: 'Site vitrine' },
   { value: 'integrations', label: 'Intégrations' },
 ]
 

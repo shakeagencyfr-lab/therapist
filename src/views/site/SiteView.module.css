@@ -1,0 +1,293 @@
+.wrap {
+  padding: 30px 34px 60px;
+  max-width: 880px;
+}
+
+.crumb {
+  margin-bottom: 6px;
+}
+
+.h1 {
+  font-family: var(--font-serif);
+  font-size: 30px;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  font-weight: 400;
+  margin: 0 0 10px;
+}
+
+.intro {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--c-text-3);
+  margin: 0 0 20px;
+  max-width: 62ch;
+}
+
+.muted {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--c-text-muted);
+}
+
+.panel {
+  border-radius: var(--r-xl);
+  margin-bottom: 18px;
+}
+
+.field {
+  margin: 14px 0;
+}
+
+.deux {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.bloc {
+  margin-top: 16px;
+}
+
+.hint {
+  display: block;
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--c-text-muted);
+}
+
+.note {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.lien {
+  font-size: 13px;
+  color: var(--c-accent);
+  text-decoration: none;
+}
+.lien:hover {
+  text-decoration: underline;
+}
+
+.retirer {
+  align-self: flex-start;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+  text-decoration: underline;
+}
+.retirer:hover {
+  color: var(--c-warn-text-2);
+}
+
+/* ---- L'import Google ---------------------------------------------------- */
+
+.recherche {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+.recherche input {
+  flex: 1;
+  min-width: 0;
+}
+
+.fiches {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.fiche {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 11px 0;
+  border-top: 1px solid var(--c-border-light);
+}
+.ficheNom {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 500;
+}
+.ficheAdresse {
+  display: block;
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+  margin-top: 2px;
+}
+.ficheDroite {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+}
+.ficheNote {
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+  white-space: nowrap;
+}
+
+/* ---- Les modèles -------------------------------------------------------- */
+
+.modeles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.modele {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 13px 15px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  background: var(--c-surface);
+  cursor: pointer;
+  font-family: inherit;
+}
+.modele:hover {
+  background: var(--c-surface-2);
+}
+.modeleOn {
+  border-color: var(--c-accent);
+  background: var(--c-accent-soft);
+}
+.modeleNom {
+  font-size: 13.5px;
+  font-weight: 500;
+}
+.modeleDetail {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--c-text-muted);
+}
+
+/* ---- Horaires et services ---------------------------------------------- */
+
+.horaires {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 8px 16px;
+  margin-top: 8px;
+}
+.horaire {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.jour {
+  width: 76px;
+  flex: none;
+  font-size: 12.5px;
+  color: var(--c-text-3);
+}
+.horaire input {
+  min-width: 0;
+}
+
+.service {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid var(--c-border-light);
+}
+
+/* ---- Photos ------------------------------------------------------------- */
+
+.photos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+.photo {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.vignette {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--r-md);
+  background: var(--c-surface-2);
+}
+.attribution {
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--c-text-muted);
+}
+.fichier {
+  display: none;
+}
+
+/* ---- Avis --------------------------------------------------------------- */
+
+.avis {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+}
+.avisItem {
+  padding: 12px 0;
+  border-top: 1px solid var(--c-border-light);
+}
+.avisTete {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.avisAuteur {
+  font-size: 13px;
+  font-weight: 500;
+}
+.avisNote {
+  font-size: 12px;
+  color: var(--c-accent);
+  letter-spacing: 0.04em;
+}
+.avisDate {
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+  margin-right: auto;
+}
+.avisTexte {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--c-text-3);
+}
+
+@media (max-width: 900px) {
+  .wrap {
+    padding: 22px 18px 48px;
+  }
+  .deux {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

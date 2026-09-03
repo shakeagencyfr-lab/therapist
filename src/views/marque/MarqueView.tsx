@@ -3,6 +3,7 @@ import { Button, Card, FieldLabel, Marque, Notice, Overline, TextInput, Title } 
 import { useMaybeAuth } from '@/auth/session'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { BRAND_PRESETS } from '@/data/reseller'
+import { MarqueBlanche } from './MarqueBlanche'
 import { adresseCabinet, codeEmbed, lienCabinet, lienEmbed } from '@/lib/domaine'
 import type { CabinetBranding } from '@/types/reseller'
 import s from './MarqueView.module.css'
@@ -94,6 +95,7 @@ export function MarqueView() {
         <>
           <Editeur key={identite.id} publie={publie} slug={identite.slug} />
           <SurVotreSite slug={identite.slug} />
+          <MarqueBlanche key={`mb-${identite.id}`} />
         </>
       )}
     </div>

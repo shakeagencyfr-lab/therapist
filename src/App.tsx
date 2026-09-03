@@ -11,6 +11,7 @@ import { NotificationsView } from '@/views/notifications/NotificationsView'
 import { ResellerSpace } from '@/views/reseller/ResellerSpace'
 import { IntegrationsView } from '@/views/integrations/IntegrationsView'
 import { BoutiqueView } from '@/views/boutique/BoutiqueView'
+import { SiteView } from '@/views/site/SiteView'
 import { MarqueView } from '@/views/marque/MarqueView'
 import { ProgrammesView } from '@/views/programmes/ProgrammesView'
 
@@ -58,6 +59,7 @@ export function App() {
       {mode === 'boutique' && <BoutiqueView />}
       {mode === 'programmes' && <ProgrammesView />}
       {mode === 'marque' && <MarqueView />}
+      {mode === 'site' && <SiteView />}
       {mode === 'integrations' && <IntegrationsView />}
     </div>
   )

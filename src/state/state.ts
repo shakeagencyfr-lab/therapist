@@ -41,6 +41,7 @@ export type ViewMode =
   | 'boutique'
   | 'programmes'
   | 'marque'
+  | 'site'
   | 'integrations'
 
 /** Vue interne de la maquette téléphone. */
