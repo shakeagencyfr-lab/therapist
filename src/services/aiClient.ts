@@ -153,7 +153,13 @@ export interface SessionDraftInput {
 
 /** Brouillon de note de séance. */
 export function draftSessionNote(input: SessionDraftInput): Promise<SessionDraft> {
-  return post<SessionDraft>('session-draft', input, 'erreur inconnue')
+  /* Le repli sert quand le serveur ne répond même pas : ce que la thérapeute
+     lit doit lui dire quoi faire, pas « erreur inconnue ». */
+  return post<SessionDraft>(
+    'session-draft',
+    input,
+    "Le brouillon n'a pas pu être écrit — le serveur n'a pas répondu. Vos notes et la transcription sont intactes : réessayez.",
+  )
 }
 
 export interface ModuleInput {
@@ -164,7 +170,11 @@ export interface ModuleInput {
 
 /** Module sur mesure, depuis le brief de l'atelier. */
 export function generateModule(input: ModuleInput): Promise<GeneratedModule> {
-  return post<GeneratedModule>('module', input, 'erreur inconnue')
+  return post<GeneratedModule>(
+    'module',
+    input,
+    "Le module n'a pas pu être écrit — le serveur n'a pas répondu. Votre brief est intact : réessayez.",
+  )
 }
 
 /** Affirmations de la semaine. */

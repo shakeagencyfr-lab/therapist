@@ -17,6 +17,7 @@
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { envoyerParCabinet, smtpDuCabinet } from './courriel.js'
+import { levierDuCabinet } from './droits.js'
 
 const URL = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? ''
 const PUBLISHABLE = process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? ''
@@ -84,7 +85,14 @@ async function baseDuCabinet(admin: SupabaseClient, cabinetId: string): Promise<
     .select('domaine, verifie')
     .eq('cabinet_id', cabinetId)
     .maybeSingle<{ domaine: string; verifie: boolean }>()
-  return data?.verifie && data.domaine ? `https://${data.domaine}` : SITE
+  if (!data?.verifie || !data.domaine) return SITE
+  /* Un domaine posé et vérifié ne suffit pas : encore faut-il que l'offre
+     l'ouvre encore. Depuis 0023, un levier fermé fait cesser de répondre le
+     domaine — un lien qui y mène ramènerait donc sur une porte muette, des
+     semaines après l'envoi. On repasse alors par l'adresse de la plateforme,
+     qui, elle, répond toujours. */
+  const ouvert = await levierDuCabinet(cabinetId, 'marqueBlanche', admin)
+  return ouvert ? `https://${data.domaine}` : SITE
 }
 
 /**

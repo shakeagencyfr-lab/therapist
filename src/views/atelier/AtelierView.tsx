@@ -105,7 +105,7 @@ export function AtelierView() {
       const generated = await generateModule({ intent, type, quiz: state.aQuiz })
       set({ aMod: { ...generated, type }, aGen: false, aAssign: {}, aLastAssigned: '' })
     } catch (error) {
-      const reason = error instanceof AiError ? error.message : 'erreur inconnue'
+      const reason = error instanceof AiError ? error.message : "le serveur n'a pas répondu"
       set({ aGen: false, aNotice: `La génération a échoué : ${reason}. Réessayez.` })
     }
   }

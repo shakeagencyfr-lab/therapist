@@ -75,6 +75,8 @@ export interface PatientModule {
   done: boolean
   /** Module arrivé depuis une séance : sa pilule de type est accentuée. */
   fresh?: boolean
+  /** Le mot que la patiente a posé sur cet exercice, s'il y en a un. */
+  note?: string
 }
 
 /** Un audio envoyé à un patient. */

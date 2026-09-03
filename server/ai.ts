@@ -258,13 +258,32 @@ interface Produit<T> {
 async function callClaude<T>({ route, schema, system, prompt, maxTokens, cle }: CallOptions<T>): Promise<Produit<T>> {
   const { model, effort } = reglageDe(route)
   const format = zodOutputFormat(schema)
-  const message = await client(cle).messages.parse({
-    model,
-    max_tokens: maxTokens,
-    system,
-    messages: [{ role: 'user', content: prompt }],
-    output_config: effort ? { format, effort } : { format },
-  })
+  let message
+  try {
+    message = await client(cle).messages.parse({
+      model,
+      max_tokens: maxTokens,
+      system,
+      messages: [{ role: 'user', content: prompt }],
+      output_config: effort ? { format, effort } : { format },
+    })
+  } catch (err) {
+    /* Une clé refusée n'est pas la même panne selon À QUI elle appartient.
+       Celle du cabinet se corrige dans l'onglet Intégrations, en trente
+       secondes ; celle de la plateforme ne se corrige que par nous. Dire
+       « vérifiez sa configuration » à une thérapeute dont la clé a expiré,
+       c'est l'envoyer chercher chez le revendeur ce qui est chez elle. */
+    if (
+      cle?.source === 'cabinet' &&
+      (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError)
+    ) {
+      throw new HttpError(
+        402,
+        "Votre clé Anthropic a été refusée : elle a peut-être expiré, ou son crédit est épuisé. Reprenez-la dans Réglages › Intégrations. Rien n'a été analysé.",
+      )
+    }
+    throw err
+  }
 
   /*
    * Une SORTIE TRONQUÉE se lit avant tout le reste.

@@ -65,6 +65,7 @@ interface ModuleRow {
   kind: ModuleKind
   position: number
   done_at: string | null
+  patient_note: string | null
 }
 
 interface AudioRow {
@@ -307,6 +308,7 @@ function assembler(
       meta: m.meta,
       kind: m.kind,
       done: Boolean(m.done_at),
+      note: m.patient_note ?? undefined,
     })),
     audios: auds.map<PatientAudio>((a) => ({
       title: a.audio?.title ?? 'Enregistrement',
@@ -478,7 +480,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         .select('id, display_name, initials, archived_at')
         .not('archived_at', 'is', null)
         .order('archived_at', { ascending: false }),
-      db.from('patient_modules').select('id, patient_id, title, meta, kind, position, done_at'),
+      db.from('patient_modules').select('id, patient_id, title, meta, kind, position, done_at, patient_note'),
       db.from('patient_audios').select('patient_id, listens, last_listened_at, audio:audio_library (title, duration_seconds)'),
       db.from('scale_entries').select('patient_id, value, recorded_at'),
       db.from('journal_pages').select('patient_id, title, body, trigger_label, written_at'),

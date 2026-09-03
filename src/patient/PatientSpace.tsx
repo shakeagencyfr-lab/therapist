@@ -68,6 +68,10 @@ export function PatientSpace() {
   } = usePatientData(patient?.id ?? null)
 
   const [retour] = useState(retourPaiement)
+  /* La note libre en cours d'écriture : le module ouvert, et son texte. */
+  const [noteOuverte, setNoteOuverte] = useState('')
+  const [noteTexte, setNoteTexte] = useState('')
+  const [noteEnCours, setNoteEnCours] = useState(false)
   const [onglet, setOnglet] = useState<Onglet>(retour.commande || retour.annule ? 'boutique' : 'jour')
 
   /** L'audio en cours d'écoute : son identifiant et son URL signée. */
@@ -102,6 +106,27 @@ export function PatientSpace() {
     if (!db) return
     const { error } = await db.rpc('patient_set_module_done', { p_module: id, p_done: done })
     if (!error) await recharger()
+  }
+
+  /**
+   * Écrire un mot sur un exercice.
+   *
+   * `patient_save_note` existe en base depuis 0007 et n'avait jamais été
+   * appelée : la colonne était lue à chaque chargement, et rien ne l'écrivait.
+   * C'est pourtant ce que l'aperçu de la thérapeute montre depuis le début —
+   * un mot posé sur l'exercice, là où il s'est passé quelque chose, plutôt
+   * qu'une page de journal.
+   */
+  async function enregistrerNote(id: string) {
+    const db = supabase()
+    if (!db || noteEnCours) return
+    setNoteEnCours(true)
+    const { error } = await db.rpc('patient_save_note', { p_module: id, p_note: noteTexte.trim() })
+    setNoteEnCours(false)
+    if (error) return
+    setNoteOuverte('')
+    setNoteTexte('')
+    await recharger()
   }
 
   /**
@@ -268,6 +293,56 @@ export function PatientSpace() {
                         {m.title}
                       </span>
                       <span className={s.taskMeta}>{m.meta}</span>
+
+                      {noteOuverte === m.id ? (
+                        <>
+                          <textarea
+                            className={s.noteZone}
+                            rows={3}
+                            value={noteTexte}
+                            onChange={(e) => setNoteTexte(e.target.value)}
+                            placeholder="Ce qui s'est passé, en deux mots. Votre thérapeute le lira."
+                            aria-label={`Un mot sur « ${m.title} »`}
+                            autoFocus
+                          />
+                          <span className={s.noteBoutons}>
+                            <button
+                              type="button"
+                              className={s.noteEnregistrer}
+                              style={patient.branding?.accent ? { background: patient.branding.accent } : undefined}
+                              disabled={noteEnCours}
+                              onClick={() => void enregistrerNote(m.id)}
+                            >
+                              {noteEnCours ? 'Enregistrement…' : 'Enregistrer'}
+                            </button>
+                            <button
+                              type="button"
+                              className={s.noteAnnuler}
+                              onClick={() => {
+                                setNoteOuverte('')
+                                setNoteTexte('')
+                              }}
+                            >
+                              Annuler
+                            </button>
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          {m.patient_note ? <span className={s.noteEcrite}>{m.patient_note}</span> : null}
+                          <button
+                            type="button"
+                            className={s.noteOuvrir}
+                            style={patient.branding?.accent ? { color: patient.branding.accent } : undefined}
+                            onClick={() => {
+                              setNoteOuverte(m.id)
+                              setNoteTexte(m.patient_note ?? '')
+                            }}
+                          >
+                            {m.patient_note ? 'Modifier mon mot' : 'Ajouter un mot'}
+                          </button>
+                        </>
+                      )}
                     </span>
                   </div>
                 )

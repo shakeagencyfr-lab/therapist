@@ -47,6 +47,18 @@
   color: var(--c-text-muted);
 }
 
+/* Le mot de la patiente sur l'exercice : ses termes, entre guillemets, et
+   d'un ton qui les distingue de ce que le cabinet a écrit. */
+.note {
+  display: block;
+  margin-top: 5px;
+  padding-left: 9px;
+  border-left: 2px solid var(--c-accent-soft);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--c-text-3);
+}
+
 /* Règle métier annoncée en pied de liste. */
 .foot {
   display: flex;

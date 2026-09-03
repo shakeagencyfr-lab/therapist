@@ -144,7 +144,7 @@ export function RecordStep() {
         })
       }
     } catch (error) {
-      const message = error instanceof AiError ? error.message : 'erreur inconnue'
+      const message = error instanceof AiError ? error.message : "le serveur n'a pas répondu"
       set({ generating: false, notice: `La génération a échoué : ${message}. Réessayez.` })
     }
   }
