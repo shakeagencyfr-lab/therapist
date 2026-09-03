@@ -23,38 +23,51 @@ import { createTranscriber, isSpeechSupported, type Transcriber } from '@/servic
 /**
  * Verser un segment dicté dans un texte en prose.
  *
- * `appendSegment`, côté séance, met chaque segment sur SA LIGNE : c'est
- * juste pour une transcription, où le retour à la ligne est le seul indice
- * de tour de parole qui existe. Dans un journal, cela produirait un poème —
- * une ligne par phrase — là où quelqu'un dicte un paragraphe.
+ * `appendSegment`, côté séance, met chaque segment sur SA LIGNE, et compare
+ * le nouveau segment à cette dernière ligne pour savoir s'il la prolonge.
+ * En passant à la prose — une espace au lieu d'un retour à la ligne — j'ai
+ * supprimé l'ancre : la « dernière ligne » devenait tout le texte accumulé,
+ * plus rien ne correspondait, et CHAQUE REPUBLICATION S'AJOUTAIT. Le
+ * navigateur renvoyant la même phrase de plus en plus complète, on relisait
+ * « bonjour je ne me sens pas bien » huit fois de suite.
  *
- * Ici les segments se suivent donc séparés d'une espace, et les retours à la
- * ligne que la personne a tapés elle-même sont préservés.
+ * On garde donc explicitement le DERNIER SEGMENT reçu, et c'est à lui qu'on
+ * compare. Il ne dépend plus de la forme du texte, ni du drapeau `suite` du
+ * navigateur — que trois moteurs interprètent de trois façons.
  *
- * `suite` est vrai quand le navigateur renvoie la MÊME phrase, plus
- * complète : elle remplace alors la précédente au lieu de s'ajouter derrière.
- * Sans cette règle, « j'ai mal dormi » suivi de « j'ai mal dormi cette nuit »
- * s'écrirait deux fois.
+ * Quatre cas, dans cet ordre :
+ *   — le segment répète mot pour mot le précédent : on ne fait rien ;
+ *   — il le prolonge : il prend sa place, à la fin du texte ;
+ *   — il est plus court que lui : c'est une republication tronquée, rien ;
+ *   — sinon c'est une phrase neuve : elle s'ajoute derrière une espace.
  */
-export function ajouterDicte(courant: string, segment: string, suite: boolean): string {
+export function ajouterDicte(
+  courant: string,
+  segment: string,
+  precedent: string,
+): { texte: string; segment: string } {
   const propre = segment.replace(/\s+/g, ' ').trim()
-  if (!propre) return courant
-  if (!courant) return propre
+  if (!propre) return { texte: courant, segment: precedent }
+  if (!courant) return { texte: propre, segment: propre }
 
-  if (suite) {
-    // Ce qui suit la dernière coupure : c'est la phrase en cours d'écriture.
-    const coupe = Math.max(courant.lastIndexOf('\n') + 1, 0)
-    const debut = courant.slice(0, coupe)
-    const derniere = courant.slice(coupe).trimStart()
-    const marge = courant.slice(coupe).length - derniere.length
-    if (propre.startsWith(derniere)) {
-      return debut + courant.slice(coupe, coupe + marge) + propre
+  if (precedent) {
+    // Répétition à l'identique, ou republication plus courte : rien à écrire.
+    if (propre === precedent || precedent.startsWith(propre)) {
+      return { texte: courant, segment: precedent }
     }
-    // Republication plus courte de ce qui est déjà écrit : rien à ajouter.
-    if (derniere.startsWith(propre)) return courant
+    /* La même phrase, plus complète : elle remplace la précédente là où elle
+       se trouve — à la fin. On ne cherche qu'à la fin, pour ne pas réécrire
+       une phrase identique prononcée plus tôt dans le texte. */
+    if (propre.startsWith(precedent) && courant.endsWith(precedent)) {
+      return { texte: courant.slice(0, courant.length - precedent.length) + propre, segment: propre }
+    }
   }
 
-  return /[\s\n]$/.test(courant) ? courant + propre : `${courant} ${propre}`
+  // Déjà écrit à la fin : le navigateur republie après une coupure.
+  if (courant.endsWith(propre)) return { texte: courant, segment: propre }
+
+  const texte = /\s$/.test(courant) ? courant + propre : `${courant} ${propre}`
+  return { texte, segment: propre }
 }
 
 export interface Dictee {
@@ -84,6 +97,9 @@ export function useDictee(
   const courante = useRef(valeur)
   courante.current = valeur
 
+  /** Le dernier segment reçu : c'est à lui qu'on compare, pas au texte. */
+  const dernier = useRef('')
+
   const arreter = useCallback(() => {
     transcripteur.current?.stop()
     transcripteur.current = null
@@ -106,10 +122,11 @@ export function useDictee(
       return
     }
     const suivant = createTranscriber({
-      onFinal: (texte, suite) => {
-        const ecrit = ajouterDicte(courante.current, texte, suite)
-        courante.current = ecrit
-        onTexte(ecrit)
+      onFinal: (texte) => {
+        const suite = ajouterDicte(courante.current, texte, dernier.current)
+        dernier.current = suite.segment
+        courante.current = suite.texte
+        onTexte(suite.texte)
         setInterim('')
       },
       onInterim: setInterim,
@@ -129,6 +146,7 @@ export function useDictee(
       return
     }
     transcripteur.current = suivant
+    dernier.current = ''
     setErreur('')
     setEcoute(true)
   }, [arreter, ecoute, onTexte])
