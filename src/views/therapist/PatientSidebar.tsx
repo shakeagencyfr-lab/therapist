@@ -16,6 +16,9 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
   const droits = useDroits()
   const [envoi, setEnvoi] = useState(false)
   const [echec, setEchec] = useState('')
+  const [closOuvert, setClosOuvert] = useState(false)
+  const [reouverture, setReouverture] = useState('')
+  const [echecReouverture, setEchecReouverture] = useState('')
 
   const rows = sidebarPatients(state)
   const slipping = slippingPatients(state).length
@@ -44,6 +47,20 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
       // Un échec ne fait pas retaper le formulaire.
       setEchec(r.message)
     }
+  }
+
+  async function rouvrir(patientId: string) {
+    if (!cabinet || reouverture) return
+    setReouverture(patientId)
+    setEchecReouverture('')
+    const r = await cabinet.rouvrirPatiente(patientId)
+    setReouverture('')
+    if (r.ok) {
+      set({ sel: patientId, pNotice: r.message })
+      void droits?.recharger()
+      return
+    }
+    setEchecReouverture(r.message)
   }
 
   return (
@@ -111,8 +128,9 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
 
             {complet ? (
               <Notice tone="warn" style={{ marginBottom: 12 }}>
-                Votre offre permet {max} fiches actives, et elles le sont toutes. Archivez un suivi
-                terminé pour libérer une place, ou demandez à votre revendeur de relever le plafond.
+                Votre offre permet {max} fiches actives, et elles le sont toutes. Closez un suivi
+                terminé depuis sa fiche pour libérer une place, ou demandez à votre revendeur de
+                relever le plafond.
               </Notice>
             ) : places !== null && places <= 3 ? (
               <p className={s.later} style={{ marginBottom: 12 }}>
@@ -179,6 +197,44 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
             ajouter.
           </p>
         )}
+
+        {/* Les suivis clos : repliés, parce qu'on ne les consulte pas tous les
+            jours — mais présents, parce qu'un plafond atteint se règle ici et
+            qu'un suivi clos par erreur doit pouvoir se rouvrir. */}
+        {cabinet?.reel && cabinet.archivees.length > 0 ? (
+          <div className={s.clos}>
+            <button
+              type="button"
+              className={s.closTitre}
+              onClick={() => setClosOuvert((v) => !v)}
+              aria-expanded={closOuvert}
+            >
+              Suivis clos ({cabinet.archivees.length})
+            </button>
+            {closOuvert ? (
+              <div className={s.closListe}>
+                {cabinet.archivees.map((f) => (
+                  <div key={f.id} className={s.closLigne}>
+                    <span className={s.closNom}>{f.nom}</span>
+                    <button
+                      type="button"
+                      className={s.rouvrir}
+                      disabled={reouverture !== ''}
+                      onClick={() => void rouvrir(f.id)}
+                    >
+                      {reouverture === f.id ? 'Réouverture…' : 'Rouvrir'}
+                    </button>
+                  </div>
+                ))}
+                {echecReouverture ? (
+                  <Notice tone="warn" style={{ marginTop: 10 }}>
+                    {echecReouverture}
+                  </Notice>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {slipping > 0 ? (
           <div className={s.slip}>

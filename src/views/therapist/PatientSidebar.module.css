@@ -208,3 +208,63 @@
   color: var(--c-text-muted);
   line-height: 1.45;
 }
+
+/* Les suivis clos, repliés en bas de colonne. */
+.clos {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--c-border-light);
+}
+
+.closTitre {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+.closTitre:hover {
+  color: var(--c-text-4);
+}
+
+.closListe {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.closLigne {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.closNom {
+  font-size: 12.5px;
+  color: var(--c-text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rouvrir {
+  flex: none;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11.5px;
+  color: var(--c-accent);
+  text-decoration: underline;
+}
+.rouvrir:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

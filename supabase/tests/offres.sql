@@ -5,7 +5,7 @@
 --
 --   1. Le plafond de fiches est tenu par la BASE, pas par l'écran. Une
 --      insertion au-delà est refusée, avec un message que l'écran affiche tel
---      quel — et une place libérée par un archivage laisse passer.
+--      quel — et une place libérée par une clôture de suivi laisse passer.
 --   2. Les droits effectifs se lisent d'un seul endroit — cabinet_droits() —
 --      et une praticienne ne lit que ceux de son cabinet.
 --   3. Le catalogue appartient au revendeur : lui le règle, une praticienne
@@ -59,7 +59,7 @@ begin
     raise exception 'ECHEC : le plafond n''a pas arrêté l''insertion (actives = %)', v_actives;
   end if;
   -- Le message doit dire quoi faire, pas seulement que c'est refusé.
-  if v_msg not like '%fiches actives%' or v_msg not like '%Archivez%' then
+  if v_msg not like '%fiches actives%' or v_msg not like '%Closez%' then
     raise exception 'ECHEC : le message du plafond ne dit pas quoi faire — %', v_msg;
   end if;
 
