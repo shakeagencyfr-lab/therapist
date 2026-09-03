@@ -119,13 +119,13 @@ export function profilePrompt({ context: c, notes, synthese, transcript }: Profi
     + (synthese ? "Synthèse de la dernière séance :\n" + synthese + "\n" : "")
     + (transcript ? "Extrait de la transcription :\n" + transcript.slice(0, 2500) + "\n" : "")
     + "\nProfil actuel, à réviser :\n" + JSON.stringify(c.profile) + "\n"
-    + "\nProduis un objet JSON avec exactement ces clés :\n"
-    + "\"portrait\" : 8 à 12 phrases. C'est la pièce maîtresse et elle doit se lire comme la synthèse d'un praticien expérimenté, pas comme une fiche. Dis comment cette personne fonctionne : ce qui la met en mouvement et ce qui la bloque, la façon dont elle parle d'elle-même, ce qu'elle évite, ses ressources déjà là. Appuie chaque affirmation sur un élément concret de la matière — une phrase du journal, un module fait ou laissé, une inflexion de la séance. Aucune généralité qui pourrait s'appliquer à n'importe qui.\n"
-    + "\"axes\" : 5 objets {\"label\", \"value\" entier 0-100, \"note\" de 5 à 12 mots justifiant la valeur par un fait observé}.\n"
+    + "\nProduis un objet JSON avec exactement ces clés. AUCUNE N'EST FACULTATIVE, et un tableau vide n'est pas une réponse : la praticienne lit les axes et les leviers AVANT le portrait, et une carte sans eux ne lui sert à rien. Remplis-les d'abord, puis écris le portrait avec ce qui reste.\n"
+    + "\"axes\" : EXACTEMENT 5 objets {\"label\", \"value\" entier 0-100, \"note\" de 5 à 12 mots justifiant la valeur par un fait observé}.\n"
     + "\"levers\" : 4 ou 5 objets {\"title\", \"body\" de 3 à 4 phrases}. Chaque levier est une conduite thérapeutique concrète : quoi tenter, comment l'amener, à quoi reconnaître que ça prend. Pas de conseil générique.\n"
+    + "\"portrait\" : 6 à 9 phrases, pas davantage. Elle doit se lire comme la synthèse d'un praticien expérimenté, pas comme une fiche. Dis comment cette personne fonctionne : ce qui la met en mouvement et ce qui la bloque, la façon dont elle parle d'elle-même, ce qu'elle évite, ses ressources déjà là. Appuie chaque affirmation sur un élément concret de la matière — une phrase du journal, un module fait ou laissé, une inflexion de la séance. Aucune généralité qui pourrait s'appliquer à n'importe qui. N'y verse pas ce qui a sa place dans les axes, les leviers ou les points d'attention.\n"
     + "\"dynamique\" : 3 à 5 phrases sur le MOUVEMENT — ce qui a bougé depuis le début du suivi, dans quel sens, à quelle vitesse, et ce qui résiste encore. C'est ce qu'un profil figé ne dit jamais.\n"
     + "\"alliance\" : 2 à 3 phrases sur la relation de travail : ce à quoi cette personne répond bien dans la manière de lui parler, ce qui la ferme.\n"
-    + "\"care\" : 1 à 4 chaînes, points d'attention pour la praticienne. Jamais un diagnostic.\n"
+    + "\"care\" : 1 à 4 chaînes, points d'attention pour la praticienne — ce sur quoi rester vigilante avec cette personne. Jamais un diagnostic. Au moins une, toujours : il y a toujours quelque chose à surveiller.\n"
     + "\"resume\" : une phrase disant ce qui a changé depuis la version précédente.\n"
     + "Garde les mêmes axes que le profil actuel quand ils restent pertinents, en ajustant leur valeur et leur note ; remplace un axe seulement si la séance en révèle un plus juste. Écris au présent, sans jargon, sans pathologiser, et sans jamais adoucir un constat pour le rendre agréable : ce texte sert la praticienne, pas le patient."
 }

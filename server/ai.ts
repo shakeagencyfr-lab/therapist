@@ -454,22 +454,83 @@ async function hypnose(body: Partial<HypnoseBody>, cle: Cle | null): Promise<Pro
   })
 }
 
+/**
+ * Le profil est-il complet ?
+ *
+ * Le schéma de sortie ne peut pas l'exiger : les contraintes de cardinalité
+ * sur un tableau ne font pas partie du sous-ensemble de JSON Schema que
+ * l'API accepte — le SDK les retire avant l'envoi. C'est donc ici que la
+ * vérification se fait.
+ *
+ * Elle est nécessaire, et pas théorique : le profil d'une patiente a été
+ * enregistré en production avec un portrait de 2 259 caractères et TROIS
+ * TABLEAUX VIDES. Le modèle avait tout mis dans le portrait, la carte
+ * affichait deux titres suivis de rien, et le profil précédent — complet —
+ * avait été remplacé par celui-là.
+ */
+export function profilCreux(p: { axes?: unknown[]; levers?: unknown[]; care?: unknown[] }): string {
+  const manque = [
+    !p.axes?.length && 'les axes',
+    !p.levers?.length && 'les leviers',
+    !p.care?.length && "les points d'attention",
+  ].filter(Boolean)
+  return manque.join(', ')
+}
+
+/** Ce qu'on redit au modèle quand il a rendu un profil amputé. */
+const RATTRAPAGE =
+  "\n\nATTENTION : ta réponse précédente ne contenait pas %s. Ces clés ne sont pas facultatives et un tableau vide n'est pas une réponse. Écris un portrait PLUS COURT — six phrases suffisent — et consacre le reste à « axes » (5), « levers » (4) et « care » (1 à 4). C'est ce que la praticienne lit en premier."
+
 async function profile(body: Partial<ProfileBody>, cle: Cle | null): Promise<Produit<unknown>> {
   const context = asContext(body.context)
   if (mockMode()) return { data: mockGeneratedProfile(context), usage: null }
-  const { data: generated, usage } = await callClaude({
+  const prompt = profilePrompt({
+    context,
+    notes: asText(body.notes).trim(),
+    synthese: asText(body.synthese).trim(),
+    transcript: asText(body.transcript).trim(),
+  })
+  let { data: generated, usage } = await callClaude({
     route: 'profile',
     schema: generatedProfileSchema,
     system: PROFILE_SYSTEM,
-    prompt: profilePrompt({
-      context,
-      notes: asText(body.notes).trim(),
-      synthese: asText(body.synthese).trim(),
-      transcript: asText(body.transcript).trim(),
-    }),
+    prompt,
     maxTokens: 6000,
     cle,
   })
+
+  /* Une seule reprise. Si elle échoue aussi, on sert ce qu'on a : un profil
+     amputé vaut mieux qu'une erreur après deux appels payés — et l'écran
+     dit ce qui manque. */
+  const creux = profilCreux(generated)
+  if (creux) {
+    console.warn(`[ia] profil incomplet, une reprise — manquaient : ${creux}`)
+    const reprise = await callClaude({
+      route: 'profile',
+      schema: generatedProfileSchema,
+      system: PROFILE_SYSTEM,
+      prompt: prompt + RATTRAPAGE.replace('%s', creux),
+      maxTokens: 6000,
+      cle,
+    })
+    /* On garde la meilleure des deux réponses, pas forcément la dernière :
+       la reprise peut rendre les axes et perdre le portrait. */
+    generated = {
+      ...reprise.data,
+      portrait: reprise.data.portrait || generated.portrait,
+      axes: reprise.data.axes.length ? reprise.data.axes : generated.axes,
+      levers: reprise.data.levers.length ? reprise.data.levers : generated.levers,
+      care: reprise.data.care.length ? reprise.data.care : generated.care,
+      dynamique: reprise.data.dynamique || generated.dynamique,
+      alliance: reprise.data.alliance || generated.alliance,
+    }
+    if (usage && reprise.usage) {
+      usage = {
+        input: usage.input + reprise.usage.input,
+        output: usage.output + reprise.usage.output,
+      }
+    }
+  }
   // Les axes sont affichés sur une piste 0–100 : on borne avant de servir.
   return {
     data: {

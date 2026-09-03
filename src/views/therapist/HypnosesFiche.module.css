@@ -262,6 +262,7 @@
   flex: 1 1 auto;
 }
 
+.pdf,
 .effacer,
 .oui,
 .non {
@@ -274,6 +275,21 @@
   font-size: 12.5px;
   cursor: pointer;
   white-space: nowrap;
+}
+
+/* Le PDF est le geste qu'on répète : la thérapeute lit ce texte à voix
+   haute, elle le veut sur du papier ou sur une tablette, pas dans un
+   navigateur. Il porte donc l'accent, à côté d'une suppression discrète. */
+.pdf {
+  color: var(--c-accent);
+  font-weight: 500;
+}
+.pdf:hover:not(:disabled) {
+  text-decoration: underline;
+}
+.pdf:disabled {
+  color: var(--c-text-muted);
+  cursor: default;
 }
 
 .effacer {
