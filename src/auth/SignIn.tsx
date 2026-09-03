@@ -34,7 +34,7 @@ export function SignIn({
   /**
    * Le lien reste la voie par défaut : rien à retenir, rien à voler. Le mot
    * de passe est la porte de secours, repliée — pour la praticienne qui a
-   * une patiente en face d'elle et ne peut pas attendre un courriel.
+   * un patient en face d'elle et ne peut pas attendre un courriel.
    */
   const [avecMotDePasse, setAvecMotDePasse] = useState(false)
   const [motDePasse, setMotDePasse] = useState('')

@@ -1,5 +1,5 @@
 -- ============================================================================
--- 0019 — Ce que l'offre ouvre : patientes, boutique, marque blanche, site.
+-- 0019 — Ce que l'offre ouvre : patients, boutique, marque blanche, site.
 --
 -- Le revendeur vend l'application, pas l'analyse : chaque thérapeute branche
 -- sa propre clé Anthropic et paie ses appels. Son offre règle donc ce que
@@ -115,7 +115,7 @@ revoke execute on function public.mes_droits() from public, anon;
 grant execute on function public.mes_droits() to authenticated;
 
 -- ---------------------------------------------------------------------------
--- Le plafond de patientes, tenu par la base
+-- Le plafond de patients, tenu par la base
 --
 -- Une limite qui ne vit que dans l'interface n'est pas une limite. Le
 -- déclencheur refuse l'insertion au-delà du plafond, avec un message que

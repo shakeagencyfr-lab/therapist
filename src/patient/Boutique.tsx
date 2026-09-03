@@ -32,7 +32,7 @@ function prix(cents: number, currency: string): string {
 }
 
 /**
- * La boutique de la thérapeute, vue par sa patiente.
+ * La boutique de la thérapeute, vue par son patient.
  *
  * La liste vient de la base sous ses propres droits : elle ne voit que les
  * produits actifs de son cabinet, et seulement si la boutique est ouverte.

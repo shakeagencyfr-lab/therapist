@@ -224,7 +224,7 @@ function CleStripe({ etat, enCours, onAgir }: BlocProps) {
         <span className={posee ? s.etatOn : s.etatOff}>{posee ? 'Stripe connecté' : 'Non connecté'}</span>
       </div>
       <p className={s.blocText}>
-        Votre compte Stripe encaisse directement ce que vos patientes achètent dans votre boutique
+        Votre compte Stripe encaisse directement ce que vos patients achètent dans votre boutique
         : audios, séances, programmes. L'argent arrive chez vous, sans intermédiaire.
       </p>
 
@@ -252,7 +252,7 @@ function CleStripe({ etat, enCours, onAgir }: BlocProps) {
               <span className={s.toggleTitle}>Boutique en ligne</span>
               <span className={s.hint}>
                 {etat.shopEnabled
-                  ? 'Ouverte : vos patientes voient vos produits dans leur espace.'
+                  ? 'Ouverte : vos patients voient vos produits dans leur espace.'
                   : 'Fermée : vos produits restent invisibles tant que vous ne l’ouvrez pas.'}
               </span>
             </span>
@@ -329,7 +329,7 @@ function RendezVous({ etat, enCours, onAgir }: BlocProps) {
         </span>
       </div>
       <p className={s.blocText}>
-        Là où vos patientes réservent, quel que soit votre agenda. Vous choisissez ce qu'elles
+        Là où vos patients réservent, quel que soit votre agenda. Vous choisissez ce qu'ils
         voient dans leur espace, sous « Rendez-vous ».
       </p>
 
@@ -372,7 +372,7 @@ function RendezVous({ etat, enCours, onAgir }: BlocProps) {
         }}
       >
         <fieldset className={s.choix} disabled={occupe}>
-          <legend className={s.label}>Comment vos patientes y accèdent</legend>
+          <legend className={s.label}>Comment vos patients y accèdent</legend>
           <label className={mode === 'bouton' ? `${s.option} ${s.optionOn}` : s.option}>
             <input type="radio" name="mode-rdv" checked={mode === 'bouton'} onChange={() => setMode('bouton')} />
             <span>
@@ -423,7 +423,7 @@ function RendezVous({ etat, enCours, onAgir }: BlocProps) {
             <span className={s.hint}>
               Dans BookRDV : « Intégrer sur mon site », puis collez le bloc en entier. Nous n'en
               gardons que l'adresse de réservation — le script de votre agenda n'est jamais exécuté
-              dans l'espace de vos patientes, qui contient leur dossier.
+              dans l'espace de vos patients, qui contient leur dossier.
             </span>
           </label>
         )}

@@ -123,7 +123,7 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
           })}
         </div>
 
-        {/* Ajouter une patiente : c'est son adresse qui la connectera, au
+        {/* Ajouter un patient : c'est son adresse qui la connectera, au
             premier lien magique. Une fiche s'ouvre avec un nom et une adresse,
             le reste se règle depuis la fiche. */}
         {cabinet?.reel ? (
@@ -195,13 +195,13 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
                 disabled={complet}
                 onClick={() => set({ pNewOpen: true, pNotice: '' })}
               >
-                Ajouter une patiente
+                Ajouter un patient
               </Button>
             )}
           </div>
         ) : (
           <p className={s.demo}>
-            Fiches de démonstration. Connectez-vous à votre cabinet pour voir vos patientes et en
+            Fiches de démonstration. Connectez-vous à votre cabinet pour voir vos patients et en
             ajouter.
           </p>
         )}

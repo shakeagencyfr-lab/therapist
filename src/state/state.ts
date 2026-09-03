@@ -84,7 +84,7 @@ export interface AppState {
   patientsChargement: boolean
   patientsErreur: string
 
-  /* Ajout d'une patiente -------------------------------------------- *
+  /* Ajout d'un patient -------------------------------------------- *
    * Une fiche s'ouvre avec un nom et une adresse, rien de plus : le
    * programme, l'échelle du soir et sa question se règlent ensuite depuis
    * la fiche, quand la première séance a eu lieu.                        */

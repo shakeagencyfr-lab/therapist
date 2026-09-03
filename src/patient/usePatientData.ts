@@ -26,7 +26,7 @@ export interface PatientAudioRow {
 }
 
 /**
- * Un mot du cabinet, adressé à cette patiente.
+ * Un mot du cabinet, adressé à ce patient.
  *
  * La thérapeute les écrit depuis l'écran Notifications. Ils étaient
  * enregistrés, adressés, et jamais lus : aucun écran de l'espace ne les
@@ -39,7 +39,7 @@ export interface MotRow {
   push: { title: string; body: string; created_at: string } | null
 }
 
-/** Une page du journal, telle que la patiente l'a écrite. */
+/** Une page du journal, telle que le patient l'a écrite. */
 export interface JournalPageRow {
   id: string
   title: string
@@ -112,7 +112,7 @@ export function usePatientData(patientId: string | null): PatientData {
       db.from('patient_audios').select('id, listens, audio:audio_library (title, duration_seconds, meta, storage_path)'),
       db.from('patients').select('scale_question').limit(1).maybeSingle(),
       db.from('scale_entries').select('value, recorded_at').order('recorded_at', { ascending: false }).limit(1),
-      // Ce que la patiente voit de son cabinet : l'agenda et la boutique, rien
+      // Ce que le patient voit de son cabinet : l'agenda et la boutique, rien
       // des clés. Un échec ici ne bloque pas le reste de l'espace.
       db.rpc('patient_cabinet_settings'),
       db

@@ -80,7 +80,7 @@ export function profilePrecision(state: AppState, key: PatientId): ProfilePrecis
    * compteur ne connaît pas encore : on l'ajoute donc à la main.
    *
    * Dès l'envoi de la séance, le compteur la connaît — et `profNew` est vidé
-   * au même moment. Sans cela le badge annonçait « 2 séances » à une patiente
+   * au même moment. Sans cela le badge annonçait « 2 séances » à un patient
    * qui n'en avait fait qu'une : la séance était comptée deux fois.
    */
   const fresh = !!state.profNew[key]

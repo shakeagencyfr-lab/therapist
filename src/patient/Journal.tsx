@@ -10,7 +10,7 @@ function jour(iso: string): string {
 }
 
 /**
- * Le journal de la patiente.
+ * Le journal du patient.
  *
  * Il manquait entièrement : la table existait, la politique RLS l'autorisait
  * à écrire, l'aperçu de la thérapeute en montrait un — et l'application

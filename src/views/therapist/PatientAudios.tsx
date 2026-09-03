@@ -12,7 +12,7 @@ export function PatientAudios() {
   const { state, set } = useStore()
   const key = state.sel
   const fiche = patientOf(state)
-  // La carte n'est montée qu'avec une patiente ; le garde rend l'invariant
+  // La carte n'est montée qu'avec un patient ; le garde rend l'invariant
   // explicite plutôt que supposé.
   if (!fiche) return null
   const audios = fiche.audios.concat(state.extraAudios[key] ?? [])

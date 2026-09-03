@@ -31,7 +31,7 @@ create table public.cabinet_programs (
 );
 
 -- Deux programmes de même nom dans un cabinet n'auraient aucun sens : la
--- fiche d'une patiente ne garde que le libellé.
+-- fiche d'un patient ne garde que le libellé.
 create unique index cabinet_programs_unique_idx
   on public.cabinet_programs (cabinet_id, lower(label))
   where archived_at is null;
@@ -43,7 +43,7 @@ create index cabinet_programs_cabinet_idx
 alter table public.cabinet_programs enable row level security;
 revoke all on public.cabinet_programs from anon;
 
--- Le cabinet, et lui seul. La patiente n'a pas à lire ce catalogue : son
+-- Le cabinet, et lui seul. Le patient n'a pas à lire ce catalogue : son
 -- programme est écrit sur sa fiche, en clair.
 create policy "le cabinet gère ses programmes"
   on public.cabinet_programs for all to authenticated
@@ -58,7 +58,7 @@ alter table public.cabinet_settings rename column trafft_url to booking_url;
 alter table public.cabinet_settings
   rename constraint cabinet_settings_trafft_https to cabinet_settings_booking_https;
 
--- Deux façons de la donner à la patiente : un bouton qui ouvre la page, ou
+-- Deux façons de la donner au patient : un bouton qui ouvre la page, ou
 -- le widget de réservation encadré dans son espace.
 alter table public.cabinet_settings
   add column booking_mode text not null default 'bouton'
@@ -67,7 +67,7 @@ alter table public.cabinet_settings
     check (booking_widget_url is null or booking_widget_url ~ '^https://');
 
 -- ---------------------------------------------------------------------------
--- Ce qu'une patiente voit de son cabinet — mêmes règles, nouveaux noms.
+-- Ce qu'un patient voit de son cabinet — mêmes règles, nouveaux noms.
 -- ---------------------------------------------------------------------------
 create or replace function public.patient_cabinet_settings()
 returns jsonb

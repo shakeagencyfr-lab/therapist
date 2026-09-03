@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import type { SiteVitrine } from '@/lib/vitrine'
 import s from './VitrinePage.module.css'
 
-/** Où mène le lien reçu : l'espace de la patiente, sur son téléphone. */
+/** Où mène le lien reçu : l'espace du patient, sur son téléphone. */
 const DESTINATION = '/mon'
 
 /**
@@ -22,7 +22,7 @@ const DESTINATION = '/mon'
  * Trois modèles se partagent ce composant : ils ne changent que la mise en
  * page, jamais les rubriques. Un changement de modèle ne doit rien perdre.
  */
-export function VitrinePage({ site }: { site: SiteVitrine }) {
+export function VitrinePage({ site, apercu = false }: { site: SiteVitrine; apercu?: boolean }) {
   const b = site.branding
   const couleurs = {
     '--c-accent': b?.accent,
@@ -180,7 +180,7 @@ export function VitrinePage({ site }: { site: SiteVitrine }) {
         </section>
       ) : null}
 
-      <AccesEspace cabinet={site.name} />
+      <AccesEspace cabinet={site.name} apercu={apercu} />
 
       <footer className={s.pied}>
         <span>
@@ -199,7 +199,7 @@ export function VitrinePage({ site }: { site: SiteVitrine }) {
  * montée ici. Tant que personne n'est connecté, cette page ne charge ni
  * dossier ni session.
  */
-function AccesEspace({ cabinet }: { cabinet: string }) {
+function AccesEspace({ cabinet, apercu }: { cabinet: string; apercu?: boolean }) {
   const [email, setEmail] = useState('')
   const [envoi, setEnvoi] = useState(false)
   const [envoye, setEnvoye] = useState('')
@@ -207,6 +207,10 @@ function AccesEspace({ cabinet }: { cabinet: string }) {
 
   async function soumettre(e: FormEvent) {
     e.preventDefault()
+    /* Dans l'aperçu, la porte se montre mais ne s'ouvre pas : une thérapeute
+       qui règle sa page ne doit pas envoyer un vrai lien de connexion en
+       cliquant sur le bouton pour voir à quoi il ressemble. */
+    if (apercu) return
     const db = supabase()
     if (!db || !email.includes('@') || envoi) return
     setEnvoi(true)
@@ -238,6 +242,10 @@ function AccesEspace({ cabinet }: { cabinet: string }) {
             {` ${cabinet}`} : vous recevrez un lien de connexion.
           </p>
           <form className={s.formulaire} onSubmit={soumettre}>
+            {/* Dans l'aperçu, le champ se voit mais ne se remplit pas : une
+                thérapeute qui tape son adresse pour essayer verrait le bouton
+                s'activer, cliquerait, et rien ne se passerait. Un bouton mort
+                est plus déroutant qu'un champ qu'on ne peut pas remplir. */}
             <input
               className={s.champ}
               type="email"
@@ -246,9 +254,15 @@ function AccesEspace({ cabinet }: { cabinet: string }) {
               placeholder="votre@adresse.fr"
               autoComplete="email"
               aria-label="Votre adresse électronique"
+              readOnly={apercu}
+              tabIndex={apercu ? -1 : undefined}
               required
             />
-            <button className={s.bouton} type="submit" disabled={envoi || !email.includes('@')}>
+            <button
+              className={s.bouton}
+              type="submit"
+              disabled={apercu || envoi || !email.includes('@')}
+            >
               {envoi ? 'Envoi…' : 'Recevoir mon lien'}
             </button>
           </form>

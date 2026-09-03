@@ -55,7 +55,7 @@ export function DraftStep() {
   const profBusy = state.profGen === key
 
   /**
-   * Envoyer les audios retenus dans la bibliothèque de la patiente.
+   * Envoyer les audios retenus dans la bibliothèque du patient.
    *
    * Sur un cabinet réel, l'écran annonçait l'envoi sans rien écrire : les
    * audios n'arrivaient qu'à la validation de la note, et pas du tout si la

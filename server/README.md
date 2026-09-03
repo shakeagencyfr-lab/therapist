@@ -62,7 +62,16 @@ redirection vers n'importe où.
 
 Le reste est optionnel et se dégrade proprement : sans `VERCEL_TOKEN`, un
 domaine de cabinet se pose à la main et se vérifie par résolution DNS ; sans
-`GOOGLE_PLACES_KEY`, un site vitrine se remplit à la main.
+source de fiche Google, un site vitrine se remplit à la main.
+
+Deux sources lisent la fiche Google d'un cabinet, et l'une suffit.
+`SERPAPI_KEY` passe par SerpAPI, qui lit la fiche telle qu'elle s'affiche sur
+Google Maps : une variable à poser, rien d'autre, et les avis comme les photos
+arrivent. `GOOGLE_PLACES_KEY` passe par l'API Places de Google, qui demande un
+projet Cloud et une facturation mais dont les champs sont stables. SerpAPI est
+essayée la première quand les deux sont présentes. Le lecteur SerpAPI est
+délibérément tolérant — il recopie une page qui change, et un champ qui change
+de forme doit faire perdre ce champ, pas l'import.
 
 Pour l'analyse : `ANTHROPIC_API_KEY` est la clé d'accès à l'API Claude : elle vit sur le serveur, jamais dans le navigateur ni dans le dépôt — le fichier `.env.example` en donne la forme, sans valeur. `CLAUDE_MODEL` choisit le modèle, `claude-opus-5` par défaut ; l'identifiant est complet tel quel, il ne prend pas de suffixe de date. `PORT` fixe le port d'écoute en développement, 8787 par défaut, celui vers lequel Vite renvoie `/api` (sur Vercel, le port n'a pas de sens : chaque fonction est servie par la plateforme). `AI_MOCK` bascule le serveur en mode maquette. `NODE_ENV=production` désactive CORS : en production le client est servi par la même origine que l'API, et l'ouvrir à d'autres origines n'aurait pas de raison d'être.
 

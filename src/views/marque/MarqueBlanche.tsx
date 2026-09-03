@@ -17,7 +17,7 @@ import s from './MarqueBlanche.module.css'
  * La marque blanche totale : son domaine, et ses courriels.
  *
  * Les couleurs et le logo habillent l'application ; ces deux réglages-ci font
- * disparaître le fournisseur. Une patiente qui reçoit un lien de
+ * disparaître le fournisseur. Un patient qui reçoit un lien de
  * « cabinet-ollivier.fr », envoyé depuis « contact@cabinet-ollivier.fr »,
  * n'a aucune raison de savoir que Klaro existe.
  *
@@ -84,7 +84,7 @@ function Domaine() {
         Votre domaine
       </Title>
       <p className={s.hint}>
-        L'adresse à laquelle vos patientes arrivent. Un sous-domaine du vôtre — par exemple
+        L'adresse à laquelle vos patients arrivent. Un sous-domaine du vôtre — par exemple
         espace.votre-cabinet.fr — suffit, et vous gardez votre site principal où il est.
       </p>
 
@@ -281,7 +281,7 @@ function Courriels() {
         Vos courriels
       </Title>
       <p className={s.hint}>
-        Les liens de connexion de vos patientes partent aujourd'hui du service de la plateforme.
+        Les liens de connexion de vos patients partent aujourd'hui du service de la plateforme.
         Branchez votre propre serveur d'envoi et ils partiront de votre adresse — c'est la dernière
         chose qui trahit le fournisseur.
       </p>
@@ -368,7 +368,7 @@ function Courriels() {
                   placeholder="contact@votre-cabinet.fr"
                   autoComplete="off"
                 />
-                <span className={s.hint}>C'est elle que vos patientes verront.</span>
+                <span className={s.hint}>C'est elle que vos patients verront.</span>
               </div>
 
               <div className={s.actions}>
@@ -383,7 +383,7 @@ function Courriels() {
               </div>
               <p className={s.note}>
                 La connexion est éprouvée avant l'enregistrement : un mot de passe faux se découvre
-                ici, pas le jour où une patiente attend son lien. Il est ensuite chiffré et ne
+                ici, pas le jour où un patient attend son lien. Il est ensuite chiffré et ne
                 revient jamais à votre navigateur.
               </p>
             </div>

@@ -35,13 +35,13 @@ function IconeAgenda() {
 /**
  * La ligne « Prendre rendez-vous » de l'aperçu.
  *
- * Elle fait ce que fera celle de la patiente : ouvrir l'agenda dans un
+ * Elle fait ce que fera celle du patient : ouvrir l'agenda dans un
  * onglet, ou déplier le cadre sur place. Une image figée n'aurait pas permis
  * à la thérapeute de vérifier que son agenda accepte d'être encadré — c'est
  * pourtant la seule chose qu'elle a besoin d'éprouver ici.
  */
 function ApercuRendezVous({ booking }: { booking: Reservation }) {
-  // Déplié d'entrée, comme chez la patiente : l'aperçu doit montrer ce
+  // Déplié d'entrée, comme chez le patient : l'aperçu doit montrer ce
   // qu'elle verra, et la thérapeute doit pouvoir constater d'un coup d'œil
   // que son agenda accepte d'être encadré.
   const [ouvert, setOuvert] = useState(true)
@@ -90,14 +90,14 @@ function ApercuRendezVous({ booking }: { booking: Reservation }) {
 export function PatientHome() {
   const { state, set, read } = useStore()
   /* La notification porte le nom du cabinet connecté. En aperçu comme dans
-     l'espace d'une patiente, elle affichait le nom d'un cabinet de
+     l'espace d'un patient, elle affichait le nom d'un cabinet de
      démonstration — celui d'une autre praticienne. */
   const auth = useMaybeAuth()
   const nomCabinet =
     auth?.context?.cabinet?.name ?? auth?.context?.patient?.cabinet_name ?? 'Votre cabinet'
   const key = state.sel
   const p = patientOf(state)
-  // Un cabinet qui vient d'ouvrir n'a aucune patiente : l'aperçu n'a alors
+  // Un cabinet qui vient d'ouvrir n'a aucun patient : l'aperçu n'a alors
   // personne à montrer. PatientView affiche l'explication à sa place.
   const first = p ? p.name.split(' ')[0] : ''
 
@@ -200,7 +200,7 @@ export function PatientHome() {
   }
 
 
-  // Sans patiente, l'aperçu n'a personne à montrer : PatientView affiche
+  // Sans patient, l'aperçu n'a personne à montrer : PatientView affiche
   // l'explication à sa place.
   if (!p) return null
 
@@ -444,7 +444,7 @@ export function PatientHome() {
           </span>
         </button>
 
-        {/* La prise de rendez-vous, sous le journal, telle que la patiente la
+        {/* La prise de rendez-vous, sous le journal, telle que le patient la
             verra — et qui marche vraiment ici : la thérapeute doit pouvoir
             éprouver son agenda sans sortir de son espace. Rien tant qu'elle
             ne l'a pas réglée. */}

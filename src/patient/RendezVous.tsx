@@ -20,7 +20,7 @@ interface Props {
  * son widget, qui se déplie ici même, sans quitter l'espace.
  *
  * Le cadre n'est monté qu'au dépliement : on ne charge pas l'agenda d'un
- * tiers, ni ses cookies, sur une page que la patiente ouvre chaque soir pour
+ * tiers, ni ses cookies, sur une page que le patient ouvre chaque soir pour
  * répondre à une question. Et le lien de secours reste sous le cadre, car un
  * agenda qui refuse d'être encadré ne le dit pas — il reste blanc.
  */
@@ -50,7 +50,7 @@ export function RendezVous({ url, widgetUrl, mode, accent }: Props) {
   const cadre = mode === 'widget' ? (widgetUrl ?? url) : null
   // Le widget est ce que la thérapeute a choisi de montrer : il est là en
   // arrivant. Le repli reste offert, il n'est plus l'état de départ — une
-  // patiente qui ouvre son espace ne devine pas qu'un agenda dort derrière un
+  // patient qui ouvre son espace ne devine pas qu'un agenda dort derrière un
   // chevron.
   const [ouvert, setOuvert] = useState(true)
   const [etat, setEtat] = useState<'chargement' | 'affiche' | 'muet'>('chargement')

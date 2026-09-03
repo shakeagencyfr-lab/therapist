@@ -75,7 +75,7 @@ export function NotificationsView() {
       <div className={s.crumb}>
         <Overline>Notifications</Overline>
       </div>
-      <h1 className={s.h1}>Écrire à un groupe de patientes</h1>
+      <h1 className={s.h1}>Écrire à un groupe de patients</h1>
       <p className={s.intro}>
         Les filtres composent le groupe à partir de ce que l'application sait déjà : programme,
         assiduité, modules en retard, rendez-vous manquant. Vous voyez la liste nominative avant
@@ -102,7 +102,7 @@ export function NotificationsView() {
             </span>
             <div className={s.chips}>
               {/* Les programmes du cabinet, pas ceux de la démonstration :
-                  filtrer sur « Liberté » quand aucune patiente ne le suit ne
+                  filtrer sur « Liberté » quand aucun patient ne le suit ne
                   rend jamais personne. */}
               {programmes.map((program) => {
                 const on = !!state.nProgs[program]
@@ -171,7 +171,7 @@ export function NotificationsView() {
             <div className={s.recipientsHead}>
               <h2 className={s.h2}>Destinataires</h2>
               <span className={s.count}>
-                {recipients.length} sur {rows.length} patientes
+                {recipients.length} sur {rows.length} patients
               </span>
             </div>
             <ul className={s.list}>
@@ -187,7 +187,7 @@ export function NotificationsView() {
             </ul>
             {recipients.length === 0 && (
               <div className={s.noRecipients}>
-                Aucune patiente ne correspond à cette combinaison de filtres.
+                Aucun patient ne correspond à cette combinaison de filtres.
               </div>
             )}
           </Card>
@@ -298,7 +298,7 @@ export function NotificationsView() {
 
             <div className={s.sendRow}>
               <Button variant="primary" className={s.send} disabled={!canSend} onClick={() => void send()}>
-                {canSend ? `Écrire à ${plural(recipients.length, 'patiente', 'patientes')}` : 'Envoyer'}
+                {canSend ? `Écrire à ${plural(recipients.length, 'patient', 'patients')}` : 'Envoyer'}
               </Button>
               <span className={s.sendHint}>
                 {state.pushes.length

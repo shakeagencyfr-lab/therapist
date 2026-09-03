@@ -229,7 +229,7 @@
   background: var(--c-surface);
 }
 
-/* Le téléphone de la patiente : c'est là que la marque se voit le plus. */
+/* Le téléphone du patient : c'est là que la marque se voit le plus. */
 .phone {
   max-width: 300px;
   border: 1px solid var(--c-border);

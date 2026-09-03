@@ -13,7 +13,7 @@ export function ScaleChart() {
   const points = chartPoints(scaleSeries(state, state.sel))
 
 
-  // La courbe n'est montée qu'avec une patiente.
+  // La courbe n'est montée qu'avec un patient.
   if (!p) return null
 
   return (
@@ -22,7 +22,7 @@ export function ScaleChart() {
         <Title>{p.scaleLabel}</Title>
         <span className={s.delta}>{p.scaleDelta}</span>
       </div>
-      {/* Le sous-titre porte la QUESTION que la patiente lit chaque soir : elle
+      {/* Le sous-titre porte la QUESTION que le patient lit chaque soir : elle
           dit ce que la courbe mesure, là où « échelle de 0 à 10 » ne disait
           rien. Non réglée, l'écran le dit et nomme l'endroit où le faire —
           le réglage existait, il était seulement invisible. */}

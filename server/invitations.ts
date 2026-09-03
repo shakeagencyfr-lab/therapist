@@ -30,7 +30,7 @@ const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
  */
 const SITE = (process.env.PUBLIC_SITE_URL ?? '').replace(/\/+$/, '')
 
-export type InviteKind = 'praticienne' | 'patiente'
+export type InviteKind = 'praticienne' | 'patient'
 
 export interface InviteBody {
   email: string
@@ -140,9 +140,9 @@ function corpsInvitation(
   /* `cabinet` est le nom du cabinet lui-même. L'objet disait donc « Votre
      cabinet sur Cabinet Claire Fontaine » : son cabinet sur son cabinet. La
      praticienne est invitée DANS le sien, pas sur quelque chose d'autre. */
-  const objet = kind === 'patiente' ? `Votre espace — ${cabinet}` : `${cabinet} vous attend`
+  const objet = kind === 'patient' ? `Votre espace — ${cabinet}` : `${cabinet} vous attend`
   const intro =
-    kind === 'patiente'
+    kind === 'patient'
       ? `${cabinet} vous a ouvert votre espace entre les séances : vos exercices de la semaine, votre journal et vos audios.`
       : `${cabinet} est ouvert. Ce lien vous y connecte et vous en rend propriétaire.`
   const text = `${intro}\n\nVotre lien de connexion :\n${lien}\n\nIl vous connecte directement, sans mot de passe à retenir. Si vous n'attendiez pas ce message, ignorez-le : personne n'a accès à votre espace sans ce lien.`
@@ -183,7 +183,12 @@ export async function envoyerInvitation(
   const body = (raw && typeof raw === 'object' ? raw : {}) as Partial<InviteBody>
   const email = String(body.email ?? '').trim().toLowerCase()
   const cabinetId = String(body.cabinetId ?? '').trim()
-  const kind: InviteKind = body.kind === 'patiente' ? 'patiente' : 'praticienne'
+  /* Le mot est passé de « patiente » à « patient ». Un navigateur qui a
+     gardé l'ancien paquet en cache enverra encore l'ancienne valeur pendant
+     quelques heures : on l'accepte, plutôt que de traiter sa patiente comme
+     une praticienne et de l'envoyer sur le mauvais espace. */
+  const demande = String(body.kind ?? '')
+  const kind: InviteKind = demande === 'patient' || demande === 'patiente' ? 'patient' : 'praticienne'
 
   if (!adresseValide(email)) {
     return { status: 400, body: { message: "Cette adresse ne ressemble pas à une adresse électronique." } }
@@ -241,7 +246,7 @@ export async function envoyerInvitation(
   const admin = clientAdmin()
   const base = await baseDuCabinet(admin, cabinetId)
   const destination =
-    kind === 'patiente' ? `${base}/mon` : slugCabinet ? `${base}/c/${slugCabinet}` : `${base}/`
+    kind === 'patient' ? `${base}/mon` : slugCabinet ? `${base}/c/${slugCabinet}` : `${base}/`
 
   /* ---- D'abord son serveur d'envoi, si elle en a un --------------------
      En marque blanche totale, le courriel doit partir de son adresse. Un

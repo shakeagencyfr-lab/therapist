@@ -33,7 +33,7 @@ export function PsychProfile() {
     try {
       /* La séance en mémoire est celle de l'écran Séance, et elle n'est pas
          effacée en changeant de fiche. L'envoyer sans vérifier à qui elle
-         appartient faisait analyser le dossier d'une patiente AVEC la
+         appartient faisait analyser le dossier d'un patient AVEC la
          transcription d'une autre — le pire défaut possible ici. */
       const memeFiche = state.sessionPatient === key
       const result = await refreshProfile({
@@ -95,7 +95,7 @@ export function PsychProfile() {
   const sessionsWord = precision.sessions > 1 ? 'séances' : 'séance'
 
 
-  // Le profil n'existe qu'à partir d'une patiente ; la carte n'est montée
+  // Le profil n'existe qu'à partir d'un patient ; la carte n'est montée
   // qu'avec elle.
   if (!profile) return null
 

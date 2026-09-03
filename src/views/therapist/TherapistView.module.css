@@ -89,7 +89,7 @@
   }
 }
 
-/* Cabinet sans patiente : le premier écran d'une praticienne qui arrive. */
+/* Cabinet sans patient : le premier écran d'une praticienne qui arrive. */
 .empty {
   max-width: 52ch;
   padding: 60px 0 0;

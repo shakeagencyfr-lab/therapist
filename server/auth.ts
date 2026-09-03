@@ -60,7 +60,7 @@ export interface Appelant {
   cabinetId: string | null
   resellerId: string | null
   patientId: string | null
-  /** Le cabinet de sa fiche patiente, quand il en a une. */
+  /** Le cabinet de sa fiche patient, quand il en a une. */
   patientCabinetId: string | null
   /** Client agissant en son nom, pour les lectures et écritures sous RLS. */
   client: SupabaseClient

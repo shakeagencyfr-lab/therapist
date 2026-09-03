@@ -2,7 +2,7 @@
  * Ce que l'offre du cabinet ouvre, partagé par les écrans.
  *
  * Un seul appel pour toute l'application : le plafond de fiches se lit dans
- * la colonne des patientes, la boutique et le site vitrine s'ouvrent ou non
+ * la colonne des patients, la boutique et le site vitrine s'ouvrent ou non
  * dans les réglages. Trois écrans qui interrogeraient chacun le serveur
  * finiraient par en donner trois versions le temps d'un changement d'offre.
  *

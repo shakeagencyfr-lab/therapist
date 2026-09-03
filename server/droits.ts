@@ -106,7 +106,7 @@ export async function droitsDuCabinet(cabinetId: string, client: SupabaseClient)
  *
  * `cabinet_droits()` ne répond qu'à un membre du cabinet ou à son revendeur ;
  * elle ne rendrait donc rien ici, où c'est le serveur qui demande — pour le
- * compte d'une patiente, par exemple, qui n'est ni l'un ni l'autre. On lit
+ * compte d'un patient, par exemple, qui n'est ni l'un ni l'autre. On lit
  * alors les deux tables directement, avec la même règle : l'exception
  * négociée l'emporte sur l'offre.
  */

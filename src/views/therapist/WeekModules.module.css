@@ -47,7 +47,7 @@
   color: var(--c-text-muted);
 }
 
-/* Le mot de la patiente sur l'exercice : ses termes, entre guillemets, et
+/* Le mot du patient sur l'exercice : ses termes, entre guillemets, et
    d'un ton qui les distingue de ce que le cabinet a écrit. */
 .note {
   display: block;

@@ -8,12 +8,12 @@ export function PatientHeader() {
   const { state, set } = useStore()
   const p = patientOf(state)
 
-  // La fiche n'est montée qu'avec une patiente ; le garde rend l'invariant
+  // La fiche n'est montée qu'avec un patient ; le garde rend l'invariant
   // explicite plutôt que supposé.
   if (!p) return null
 
   /**
-   * « Ajouter un module » ouvre l'atelier avec cette patiente déjà cochée.
+   * « Ajouter un module » ouvre l'atelier avec ce patient déjà cochée.
    *
    * L'ancien bouton piochait le module suivant d'une bibliothèque de
    * démonstration et l'ajoutait en mémoire — sur un vrai cabinet, un module
@@ -25,7 +25,7 @@ export function PatientHeader() {
   }
 
   /**
-   * Ouvrir la séance depuis la fiche : elle démarre sur cette patiente, il n'y
+   * Ouvrir la séance depuis la fiche : elle démarre sur ce patient, il n'y
    * a pas à la rechoisir. Une captation déjà commencée n'est pas écrasée pour
    * autant — on rejoint l'écran là où il en est.
    */

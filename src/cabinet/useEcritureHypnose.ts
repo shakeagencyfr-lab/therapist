@@ -14,7 +14,7 @@ import type { PatientId, SessionDraft } from '@/types/domain'
 /**
  * Écrire une hypnose, d'où qu'on la lance.
  *
- * Deux écrans en ont besoin — la note de séance, et la fiche de la patiente
+ * Deux écrans en ont besoin — la note de séance, et la fiche du patient
  * quand on veut en refaire une. Le même code sert aux deux : la mécanique est
  * délicate (quatre appels, une ligne ouverte en base avant d'écrire, chaque
  * mouvement versé dès qu'il arrive) et la dupliquer, c'est se garantir que
@@ -70,7 +70,7 @@ export function useEcritureHypnose(): EcritureHypnose {
       setFini(false)
       setEcrits([])
 
-      const prenom = read().patients[patientId]?.name.split(' ')[0] ?? 'votre patiente'
+      const prenom = read().patients[patientId]?.name.split(' ')[0] ?? 'votre patient'
 
       // L'hypnose s'ouvre en base AVANT d'être écrite : chaque mouvement y est
       // versé dès qu'il arrive, et rien n'est perdu si l'un d'eux échoue.

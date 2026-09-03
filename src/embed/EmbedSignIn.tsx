@@ -17,7 +17,7 @@ const DESTINATION = '/mon'
  * application connectée, c'est offrir ses clics à qui l'encadre.
  *
  * Le lien de connexion, lui, ouvre l'espace en pleine page. Il arrive par
- * courriel : la patiente le lira sur son téléphone, pas dans le cadre.
+ * courriel : le patient le lira sur son téléphone, pas dans le cadre.
  */
 export function EmbedSignIn() {
   const slug = typeof window === 'undefined' ? null : slugDuChemin(window.location.pathname)
