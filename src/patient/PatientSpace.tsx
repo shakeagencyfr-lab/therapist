@@ -419,15 +419,6 @@ export function PatientSpace() {
         ) : null}
 
         {courant === 'journal' ? (
-          <MotAuTherapeute
-            patientId={patient.id}
-            cabinetId={patient.cabinet_id}
-            accent={patient.branding?.accent}
-            onEnvoye={recharger}
-          />
-        ) : null}
-
-        {courant === 'journal' ? (
           <Journal
             pages={journal}
             illisible={journalIllisible}
@@ -439,6 +430,18 @@ export function PatientSpace() {
         ) : null}
 
         {courant === 'moi' ? <MonCompte patient={patient} /> : null}
+
+        {/* En dernier dans la journée : on lui écrit une fois le reste
+            regardé — les exercices faits, la note du soir posée — parce que
+            c'est de tout cela qu'on a quelque chose à dire. */}
+        {courant === 'jour' && !tache ? (
+          <MotAuTherapeute
+            patientId={patient.id}
+            cabinetId={patient.cabinet_id}
+            accent={patient.branding?.accent}
+            onEnvoye={recharger}
+          />
+        ) : null}
 
         {courant === 'rdv' && bookingUrl ? (
           <RendezVous

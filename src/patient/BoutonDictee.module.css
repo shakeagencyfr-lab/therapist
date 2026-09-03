@@ -1,0 +1,82 @@
+/* La dictée : un bouton large, et ce qu'il entend juste en dessous. */
+
+.zone {
+  margin-top: 9px;
+}
+
+.bouton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  background: var(--c-surface);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--c-text-2);
+  cursor: pointer;
+}
+
+.micro {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* À l'écoute : le bouton porte l'accent du cabinet et respire, pour qu'on
+   voie d'un coup d'œil que le micro est ouvert. */
+.ecoute {
+  background: var(--c-dark);
+  border-color: transparent;
+  color: #fff;
+}
+.ecoute .micro {
+  animation: souffle 1.6s ease-in-out infinite;
+}
+@keyframes souffle {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* Un micro ouvert doit rester visible : on n'éteint que le battement, pas
+   l'état. */
+@media (prefers-reduced-motion: reduce) {
+  .ecoute .micro {
+    animation: none;
+  }
+}
+
+.interim {
+  margin: 9px 0 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+  font-style: italic;
+}
+
+.erreur {
+  margin: 9px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--c-warn-text-2);
+}
+
+.mention {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+}
