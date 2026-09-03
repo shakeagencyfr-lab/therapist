@@ -24,7 +24,50 @@ import {
   type ServiceSite,
   type Site,
 } from '@/services/cabinet'
+import { VitrinePage } from '@/views/vitrine/VitrinePage'
+import type { SiteVitrine } from '@/lib/vitrine'
+import type { CabinetBranding } from '@/types/reseller'
 import s from './SiteView.module.css'
+
+/**
+ * L'aperçu, construit depuis ce qui est en train d'être saisi.
+ *
+ * Il montre EXACTEMENT le composant qui sert la page publique — pas une
+ * imitation. Une imitation dérive : elle finit par montrer une page que
+ * personne ne verra jamais, et c'est précisément ce qu'un aperçu est censé
+ * éviter. Le prix à payer est cette conversion, qui met les champs de
+ * l'éditeur à la forme que rend la base.
+ */
+function versVitrine(
+  site: Site,
+  identite: { name: string; slug: string; tagline: string; branding: CabinetBranding } | null,
+): SiteVitrine {
+  return {
+    slug: identite?.slug ?? 'cabinet',
+    name: identite?.name ?? 'Votre cabinet',
+    tagline: identite?.tagline || 'Espace thérapie',
+    branding: identite?.branding ?? {
+      accent: '#A17A45',
+      accentHover: '#856239',
+      accentDeep: '#6E5230',
+      dark: '#33291C',
+      logo: 'KL',
+    },
+    modele: site.modele,
+    titre: site.titre,
+    sous_titre: site.sousTitre,
+    presentation: site.presentation,
+    adresse: site.adresse,
+    telephone: site.telephone,
+    site_web: site.siteWeb,
+    horaires: site.horaires,
+    photos: site.photos,
+    services: site.services,
+    avis: site.avis,
+    google_note: site.googleNote,
+    google_avis: site.googleAvis,
+  }
+}
 
 /**
  * Le site vitrine du cabinet.
@@ -139,7 +182,8 @@ export function SiteView() {
       {message ? <Notice tone="ok">{message}</Notice> : null}
 
       {site ? (
-        <>
+        <div className={s.deuxColonnes}>
+        <div className={s.editeur}>
           <ImportGoogle
             possible={etat?.google ?? false}
             importeLe={site.importeLe}
@@ -324,7 +368,29 @@ export function SiteView() {
               </p>
             ) : null}
           </Card>
-        </>
+        </div>
+
+        {/* L'aperçu suit la saisie, sans bouton pour le rafraîchir : régler
+            une page sans la voir, c'est publier pour voir — et publier pour
+            voir met en ligne des états qu'on ne voulait pas montrer. */}
+        <aside className={s.apercu} aria-label="Aperçu de votre page">
+          <div className={s.apercuTete}>
+            <span className={s.apercuTitre}>Aperçu</span>
+            <span className={s.apercuEtat}>
+              {site.publie ? 'En ligne' : 'Brouillon — personne ne le voit'}
+            </span>
+          </div>
+          <div className={s.apercuCadre}>
+            <div className={s.apercuPage}>
+              <VitrinePage site={versVitrine(site, identite)} apercu />
+            </div>
+          </div>
+          <p className={s.apercuNote}>
+            La vraie page, à l'échelle. La porte de connexion y est montrée mais désactivée :
+            l'essayer ici n'envoie aucun lien.
+          </p>
+        </aside>
+        </div>
       ) : null}
     </div>
   )

@@ -328,6 +328,29 @@ try {
   } else {
     console.log(`✓ vitrine/publiee   ${String(html.length).padStart(6)} octets · porte posée, aucun dossier`)
   }
+
+  /* L'aperçu de l'éditeur rend LE MÊME composant, avec sa porte désactivée.
+     C'est ce qui garantit qu'il montre la vraie page ; et c'est aussi ce qui
+     rend l'épreuve nécessaire, parce qu'une thérapeute qui essaie le bouton
+     pour voir ne doit pas s'envoyer un vrai lien de connexion. */
+  const apercu = renderToString(h(VitrinePage, { site: SITE_FICTIF as never, apercu: true }))
+  const champs = apercu.match(/<input[^>]*type="email"[^>]*>/g) ?? []
+  const inerte = champs.length > 0 && champs.every((c) => c.includes('readonly'))
+  /* La page publiée, elle, doit rester utilisable : sans cette moitié-là,
+     l'épreuve passerait aussi le jour où le champ serait bloqué partout. */
+  const vivants = html.match(/<input[^>]*type="email"[^>]*>/g) ?? []
+  const ouvert = vivants.length > 0 && vivants.every((c) => !c.includes('readonly'))
+  const dit = [
+    !apercu.includes('Retrouver le sommeil') && 'le titre ne paraît pas dans l’aperçu',
+    !inerte && "la porte de l'aperçu se remplit encore",
+    !ouvert && 'la porte de la page publiée est bloquée',
+  ].filter(Boolean)
+  if (dit.length) {
+    console.error(`✗ vitrine/apercu : ${dit.join(', ')}`)
+    echecs++
+  } else {
+    console.log(`✓ vitrine/apercu    ${String(apercu.length).padStart(6)} octets · porte montrée, inerte`)
+  }
 } catch (err) {
   console.error(`✗ vitrine/publiee : ${(err as Error).message}`)
   echecs++

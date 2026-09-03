@@ -1,6 +1,105 @@
 .wrap {
   padding: 30px 34px 60px;
-  max-width: 880px;
+  max-width: 1560px;
+}
+
+/* Éditeur à gauche, page à droite ---------------------------------------- *
+   L'aperçu tient tout seul dans la colonne : il reste en vue pendant qu'on
+   fait défiler les champs, parce qu'un aperçu qu'il faut aller chercher ne
+   sert à rien. */
+
+.deuxColonnes {
+  display: grid;
+  grid-template-columns: minmax(0, 880px) minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.editeur {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.apercu {
+  position: sticky;
+  top: 22px;
+  min-width: 0;
+}
+
+.apercuTete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.apercuTitre {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+
+.apercuEtat {
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+}
+
+/* Le cadre : la fenêtre par laquelle on regarde la page. */
+.apercuCadre {
+  height: calc(100vh - 150px);
+  min-height: 420px;
+  overflow: hidden;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  background: var(--c-surface);
+  box-shadow: 0 10px 30px rgba(27, 26, 23, 0.07);
+}
+
+/* La page, rendue à sa VRAIE largeur puis réduite.
+   Le composant du site est pensé pour un écran ; le laisser se replier dans
+   une colonne étroite montrerait sa mise en page de téléphone, c'est-à-dire
+   pas celle qu'on est en train de régler. On le rend donc à 1180 px et on le
+   met à l'échelle — l'aperçu montre alors ce que verra quelqu'un sur un
+   ordinateur, en plus petit. `zoom` fait cela sans casser le défilement
+   interne, ce que `transform: scale()` ne sait pas faire. */
+.apercuPage {
+  width: 1180px;
+  zoom: 0.42;
+  height: calc((100vh - 152px) / 0.42);
+  min-height: calc(418px / 0.42);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.apercuNote {
+  margin: 9px 2px 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+}
+
+/* Sous 1400 px, l'aperçu passerait sous 400 px de large une fois réduit :
+   il ne montrerait plus rien d'utile. Il passe alors sous l'éditeur, en
+   pleine largeur, où il reste lisible. */
+@media (max-width: 1400px) {
+  .deuxColonnes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .apercu {
+    position: static;
+  }
+  .apercuCadre {
+    height: 560px;
+  }
+  .apercuPage {
+    zoom: 0.55;
+    height: calc(558px / 0.55);
+    min-height: 0;
+  }
 }
 
 .crumb {
