@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.72.0",
-    "@marsidev/react-turnstile": "^1.6.1",
+    "@hcaptcha/react-hcaptcha": "^2.2.0",
     "@supabase/supabase-js": "^2.112.4",
     "cors": "^2.8.5",
     "express": "^4.21.2",

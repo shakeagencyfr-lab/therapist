@@ -1,13 +1,19 @@
 import { useRef, useState } from 'react'
-import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
+import HCaptcha from '@hcaptcha/react-hcaptcha'
 
 /**
  * Le CAPTCHA de la porte d'entrée.
  *
- * IL NE S'AFFICHE QUE S'IL EST CONFIGURÉ. Sans `VITE_TURNSTILE_SITE_KEY`, ce
+ * IL NE S'AFFICHE QUE S'IL EST CONFIGURÉ. Sans `VITE_HCAPTCHA_SITE_KEY`, ce
  * composant ne rend rien et la connexion fonctionne comme avant : c'est une
  * protection qu'on active le jour où on en a besoin, pas une dépendance de
  * plus à porter dès le premier jour.
+ *
+ * POURQUOI hCaptcha. Supabase n'en vérifie que deux : hCaptcha et Cloudflare
+ * Turnstile. Le second suppose un compte Cloudflare ; le premier s'ouvre en
+ * cinq minutes sans rien d'autre. C'est le seul motif du choix — la clé
+ * secrète se pose au même endroit dans les deux cas, et le code appelant ne
+ * voit aucune différence.
  *
  * LA CLÉ DE SITE EST PUBLIQUE, PAR CONSTRUCTION — elle est lue par le
  * navigateur de chaque visiteur, c'est son rôle. Le préfixe `VITE_` est donc
@@ -26,7 +32,7 @@ import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
 // rendu, épreuves — il vaut undefined, et le lire directement fait tomber
 // tout ce qui importe ce fichier.
 const env = import.meta.env ?? {}
-const CLE = String(env.VITE_TURNSTILE_SITE_KEY ?? '').trim()
+const CLE = String(env.VITE_HCAPTCHA_SITE_KEY ?? '').trim()
 
 export function captchaConfigure(): boolean {
   return Boolean(CLE)
@@ -43,21 +49,21 @@ export interface Captcha {
 
 export function useCaptcha(): Captcha {
   const [jeton, setJeton] = useState<string | undefined>(undefined)
-  const ref = useRef<TurnstileInstance | null>(null)
+  const ref = useRef<HCaptcha | null>(null)
 
   return {
     jeton,
     reinitialiser: () => {
       setJeton(undefined)
-      ref.current?.reset()
+      ref.current?.resetCaptcha()
     },
     widget: CLE ? (
       <div style={{ marginTop: 14 }}>
-        <Turnstile
+        <HCaptcha
           ref={ref}
-          siteKey={CLE}
-          options={{ language: 'fr', theme: 'light' }}
-          onSuccess={setJeton}
+          sitekey={CLE}
+          languageOverride="fr"
+          onVerify={setJeton}
           onExpire={() => setJeton(undefined)}
           onError={() => setJeton(undefined)}
         />
