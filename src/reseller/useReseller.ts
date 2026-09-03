@@ -148,6 +148,10 @@ function versPortfolio(
   offres: Plan[],
   exception: ExceptionRow | undefined,
 ): PortfolioRow {
+  /* Un cabinet sans ligne d'abonnement retombe sur la première offre du
+     catalogue — et l'offre affichée doit alors être CELLE-LÀ. Prendre le
+     libellé d'un côté et le code de l'autre allumait deux pastilles à la
+     fois sur la même ligne. */
   const plan = offres.find((p) => p.code === o.plan_code) ?? offres[0]
   return {
     cabinet: {
@@ -175,7 +179,7 @@ function versPortfolio(
     },
     subscription: {
       cabinetId: o.cabinet_id,
-      plan: (o.plan_code ?? 'cabinet') as PlanCode,
+      plan: (o.plan_code ?? plan.code) as PlanCode,
       status: (o.status ?? 'essai') as PortfolioRow['subscription']['status'],
       periodEnd: dateLongue(o.current_period_end),
       maxPatientsOverride: exception?.max_patients_override ?? null,

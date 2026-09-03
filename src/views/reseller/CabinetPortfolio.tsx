@@ -173,10 +173,19 @@ export function CabinetPortfolio() {
     <>
       <div className={s.stats}>
         <StatCard label="Cabinets" value={sums.cabinets} progress={100} />
+        {/* « Sur X vendues » ne vaut que pour les cabinets qui ont un plafond :
+            ceux sans limite n'ont rien vendu de comptable, et les mélanger
+            donnait un total rapporté à une capacité qui ne le couvrait pas. */}
         <StatCard
           label="Fiches actives"
           value={sums.patients}
-          unit={place.capacite > 0 ? `sur ${place.capacite} vendues` : 'au total'}
+          unit={
+            place.capacite === 0
+              ? 'au total'
+              : place.illimites > 0
+                ? `dont ${place.actives} sur ${place.capacite} vendues`
+                : `sur ${place.capacite} vendues`
+          }
           progress={place.pct}
         />
         <StatCard label="Séances" value={sums.sessions} unit="sur 30 jours" progress={100} />

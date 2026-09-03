@@ -21,6 +21,7 @@
  */
 import Stripe from 'stripe'
 import { clientAdmin, identifier } from './auth.js'
+import { levierDuCabinet } from './droits.js'
 import { HttpError } from './errors.js'
 import { cleStripeDuCabinet } from './integrations.js'
 
@@ -101,6 +102,14 @@ export async function demarrerPaiement(token: string | null, raw: unknown): Prom
     .eq('cabinet_id', cabinetId)
     .maybeSingle<{ shop_enabled: boolean }>()
   if (!reglages?.shop_enabled) {
+    throw new HttpError(409, "La boutique de votre thérapeute n'est pas ouverte.")
+  }
+  /* Le levier de l'offre, tenu ICI et pas seulement à l'écran : un cabinet
+     dont le revendeur a fermé la boutique ne doit pas pouvoir encaisser parce
+     que l'interruption n'a pas atteint le navigateur d'une patiente. Le
+     message reste le même — la patiente n'a pas à connaître le contrat de sa
+     thérapeute. */
+  if (!(await levierDuCabinet(cabinetId, 'shop', db))) {
     throw new HttpError(409, "La boutique de votre thérapeute n'est pas ouverte.")
   }
   if (!SITE) {

@@ -13,6 +13,8 @@
 --   4. Un domaine ne sert qu'une fois vérifié, et ne s'écrit que par le
 --      serveur : l'enregistrement s'accompagne d'une déclaration chez
 --      l'hébergeur, qu'un navigateur ne peut pas faire.
+--   5. Fermer un levier ferme ce qui est DÉJÀ en ligne — la page publiée et
+--      le domaine vérifié — et pas seulement l'écran qui l'annonce.
 --
 --   psql "$DATABASE_URL" -f supabase/tests/offres.sql
 --
@@ -139,5 +141,29 @@ begin
   perform set_config('role', 'postgres', true);
   if not v_refus then raise exception 'ECHEC : une praticienne écrit directement son domaine'; end if;
 
-  raise exception 'REUSSITE : plafond tenu par la base, droits lus d''un seul endroit, catalogue réservé au revendeur, domaine servi une fois vérifié · message du plafond = %', v_msg;
+  -- 5. Fermer un levier ferme ce qui est déjà en ligne ---------------------
+  -- Une page publiée et un domaine vérifié ne doivent pas survivre à l'offre
+  -- qui les autorisait : sinon la fermeture ne se voit que sur l'écran du
+  -- cabinet, pas sur Internet.
+  insert into public.cabinet_sites (cabinet_id, publie, titre)
+  values (v_cab, true, 'Éprouve')
+  on conflict (cabinet_id) do update set publie = true;
+
+  update public.subscriptions set site_override = true, marque_blanche_override = true where cabinet_id = v_cab;
+  if public.site_vitrine((select slug from public.cabinets where id = v_cab)) is null then
+    raise exception 'ECHEC : le site ne répond pas alors que le levier est ouvert';
+  end if;
+  if public.cabinet_par_domaine('eprouve-domaine.test') is null then
+    raise exception 'ECHEC : le domaine ne répond pas alors que la marque blanche est ouverte';
+  end if;
+
+  update public.subscriptions set site_override = false, marque_blanche_override = false where cabinet_id = v_cab;
+  if public.site_vitrine((select slug from public.cabinets where id = v_cab)) is not null then
+    raise exception 'ECHEC : le site reste en ligne alors que le levier est fermé';
+  end if;
+  if public.cabinet_par_domaine('eprouve-domaine.test') is not null then
+    raise exception 'ECHEC : le domaine répond encore alors que la marque blanche est fermée';
+  end if;
+
+  raise exception 'REUSSITE : plafond tenu par la base, droits lus d''un seul endroit, catalogue réservé au revendeur, domaine et vitrine servis seulement quand l''offre les ouvre · message du plafond = %', v_msg;
 end $$;
