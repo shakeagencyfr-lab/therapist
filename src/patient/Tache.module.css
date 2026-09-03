@@ -1,0 +1,149 @@
+/* Une tâche ouverte : un écran plein, pas une carte dépliée. Sur un
+   téléphone, un accordéon qui pousse le reste fait perdre sa place. */
+
+.ecran {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.retour {
+  align-self: flex-start;
+  border: none;
+  background: none;
+  padding: 6px 0;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--c-text-3);
+  cursor: pointer;
+}
+
+.titre {
+  font-family: var(--font-serif);
+  font-size: 25px;
+  line-height: 1.2;
+  font-weight: 400;
+  margin: 0;
+}
+
+.meta {
+  font-size: 12.5px;
+  color: var(--c-text-muted);
+  margin: -8px 0 0;
+}
+
+.bloc {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.blocTitre {
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+  font-weight: 500;
+  margin: 0 0 9px;
+}
+
+.texte {
+  font-size: 14.5px;
+  line-height: 1.65;
+  color: var(--c-text-2);
+  margin: 0;
+}
+
+.etapes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.etape {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.numero {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--c-dark);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 12.5px;
+  font-weight: 600;
+  margin-top: 1px;
+}
+
+.etapeTexte {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--c-text-2);
+}
+
+.aide {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+  margin: 0 0 10px;
+}
+
+.champ {
+  width: 100%;
+  /* 16 px : en dessous, le navigateur du téléphone zoome à la mise au point. */
+  font-size: 16px;
+  font-family: inherit;
+  line-height: 1.55;
+  padding: 12px 13px;
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+  background: var(--c-app);
+  color: var(--c-text);
+  resize: vertical;
+}
+.champ:focus {
+  outline: none;
+  border-color: var(--c-accent);
+}
+
+.enregistrer {
+  width: 100%;
+  min-height: 46px;
+  margin-top: 10px;
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  background: var(--c-surface);
+  font-family: inherit;
+  font-size: 14.5px;
+  color: var(--c-text-2);
+  cursor: pointer;
+}
+.enregistrer:disabled {
+  color: var(--c-text-muted);
+  cursor: default;
+}
+
+/* Cocher se fait après avoir lu, donc en bas — et assez large pour le pouce. */
+.pied {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 16px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 16px;
+}
+
+.piedTexte {
+  font-size: 15px;
+  font-weight: 500;
+}

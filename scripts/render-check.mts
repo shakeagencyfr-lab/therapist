@@ -16,6 +16,8 @@ import { createElement as h } from 'react'
 import { App } from '../src/App'
 import { RendezVous } from '../src/patient/RendezVous'
 import { VitrinePage } from '../src/views/vitrine/VitrinePage'
+import { Tache } from '../src/patient/Tache'
+import { IconeOnglet } from '../src/patient/IconesOnglets'
 import { AppStoreProvider } from '../src/state/store'
 import { PATIENTS } from '../src/data/patients'
 import type { AppState, ResellerView, ViewMode } from '../src/state/state'
@@ -370,8 +372,63 @@ for (const rView of VUES) {
   }
 }
 
+/* ------------------------------------------------------------------ *
+ * L'espace patient : la tâche qui s'ouvre
+ *
+ * Elle ne s'ouvrait pas du tout : la consigne dormait dans une colonne que
+ * personne ne lisait, et le patient pouvait cocher un exercice sans savoir
+ * ce qu'il fallait faire. L'épreuve tient les deux moitiés — ce qui existe
+ * s'affiche, ce qui manque se dit au lieu de s'inventer.
+ * ------------------------------------------------------------------ */
+
+const TACHE_AVEC = {
+  id: '1',
+  title: 'Le premier geste du matin',
+  meta: 'Ajouté depuis la séance du 3 septembre',
+  kind: 'Exercice',
+  position: 0,
+  done_at: null,
+  patient_note: null,
+  consigne: {
+    duree: '3 minutes',
+    quand: 'Au réveil',
+    steps: ['Posez les pieds au sol.', 'Comptez trois respirations.'],
+    why: 'Pour rompre la première hésitation.',
+  },
+}
+const TACHE_SANS = { ...TACHE_AVEC, id: '2', consigne: null }
+
+try {
+  const rien = async () => {}
+  const avec = renderToString(
+    h(Tache as never, { module: TACHE_AVEC, onFermer: () => {}, onBasculer: rien, onNote: rien } as never),
+  )
+  const sans = renderToString(
+    h(Tache as never, { module: TACHE_SANS, onFermer: () => {}, onBasculer: rien, onNote: rien } as never),
+  )
+  const manque = [
+    !avec.includes('Posez les pieds au sol.') && 'les étapes ne paraissent pas',
+    !avec.includes('Pour rompre la première hésitation.') && 'le « pourquoi » ne paraît pas',
+    sans.includes('Comment faire') && 'un module sans étapes en annonce quand même',
+    !sans.includes('sans consigne écrite') && "l'absence de consigne n'est pas dite",
+  ].filter(Boolean)
+  const icones = ['jour', 'journal', 'rdv', 'boutique', 'moi'].filter(
+    (nom) => !renderToString(h(IconeOnglet as never, { nom } as never)).includes('<svg'),
+  )
+  if (manque.length || icones.length) {
+    console.error(`✗ patient/tache : ${[...manque, ...icones.map((i) => `icône ${i} vide`)].join(', ')}`)
+    echecs++
+  } else {
+    console.log(`✓ patient/tache     ${String(avec.length).padStart(6)} octets · consigne lue, absence dite, 5 icônes`)
+  }
+} catch (err) {
+  console.error(`✗ patient/tache : ${(err as Error).message}`)
+  echecs++
+}
+
 if (echecs > 0) {
   console.error(`\n${echecs} échec(s).`)
   process.exit(1)
 }
 console.log('\nRendu conforme.')
+

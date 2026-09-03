@@ -113,6 +113,9 @@ export function DraftStep() {
         kind: proposal.type,
         done: false,
         fresh: true,
+        // Ce que la séance a dit de ce module : sans lui, le patient reçoit
+        // un titre à cocher et rien à lire.
+        pourquoi: proposal.pourquoi,
       }))
 
     // Fiches de démonstration : le parcours se met à jour en mémoire.

@@ -18,6 +18,20 @@ export interface PatientModuleRow {
   position: number
   done_at: string | null
   patient_note: string | null
+  /**
+   * La consigne, quand elle existe.
+   *
+   * Un module de l'atelier en porte une complète — durée, moment, étapes,
+   * pourquoi. Un module issu d'une séance ne porte que le « pourquoi » que
+   * la séance a dicté : le brouillon ne produit pas d'étapes, et en inventer
+   * serait pire que de n'en pas donner.
+   */
+  consigne: {
+    duree?: string
+    quand?: string
+    steps?: string[]
+    why?: string
+  } | null
 }
 
 export interface PatientAudioRow {
@@ -108,7 +122,7 @@ export function usePatientData(patientId: string | null): PatientData {
     setErreur('')
 
     const [mods, affs, auds, fiche, echelle, reglages, pages, courriers] = await Promise.all([
-      db.from('patient_modules').select('id, title, meta, kind, position, done_at, patient_note').eq('patient_id', patientId).order('position'),
+      db.from('patient_modules').select('id, title, meta, kind, position, done_at, patient_note, consigne').eq('patient_id', patientId).order('position'),
       db.from('affirmations').select('text, position').eq('patient_id', patientId).not('published_at', 'is', null).order('position'),
       db.from('patient_audios').select('id, listens, audio:audio_library (title, duration_seconds, meta, storage_path)').eq('patient_id', patientId),
       db.from('patients').select('scale_question').eq('id', patientId).maybeSingle(),

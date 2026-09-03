@@ -9,9 +9,11 @@ import { Boutique } from './Boutique'
 import { Journal } from './Journal'
 import { MonCompte } from './MonCompte'
 import { MotAuTherapeute } from './MotAuTherapeute'
+import { Tache } from './Tache'
+import { IconeOnglet, type Icone } from './IconesOnglets'
 import s from './PatientSpace.module.css'
 
-type Onglet = 'jour' | 'journal' | 'boutique' | 'moi'
+type Onglet = 'jour' | 'journal' | 'rdv' | 'boutique' | 'moi'
 
 /** Retour de Stripe : la session à vérifier, ou l'annulation. Lus une fois. */
 function retourPaiement(): { commande: string | null; annule: boolean } {
@@ -71,9 +73,8 @@ export function PatientSpace() {
 
   const [retour] = useState(retourPaiement)
   /* La note libre en cours d'écriture : le module ouvert, et son texte. */
-  const [noteOuverte, setNoteOuverte] = useState('')
-  const [noteTexte, setNoteTexte] = useState('')
-  const [noteEnCours, setNoteEnCours] = useState(false)
+  /** La tâche ouverte en plein écran, s'il y en a une. */
+  const [tacheOuverte, setTacheOuverte] = useState('')
   const [onglet, setOnglet] = useState<Onglet>(retour.commande || retour.annule ? 'boutique' : 'jour')
 
   /** L'audio en cours d'écoute : son identifiant et son URL signée. */
@@ -101,6 +102,7 @@ export function PatientSpace() {
   const taches = modules.filter((m) => m.kind !== 'Audio' && m.kind !== 'Échelle')
   const faites = taches.filter((m) => m.done_at).length
   const nonLus = mots.filter((m) => !m.read_at).length
+  const tache = tacheOuverte ? (modules.find((m) => m.id === tacheOuverte) ?? null) : null
   const journeeFaite = taches.length > 0 && faites === taches.length
 
   async function basculer(id: string, done: boolean) {
@@ -119,17 +121,14 @@ export function PatientSpace() {
    * un mot posé sur l'exercice, là où il s'est passé quelque chose, plutôt
    * qu'une page de journal.
    */
-  async function enregistrerNote(id: string) {
+  /** La note d'une tâche, écrite depuis son écran. */
+  async function noterTache(id: string, texte: string) {
     const db = supabase()
-    if (!db || noteEnCours) return
-    setNoteEnCours(true)
-    const { error } = await db.rpc('patient_save_note', { p_module: id, p_note: noteTexte.trim() })
-    setNoteEnCours(false)
-    if (error) return
-    setNoteOuverte('')
-    setNoteTexte('')
-    await recharger()
+    if (!db) return
+    const { error } = await db.rpc('patient_save_note', { p_module: id, p_note: texte })
+    if (!error) await recharger()
   }
+
 
   /**
    * Écouter : une URL signée d'une heure sur le fichier privé, obtenue sous
@@ -179,11 +178,14 @@ export function PatientSpace() {
      devient une loterie. La journée est la première et celle qui s'ouvre ;
      le journal quitte le bas de la page pour devenir un lieu, parce qu'on
      n'écrit pas au bout d'un long défilement. */
-  const onglets: Array<{ value: Onglet; label: string }> = [
-    { value: 'jour', label: 'Ma journée' },
-    { value: 'journal', label: 'Journal' },
-    ...(shopEnabled ? [{ value: 'boutique' as const, label: 'Boutique' }] : []),
-    { value: 'moi', label: 'Moi' },
+  const onglets: Array<{ value: Onglet; label: string; icone: Icone }> = [
+    { value: 'jour', label: 'Ma journée', icone: 'jour' },
+    { value: 'journal', label: 'Journal', icone: 'journal' },
+    /* Prendre rendez-vous est une intention à part : elle n'a rien à faire
+       au bout de la liste des exercices du jour, où on ne la cherche pas. */
+    ...(bookingUrl ? [{ value: 'rdv' as const, label: 'Rendez-vous', icone: 'rdv' as const }] : []),
+    ...(shopEnabled ? [{ value: 'boutique' as const, label: 'Boutique', icone: 'boutique' as const }] : []),
+    { value: 'moi', label: 'Moi', icone: 'moi' },
   ]
   const avecOnglets = true
   // Un onglet qui n'existe plus (boutique fermée entre-temps) ramène au jour.
@@ -244,10 +246,22 @@ export function PatientSpace() {
           />
         ) : null}
 
+        {/* Une tâche ouverte prend tout l'écran : sur un téléphone, un
+            accordéon qui pousse le reste fait perdre sa place. */}
+        {courant === 'jour' && tache ? (
+          <Tache
+            module={tache}
+            accent={patient.branding?.accent}
+            onFermer={() => setTacheOuverte('')}
+            onBasculer={(fait) => basculer(tache.id, fait)}
+            onNote={(texte) => noterTache(tache.id, texte)}
+          />
+        ) : null}
+
         {/* Les mots du cabinet, avant les tâches : un message de sa
             thérapeute passe avant un exercice. Ils étaient enregistrés et
             adressés depuis des mois, et aucun écran ne les ouvrait. */}
-        {courant === 'jour' && mots.length > 0 ? (
+        {courant === 'jour' && !tache && mots.length > 0 ? (
           <section className={s.section}>
             <div className={s.sectionHead}>
               <span className={s.sectionTitle}>
@@ -282,7 +296,7 @@ export function PatientSpace() {
           </section>
         ) : null}
 
-        {courant === 'jour' && taches.length > 0 ? (
+        {courant === 'jour' && !tache && taches.length > 0 ? (
           <section className={s.section}>
             <div className={s.sectionHead}>
               <span className={s.sectionTitle}>Aujourd'hui</span>
@@ -309,61 +323,22 @@ export function PatientSpace() {
                       label={fait ? `Décocher ${m.title}` : `Cocher ${m.title}`}
                       style={fait ? { background: patient.branding?.accent, borderColor: patient.branding?.accent } : undefined}
                     />
-                    <span>
+                    {/* Toute la ligne ouvre la consigne : au pouce, un lien
+                        de douze pixels sous le titre ne se vise pas. */}
+                    <button
+                      type="button"
+                      className={s.taskOuvrir}
+                      onClick={() => setTacheOuverte(m.id)}
+                      aria-label={`Ouvrir « ${m.title} »`}
+                    >
                       <span className={fait ? `${s.taskTitle} ${s.taskTitleDone}` : s.taskTitle}>
                         {m.title}
                       </span>
                       <span className={s.taskMeta}>{m.meta}</span>
-
-                      {noteOuverte === m.id ? (
-                        <>
-                          <textarea
-                            className={s.noteZone}
-                            rows={3}
-                            value={noteTexte}
-                            onChange={(e) => setNoteTexte(e.target.value)}
-                            placeholder="Ce qui s'est passé, en deux mots. Votre thérapeute le lira."
-                            aria-label={`Un mot sur « ${m.title} »`}
-                            autoFocus
-                          />
-                          <span className={s.noteBoutons}>
-                            <button
-                              type="button"
-                              className={s.noteEnregistrer}
-                              style={patient.branding?.accent ? { background: patient.branding.accent } : undefined}
-                              disabled={noteEnCours}
-                              onClick={() => void enregistrerNote(m.id)}
-                            >
-                              {noteEnCours ? 'Enregistrement…' : 'Enregistrer'}
-                            </button>
-                            <button
-                              type="button"
-                              className={s.noteAnnuler}
-                              onClick={() => {
-                                setNoteOuverte('')
-                                setNoteTexte('')
-                              }}
-                            >
-                              Annuler
-                            </button>
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          {m.patient_note ? <span className={s.noteEcrite}>{m.patient_note}</span> : null}
-                          <button
-                            type="button"
-                            className={s.noteOuvrir}
-                            style={patient.branding?.accent ? { color: patient.branding.accent } : undefined}
-                            onClick={() => {
-                              setNoteOuverte(m.id)
-                              setNoteTexte(m.patient_note ?? '')
-                            }}
-                          >
-                            {m.patient_note ? 'Modifier mon mot' : 'Ajouter un mot'}
-                          </button>
-                        </>
-                      )}
+                      {m.patient_note ? <span className={s.noteEcrite}>{m.patient_note}</span> : null}
+                    </button>
+                    <span className={s.chevron} aria-hidden>
+                      ›
                     </span>
                   </div>
                 )
@@ -372,7 +347,7 @@ export function PatientSpace() {
           </section>
         ) : null}
 
-        {courant === 'jour' && audios.length > 0 ? (
+        {courant === 'jour' && !tache && audios.length > 0 ? (
           <section className={s.section}>
             <div className={s.sectionHead}>
               <span className={s.sectionTitle}>Vos audios</span>
@@ -411,7 +386,7 @@ export function PatientSpace() {
           </section>
         ) : null}
 
-        {courant === 'jour' ? (
+        {courant === 'jour' && !tache ? (
         <section className={s.section}>
           <div className={s.sectionHead}>
             <span className={s.sectionTitle}>Ce soir</span>
@@ -465,7 +440,7 @@ export function PatientSpace() {
 
         {courant === 'moi' ? <MonCompte patient={patient} /> : null}
 
-        {courant === 'jour' && bookingUrl ? (
+        {courant === 'rdv' && bookingUrl ? (
           <RendezVous
             url={bookingUrl}
             widgetUrl={bookingWidgetUrl}
@@ -485,9 +460,16 @@ export function PatientSpace() {
               className={courant === o.value ? `${s.tab} ${s.tabOn}` : s.tab}
               aria-current={courant === o.value ? 'page' : undefined}
               style={courant === o.value && patient.branding?.accent ? { color: patient.branding.accent } : undefined}
-              onClick={() => setOnglet(o.value)}
+              onClick={() => {
+                setOnglet(o.value)
+                // Changer d'onglet referme la tâche ouverte : sinon on
+                // revient sur « Ma journée » et c'est un exercice qui
+                // s'affiche, sans qu'on ait rien demandé.
+                setTacheOuverte('')
+              }}
             >
-              {o.label}
+              <IconeOnglet nom={o.icone} classe={s.tabIcone} />
+              <span className={s.tabLabel}>{o.label}</span>
             </button>
           ))}
         </nav>
