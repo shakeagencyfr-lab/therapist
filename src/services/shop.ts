@@ -1,9 +1,9 @@
 /**
- * Boutique, côté patiente.
+ * Boutique, côté patient.
  *
  * Le paiement ne se fait pas ici : le navigateur demande au serveur d'ouvrir
  * une session Stripe Checkout avec la clé de la thérapeute, puis y envoie la
- * patiente. Au retour, il demande au serveur de vérifier le paiement — jamais
+ * patient. Au retour, il demande au serveur de vérifier le paiement — jamais
  * il ne se déclare payé lui-même.
  */
 import { supabase } from '@/lib/supabase'
@@ -34,7 +34,7 @@ async function appel<T>(body: Record<string, unknown>): Promise<T> {
   return corps
 }
 
-/** Ouvre le paiement d'un produit : rend l'adresse Stripe où envoyer la patiente. */
+/** Ouvre le paiement d'un produit : rend l'adresse Stripe où envoyer le patient. */
 export function demarrerPaiement(productId: string): Promise<{ url: string }> {
   return appel({ action: 'demarrer', productId })
 }

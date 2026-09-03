@@ -4,7 +4,7 @@
 --
 -- Jamais d'URL publique sur un enregistrement de thérapie : chaque lecture
 -- passe par une URL signée, courte, obtenue sous les droits de qui écoute.
--- Le cabinet dépose, lit et retire dans son propre dossier ; la patiente
+-- Le cabinet dépose, lit et retire dans son propre dossier ; le patient
 -- n'écoute que ce qui lui a été envoyé (patient_audios).
 -- ============================================================================
 
@@ -43,7 +43,7 @@ create policy "le cabinet retire ses audios"
   on storage.objects for delete to authenticated
   using (bucket_id = 'audios' and public.is_cabinet_member(public.cabinet_of_path(name)));
 
-create policy "la patiente écoute ses audios"
+create policy "le patient écoute ses audios"
   on storage.objects for select to authenticated
   using (
     bucket_id = 'audios'

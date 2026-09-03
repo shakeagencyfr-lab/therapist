@@ -18,7 +18,7 @@ export function Affirmations() {
   const key = state.sel
   const p = patientOf(state)
 
-  // La fiche n'est montée qu'avec une patiente ; le garde rend l'invariant
+  // La fiche n'est montée qu'avec un patient ; le garde rend l'invariant
   // explicite plutôt que supposé.
   if (!p) return null
   const first = p.name.split(' ')[0]

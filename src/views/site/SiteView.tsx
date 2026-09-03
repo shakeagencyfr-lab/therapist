@@ -30,7 +30,7 @@ import s from './SiteView.module.css'
  * Le site vitrine du cabinet.
  *
  * Une page d'accueil publique, à l'adresse du cabinet, avec l'accès à
- * l'espace des patientes posé dedans. Elle se remplit en une fois depuis la
+ * l'espace des patients posé dedans. Elle se remplit en une fois depuis la
  * fiche Google — nom, adresse, horaires, photos, avis — et se corrige
  * ensuite : une fiche Google est souvent incomplète ou datée, et c'est la
  * thérapeute qui sait, pas Google.
@@ -131,7 +131,7 @@ export function SiteView() {
       </div>
       <h1 className={s.h1}>Votre site vitrine</h1>
       <p className={s.intro}>
-        Une page d'accueil publique à votre adresse, avec l'accès à l'espace de vos patientes
+        Une page d'accueil publique à votre adresse, avec l'accès à l'espace de vos patients
         dedans. Remplissez-la depuis votre fiche Google, corrigez ce qui a bougé, publiez.
       </p>
 
@@ -293,7 +293,7 @@ export function SiteView() {
             </Title>
             <p className={s.hint}>
               Votre page répondra à {lienCabinet(identite.slug)} — et à votre domaine, si vous en
-              avez posé un. L'accès à l'espace de vos patientes y est intégré : elles entrent leur
+              avez posé un. L'accès à l'espace de vos patients y est intégré : ils entrent leur
               adresse, elles reçoivent leur lien.
             </p>
             <div className={s.actions}>
@@ -384,7 +384,7 @@ function ImportGoogle({
       {possible ? (
         <>
           <p className={s.hint}>
-            Cherchez votre cabinet comme une patiente le chercherait : votre nom et votre ville.
+            Cherchez votre cabinet comme un patient le chercherait : votre nom et votre ville.
             L'import remplit ce qui est vide et ne remplace jamais ce que vous avez écrit.
             {importeLe ? ` Dernier import le ${new Date(importeLe).toLocaleDateString('fr-FR')}.` : ''}
           </p>

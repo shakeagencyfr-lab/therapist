@@ -14,7 +14,7 @@ declare
      Toute table portant une colonne `patient_id` est une table de santé, par
      construction — c'est ainsi que les tables d'hypnose et les commandes ont
      échappé à cette épreuve pendant deux migrations. Restent les quelques
-     tables qui portent du contenu de soin sans désigner de patiente : elles
+     tables qui portent du contenu de soin sans désigner de patient : elles
      sont nommées ici, et elles seules. */
   sante text[];
   sans_patient text[] := array[

@@ -40,7 +40,7 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
   const [cloture, setCloture] = useState(false)
 
   // Les champs suivent la fiche OUVERTE : on ne garde pas les saisies d'une
-  // patiente quand on passe à la suivante. Ils ne suivent pas chaque
+  // patient quand on passe à la suivante. Ils ne suivent pas chaque
   // rechargement du dossier — cocher un module ailleurs sur la page ne doit
   // pas vider un formulaire en cours de frappe.
   useEffect(() => {
@@ -244,7 +244,7 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
             />
           </label>
 
-          {/* L'hypnose : une option, pas un automatisme. Toutes les patientes
+          {/* L'hypnose : une option, pas un automatisme. Tous les patients
               n'en ont pas besoin, et c'est de loin l'analyse la plus coûteuse
               du produit — la thérapeute décide, fiche par fiche. */}
           <div className={s.option}>
@@ -286,7 +286,7 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
           <div className={s.clore}>
             <span className={s.cloreTitre}>Clore le suivi de {fiche.name}</span>
             <span className={s.hint}>
-              Sa fiche quitte vos patientes actives et libère une place sur votre offre. Son
+              Sa fiche quitte vos patients actifs et libère une place sur votre offre. Son
               dossier est conservé entier, et vous pouvez rouvrir le suivi depuis « Suivis clos »,
               en bas de la colonne de gauche. Elle perd en revanche l'accès à son espace : un
               suivi clos est un accompagnement terminé.

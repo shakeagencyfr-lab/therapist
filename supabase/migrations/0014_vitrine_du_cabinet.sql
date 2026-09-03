@@ -1,7 +1,7 @@
 -- ============================================================================
 -- 0014 — La vitrine d'un cabinet, lisible avant toute connexion.
 --
--- Une thérapeute donne à ses patientes l'adresse klaroweb.site/c/son-slug.
+-- Une thérapeute donne à ses patients l'adresse klaroweb.site/c/son-slug.
 -- La page doit s'ouvrir à SES couleurs et à SON nom, avant de savoir qui
 -- arrive — sinon l'adresse ne sert à rien.
 --

@@ -55,7 +55,7 @@ export function centimesDe(saisie: string): number {
  * La boutique, côté thérapeute : ce qu'elle met en vente.
  *
  * Tout passe par la base sous ses droits (politique « cabinet » de 0010) :
- * créer, activer, retirer. Ce que la patiente en voit dépend de deux choses
+ * créer, activer, retirer. Ce que le patient en voit dépend de deux choses
  * réglées ailleurs — le compte Stripe et l'ouverture de la boutique, dans
  * Intégrations — et l'écran le dit avant de laisser vendre dans le vide.
  */
@@ -142,9 +142,9 @@ export function BoutiqueView() {
         ) : null}
       </div>
       <p className={s.intro}>
-        Ce que vos patientes peuvent acheter depuis leur espace : un audio, une séance, un
+        Ce que vos patients peuvent acheter depuis leur espace : un audio, une séance, un
         programme. Le paiement arrive directement sur votre compte Stripe. Un audio acheté entre
-        aussitôt dans la bibliothèque de la patiente.
+        aussitôt dans la bibliothèque du patient.
       </p>
 
       {!cabinet?.reel ? (
@@ -168,8 +168,8 @@ export function BoutiqueView() {
           {etat && (!etat.stripe || !etat.shopEnabled) ? (
             <Notice tone="warn">
               {!etat.stripe
-                ? "Votre compte Stripe n'est pas relié : vos patientes ne voient pas encore la boutique. "
-                : "La boutique est fermée : vos patientes ne la voient pas encore. "}
+                ? "Votre compte Stripe n'est pas relié : vos patients ne voient pas encore la boutique. "
+                : "La boutique est fermée : vos patients ne la voient pas encore. "}
               <button type="button" className={s.lien} onClick={() => set({ mode: 'integrations' })}>
                 Régler dans Intégrations →
               </button>
@@ -353,7 +353,7 @@ function NouveauProduit({
           <TextInput
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Ce que la patiente reçoit, en une phrase."
+            placeholder="Ce que le patient reçoit, en une phrase."
           />
         </label>
 

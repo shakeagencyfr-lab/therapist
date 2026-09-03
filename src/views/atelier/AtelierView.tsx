@@ -112,7 +112,7 @@ export function AtelierView() {
 
   async function assign() {
     /* Sans garde, un second clic pendant l'écriture insérait le module une
-       deuxième fois au parcours : deux lignes pour la même patiente, parfois
+       deuxième fois au parcours : deux lignes pour le même patient, parfois
        à la même position, et cocher l'une cochait l'autre. */
     if (!mod || !selected.length || assignation || state.aGen) return
     const title = mod.titre || 'Module sur mesure'

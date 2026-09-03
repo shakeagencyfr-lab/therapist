@@ -38,7 +38,7 @@ export interface ModeleSite {
  * Trois modèles, pas trente.
  *
  * Ils ne diffèrent que par la mise en page et le ton : mêmes rubriques, mêmes
- * données, même espace patiente intégré. Un choix de modèle ne doit jamais
+ * données, même espace patient intégré. Un choix de modèle ne doit jamais
  * faire perdre un contenu déjà écrit.
  */
 export const MODELES: ModeleSite[] = [

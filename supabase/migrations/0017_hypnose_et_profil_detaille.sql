@@ -5,7 +5,7 @@
 --   130 mots que personne ne lisait, trop court pour la séance et trop
 --   générique pour être repris. À la place, une séance entière — environ
 --   trente minutes de lecture à voix haute — écrite sur les formulations de
---   la patiente, en quatre mouvements.
+--   le patient, en quatre mouvements.
 --
 --   Elle est ÉCRITE EN QUATRE APPELS et non un seul. Trente minutes font près
 --   de cinq mille jetons, soit deux à trois minutes de génération : au-delà
@@ -16,7 +16,7 @@
 --   les deux premiers.
 --
 --   ELLE NE SE GÉNÈRE PAS TOUJOURS. C'est une option que la thérapeute
---   ouvre patiente par patiente (`patients.hypnose_activee`) : toutes n'en
+--   ouvre patient par patient (`patients.hypnose_activee`) : tous n'en
 --   ont pas besoin, et elle coûte plus cher que le reste réuni.
 --
 --   LE PROFIL gagne deux rubriques que l'ancien ne disait jamais : ce qui a
@@ -39,14 +39,14 @@ comment on column public.psych_profiles.alliance is
   'Ce à quoi cette personne répond dans la relation de travail.';
 
 -- ---------------------------------------------------------------------------
--- L'hypnose : une option par patiente
+-- L'hypnose : une option par patient
 -- ---------------------------------------------------------------------------
 
 alter table public.patients
   add column hypnose_activee boolean not null default false;
 
 comment on column public.patients.hypnose_activee is
-  'La séance de cette patiente produit-elle aussi une hypnose personnalisée ?';
+  'La séance de ce patient produit-elle aussi une hypnose personnalisée ?';
 
 -- ---------------------------------------------------------------------------
 -- Les hypnoses produites
@@ -93,7 +93,7 @@ create index hypnose_mouvements_idx on public.hypnose_mouvements (hypnose_id, ra
 
 -- ---------------------------------------------------------------------------
 -- Droits — une hypnose est une donnée de santé : le cabinet, et personne
--- d'autre. Pas même la patiente : c'est un texte que la thérapeute LIT, pas
+-- d'autre. Pas même le patient : c'est un texte que la thérapeute LIT, pas
 -- un document qu'on remet.
 -- ---------------------------------------------------------------------------
 

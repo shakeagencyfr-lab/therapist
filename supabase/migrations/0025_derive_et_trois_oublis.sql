@@ -18,7 +18,7 @@
 --    compte ses écoutes ». `drop policy if exists` n'a rien trouvé, et n'a
 --    rien dit. En production, la politique a fini par disparaître autrement ;
 --    dans le fichier, elle survivrait à toute reconstruction — et une
---    patiente pourrait alors réécrire le titre et la consigne de ses audios,
+--    patient pourrait alors réécrire le titre et la consigne de ses audios,
 --    pas seulement les compter.
 --
 -- 3. UN CATALOGUE OUVERT. `plans` s'ouvrait à tout membre de tout revendeur,
@@ -74,16 +74,16 @@ comment on column public.subscriptions.ai_billing is
 -- L'audit signale que `claim_access()` rattache un compte à toute fiche non
 -- réclamée portant son adresse, dans n'importe quel cabinet. C'est exact, et
 -- c'est voulu : dans ce produit, la fiche EST l'invitation — la thérapeute
--- écrit une adresse, la patiente se connecte avec, sans mot de passe ni
+-- écrit une adresse, le patient se connecte avec, sans mot de passe ni
 -- jeton. Aucune donnée existante ne fuit par là : la fiche rattachée est
 -- vide, et ne contient que ce que ce cabinet y mettra.
 --
 -- Ce qu'un cabinet malveillant y gagne est un canal : poser une fiche à
 -- l'adresse de quelqu'un pour lui envoyer des modules le jour où il se
--- connecte. La parade tient en une table d'invitations pour les patientes,
+-- connecte. La parade tient en une table d'invitations pour les patients,
 -- comme il en existe une pour les praticiennes — c'est un changement de
 -- parcours, pas un correctif, et il se décide.
 -- ---------------------------------------------------------------------------
 
 comment on function public.claim_access() is
-  'Rattache le compte connecté à ce qui l''attend sous son adresse : fiche patiente, invitation de cabinet, invitation de revendeur. La fiche vaut invitation — voir la note de 0025 avant d''en faire une table à part.';
+  'Rattache le compte connecté à ce qui l''attend sous son adresse : fiche patient, invitation de cabinet, invitation de revendeur. La fiche vaut invitation — voir la note de 0025 avant d''en faire une table à part.';

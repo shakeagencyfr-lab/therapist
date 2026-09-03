@@ -137,7 +137,7 @@ export function reglageDe(route: AiRoute): Reglage {
  *
  * Il a longtemps suffi que la clé manque pour l'activer, et c'était le pire
  * défaut possible ici : un serveur mal configuré rendait un brouillon fictif —
- * toujours le même, pour n'importe quelle patiente — présenté comme l'analyse
+ * toujours le même, pour n'importe quel patient — présenté comme l'analyse
  * de sa séance. Une clé absente est une panne de configuration, elle se dit ;
  * elle ne s'invente pas.
  */

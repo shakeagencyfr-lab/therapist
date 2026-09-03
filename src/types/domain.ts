@@ -57,7 +57,7 @@ export interface HypnoseMouvement {
   texte: string
 }
 
-/** Une séance d'hypnose écrite pour une patiente (fonction IA n° 5). */
+/** Une séance d'hypnose écrite pour un patient (fonction IA n° 5). */
 export interface Hypnose {
   id: string
   titre: string
@@ -75,7 +75,7 @@ export interface PatientModule {
   done: boolean
   /** Module arrivé depuis une séance : sa pilule de type est accentuée. */
   fresh?: boolean
-  /** Le mot que la patiente a posé sur cet exercice, s'il y en a un. */
+  /** Le mot que le patient a posé sur cet exercice, s'il y en a un. */
   note?: string
 }
 
@@ -299,7 +299,7 @@ export interface PatientContext {
   profile: PsychProfile
 }
 
-/** La prise de rendez-vous du cabinet, telle que la patiente la verra. */
+/** La prise de rendez-vous du cabinet, telle que le patient la verra. */
 export interface Reservation {
   url: string
   mode: 'bouton' | 'widget'

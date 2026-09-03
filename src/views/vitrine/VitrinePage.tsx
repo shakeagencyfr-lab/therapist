@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import type { SiteVitrine } from '@/lib/vitrine'
 import s from './VitrinePage.module.css'
 
-/** Où mène le lien reçu : l'espace de la patiente, sur son téléphone. */
+/** Où mène le lien reçu : l'espace du patient, sur son téléphone. */
 const DESTINATION = '/mon'
 
 /**

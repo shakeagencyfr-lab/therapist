@@ -123,23 +123,23 @@
   min-width: 0;
 }
 
-/* Les patientes ---------------------------------------------------------- */
+/* Les patients ---------------------------------------------------------- */
 
-.patientes {
+.patients {
   display: flex;
   flex-direction: column;
   gap: 2px;
   margin-bottom: 18px;
 }
 
-.patiente {
+.patient {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 9px 4px;
   border-bottom: 1px solid var(--c-border-light);
 }
-.patiente:last-child {
+.patient:last-child {
   border-bottom: none;
 }
 

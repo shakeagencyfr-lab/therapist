@@ -55,7 +55,7 @@ create table public.reseller_ai_settings (
   marge_pct            integer not null default 80 check (marge_pct >= 0 and marge_pct <= 1000),
   -- Jusqu'où un cabinet peut descendre sous zéro. En CRÉDITS : une séance
   -- commencée doit pouvoir s'achever, même si le solde tombe à zéro devant
-  -- la patiente. C'est le revendeur qui décide du risque qu'il prend.
+  -- le patient. C'est le revendeur qui décide du risque qu'il prend.
   decouvert_credits    integer not null default 3 check (decouvert_credits >= 0 and decouvert_credits <= 100),
   updated_at           timestamptz not null default now()
 );

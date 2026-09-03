@@ -345,7 +345,7 @@ export interface Envoi {
   audioIds: string[]
 }
 
-/** Ce qui se règle depuis la fiche, une fois la patiente reçue. */
+/** Ce qui se règle depuis la fiche, une fois le patient reçue. */
 export interface ReglagesFiche {
   /** « Programme Liberté », ou vide. */
   programme: string
@@ -422,9 +422,9 @@ export interface CabinetData {
   recategoriserAudio: (audioId: string, categorie: string) => Promise<Resultat>
   urlEcoute: (audioId: string) => Promise<string | null>
   /* L'atelier, les affirmations, les notifications --------------------- */
-  /** Le module rejoint la bibliothèque du cabinet et le parcours des patientes choisies. */
+  /** Le module rejoint la bibliothèque du cabinet et le parcours des patients choisies. */
   assignerModule: (module: CustomModule, patientIds: PatientId[]) => Promise<Resultat>
-  /** Remplace les affirmations visibles par la patiente. */
+  /** Remplace les affirmations visibles par le patient. */
   publierAffirmations: (patientId: PatientId, textes: string[]) => Promise<Resultat>
   reglerAffirmationsAuto: (patientId: PatientId, auto: boolean) => Promise<Resultat>
   /** Enregistre une notification et ses destinataires. L'envoi réel attend un service de push. */
@@ -440,7 +440,7 @@ export interface CabinetData {
   enregistrerBrouillon: (sessionId: string, input: Brouillon) => Promise<Resultat>
   envoyerSeance: (sessionId: string, patientId: PatientId, input: Envoi) => Promise<Resultat>
   enregistrerProfil: (patientId: PatientId, sessionId: string | null, profil: ProfilGenere) => Promise<Resultat>
-  /** Ouvre ou ferme l'hypnose pour une patiente. */
+  /** Ouvre ou ferme l'hypnose pour un patient. */
   reglerHypnose: (patientId: PatientId, active: boolean) => Promise<Resultat>
   /** Ouvre une hypnose vide et rend son identifiant. */
   creerHypnose: (patientId: PatientId, sessionId: string | null, intention: string) => Promise<string | null>
@@ -502,7 +502,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         .select('id, patient_id, titre, intention, complete, created_at')
         .order('created_at', { ascending: false }),
       db.from('hypnose_mouvements').select('hypnose_id, mouvement, rang, titre, texte').order('rang'),
-      // Le dernier brouillon de chaque patiente : il porte les formulations
+      // Le dernier brouillon de chaque patient : il porte les formulations
       // et la synthèse d'où une hypnose se bâtit. Sans lui, une hypnose
       // relancée depuis la fiche n'aurait que le dossier — et perdrait les
       // mots de la séance, qui en sont la matière la plus précieuse.
@@ -527,7 +527,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     )
 
     const lignes = (fiches.data ?? []) as PatientRow[]
-    // Un seul brouillon par patiente : le plus récent, l'ordre étant décroissant.
+    // Un seul brouillon par patient : le plus récent, l'ordre étant décroissant.
     const dernierBrouillon = new Map<string, SessionDraft>()
     for (const b of (brouillons.data ?? []) as BrouillonRow[]) {
       if (b.draft && !dernierBrouillon.has(b.patient_id)) dernierBrouillon.set(b.patient_id, b.draft)
@@ -571,7 +571,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     const programmes = ((progs.data ?? []) as Array<{ label: string }>).map((r) => r.label)
 
     // La prise de rendez-vous, pour que l'aperçu du téléphone montre ce que
-    // la patiente verra vraiment — et rien quand rien n'est réglé.
+    // le patient verra vraiment — et rien quand rien n'est réglé.
     const r = (rdv.data ?? null) as {
       booking_url?: string | null
       booking_mode?: string | null
@@ -600,7 +600,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       customs[m.kind] = (customs[m.kind] ?? []).concat([entree])
     }
 
-    // Les affirmations publiées, par patiente ; et le réglage du lundi.
+    // Les affirmations publiées, par patient ; et le réglage du lundi.
     const affirmations: Record<PatientId, string[]> = {}
     for (const a of (affs.data ?? []) as AffirmationRow[]) {
       if (!a.published_at) continue
@@ -646,7 +646,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
   }, [recharger])
 
   /**
-   * Créer une patiente, c'est écrire une fiche avec son adresse : c'est cette
+   * Créer un patient, c'est écrire une fiche avec son adresse : c'est cette
    * adresse qui la connectera, au premier lien magique. Rien n'est envoyé ici —
    * le compte se crée quand elle demande son lien.
    */
@@ -654,7 +654,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     async (input: NouvellePatiente): Promise<Resultat> => {
       const db = supabase()
       if (!db || !cabinetId) {
-        return { ok: false, message: 'Connectez-vous à votre cabinet pour ajouter une patiente.' }
+        return { ok: false, message: 'Connectez-vous à votre cabinet pour ajouter un patient.' }
       }
 
       const nom = input.nom.trim()
@@ -700,7 +700,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       // Sa fiche existe ; on lui envoie le lien qui ouvre son espace.
       let envoi = ''
       if (email) {
-        const r = await demanderInvitation({ email, cabinetId, kind: 'patiente' })
+        const r = await demanderInvitation({ email, cabinetId, kind: 'patient' })
         envoi = r.message
       }
 
@@ -784,7 +784,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         : {
             ok: true,
             message:
-              'Marque publiée. Elle habille votre espace et l’application de vos patientes.',
+              'Marque publiée. Elle habille votre espace et l’application de vos patients.',
           }
     },
     [cabinetId],
@@ -832,7 +832,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
   /* ---- Les programmes du cabinet -------------------------------------- */
 
   /**
-   * Nommer un programme. Le libellé est ce que la fiche d'une patiente garde,
+   * Nommer un programme. Le libellé est ce que la fiche d'un patient garde,
    * en clair : renommer un programme ne renomme donc pas celui des fiches
    * déjà réglées, et c'est voulu — on ne réécrit pas un dossier au passage.
    */
@@ -861,7 +861,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
   /**
    * Renommer un programme.
    *
-   * Le libellé est ce que la fiche d'une patiente garde, en clair : renommer
+   * Le libellé est ce que la fiche d'un patient garde, en clair : renommer
    * le catalogue sans toucher aux fiches les laisserait rattachées à un
    * programme qui n'existe plus. Les deux écritures vont donc ensemble.
    */
@@ -904,7 +904,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
   )
 
   /**
-   * Rattacher des patientes à un programme, et en détacher les autres.
+   * Rattacher des patients à un programme, et en détacher les autres.
    *
    * L'écran envoie la liste complète de celles qui doivent le suivre : celles
    * qui le suivaient et n'y sont plus repassent à « aucun programme ». Les
@@ -929,7 +929,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       return {
         ok: true,
         message: patientIds.length
-          ? `${patientIds.length} ${patientIds.length > 1 ? 'patientes suivent' : 'patiente suit'} « ${label} ».`
+          ? `${patientIds.length} ${patientIds.length > 1 ? 'patients suivent' : 'patient suit'} « ${label} ».`
           : `Plus personne ne suit « ${label} ».`,
       }
     },
@@ -1145,7 +1145,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         : await db.from('custom_modules').insert(ligne)
       if (e1) return { ok: false, message: "Le module n'a pas pu être enregistré." }
 
-      // Le parcours de chaque patiente choisie, à la suite de l'existant.
+      // Le parcours de chaque patient choisie, à la suite de l'existant.
       const consigne = {
         duree: module.duree,
         quand: module.quand,
@@ -1184,7 +1184,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       const db = supabase()
       if (!db || !cabinetId) return { ok: false, message: '' }
       const propres = textes.map((t) => t.trim()).filter(Boolean)
-      // Remplacer : ce que la patiente lit est exactement la liste publiée.
+      // Remplacer : ce que le patient lit est exactement la liste publiée.
       const { error: e1 } = await db.from('affirmations').delete().eq('patient_id', patientId)
       if (e1) return { ok: false, message: "Les affirmations n'ont pas pu être remplacées." }
       if (propres.length) {
@@ -1440,7 +1440,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
   /**
    * Supprime une fiche. Tout ce qui s'y rattache part avec elle : la base le
    * fait en cascade, sur les clés étrangères. Le compte de connexion de la
-   * patiente, lui, survit — il ne nous appartient pas, et il peut être
+   * patient, lui, survit — il ne nous appartient pas, et il peut être
    * rattaché à une autre fiche ailleurs.
    */
   const supprimerHypnose = useCallback(
@@ -1463,7 +1463,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
    * reste entier. C'est ce que le message du plafond demande de faire, et il
    * fallait bien que quelque chose le fasse.
    *
-   * Conséquence à dire à l'écran : la patiente perd l'accès à son espace,
+   * Conséquence à dire à l'écran : le patient perd l'accès à son espace,
    * `my_context()` ne rendant que les fiches actives. Clore, c'est finir un
    * accompagnement, pas ranger un dossier encombrant.
    */
@@ -1507,7 +1507,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         .not('archived_at', 'is', null)
       if (error) return { ok: false, message: "Le suivi n'a pas pu être rouvert. Réessayez." }
       await recharger()
-      return { ok: true, message: 'Suivi rouvert. Sa patiente retrouve son espace.' }
+      return { ok: true, message: 'Suivi rouvert. Son patient retrouve son espace.' }
     },
     [cabinetId, recharger],
   )

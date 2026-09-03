@@ -1,7 +1,7 @@
 /**
  * L'adresse d'un cabinet : klaroweb.site/c/son-identifiant.
  *
- * Ouverte par une patiente ou une praticienne qui n'est pas encore connectée,
+ * Ouverte par un patient ou une praticienne qui n'est pas encore connectée,
  * elle doit montrer le nom et les couleurs du cabinet avant de demander une
  * adresse électronique. Le reste de l'application n'en dépend pas : sans ce
  * chemin, tout fonctionne comme avant, aux couleurs de Klaro.

@@ -45,7 +45,7 @@ export interface ModuleContext {
    * Le dossier de la personne à qui ce module est destiné, s'il y en a une.
    *
    * Facultatif à dessein : l'atelier sert aussi à fabriquer un module
-   * générique qu'on assigne ensuite à plusieurs patientes. Quand il est
+   * générique qu'on assigne ensuite à plusieurs patients. Quand il est
    * présent, le module est écrit pour quelqu'un — c'est ce qui sépare un
    * exercice de manuel d'un exercice qui tombe juste.
    */

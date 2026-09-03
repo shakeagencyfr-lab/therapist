@@ -7,7 +7,7 @@ import { HypnoseToggle } from './HypnoseToggle'
 import s from './HypnoseCard.module.css'
 
 /**
- * L'hypnose personnalisée, écrite pour cette patiente.
+ * L'hypnose personnalisée, écrite pour ce patient.
  *
  * Elle remplace l'ancien « brouillon d'induction » : cent trente mots trop
  * courts pour être lus en séance et trop génériques pour être repris. Ici
@@ -20,7 +20,7 @@ import s from './HypnoseCard.module.css'
  * interrompue au troisième laisse les deux premiers acquis.
  *
  * ELLE NE S'OUVRE PAS TOUJOURS. C'est une option que la thérapeute règle
- * patiente par patiente : toutes n'en ont pas besoin, et elle coûte plus
+ * patient par patient : tous n'en ont pas besoin, et elle coûte plus
  * cher que tout le reste de la séance réuni.
  */
 export function HypnoseCard() {
@@ -32,7 +32,7 @@ export function HypnoseCard() {
   /*
    * L'option se décide AUSSI ici, au moment où la question se pose vraiment :
    * la séance vient de se dérouler, la thérapeute sait maintenant si cette
-   * patiente-là en tirera quelque chose.
+   * patient-là en tirera quelque chose.
    *
    * C'est le même réglage que sur la fiche, pas un doublon : cocher ici
    * l'ouvre aussi pour les séances suivantes. Une copie locale garde l'écran

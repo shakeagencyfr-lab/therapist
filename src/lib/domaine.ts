@@ -2,7 +2,7 @@
  * L'adresse publique des cabinets.
  *
  * Un cabinet a un identifiant court — son « slug » — et une adresse qui en
- * découle : klaroweb.site/c/son-slug. Ouverte par une patiente qui n'est pas
+ * découle : klaroweb.site/c/son-slug. Ouverte par un patient qui n'est pas
  * connectée, cette page porte déjà le nom et les couleurs du cabinet.
  *
  * Un chemin plutôt qu'un sous-domaine, délibérément : pas d'enregistrement

@@ -229,7 +229,7 @@ export function mockHypnoseMouvement(mouvement: string): { titre: string; texte:
   return {
     titre: titres[mouvement] ?? 'Mouvement de maquette',
     texte:
-      "Ceci est un texte de maquette, et non une hypnose écrite pour votre patiente.\n\n" +
+      "Ceci est un texte de maquette, et non une hypnose écrite pour votre patient.\n\n" +
       "Installez-vous confortablement, et laissez votre regard se poser quelque part, sans rien chercher " +
       "de particulier. Vous pouvez sentir l'appui du dossier, le poids des mains, la température de l'air " +
       "sur le visage… et pendant que la respiration trouve son propre rythme, il n'y a rien à réussir ici.\n\n" +

@@ -64,7 +64,7 @@ export function WeekModules() {
                 <span className={s.meta}>{m.meta + quizBadge(state, key, i, m)}</span>
                 {/* Le mot qu'elle a posé sur l'exercice. La colonne était lue
                     depuis 0007 et n'était jamais écrite ni montrée : ce qu'une
-                    patiente notait sur un exercice n'existait nulle part. */}
+                    patient notait sur un exercice n'existait nulle part. */}
                 {m.note ? <span className={s.note}>« {m.note} »</span> : null}
               </div>
               <Pill tone="kind" style={m.fresh ? { background: 'var(--c-accent-soft)' } : undefined}>

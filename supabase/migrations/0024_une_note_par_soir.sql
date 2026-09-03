@@ -1,15 +1,15 @@
 -- ============================================================================
 -- Une auto-évaluation par soir, pas une par tap
 --
--- L'espace de la patiente insérait une ligne à chaque appui sur l'échelle.
--- Une patiente qui hésite — 6, puis 7, puis finalement 5 — posait trois
+-- L'espace du patient insérait une ligne à chaque appui sur l'échelle.
+-- Un patient qui hésite — 6, puis 7, puis finalement 5 — posait trois
 -- points le même soir. La courbe de la thérapeute comptait trois mesures là
 -- où il y avait une soirée, et la dernière valeur affichée dépendait de
 -- l'ordre de lecture.
 --
 -- La note du soir se corrige donc au lieu de s'empiler : une ligne par jour et
 -- par fiche, la dernière valeur est celle qui compte. Le jour est celui de la
--- patiente — Europe/Paris — pas celui du serveur : une note prise à minuit
+-- patient — Europe/Paris — pas celui du serveur : une note prise à minuit
 -- vingt appartient à la soirée qu'on vient de vivre.
 --
 -- Écrit en fonction plutôt qu'en contrainte : les journées déjà en double
@@ -61,4 +61,4 @@ revoke execute on function public.patient_note_echelle(integer) from public, ano
 grant execute on function public.patient_note_echelle(integer) to authenticated;
 
 comment on function public.patient_note_echelle(integer) is
-  'La note du soir : une ligne par jour et par fiche, corrigée si la patiente change d''avis.';
+  'La note du soir : une ligne par jour et par fiche, corrigée si le patient change d''avis.';

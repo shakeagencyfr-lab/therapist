@@ -3,7 +3,7 @@
 --
 --   praticienne A → nomme ses programmes, les relit, en archive un
 --                 → ne voit aucun programme du cabinet B
---   la fiche d'une patiente garde son libellé après l'archivage : on ne
+--   la fiche d'un patient garde son libellé après l'archivage : on ne
 --   réécrit pas un dossier parce qu'un catalogue a changé.
 --
 -- Un seul bloc DO terminé par RAISE EXCEPTION 'REUSSITE …' : rien ne persiste.
@@ -54,7 +54,7 @@ begin
 
   -- 4. La fiche garde son libellé quand le programme quitte le catalogue.
   insert into public.patients (cabinet_id, display_name, initials, program, subtitle, week_label, scale_label, scale_question, email)
-  values (v_a,'Test P.','TP','Arrêt du tabac','','','','','test-prog-patiente@exemple.fr') returning id into v_pat;
+  values (v_a,'Test P.','TP','Arrêt du tabac','','','','','test-prog-patient@exemple.fr') returning id into v_pat;
   update public.cabinet_programs set archived_at = now() where cabinet_id = v_a and label = 'Arrêt du tabac';
   select program into v_prog from public.patients where id = v_pat;
   if v_prog is distinct from 'Arrêt du tabac' then raise exception 'ECHEC : la fiche a perdu son programme (%)', v_prog; end if;

@@ -14,11 +14,11 @@ import s from './AppHeader.module.css'
  * passe sa journée sur cinq écrans ; les cinq autres se règlent une fois.
  * Les premiers restent à plat, les seconds vivent derrière « Réglages ».
  *
- * L'aperçu de l'application patiente n'est plus une entrée : il se lit
- * depuis la fiche de la patiente, à côté de son nom, là où il a un sens.
+ * L'aperçu de l'application patient n'est plus une entrée : il se lit
+ * depuis la fiche du patient, à côté de son nom, là où il a un sens.
  */
 const VUES: Array<{ value: ViewMode; label: string }> = [
-  { value: 'therapist', label: 'Patientes' },
+  { value: 'therapist', label: 'Patients' },
   { value: 'session', label: 'Séance' },
   { value: 'atelier', label: 'Atelier' },
   { value: 'audios', label: 'Audios' },
@@ -34,7 +34,7 @@ const REGLAGES: Array<{ value: ViewMode; label: string }> = [
 ]
 
 /** Toutes les vues, pour le menu des petits écrans et le libellé courant. */
-const VIEWS = [...VUES, { value: 'patient' as ViewMode, label: 'Aperçu patiente' }, ...REGLAGES]
+const VIEWS = [...VUES, { value: 'patient' as ViewMode, label: 'Aperçu patient' }, ...REGLAGES]
 
 const SPACES: Array<{ value: Space; label: string }> = [
   { value: 'cabinet', label: 'Cabinet' },

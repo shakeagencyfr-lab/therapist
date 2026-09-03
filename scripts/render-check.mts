@@ -54,10 +54,10 @@ for (const mode of MODES) {
   if (html) console.log(`✓ cabinet/${mode.padEnd(9)} ${String(html.length).padStart(6)} octets`)
 }
 
-// 1 bis. Un cabinet sans patiente : le premier écran d'une praticienne qui
+// 1 bis. Un cabinet sans patient : le premier écran d'une praticienne qui
 // vient d'accepter son invitation. La fiche n'a rien à montrer, et l'afficher
 // planterait — c'est arrivé.
-const vide = rendu('cabinet/sans-patiente', {
+const vide = rendu('cabinet/sans-patient', {
   space: 'cabinet',
   mode: 'therapist',
   patients: {},
@@ -66,13 +66,13 @@ const vide = rendu('cabinet/sans-patiente', {
   patientsReels: true,
 })
 if (vide && !vide.includes('Votre cabinet est prêt')) {
-  console.error("✗ cabinet/sans-patiente : l'écran d'accueil du cabinet vide ne s'affiche pas")
+  console.error("✗ cabinet/sans-patient : l'écran d'accueil du cabinet vide ne s'affiche pas")
   echecs++
 } else if (vide) {
-  console.log(`✓ cabinet/sans-patiente ${String(vide.length).padStart(6)} octets · accueil affiché`)
+  console.log(`✓ cabinet/sans-patient ${String(vide.length).padStart(6)} octets · accueil affiché`)
 }
 
-// 1 ter. TOUTES les vues du cabinet doivent tenir sans patiente : c'est
+// 1 ter. TOUTES les vues du cabinet doivent tenir sans patient : c'est
 // l'état normal d'un cabinet qui vient d'ouvrir, pas un cas limite.
 const VIDE = { space: 'cabinet', patients: {}, patientOrder: [], sel: '', patientsReels: true } as const
 for (const mode of MODES) {
@@ -82,7 +82,7 @@ for (const mode of MODES) {
 
 // 1 quater. La séance ne s'ouvre jamais sur une fiche que personne n'a
 // choisie. C'était le défaut : l'écran de consentement portait le nom d'une
-// patiente d'exemple, quel que soit le cabinet.
+// patient d'exemple, quel que soit le cabinet.
 const seance = rendu('cabinet/session-sans-choix', { space: 'cabinet', mode: 'session' })
 if (seance) {
   if (!seance.includes('Pour qui est cette séance')) {
@@ -171,7 +171,7 @@ if (maquette) {
 // 1 quinquies bis. L'hypnose se décide DANS la séance, aux deux moments où la
 // question se pose : au démarrage, avant de lancer l'analyse et là où le coût
 // s'affiche ; puis dans la note, quand on découvre qu'il y a matière. Elle
-// vivait auparavant sur la seule fiche patiente, ce qui obligeait la
+// vivait auparavant sur la seule fiche patient, ce qui obligeait la
 // thérapeute à quitter la séance pour cocher une case.
 const enregistrement = rendu('cabinet/session-hypnose-demarrage', {
   space: 'cabinet',
@@ -235,7 +235,7 @@ if (sansMots && !sansMots.includes('Rien de saillant')) {
   console.log(`✓ session/sans-mots   ${String(sansMots.length).padStart(6)} octets · rubrique vide expliquée`)
 }
 
-// 1 sexies. La prise de rendez-vous, côté patiente.
+// 1 sexies. La prise de rendez-vous, côté patient.
 //
 // Le cadre existait dans le code mais dormait derrière un dépliant fermé :
 // personne ne le voyait, et le réglage de la thérapeute passait pour perdu.

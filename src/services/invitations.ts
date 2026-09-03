@@ -11,7 +11,7 @@ import { supabase } from '@/lib/supabase'
 export interface DemandeInvitation {
   email: string
   cabinetId: string
-  kind: 'praticienne' | 'patiente'
+  kind: 'praticienne' | 'patient'
 }
 
 export interface RetourInvitation {

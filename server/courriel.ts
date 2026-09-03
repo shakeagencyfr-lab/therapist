@@ -9,7 +9,7 @@
  *
  *   1. Le serveur SMTP est ÉPROUVÉ avant d'être enregistré — connexion et
  *      authentification réelles. Un mot de passe faux se découvre à la
- *      saisie, pas le jour où une patiente attend son lien.
+ *      saisie, pas le jour où un patient attend son lien.
  *   2. Le mot de passe ne REVIENT jamais au navigateur : il dort chiffré
  *      dans `cabinet_secrets` (aucune politique pour le rôle authentifié) et
  *      n'est déchiffré que pour servir un envoi.

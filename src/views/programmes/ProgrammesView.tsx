@@ -19,7 +19,7 @@ function programmeDe(brut: string): string {
  * sur les fiches qu'il concerne. Cet écran fait les deux gestes au même
  * endroit : nommer, et rattacher.
  *
- * Le rattachement se lit dans les deux sens. Depuis la fiche d'une patiente,
+ * Le rattachement se lit dans les deux sens. Depuis la fiche d'un patient,
  * on choisit son programme ; ici, on prend un programme et on coche celles
  * qui le suivent. C'est la même colonne en base, `patients.program`.
  */
@@ -119,9 +119,9 @@ export function ProgrammesView() {
       </div>
       <h1 className={s.h1}>Vos programmes</h1>
       <p className={s.intro}>
-        Les programmes que vous nommez, et les patientes qui les suivent. Ce sont vos mots, pas
+        Les programmes que vous nommez, et les patients qui les suivent. Ce sont vos mots, pas
         ceux du produit : « Arrêt du tabac » ou « Sommeil » valent mieux qu'une liste toute faite.
-        Une patiente suit un programme à la fois — celui de sa fiche.
+        Un patient suit un programme à la fois — celui de sa fiche.
       </p>
 
       {!reel ? (
@@ -155,7 +155,7 @@ export function ProgrammesView() {
                   >
                     <span className={s.ligneNom}>{p}</span>
                     <span className={s.ligneCompte}>
-                      {n === 0 ? 'personne' : plural(n, 'patiente', 'patientes')}
+                      {n === 0 ? 'personne' : plural(n, 'patient', 'patients')}
                     </span>
                   </button>
                 )
@@ -214,15 +214,15 @@ export function ProgrammesView() {
 
               <span className={s.label}>Qui suit ce programme</span>
               {state.patientOrder.length === 0 ? (
-                <p className={s.hint}>Aucune patiente dans votre cabinet pour l'instant.</p>
+                <p className={s.hint}>Aucun patient dans votre cabinet pour l'instant.</p>
               ) : (
-                <div className={s.patientes}>
+                <div className={s.patients}>
                   {state.patientOrder.map((id) => {
                     const fiche = state.patients[id]
                     const sien = programmeDe(fiche.program)
                     const ailleurs = sien && sien !== choisi
                     return (
-                      <div key={id} className={s.patiente}>
+                      <div key={id} className={s.patient}>
                         <SquareCheck
                           on={!!coches[id]}
                           onClick={() => setCoches((prev) => ({ ...prev, [id]: !prev[id] }))}
@@ -261,7 +261,7 @@ export function ProgrammesView() {
             <Card className={s.panneau}>
               <p className={s.muted}>
                 Nommez votre premier programme à gauche : vous pourrez ensuite y rattacher vos
-                patientes.
+                patients.
               </p>
             </Card>
           )}

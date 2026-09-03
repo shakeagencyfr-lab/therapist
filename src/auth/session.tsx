@@ -162,7 +162,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
    * Le lien magique reste la voie normale, et la meilleure : rien à retenir,
    * rien à voler. Mais il dépend du courriel, qui peut mettre du temps,
    * finir dans les indésirables, ou buter sur le quota d'envoi du service —
-   * c'est arrivé en production. Une praticienne qui a une patiente en face
+   * c'est arrivé en production. Une praticienne qui a un patient en face
    * d'elle ne peut pas attendre.
    *
    * Le mot de passe n'est donc jamais imposé : il se pose depuis l'espace,

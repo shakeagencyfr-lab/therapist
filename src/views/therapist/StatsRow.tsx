@@ -11,7 +11,7 @@ export function StatsRow() {
   const pct = (part: number, whole: number) => (whole ? Math.round((part / whole) * 100) : 0)
 
 
-  // Les statistiques ne sont montées qu'avec une patiente.
+  // Les statistiques ne sont montées qu'avec un patient.
   if (!p) return null
 
   return (

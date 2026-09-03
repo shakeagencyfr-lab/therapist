@@ -24,7 +24,7 @@ const VOLETS: Array<{ value: Volet; label: string }> = [
 ]
 
 /**
- * Espace thérapeute : barre latérale de patientes + fiche.
+ * Espace thérapeute : barre latérale de patients + fiche.
  *
  * La fiche se lit en trois volets. À plat, elle empilait neuf cartes sur
  * deux écrans de hauteur : les modules de la semaine — ce qu'on regarde
@@ -40,7 +40,7 @@ export function TherapistView() {
   const state = useAppState()
   const cabinet = useMaybeCabinet()
 
-  /* Un cabinet neuf n'a aucune patiente : la fiche n'a alors rien à montrer,
+  /* Un cabinet neuf n'a aucun patient : la fiche n'a alors rien à montrer,
      et l'afficher planterait. C'est le premier écran que voit une praticienne
      qui vient d'accepter son invitation — il doit lui dire quoi faire. */
   const fiche = state.patients[state.sel]
@@ -115,7 +115,7 @@ export function TherapistView() {
               <p className={s.emptyText}>{cabinet.erreur}</p>
             ) : cabinet?.chargement ? null : (
               <p className={s.emptyText}>
-                Aucune patiente pour l'instant. Ajoutez la première depuis la colonne de gauche :
+                Aucun patient pour l'instant. Ajoutez la première depuis la colonne de gauche :
                 son nom, son adresse, et ce que vous suivez avec elle. Elle recevra son espace en
                 se connectant avec cette adresse, sans mot de passe.
               </p>

@@ -13,7 +13,7 @@ function dateLongue(iso: string): string {
 }
 
 /**
- * Les hypnoses écrites pour cette patiente, et de quoi en refaire une.
+ * Les hypnoses écrites pour ce patient, et de quoi en refaire une.
  *
  * Elles sont pliées : une séance d'hypnose fait trois mille mots, et la fiche
  * n'est pas l'endroit où on la lit d'un bout à l'autre — c'est l'endroit où on
@@ -22,7 +22,7 @@ function dateLongue(iso: string): string {
  *
  * LA RÉÉCRITURE PART DE LA DERNIÈRE SÉANCE. Sans les formulations et la
  * synthèse qu'elle porte, on n'écrirait plus qu'à partir du dossier — et on
- * perdrait la matière la plus précieuse, les mots de la patiente. La fiche
+ * perdrait la matière la plus précieuse, les mots du patient. La fiche
  * charge donc ce brouillon avec le reste, et le dit quand il manque.
  */
 export function HypnosesFiche() {

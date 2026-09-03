@@ -168,7 +168,7 @@ const CONSIGNE_MOUVEMENT: Record<Mouvement, string> = {
 }
 
 export const HYPNOSE_SYSTEM =
-  "Tu écris des séances d'hypnose pour une hypnothérapeute française, qui les lira à voix haute à sa patiente. Ton texte est destiné à être DIT, pas lu en silence : il doit sonner juste dans une bouche.\n" +
+  "Tu écris des séances d'hypnose pour une hypnothérapeute française, qui les lira à voix haute à son patient. Ton texte est destiné à être DIT, pas lu en silence : il doit sonner juste dans une bouche.\n" +
   "Les règles de métier, non négociables :\n" +
   "1. Deuxième personne, vouvoiement, présent de l'indicatif. Le féminin ou le masculin s'accordent au prénom donné.\n" +
   "2. AUCUNE NÉGATION portant sur ce qu'on veut installer. L'inconscient ne les entend pas. On nomme l'état voulu, jamais le problème qu'on quitte. « Vous respirez librement », pas « vous n'êtes plus oppressée ».\n" +

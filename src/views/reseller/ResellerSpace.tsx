@@ -17,7 +17,7 @@ const TITLES: Record<ResellerView, { title: string; intro: string }> = {
   portfolio: {
     title: 'Vos cabinets',
     intro:
-      "Chaque cabinet est une installation indépendante, avec ses patientes, ses audios et sa marque. Vous voyez ici ce qui vous regarde : l'usage et le contrat. Jamais les patientes, ni ce qu'elles écrivent.",
+      "Chaque cabinet est une installation indépendante, avec ses patients, ses audios et sa marque. Vous voyez ici ce qui vous regarde : l'usage et le contrat. Jamais les patients, ni ce qu'ils écrivent.",
   },
   brand: {
     title: 'Marque du cabinet',
@@ -27,7 +27,7 @@ const TITLES: Record<ResellerView, { title: string; intro: string }> = {
   plans: {
     title: 'Offres et abonnements',
     intro:
-      "Chaque thérapeute branche sa propre clé d'analyse et paie ses appels directement : votre offre ne vend que l'application. Vous réglez ici ce que chaque offre ouvre — nombre de patientes, boutique, marque blanche, site vitrine — et son prix.",
+      "Chaque thérapeute branche sa propre clé d'analyse et paie ses appels directement : votre offre ne vend que l'application. Vous réglez ici ce que chaque offre ouvre — nombre de patients, boutique, marque blanche, site vitrine — et son prix.",
   },
 }
 

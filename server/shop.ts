@@ -1,10 +1,10 @@
 /**
- * Boutique : le paiement d'un produit par une patiente, sur le compte Stripe
+ * Boutique : le paiement d'un produit par un patient, sur le compte Stripe
  * de sa thérapeute.
  *
  * Deux moments, et rien entre les deux ne passe par le navigateur :
  *
- *   demarrerPaiement  la patiente choisit un produit ; le serveur crée la
+ *   demarrerPaiement  le patient choisit un produit ; le serveur crée la
  *                     session Stripe Checkout avec la clé du cabinet, note
  *                     la commande « en attente », et rend l'adresse de
  *                     paiement. L'argent va chez la thérapeute, pas chez
@@ -13,10 +13,10 @@
  *   verifierPaiement  au retour, le serveur demande à Stripe si la session
  *                     est payée. Si oui, la commande passe « payée » et ce
  *                     qui a été acheté est livré — un audio entre dans la
- *                     bibliothèque de la patiente. Recharger la page ne
+ *                     bibliothèque du patient. Recharger la page ne
  *                     livre jamais deux fois : la commande porte son état.
  *
- * Aucun rôle authentifié n'écrit dans `orders` : une patiente ne peut pas
+ * Aucun rôle authentifié n'écrit dans `orders` : un patient ne peut pas
  * se déclarer payée, seul Stripe le dit au serveur.
  */
 import Stripe from 'stripe'
@@ -50,7 +50,7 @@ interface OrderRow {
 }
 
 /**
- * L'adresse à laquelle la patiente revient après le paiement.
+ * L'adresse à laquelle le patient revient après le paiement.
  *
  * En marque blanche, c'est CELLE DE SON CABINET : renvoyer sur le domaine de
  * la plateforme après un paiement, c'est révéler le fournisseur au pire
@@ -74,11 +74,11 @@ function admin() {
   return db
 }
 
-/** La patiente derrière le jeton, et son cabinet. */
-async function patiente(token: string | null): Promise<{ id: string; cabinetId: string }> {
+/** Le patient derrière le jeton, et son cabinet. */
+async function patient(token: string | null): Promise<{ id: string; cabinetId: string }> {
   const appelant = await identifier(token)
   if (!appelant.patientId || !appelant.patientCabinetId) {
-    throw new HttpError(403, "La boutique est réservée à l'espace d'une patiente.")
+    throw new HttpError(403, "La boutique est réservée à l'espace d'un patient.")
   }
   return { id: appelant.patientId, cabinetId: appelant.patientCabinetId }
 }
@@ -100,7 +100,7 @@ export interface DemarrerBody {
 }
 
 export async function demarrerPaiement(token: string | null, raw: unknown): Promise<{ url: string }> {
-  const { id: patientId, cabinetId } = await patiente(token)
+  const { id: patientId, cabinetId } = await patient(token)
   const body = (raw && typeof raw === 'object' ? raw : {}) as Partial<DemarrerBody>
   const productId = String(body.productId ?? '').trim()
   if (!productId) throw new HttpError(400, 'Produit manquant.')
@@ -124,8 +124,8 @@ export async function demarrerPaiement(token: string | null, raw: unknown): Prom
   }
   /* Le levier de l'offre, tenu ICI et pas seulement à l'écran : un cabinet
      dont le revendeur a fermé la boutique ne doit pas pouvoir encaisser parce
-     que l'interruption n'a pas atteint le navigateur d'une patiente. Le
-     message reste le même — la patiente n'a pas à connaître le contrat de sa
+     que l'interruption n'a pas atteint le navigateur d'un patient. Le
+     message reste le même — le patient n'a pas à connaître le contrat de sa
      thérapeute. */
   if (!(await levierDuCabinet(cabinetId, 'shop', db))) {
     throw new HttpError(409, "La boutique de votre thérapeute n'est pas ouverte.")
@@ -192,7 +192,7 @@ export interface Verification {
 }
 
 export async function verifierPaiement(token: string | null, raw: unknown): Promise<Verification> {
-  const { id: patientId, cabinetId } = await patiente(token)
+  const { id: patientId, cabinetId } = await patient(token)
   const body = (raw && typeof raw === 'object' ? raw : {}) as Partial<VerifierBody>
   const sessionId = String(body.sessionId ?? '').trim()
   if (!sessionId) throw new HttpError(400, 'Session manquante.')
@@ -209,7 +209,7 @@ export async function verifierPaiement(token: string | null, raw: unknown): Prom
   }
   /* Déjà payée : on retente la livraison plutôt que de la déclarer faite.
      L'état « payée » passait AVANT la livraison, et une livraison en échec
-     n'était jamais reprise — la patiente avait payé un audio qui n'arrivait
+     n'était jamais reprise — le patient avait payé un audio qui n'arrivait
      pas, et chaque rechargement lui répondait que tout allait bien.
      L'écriture est idempotente : rien ne se livre deux fois. */
   if (commande.status === 'payee') {
@@ -244,12 +244,12 @@ export async function verifierPaiement(token: string | null, raw: unknown): Prom
 }
 
 /**
- * Ce qu'un achat déclenche : un audio rejoint la bibliothèque de la patiente.
+ * Ce qu'un achat déclenche : un audio rejoint la bibliothèque du patient.
  *
  * Rend vrai quand il n'y a plus rien à livrer — livraison faite, ou produit
  * sans livraison automatique (une séance, un programme, qui se règlent hors
  * de l'application). Faux quand l'écriture a échoué : l'appelant le dit à la
- * patiente, et la tentative repart au rechargement suivant.
+ * patient, et la tentative repart au rechargement suivant.
  */
 async function livrer(
   commande: OrderRow,

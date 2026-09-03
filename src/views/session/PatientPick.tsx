@@ -27,7 +27,7 @@ export function PatientPick() {
           variant="primary"
           onClick={() => set({ mode: 'therapist', pNewOpen: true, pNotice: '' })}
         >
-          Ajouter une patiente
+          Ajouter un patient
         </Button>
       </Card>
     )

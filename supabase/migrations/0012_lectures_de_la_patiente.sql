@@ -1,5 +1,5 @@
 -- ============================================================================
--- 0012 — Ce que la patiente lit des tables du cabinet.
+-- 0012 — Ce que le patient lit des tables du cabinet.
 --
 -- patient_audios lui était ouvert (0002), mais pas audio_library : la
 -- jointure qui donne le titre et la durée d'un audio rendait null sous ses
@@ -9,14 +9,14 @@
 -- lecture, bornées à ce qui lui a été envoyé.
 -- ============================================================================
 
-create policy "la patiente lit les audios qui lui ont été envoyés"
+create policy "le patient lit les audios qui lui ont été envoyés"
   on public.audio_library for select to authenticated
   using (exists (
     select 1 from public.patient_audios pa
     where pa.audio_id = audio_library.id and public.is_patient_record(pa.patient_id)
   ));
 
-create policy "la patiente lit les notifications qui lui sont adressées"
+create policy "le patient lit les notifications qui lui sont adressées"
   on public.push_notifications for select to authenticated
   using (exists (
     select 1 from public.push_recipients r

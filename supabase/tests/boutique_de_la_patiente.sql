@@ -1,10 +1,10 @@
 -- ============================================================================
--- La boutique de la patiente suit l'offre du cabinet
+-- La boutique du patient suit l'offre du cabinet
 --
 -- Deux conditions, et il en faut deux : que l'offre ouvre le levier, et que
 -- la thérapeute allume sa boutique. Avant 0026, seule la seconde comptait —
 -- un revendeur pouvait fermer le levier, l'onglet restait ouvert dans
--- l'application de la patiente, et l'achat échouait au dernier pas.
+-- l'application du patient, et l'achat échouait au dernier pas.
 --
 -- L'épreuve se termine par une exception : elle annule tout ce qu'elle a
 -- écrit, y compris les réglages qu'elle a bougés le temps de mesurer.
@@ -30,7 +30,7 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', v_user, 'role','authenticated')::text, true);
   select public.patient_cabinet_settings() into v;
   if (v->>'shop_enabled')::boolean then
-    raise exception 'ECHEC : levier fermé, la boutique reste ouverte à la patiente';
+    raise exception 'ECHEC : levier fermé, la boutique reste ouverte au patient';
   end if;
 
   perform set_config('role','postgres',true);
@@ -44,5 +44,5 @@ begin
     raise exception 'ECHEC : levier ouvert et boutique allumée, elle reste fermée';
   end if;
 
-  raise exception 'REUSSITE : la boutique de la patiente suit le levier de l''offre ET le réglage du cabinet.';
+  raise exception 'REUSSITE : la boutique du patient suit le levier de l''offre ET le réglage du cabinet.';
 end $$;

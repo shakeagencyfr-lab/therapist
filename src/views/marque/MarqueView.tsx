@@ -81,7 +81,7 @@ export function MarqueView() {
       <h1 className={s.h1}>Votre marque</h1>
       <p className={s.intro}>
         Le nom, les initiales et les couleurs de votre cabinet. Ils habillent votre espace et
-        l'application de vos patientes. Le reste de l'interface — fonds, bordures, typographie —
+        l'application de vos patients. Le reste de l'interface — fonds, bordures, typographie —
         ne bouge pas : c'est ce qui garde les écrans lisibles.
       </p>
 
@@ -168,7 +168,7 @@ function Editeur({ publie, slug }: { publie: Fiche; slug: string }) {
         <div className={s.field}>
           <FieldLabel>Nom affiché</FieldLabel>
           <TextInput value={draft.nom} onChange={(e) => patch({}, { nom: e.target.value })} />
-          <span className={s.hint}>En haut de votre espace, et en haut de celui de vos patientes.</span>
+          <span className={s.hint}>En haut de votre espace, et en haut de celui de vos patients.</span>
         </div>
 
         <div className={s.field}>
@@ -229,7 +229,7 @@ function Editeur({ publie, slug }: { publie: Fiche; slug: string }) {
             {adresseCabinet(slug)} ↗
           </a>
           <span className={s.hint}>
-            L'adresse à donner à vos patientes : elle ouvre une page à votre nom et à vos
+            L'adresse à donner à vos patients : elle ouvre une page à votre nom et à vos
             couleurs, avant même qu'elles se connectent. Elle est fixée par votre revendeur.
           </span>
         </div>
@@ -308,7 +308,7 @@ function Editeur({ publie, slug }: { publie: Fiche; slug: string }) {
 
         {modifie ? (
           <p className={s.hint} style={{ margin: '0 0 10px' }}>
-            Modifications non publiées : l'aperçu les montre, vos patientes pas encore.
+            Modifications non publiées : l'aperçu les montre, vos patients pas encore.
           </p>
         ) : null}
 
@@ -323,7 +323,7 @@ function Editeur({ publie, slug }: { publie: Fiche; slug: string }) {
       </Card>
 
       {/* L'aperçu montre les deux endroits où la marque se voit vraiment :
-          l'en-tête de l'espace, et le téléphone de la patiente. */}
+          l'en-tête de l'espace, et le téléphone du patient. */}
       <section className={s.apercu}>
         <div className={s.preview}>
           <div className={s.previewHead}>
@@ -370,7 +370,7 @@ function Editeur({ publie, slug }: { publie: Fiche; slug: string }) {
           </div>
         </div>
         <p className={s.muted}>
-          Aperçu à contenus fictifs. Ni patiente, ni dossier : la marque se juge sur les couleurs.
+          Aperçu à contenus fictifs. Ni patient, ni dossier : la marque se juge sur les couleurs.
         </p>
       </section>
     </div>
@@ -380,7 +380,7 @@ function Editeur({ publie, slug }: { publie: Fiche; slug: string }) {
 /**
  * Le widget à poser sur le site de la thérapeute.
  *
- * Un cadre qui ne contient qu'un champ d'adresse : ses patientes entrent la
+ * Un cadre qui ne contient qu'un champ d'adresse : ses patients entrent la
  * leur et reçoivent leur lien, sans quitter son site. Rien de l'application
  * n'y est monté — c'est ce qui permet à cette page d'être encadrée alors que
  * le reste de Klaro ne l'est pas.
@@ -406,7 +406,7 @@ function SurVotreSite({ slug }: { slug: string }) {
         Sur votre site
       </Title>
       <p className={s.hint} style={{ marginBottom: 14 }}>
-        Collez ce code sur votre site : vos patientes y entrent leur adresse et reçoivent leur lien
+        Collez ce code sur votre site : vos patients y entrent leur adresse et reçoivent leur lien
         de connexion, sans quitter votre page. Le cadre porte votre nom et vos couleurs, et se met
         à jour tout seul quand vous les changez.
       </p>

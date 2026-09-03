@@ -2,8 +2,8 @@
 -- Le circuit entier, joué sous les droits réels de chaque acteur.
 --
 --   revendeur → ouvre un cabinet, invite la praticienne
---   praticienne → rejoint, trouve son cabinet vide, crée sa patiente
---   patiente → rejoint sa fiche, voit son module, le coche
+--   praticienne → rejoint, trouve son cabinet vide, crée son patient
+--   patient → rejoint sa fiche, voit son module, le coche
 --   revendeur → voit le compteur monter à 1, et toujours aucun patient
 --
 --   psql "$DATABASE_URL" -f supabase/tests/circuit.sql
@@ -75,9 +75,9 @@ begin
   values (v_cab, v_pat, 'Geste d''ancrage avant le café', 'Tous les jours · 2 min', 'Exercice', 0);
 
   select count(*) into n from public.patients;
-  if n <> 1 then raise exception 'La praticienne devrait voir sa patiente, elle en voit %', n; end if;
+  if n <> 1 then raise exception 'La praticienne devrait voir son patient, elle en voit %', n; end if;
 
-  ------------------------------------------------------------------ patiente
+  ------------------------------------------------------------------ patient
   perform set_config('role','none',true);
   perform set_config('role','authenticated',true);
   perform set_config('request.jwt.claims','{"sub":"cccc0000-0000-4000-8000-000000000003","role":"authenticated"}',true);
@@ -85,7 +85,7 @@ begin
   perform public.claim_access();
   ctx := public.my_context();
   if ctx->'patient'->>'display_name' is distinct from 'Camille R.' then
-    raise exception 'La patiente n''a pas été rattachée à sa fiche : %', ctx;
+    raise exception 'Le patient n''a pas été rattachée à sa fiche : %', ctx;
   end if;
   if ctx->'patient'->>'cabinet_name' is distinct from 'Cabinet Laetitia Ollivier' then
     raise exception 'Mauvais cabinet rattaché : %', ctx;
@@ -100,7 +100,7 @@ begin
   if n <> 1 then raise exception 'Le module coché n''a pas été enregistré'; end if;
 
   select count(*) into n from public.cabinets;
-  if n <> 0 then raise exception 'FUITE : la patiente atteint % cabinet(s)', n; end if;
+  if n <> 0 then raise exception 'FUITE : le patient atteint % cabinet(s)', n; end if;
 
   ---------------------------------------------- le revendeur, après coup
   perform set_config('role','none',true);
@@ -108,12 +108,12 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', v_revendeur, 'role','authenticated')::text, true);
 
   select patients_active into n from public.reseller_cabinet_overview() limit 1;
-  if n <> 1 then raise exception 'Le compteur du revendeur devrait montrer 1 patiente, il montre %', n; end if;
+  if n <> 1 then raise exception 'Le compteur du revendeur devrait montrer 1 patient, il montre %', n; end if;
   select count(*) into n from public.patients;
-  if n <> 0 then raise exception 'FUITE : le revendeur voit la patiente créée'; end if;
+  if n <> 0 then raise exception 'FUITE : le revendeur voit le patient créée'; end if;
 
   perform set_config('role','none',true);
-  raise notice 'Circuit complet : revendeur, praticienne, patiente — conforme.';
+  raise notice 'Circuit complet : revendeur, praticienne, patient — conforme.';
 end $$;
 
 rollback;

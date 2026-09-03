@@ -9,7 +9,7 @@ import s from './MotDePasse.module.css'
  * Le lien magique reste la voie normale, et la meilleure : rien à retenir,
  * rien à voler, rien à réinitialiser. Mais il dépend du courriel — qui met
  * parfois du temps, finit dans les indésirables, ou bute sur le quota
- * d'envoi du service. Une praticienne avec une patiente en face d'elle ne
+ * d'envoi du service. Une praticienne avec un patient en face d'elle ne
  * peut pas attendre.
  *
  * Le mot de passe n'est donc jamais imposé : c'est une porte de secours que
@@ -56,7 +56,7 @@ export function MotDePasse() {
       <p className={s.texte}>
         Vous entrez normalement par un lien reçu par courriel : rien à retenir, rien à voler. Un
         mot de passe vous donne une seconde porte, utile le jour où le courriel tarde et qu'une
-        patiente vous attend. Les deux voies restent valables.
+        patient vous attend. Les deux voies restent valables.
       </p>
 
       {notice ? <Notice tone={notice.tone}>{notice.text}</Notice> : null}

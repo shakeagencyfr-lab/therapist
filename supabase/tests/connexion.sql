@@ -49,21 +49,21 @@ begin
   select count(*) into n from public.patients;
   if n <> 5 then raise exception 'La thérapeute devrait voir 5 patients, elle en voit %', n; end if;
 
-  -- 3. La patiente : sa fiche, ses modules, et pas le dossier clinique.
+  -- 3. Le patient : sa fiche, ses modules, et pas le dossier clinique.
   perform set_config('role','none',true);
   perform set_config('role','authenticated',true);
   perform set_config('request.jwt.claims','{"sub":"cccc3333-3333-4333-8333-333333333333","role":"authenticated"}',true);
   perform public.claim_access();
   ctx := public.my_context();
   if ctx->'patient'->>'display_name' is distinct from 'Camille R.' then
-    raise exception 'Patiente non rattachée : %', ctx;
+    raise exception 'Patient non rattachée : %', ctx;
   end if;
   select count(*) into n from public.patients;
-  if n <> 1 then raise exception 'La patiente devrait voir sa seule fiche, elle en voit %', n; end if;
+  if n <> 1 then raise exception 'Le patient devrait voir sa seule fiche, il en voit %', n; end if;
   select count(*) into n from public.patient_modules;
-  if n <> 6 then raise exception 'La patiente devrait voir ses 6 modules, elle en voit %', n; end if;
+  if n <> 6 then raise exception 'Le patient devrait voir ses 6 modules, il en voit %', n; end if;
   select count(*) into n from public.therapy_sessions;
-  if n <> 0 then raise exception 'FUITE : la patiente atteint le dossier clinique'; end if;
+  if n <> 0 then raise exception 'FUITE : le patient atteint le dossier clinique'; end if;
 
   -- Elle coche un module : le seul geste d'écriture qui lui est ouvert.
   select id into s from public.patient_modules where done_at is null limit 1;

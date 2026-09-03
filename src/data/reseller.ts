@@ -25,9 +25,9 @@ export const PLANS: Plan[] = [
     marqueBlanche: false,
     site: false,
     includes: [
-      'Fiches patientes et parcours hebdomadaire',
+      'Fiches patients et parcours hebdomadaire',
       'Bibliothèque audio du cabinet',
-      'Application patiente, journal et boutique',
+      'Application patient, journal et boutique',
     ],
   },
   {

@@ -10,7 +10,7 @@ import s from './HypnoseToggle.module.css'
  * lancer l'analyse, quand on sait déjà où va la séance et qu'on voit ce
  * qu'elle coûtera ; ou après avoir lu la note, quand on découvre qu'il y a
  * matière. C'est le même réglage aux deux endroits — le cocher ici le coche
- * là-bas, et l'ouvre pour les prochaines séances de cette patiente.
+ * là-bas, et l'ouvre pour les prochaines séances de ce patient.
  *
  * L'état local mirroite la fiche : l'écran répond au clic sans attendre la
  * base, et la démonstration fonctionne sans base du tout.

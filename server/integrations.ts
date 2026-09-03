@@ -6,7 +6,7 @@
  *
  *   1. Une clé est VALIDÉE avant d'être enregistrée — par un vrai appel au
  *      service concerné. Une clé fausse se découvre ici, à la saisie, pas
- *      en séance devant une patiente.
+ *      en séance devant un patient.
  *   2. Une clé ne REVIENT jamais au navigateur. L'écran ne reçoit que ses
  *      quatre derniers caractères et sa date. La clé elle-même dort
  *      chiffrée (server/secrets.ts) et n'est déchiffrée que pour servir.
@@ -38,7 +38,7 @@ export interface EtatIntegrations {
   stripe: CleAffichee | null
   /** Adresse de la page de réservation, sans marque : chacun son agenda. */
   bookingUrl: string | null
-  /** « bouton » ouvre la page, « widget » l'encadre dans l'espace patiente. */
+  /** « bouton » ouvre la page, « widget » l'encadre dans l'espace patient. */
   bookingMode: 'bouton' | 'widget'
   /** Adresse du widget, quand elle diffère de celle de la page. */
   bookingWidgetUrl: string | null
@@ -222,7 +222,7 @@ async function eprouverStripe(secretKey: string): Promise<string> {
  * Une adresse de réservation, éprouvée avant d'être écrite.
  *
  * L'exigence du https n'est pas une coquetterie : cette adresse finit dans
- * un cadre, chez la patiente, sur une page servie en https. Un cadre en http
+ * un cadre, chez le patient, sur une page servie en https. Un cadre en http
  * y serait bloqué par le navigateur, sans un mot d'explication.
  */
 function urlReservation(valeur: string, quoi: string): string {
@@ -243,7 +243,7 @@ function urlReservation(valeur: string, quoi: string): string {
  *
  * Ces codes ne sont pas des adresses : ce sont quelques lignes de HTML et un
  * script à charger. Or nous ne chargerons jamais ce script. L'espace de la
- * patiente contient son dossier et son jeton de session ; y exécuter le code
+ * patient contient son dossier et son jeton de session ; y exécuter le code
  * d'un tiers reviendrait à le lui confier. On lit donc le code pour en tirer
  * la seule chose dont on a besoin — l'adresse de la page de réservation — et
  * c'est elle, et elle seule, qui ira dans un cadre.

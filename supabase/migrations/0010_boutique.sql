@@ -1,15 +1,15 @@
 -- ============================================================================
--- 0010 — Boutique du cabinet : ce qu'une thérapeute vend, ce qu'une patiente
+-- 0010 — Boutique du cabinet : ce qu'une thérapeute vend, ce qu'un patient
 -- achète.
 --
 -- Le cabinet gère ses produits sous la RLS ordinaire (politique « cabinet »).
--- La patiente ne voit que les produits actifs de SON cabinet, et seulement
+-- Le patient ne voit que les produits actifs de SON cabinet, et seulement
 -- si la thérapeute a ouvert sa boutique (cabinet_settings.shop_enabled).
 --
 -- Les commandes ne s'écrivent que côté serveur : c'est lui qui parle à
 -- Stripe avec la clé du cabinet, crée la session de paiement, puis vérifie
 -- le paiement au retour. Aucun rôle authentifié n'insère ni ne modifie une
--- commande — une patiente ne peut donc pas se déclarer payée.
+-- commande — un patient ne peut donc pas se déclarer payée.
 -- ============================================================================
 
 create type public.product_kind as enum ('audio', 'seance', 'programme', 'autre');
@@ -20,7 +20,7 @@ create table public.products (
   title        text not null,
   description  text not null default '',
   kind         public.product_kind not null default 'autre',
-  -- Un audio de la bibliothèque, livré dans l'espace de la patiente au paiement.
+  -- Un audio de la bibliothèque, livré dans l'espace du patient au paiement.
   audio_id     uuid references public.audio_library (id) on delete set null,
   -- Stripe refuse sous 0,50 € ; on ne vend rien à moins.
   price_cents  integer not null check (price_cents >= 50),
@@ -70,8 +70,8 @@ create policy "cabinet"
   using (public.is_cabinet_member(cabinet_id))
   with check (public.is_cabinet_member(cabinet_id));
 
--- La patiente : les produits actifs de son cabinet, boutique ouverte.
-create policy "la patiente voit la vitrine de son cabinet"
+-- Le patient : les produits actifs de son cabinet, boutique ouverte.
+create policy "le patient voit la vitrine de son cabinet"
   on public.products for select to authenticated
   using (
     is_active
@@ -92,7 +92,7 @@ create policy "le cabinet lit ses commandes"
   on public.orders for select to authenticated
   using (public.is_cabinet_member(cabinet_id));
 
-create policy "la patiente lit ses commandes"
+create policy "le patient lit ses commandes"
   on public.orders for select to authenticated
   using (public.is_patient_record(patient_id));
 
