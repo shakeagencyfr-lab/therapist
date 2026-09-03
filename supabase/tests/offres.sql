@@ -8,8 +8,9 @@
 --      quel — et une place libérée par une clôture de suivi laisse passer.
 --   2. Les droits effectifs se lisent d'un seul endroit — cabinet_droits() —
 --      et une praticienne ne lit que ceux de son cabinet.
---   3. Le catalogue appartient au revendeur : lui le règle, une praticienne
---      non. Sans quoi une cliente relèverait son propre plafond.
+--   3. Le catalogue appartient au PROPRIÉTAIRE du revendeur : lui seul le
+--      règle — ni une praticienne, qui relèverait son propre plafond, ni un
+--      employé, qui reprendrait les prix de toute l'enseigne d'un geste.
 --   4. Un domaine ne sert qu'une fois vérifié, et ne s'écrit que par le
 --      serveur : l'enregistrement s'accompagne d'une déclaration chez
 --      l'hébergeur, qu'un navigateur ne peut pas faire.
@@ -27,6 +28,7 @@ declare
   v_plan    text;
   v_prat    uuid;
   v_rev     uuid;
+  v_staff   uuid;
   v_autre   uuid;
   v_actives integer;
   v_msg     text := '';
@@ -39,10 +41,12 @@ begin
   select s.cabinet_id, s.plan_code into v_cab, v_plan
   from public.subscriptions s join public.cabinets c on c.id = s.cabinet_id limit 1;
   select m.user_id into v_prat from public.cabinet_members m where m.cabinet_id = v_cab limit 1;
-  select r.user_id into v_rev from public.reseller_members r limit 1;
+  -- Le catalogue est réservé au PROPRIÉTAIRE depuis 0025 : un employé du
+  -- revendeur ne reprend pas les prix de toute l'enseigne.
+  select r.user_id into v_rev from public.reseller_members r where r.role = 'owner' limit 1;
   select c.id into v_autre from public.cabinets c where c.id <> v_cab limit 1;
   if v_cab is null or v_prat is null or v_rev is null then
-    raise exception 'ECHEC : il faut un cabinet abonné, sa praticienne et un revendeur';
+    raise exception 'ECHEC : il faut un cabinet abonné, sa praticienne et un revendeur propriétaire';
   end if;
 
   -- 1. Le plafond ---------------------------------------------------------
@@ -109,7 +113,7 @@ begin
   update public.plans set price_cents = 9999 where code = 'cabinet';
   select price_cents into v_prix from public.plans where code = 'cabinet';
   perform set_config('role', 'postgres', true);
-  if v_prix <> 9999 then raise exception 'ECHEC : le revendeur ne peut pas régler ses offres'; end if;
+  if v_prix <> 9999 then raise exception 'ECHEC : le propriétaire ne peut pas régler ses offres'; end if;
 
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims', json_build_object('sub', v_prat, 'role', 'authenticated')::text, true);
@@ -117,6 +121,22 @@ begin
   select price_cents into v_prix from public.plans where code = 'cabinet';
   perform set_config('role', 'postgres', true);
   if v_prix <> 9999 then raise exception 'ECHEC : une praticienne a changé le prix d''une offre'; end if;
+
+  -- Ni un employé du revendeur : le catalogue est global, et un seul prix
+  -- repris s'applique à toute l'enseigne. C'est ce que 0025 réserve au
+  -- propriétaire.
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
+  values ('cccc0000-0000-4000-8000-0000000000ee', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'staff@eprouve.test', '', now(), now(), now())
+  returning id into v_staff;
+  insert into public.reseller_members (reseller_id, user_id, role)
+  select r.reseller_id, v_staff, 'staff' from public.reseller_members r where r.user_id = v_rev limit 1;
+
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims', json_build_object('sub', v_staff, 'role', 'authenticated')::text, true);
+  update public.plans set price_cents = 42 where code = 'cabinet';
+  select price_cents into v_prix from public.plans where code = 'cabinet';
+  perform set_config('role', 'postgres', true);
+  if v_prix <> 9999 then raise exception 'ECHEC : un employé du revendeur a repris les prix de l''enseigne'; end if;
 
   -- 4. Le domaine ----------------------------------------------------------
   insert into public.cabinet_domains (cabinet_id, domaine, verifie)
@@ -165,5 +185,5 @@ begin
     raise exception 'ECHEC : le domaine répond encore alors que la marque blanche est fermée';
   end if;
 
-  raise exception 'REUSSITE : plafond tenu par la base, droits lus d''un seul endroit, catalogue réservé au revendeur, domaine et vitrine servis seulement quand l''offre les ouvre · message du plafond = %', v_msg;
+  raise exception 'REUSSITE : plafond tenu par la base, droits lus d''un seul endroit, catalogue réservé au propriétaire, domaine et vitrine servis seulement quand l''offre les ouvre · message du plafond = %', v_msg;
 end $$;
