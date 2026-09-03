@@ -50,27 +50,49 @@ export interface Cabinet {
  * `adherenceAvg` vaut null sous trois patients actifs : dans un cabinet d'un
  * ou deux patients, une moyenne est un chiffre individuel. La base applique
  * déjà cette règle ; l'interface la répète pour pouvoir l'expliquer.
+ *
+ * La consommation d'analyse n'y figure pas : chaque cabinet branche sa propre
+ * clé Anthropic et paie ses appels. Le revendeur ne la facture pas, donc il
+ * n'a pas à la lire — l'afficher laisserait croire qu'elle lui est imputée.
  */
 export interface CabinetStats {
   therapists: number
   patientsActive: number
   adherenceAvg: number | null
   sessions30d: number
-  /** Consommation IA du mois en cours, en centimes. */
-  aiSpendCents: number
 }
 
+/**
+ * Une offre, et les quatre leviers qu'elle ouvre.
+ *
+ * Le revendeur vend l'application, pas l'analyse : chaque cabinet branche sa
+ * propre clé Anthropic et paie ses appels. Une offre ne règle donc que ce que
+ * l'application ouvre.
+ */
 export interface Plan {
   code: PlanCode
   label: string
   priceCents: number
-  /** null = sans limite. */
+  /** Fiches actives autorisées. null = sans limite. */
   maxPatients: number | null
-  /** Plafond de consommation IA par mois, en centimes. */
-  aiCapCents: number
+  /** La boutique en ligne. */
+  shop: boolean
+  /** Domaine personnalisé et SMTP propre. */
+  marqueBlanche: boolean
+  /** La bibliothèque de sites vitrines. */
+  site: boolean
   /** Ce que l'offre apporte, pour l'argumentaire de vente. */
   includes: string[]
 }
+
+/** Ce qu'une offre ouvre, à part son plafond de fiches. */
+export type Levier = 'shop' | 'marqueBlanche' | 'site'
+
+export const LEVIERS: Array<{ code: Levier; label: string; detail: string }> = [
+  { code: 'shop', label: 'Boutique en ligne', detail: 'Vendre audios, séances et programmes depuis l’espace patient.' },
+  { code: 'marqueBlanche', label: 'Marque blanche totale', detail: 'Son domaine à elle, et ses courriels partis de son adresse.' },
+  { code: 'site', label: 'Site vitrine', detail: 'Une page d’accueil publique, nourrie par sa fiche Google.' },
+]
 
 export interface Subscription {
   cabinetId: CabinetId
@@ -78,8 +100,27 @@ export interface Subscription {
   status: SubscriptionStatus
   /** Fin de période, en toutes lettres. */
   periodEnd: string
-  /** Plafond IA négocié, s'il diffère de celui de l'offre. */
-  capOverrideCents: number | null
+  /**
+   * Les exceptions négociées pour ce cabinet. Null = l'offre s'applique.
+   *
+   * Un revendeur qui accorde une faveur à un cabinet ne doit pas avoir à
+   * créer une quatrième offre pour lui seul.
+   */
+  maxPatientsOverride: number | null
+  shopOverride: boolean | null
+  marqueBlancheOverride: boolean | null
+  siteOverride: boolean | null
+}
+
+/** Les droits effectifs d'un cabinet : l'offre, corrigée de ses exceptions. */
+export interface Droits {
+  maxPatients: number | null
+  patientesActives: number
+  shop: boolean
+  marqueBlanche: boolean
+  site: boolean
+  offre: string
+  offreCode: string
 }
 
 /** Une ligne du portefeuille : le cabinet, ses compteurs, son contrat. */
@@ -88,8 +129,4 @@ export interface PortfolioRow {
   stats: CabinetStats
   subscription: Subscription
   plan: Plan
-  /** Plafond effectif : celui négocié, sinon celui de l'offre. */
-  capCents: number
-  /** Part du plafond consommée, 0–100 et au-delà en cas de dépassement. */
-  usagePct: number
 }

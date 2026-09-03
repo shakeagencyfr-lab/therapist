@@ -122,16 +122,22 @@
   color: var(--c-text-faint);
 }
 
-.usage {
-  width: 92px;
-}
-.usageLine {
+/* L'offre du cabinet, à droite des compteurs : le nom, et ce qu'elle ouvre. */
+.offre {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  font-size: 11px;
+  flex-direction: column;
+  gap: 2px;
+  width: 132px;
+  text-align: right;
+}
+.offreNom {
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.offreLeviers {
+  font-size: 10.5px;
+  line-height: 1.35;
   color: var(--c-text-muted);
-  margin-bottom: 5px;
 }
 .over {
   color: var(--c-warn-text-2);

@@ -14,11 +14,29 @@ import { Affirmations } from '@/views/therapist/Affirmations'
 import { SharedJournal } from '@/views/therapist/SharedJournal'
 import s from './TherapistView.module.css'
 
-/** Espace thérapeute : barre latérale de patients + fiche client. */
+/** Les trois volets de la fiche. */
+type Volet = 'suivi' | 'profil' | 'reglages'
+
+const VOLETS: Array<{ value: Volet; label: string }> = [
+  { value: 'suivi', label: 'Suivi' },
+  { value: 'profil', label: 'Profil et hypnoses' },
+  { value: 'reglages', label: 'Réglages de la fiche' },
+]
+
+/**
+ * Espace thérapeute : barre latérale de patientes + fiche.
+ *
+ * La fiche se lit en trois volets. À plat, elle empilait neuf cartes sur
+ * deux écrans de hauteur : les modules de la semaine — ce qu'on regarde
+ * chaque jour — arrivaient sous le profil psychologique et les hypnoses,
+ * qu'on consulte une fois par mois. Le volet « Suivi » ouvre sur ce qui
+ * bouge ; le reste est à un clic, pas à trois écrans.
+ */
 export function TherapistView() {
   /* Tiroir de la barre latérale sous 900px : état d'interface purement local,
      il n'a pas à voyager dans AppState. */
   const [drawer, setDrawer] = useState(false)
+  const [volet, setVolet] = useState<Volet>('suivi')
   const state = useAppState()
   const cabinet = useMaybeCabinet()
 
@@ -45,20 +63,45 @@ export function TherapistView() {
         {fiche ? (
           <>
             <PatientHeader />
-            <FicheSettings />
-            <StatsRow />
-            <PsychProfile />
-            <HypnosesFiche />
 
-            <div className={s.split}>
-              <WeekModules />
-              <div className={s.column}>
-                <ScaleChart />
-                <PatientAudios />
-                <Affirmations />
-                <SharedJournal />
-              </div>
+            <div className={s.volets} role="tablist" aria-label="Volets de la fiche">
+              {VOLETS.map((v) => (
+                <button
+                  key={v.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={volet === v.value}
+                  className={volet === v.value ? `${s.volet} ${s.voletOn}` : s.volet}
+                  onClick={() => setVolet(v.value)}
+                >
+                  {v.label}
+                </button>
+              ))}
             </div>
+
+            {volet === 'suivi' ? (
+              <>
+                <StatsRow />
+                <div className={s.split}>
+                  <WeekModules />
+                  <div className={s.column}>
+                    <ScaleChart />
+                    <SharedJournal />
+                    <PatientAudios />
+                    <Affirmations />
+                  </div>
+                </div>
+              </>
+            ) : null}
+
+            {volet === 'profil' ? (
+              <>
+                <PsychProfile />
+                <HypnosesFiche />
+              </>
+            ) : null}
+
+            {volet === 'reglages' ? <FicheSettings key={state.sel} ouvertParDefaut /> : null}
           </>
         ) : (
           <div className={s.empty}>

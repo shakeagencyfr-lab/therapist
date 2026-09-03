@@ -1,6 +1,6 @@
 import { PRINCIPLES } from '@/data/patientApp'
 import { allModules } from '@/state/selectors'
-import { useAppState } from '@/state/store'
+import { useStore } from '@/state/store'
 import { PatientHome } from './PatientHome'
 import { PatientJournal } from './PatientJournal'
 import { PhoneFrame } from './PhoneFrame'
@@ -12,7 +12,7 @@ import s from './PatientView.module.css'
  * Une seule vue est montée dans le téléphone à la fois.
  */
 export function PatientView() {
-  const state = useAppState()
+  const { state, set } = useStore()
   const fiche = state.patients[state.sel]
   const modules = allModules(state, state.sel)
   const open = state.openTask
@@ -22,7 +22,12 @@ export function PatientView() {
   return (
     <div className={s.wrap}>
       <div className={s.editorial}>
-        <h1 className={s.h1}>Ce que le patient voit entre deux séances</h1>
+        {/* L'aperçu s'ouvre depuis la fiche : il faut pouvoir y revenir sans
+            passer par le menu. */}
+        <button type="button" className={s.retour} onClick={() => set({ mode: 'therapist' })}>
+          ← Retour à la fiche{fiche ? ` de ${fiche.name.split(' ')[0]}` : ''}
+        </button>
+        <h1 className={s.h1}>Ce que la patiente voit entre deux séances</h1>
         <p className={s.lead}>
           Une seule chose à faire par jour, envoyée par notification. Pas de fil d'actualité, pas de
           score, pas de comparaison avec d'autres patients. L'écran se vide quand la journée est

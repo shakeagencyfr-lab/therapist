@@ -9,6 +9,35 @@
   max-width: 1240px;
 }
 
+/* Les volets de la fiche : trois onglets sous le nom, soulignés plutôt
+   qu'en pilules — ce sont des parties d'un même dossier, pas des écrans. */
+.volets {
+  display: flex;
+  gap: 4px;
+  margin: -6px 0 22px;
+  border-bottom: 1px solid var(--c-border-light);
+}
+
+.volet {
+  padding: 10px 14px 12px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--c-text-4);
+}
+.volet:hover {
+  color: var(--c-text);
+}
+.voletOn {
+  color: var(--c-text);
+  border-bottom-color: var(--c-accent);
+}
+
 /* Grille basse de la fiche : parcours à gauche, suivi à droite. */
 .split {
   display: grid;

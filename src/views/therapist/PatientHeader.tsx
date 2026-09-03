@@ -1,5 +1,4 @@
 import { Button, Pill } from '@/components/ui'
-import { ATELIER_LIBRARY } from '@/data/atelier'
 import { nouvelleSeance, patientOf } from '@/state/selectors'
 import { useStore } from '@/state/store'
 import s from './PatientHeader.module.css'
@@ -14,22 +13,15 @@ export function PatientHeader() {
   if (!p) return null
 
   /**
-   * Ajoute au parcours de la semaine le module suivant de la bibliothèque du
-   * cabinet : on avance dans la liste au rythme des modules déjà ajoutés, sans
-   * quitter la fiche.
+   * « Ajouter un module » ouvre l'atelier avec cette patiente déjà cochée.
+   *
+   * L'ancien bouton piochait le module suivant d'une bibliothèque de
+   * démonstration et l'ajoutait en mémoire — sur un vrai cabinet, un module
+   * fictif apparaissait dans le parcours et disparaissait au rechargement.
+   * Un module s'écrit pour quelqu'un : c'est le travail de l'atelier.
    */
   function addModule() {
-    set((prev) => {
-      const key = prev.sel
-      const used = (prev.extra[key] ?? []).length
-      const module = ATELIER_LIBRARY[used % ATELIER_LIBRARY.length]
-      return {
-        extra: {
-          ...prev.extra,
-          [key]: (prev.extra[key] ?? []).concat([{ ...module, done: false, fresh: true }]),
-        },
-      }
-    })
+    set((prev) => ({ mode: 'atelier', aAssign: { ...prev.aAssign, [prev.sel]: true } }))
   }
 
   /**
@@ -58,11 +50,14 @@ export function PatientHeader() {
       </div>
 
       <div className={s.actions}>
-        <Button variant="secondary" onClick={openSession}>
-          Note de séance
+        <Button variant="secondary" onClick={() => set({ mode: 'patient' })}>
+          Son application
         </Button>
-        <Button variant="primary" onClick={addModule}>
+        <Button variant="secondary" onClick={addModule}>
           Ajouter un module
+        </Button>
+        <Button variant="primary" onClick={openSession}>
+          Nouvelle séance
         </Button>
       </div>
     </div>

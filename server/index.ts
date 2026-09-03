@@ -11,14 +11,8 @@ import { AI_ROUTES, currentMode, describeError, handleAi, type AiRoute } from '.
 import { jetonDe } from './auth.js'
 import { envoyerInvitation } from './invitations.js'
 import { appliquerIntegration, etatIntegrations } from './integrations.js'
+import { agirVolet, lireVolet } from './cabinet.js'
 import { demarrerPaiement, verifierPaiement } from './shop.js'
-import {
-  appliquerRevente,
-  demarrerAchatCredits,
-  etatCredits,
-  etatRevente,
-  verifierAchatCredits,
-} from './revente.js'
 
 const PORT = Number(process.env.PORT) || 8787
 const PRODUCTION = process.env.NODE_ENV === 'production'
@@ -65,6 +59,26 @@ app.post('/api/integrations', async (req: Request, res: Response): Promise<void>
   }
 })
 
+/** Réglages du cabinet : offre, domaine, envoi de courriels, site vitrine. */
+app.get('/api/cabinet', async (req: Request, res: Response): Promise<void> => {
+  try {
+    res.json(await lireVolet(req.query.volet, jetonDe(req.headers.authorization)))
+  } catch (err) {
+    const { status, message } = describeError(err)
+    res.status(status).json({ error: message })
+  }
+})
+app.post('/api/cabinet', async (req: Request, res: Response): Promise<void> => {
+  try {
+    res.json(await agirVolet(req.body, jetonDe(req.headers.authorization)))
+  } catch (err) {
+    const { status, message } = describeError(err)
+    // Journal technique seulement : jamais un secret, jamais un corps de requête.
+    console.error(`[cabinet] ${status} · ${message}`)
+    res.status(status).json({ error: message })
+  }
+})
+
 /** Boutique : démarrer un paiement, le vérifier au retour. */
 app.post('/api/shop', async (req: Request, res: Response): Promise<void> => {
   const token = jetonDe(req.headers.authorization)
@@ -76,49 +90,6 @@ app.post('/api/shop', async (req: Request, res: Response): Promise<void> => {
   } catch (err) {
     const { status, message } = describeError(err)
     console.error(`[boutique] ${action ?? '?'} — ${status} · ${message}`)
-    res.status(status).json({ error: message })
-  }
-})
-
-/** Revente IA, côté revendeur : ses clés, sa marge, ses paquets, ses cabinets. */
-app.get('/api/revente', async (req: Request, res: Response): Promise<void> => {
-  try {
-    res.json(await etatRevente(jetonDe(req.headers.authorization)))
-  } catch (err) {
-    const { status, message } = describeError(err)
-    res.status(status).json({ error: message })
-  }
-})
-app.post('/api/revente', async (req: Request, res: Response): Promise<void> => {
-  try {
-    res.json(await appliquerRevente(jetonDe(req.headers.authorization), req.body))
-  } catch (err) {
-    const { status, message } = describeError(err)
-    // Journal technique seulement : jamais une clé, jamais un corps de requête.
-    console.error(`[revente] ${status} · ${message}`)
-    res.status(status).json({ error: message })
-  }
-})
-
-/** Crédits IA, côté thérapeute : le solde, puis l'achat. */
-app.get('/api/credits', async (req: Request, res: Response): Promise<void> => {
-  try {
-    res.json(await etatCredits(jetonDe(req.headers.authorization)))
-  } catch (err) {
-    const { status, message } = describeError(err)
-    res.status(status).json({ error: message })
-  }
-})
-app.post('/api/credits', async (req: Request, res: Response): Promise<void> => {
-  const token = jetonDe(req.headers.authorization)
-  const action = (req.body as { action?: string } | undefined)?.action
-  try {
-    if (action === 'acheter') res.json(await demarrerAchatCredits(token, req.body))
-    else if (action === 'verifier') res.json(await verifierAchatCredits(token, req.body))
-    else res.status(400).json({ error: 'Action inconnue.' })
-  } catch (err) {
-    const { status, message } = describeError(err)
-    console.error(`[credits] ${action ?? '?'} — ${status} · ${message}`)
     res.status(status).json({ error: message })
   }
 })

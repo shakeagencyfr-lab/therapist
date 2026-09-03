@@ -21,11 +21,13 @@ export const PLANS: Plan[] = [
     label: 'Essentiel',
     priceCents: 3900,
     maxPatients: 25,
-    aiCapCents: 1500,
+    shop: true,
+    marqueBlanche: false,
+    site: false,
     includes: [
-      'Fiches patients et parcours hebdomadaire',
+      'Fiches patientes et parcours hebdomadaire',
       'Bibliothèque audio du cabinet',
-      'Application patient et journal partagé',
+      'Application patiente, journal et boutique',
     ],
   },
   {
@@ -33,11 +35,13 @@ export const PLANS: Plan[] = [
     label: 'Cabinet',
     priceCents: 7900,
     maxPatients: 80,
-    aiCapCents: 5000,
+    shop: true,
+    marqueBlanche: true,
+    site: true,
     includes: [
       "Tout l'Essentiel",
-      'Captation de séance et brouillon de note',
-      'Profil psychologique et atelier de modules',
+      'Marque blanche totale : son domaine et ses courriels',
+      'Site vitrine nourri par sa fiche Google',
     ],
   },
   {
@@ -45,11 +49,13 @@ export const PLANS: Plan[] = [
     label: 'Réseau',
     priceCents: 14900,
     maxPatients: null,
-    aiCapCents: 15000,
+    shop: true,
+    marqueBlanche: true,
+    site: true,
     includes: [
       'Tout le Cabinet',
       'Plusieurs praticiennes par cabinet',
-      'Marque blanche et adresse dédiée',
+      'Fiches actives sans limite',
     ],
   },
 ]
@@ -127,19 +133,27 @@ export const CABINETS: Cabinet[] = [
  * est volontairement absente, comme la base la supprimerait.
  */
 export const CABINET_STATS: Record<CabinetId, CabinetStats> = {
-  ollivier: { therapists: 1, patientsActive: 5, adherenceAvg: 78.6, sessions30d: 14, aiSpendCents: 2140 },
-  benali: { therapists: 1, patientsActive: 2, adherenceAvg: null, sessions30d: 3, aiSpendCents: 310 },
-  fontaines: { therapists: 3, patientsActive: 34, adherenceAvg: 71.2, sessions30d: 62, aiSpendCents: 9880 },
-  'rive-gauche': { therapists: 1, patientsActive: 18, adherenceAvg: 64.8, sessions30d: 21, aiSpendCents: 3960 },
-  reyt: { therapists: 1, patientsActive: 9, adherenceAvg: 83.4, sessions30d: 11, aiSpendCents: 1420 },
+  ollivier: { therapists: 1, patientsActive: 5, adherenceAvg: 78.6, sessions30d: 14 },
+  benali: { therapists: 1, patientsActive: 2, adherenceAvg: null, sessions30d: 3 },
+  fontaines: { therapists: 3, patientsActive: 34, adherenceAvg: 71.2, sessions30d: 62 },
+  'rive-gauche': { therapists: 1, patientsActive: 18, adherenceAvg: 64.8, sessions30d: 21 },
+  reyt: { therapists: 1, patientsActive: 9, adherenceAvg: 83.4, sessions30d: 11 },
 }
 
+/** Aucune exception négociée : l'offre s'applique telle quelle. */
+const SANS_EXCEPTION = {
+  maxPatientsOverride: null,
+  shopOverride: null,
+  marqueBlancheOverride: null,
+  siteOverride: null,
+} as const
+
 export const SUBSCRIPTIONS: Record<CabinetId, Subscription> = {
-  ollivier: { cabinetId: 'ollivier', plan: 'cabinet', status: 'actif', periodEnd: '12 octobre', capOverrideCents: null },
-  benali: { cabinetId: 'benali', plan: 'essentiel', status: 'essai', periodEnd: '14 septembre', capOverrideCents: null },
-  fontaines: { cabinetId: 'fontaines', plan: 'reseau', status: 'actif', periodEnd: '1er octobre', capOverrideCents: null },
-  'rive-gauche': { cabinetId: 'rive-gauche', plan: 'cabinet', status: 'impaye', periodEnd: '28 août', capOverrideCents: null },
-  reyt: { cabinetId: 'reyt', plan: 'essentiel', status: 'actif', periodEnd: '6 octobre', capOverrideCents: null },
+  ollivier: { cabinetId: 'ollivier', plan: 'cabinet', status: 'actif', periodEnd: '12 octobre', ...SANS_EXCEPTION },
+  benali: { cabinetId: 'benali', plan: 'essentiel', status: 'essai', periodEnd: '14 septembre', ...SANS_EXCEPTION },
+  fontaines: { cabinetId: 'fontaines', plan: 'reseau', status: 'actif', periodEnd: '1er octobre', ...SANS_EXCEPTION },
+  'rive-gauche': { cabinetId: 'rive-gauche', plan: 'cabinet', status: 'impaye', periodEnd: '28 août', ...SANS_EXCEPTION },
+  reyt: { cabinetId: 'reyt', plan: 'essentiel', status: 'actif', periodEnd: '6 octobre', ...SANS_EXCEPTION },
 }
 
 /** Libellés des statuts d'abonnement. */

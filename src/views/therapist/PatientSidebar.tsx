@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Avatar, Button, Notice, TextInput } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
+import { placesRestantes, useDroits } from '@/cabinet/droits'
 import { riskColor, sidebarPatients, slippingPatients } from '@/state/selectors'
 import { useStore } from '@/state/store'
 import s from './PatientSidebar.module.css'
@@ -12,6 +13,7 @@ import s from './PatientSidebar.module.css'
 export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { state, set } = useStore()
   const cabinet = useMaybeCabinet()
+  const droits = useDroits()
   const [envoi, setEnvoi] = useState(false)
   const [echec, setEchec] = useState('')
 
@@ -19,7 +21,13 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
   const slipping = slippingPatients(state).length
   const count = state.q.trim() ? `${rows.length} / ${state.patientOrder.length}` : `${state.patientOrder.length}`
 
-  const peutCreer = state.pNewName.trim().length >= 2 && !envoi
+  /* Le plafond de l'offre, tenu par la base : ici il n'est qu'affiché, pour
+     qu'une praticienne le voie venir au lieu de le découvrir sur un refus. */
+  const max = droits?.droits?.maxPatients ?? null
+  const places = placesRestantes(droits?.droits ?? null)
+  const complet = places === 0
+
+  const peutCreer = state.pNewName.trim().length >= 2 && !envoi && !complet
 
   async function creer() {
     if (!cabinet || !peutCreer) return
@@ -30,6 +38,8 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
     setEnvoi(false)
     if (r.ok) {
       set({ pNewOpen: false, pNewName: '', pNewEmail: '', pNotice: r.message })
+      // Une fiche de plus : le compte des places suit, sans recharger la page.
+      void droits?.recharger()
     } else {
       // Un échec ne fait pas retaper le formulaire.
       setEchec(r.message)
@@ -54,7 +64,7 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
 
         <div className={s.head}>
           <span className={s.overline}>Patients actifs</span>
-          <span className={s.count}>{count}</span>
+          <span className={s.count}>{max === null ? count : `${count} / ${max}`}</span>
         </div>
 
         <div className={s.list}>
@@ -97,6 +107,18 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
               <Notice tone="ok" style={{ marginBottom: 12 }}>
                 {state.pNotice}
               </Notice>
+            ) : null}
+
+            {complet ? (
+              <Notice tone="warn" style={{ marginBottom: 12 }}>
+                Votre offre permet {max} fiches actives, et elles le sont toutes. Archivez un suivi
+                terminé pour libérer une place, ou demandez à votre revendeur de relever le plafond.
+              </Notice>
+            ) : places !== null && places <= 3 ? (
+              <p className={s.later} style={{ marginBottom: 12 }}>
+                {places === 1 ? 'Une place restante' : `${places} places restantes`} sur votre
+                offre.
+              </p>
             ) : null}
 
             {state.pNewOpen ? (
@@ -144,6 +166,7 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
               <Button
                 variant="secondary"
                 block
+                disabled={complet}
                 onClick={() => set({ pNewOpen: true, pNotice: '' })}
               >
                 Ajouter une patiente
@@ -159,9 +182,12 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
 
         {slipping > 0 ? (
           <div className={s.slip}>
-            {/* Libellé fixe du prototype : l'encart annonce toujours « 2 patients
-                décrochent », le décompte ne sert qu'à décider de l'afficher. */}
-            <div className={s.slipTitle}>2 patients décrochent</div>
+            {/* Le décompte est celui des fiches, pas un nombre écrit d'avance :
+                l'encart annonçait « 2 patients décrochent » quel qu'en soit le
+                nombre, ce qui finit par ne plus rien vouloir dire. */}
+            <div className={s.slipTitle}>
+              {slipping === 1 ? '1 patient décroche' : `${slipping} patients décrochent`}
+            </div>
             <div className={s.slipBody}>
               Moins de 50 % des modules réalisés cette semaine. Une relance est proposée.
             </div>

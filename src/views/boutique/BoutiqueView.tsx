@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button, Card, Chip, Notice, Overline, TextInput, Title } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
+import { ouvert, useDroits } from '@/cabinet/droits'
 import { supabase } from '@/lib/supabase'
 import { lireIntegrations, type EtatIntegrations } from '@/services/integrations'
 import { useSetState } from '@/state/store'
@@ -60,6 +61,7 @@ export function centimesDe(saisie: string): number {
  */
 export function BoutiqueView() {
   const cabinet = useMaybeCabinet()
+  const droits = useDroits()
   const set = useSetState()
   const [produits, setProduits] = useState<Produit[]>([])
   const [audios, setAudios] = useState<AudioDispo[]>([])
@@ -148,6 +150,14 @@ export function BoutiqueView() {
       {!cabinet?.reel ? (
         <Card>
           <p className={s.muted}>Fiches de démonstration. Connectez-vous à votre cabinet pour vendre.</p>
+        </Card>
+      ) : !ouvert(droits, 'shop') ? (
+        <Card>
+          <p className={s.muted}>
+            La boutique en ligne ne fait pas partie de votre offre
+            {droits?.droits?.offre ? ` « ${droits.droits.offre} »` : ''}. Votre revendeur peut
+            l'ouvrir depuis son espace ; vos produits, s'il y en a, sont conservés.
+          </p>
         </Card>
       ) : chargement ? (
         <Card>

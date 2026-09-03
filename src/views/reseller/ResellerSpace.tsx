@@ -5,21 +5,19 @@ import { ResellerProvider } from '@/reseller/context'
 import { CabinetPortfolio } from './CabinetPortfolio'
 import { BrandEditor } from './BrandEditor'
 import { PlansView } from './PlansView'
-import { ReventeView } from './ReventeView'
 import s from './ResellerSpace.module.css'
 
 const TABS: Array<{ value: ResellerView; label: string }> = [
   { value: 'portfolio', label: 'Cabinets' },
   { value: 'brand', label: 'Marque' },
   { value: 'plans', label: 'Offres' },
-  { value: 'revente', label: 'Revente IA' },
 ]
 
 const TITLES: Record<ResellerView, { title: string; intro: string }> = {
   portfolio: {
     title: 'Vos cabinets',
     intro:
-      "Chaque cabinet est une installation indépendante, avec ses patients, ses audios et sa marque. Vous voyez ici ce qui vous regarde : l'usage, le contrat et la consommation. Jamais les patients, ni ce qu'ils écrivent.",
+      "Chaque cabinet est une installation indépendante, avec ses patientes, ses audios et sa marque. Vous voyez ici ce qui vous regarde : l'usage et le contrat. Jamais les patientes, ni ce qu'elles écrivent.",
   },
   brand: {
     title: 'Marque du cabinet',
@@ -29,12 +27,7 @@ const TITLES: Record<ResellerView, { title: string; intro: string }> = {
   plans: {
     title: 'Offres et abonnements',
     intro:
-      "Trois offres, et un plafond de consommation IA sur chacune. Les quatre fonctions d'analyse coûtent de l'argent à chaque appel : sans plafond, une thérapeute qui capte beaucoup de séances mange la marge.",
-  },
-  revente: {
-    title: "Revente d'IA",
-    intro:
-      "Deux façons de vendre, au choix pour chaque cabinet. Soit la thérapeute branche sa propre clé Anthropic et paie ses appels directement. Soit c'est votre clé qui paie, et vous lui revendez des crédits d'analyse avec votre marge. Le coût affiché ici est constaté sur vos appels, jamais estimé.",
+      "Chaque thérapeute branche sa propre clé d'analyse et paie ses appels directement : votre offre ne vend que l'application. Vous réglez ici ce que chaque offre ouvre — nombre de patientes, boutique, marque blanche, site vitrine — et son prix.",
   },
 }
 
@@ -65,7 +58,6 @@ export function ResellerSpace() {
       {state.rView === 'portfolio' && <CabinetPortfolio />}
       {state.rView === 'brand' && <BrandEditor />}
       {state.rView === 'plans' && <PlansView />}
-      {state.rView === 'revente' && <ReventeView />}
     </div>
     </ResellerProvider>
   )

@@ -652,11 +652,17 @@ export function useCabinet(cabinetId: string | null): CabinetData {
 
       if (error) {
         const doublon = error.code === '23505'
+        /* Le plafond de fiches est tenu par un déclencheur, avec un message
+           déjà écrit pour être lu (migration 0019). On le rend tel quel :
+           « La fiche n'a pas pu être créée » ne dirait pas quoi faire. */
+        const plafond = error.code === '23514' || /fiches actives/i.test(error.message)
         return {
           ok: false,
           message: doublon
             ? `Une fiche porte déjà l'adresse ${email}.`
-            : "La fiche n'a pas pu être créée. Réessayez.",
+            : plafond
+              ? error.message
+              : "La fiche n'a pas pu être créée. Réessayez.",
         }
       }
 

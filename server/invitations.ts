@@ -9,8 +9,14 @@
  * contourne la RLS. D'où la règle appliquée ici : la clé de service ne sert
  * qu'à ENVOYER. Le droit d'inviter, lui, est vérifié avec le jeton de
  * l'appelant, sous la RLS, exactement comme s'il faisait la requête lui-même.
+ *
+ * En marque blanche totale, le courriel part du serveur d'envoi du cabinet et
+ * le lien mène à SON domaine (server/courriel.ts, server/domaines.ts). Sinon,
+ * il part du service de la plateforme, comme avant. C'est le même lien de
+ * connexion dans les deux cas : seule l'enveloppe change.
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { envoyerParCabinet, smtpDuCabinet } from './courriel.js'
 
 const URL = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? ''
 const PUBLISHABLE = process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? ''
@@ -66,6 +72,77 @@ function adresseValide(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)
 }
 
+/**
+ * L'adresse à laquelle la personne arrivera.
+ *
+ * Le domaine vérifié du cabinet l'emporte sur le nôtre : en marque blanche,
+ * un lien qui ramène sur l'adresse de la plateforme annule tout le reste.
+ */
+async function baseDuCabinet(admin: SupabaseClient, cabinetId: string): Promise<string> {
+  const { data } = await admin
+    .from('cabinet_domains')
+    .select('domaine, verifie')
+    .eq('cabinet_id', cabinetId)
+    .maybeSingle<{ domaine: string; verifie: boolean }>()
+  return data?.verifie && data.domaine ? `https://${data.domaine}` : SITE
+}
+
+/**
+ * Le lien de connexion, fabriqué sans envoyer de courriel.
+ *
+ * C'est ce qui permet de l'expédier nous-mêmes, depuis le serveur d'envoi du
+ * cabinet. `invite` crée le compte ; si le compte existe déjà, `magiclink`
+ * est la bonne porte — et refuser à ce stade serait absurde.
+ */
+async function lienDeConnexion(
+  admin: SupabaseClient,
+  email: string,
+  redirectTo: string | undefined,
+): Promise<string | null> {
+  for (const type of ['invite', 'magiclink'] as const) {
+    const { data, error } = await admin.auth.admin.generateLink({ type, email, options: { redirectTo } })
+    if (!error) {
+      const lien = (data as { properties?: { action_link?: string } } | null)?.properties?.action_link
+      if (lien) return lien
+    }
+    const dejaInscrit = /already|registered|exists/i.test(error?.message ?? '') || error?.status === 422
+    if (!dejaInscrit) {
+      if (error) console.error(`[invitation] lien — ${error.status ?? ''} ${error.message}`)
+      return null
+    }
+  }
+  return null
+}
+
+/** Le courriel d'invitation, en marque blanche. Rien d'un dossier n'y figure. */
+function corpsInvitation(
+  kind: InviteKind,
+  cabinet: string,
+  lien: string,
+): { subject: string; text: string; html: string } {
+  const objet = kind === 'patiente' ? `Votre espace — ${cabinet}` : `Votre cabinet sur ${cabinet}`
+  const intro =
+    kind === 'patiente'
+      ? `${cabinet} vous a ouvert votre espace entre les séances : vos exercices de la semaine, votre journal et vos audios.`
+      : `Votre cabinet est ouvert sur ${cabinet}. Ce lien vous connecte et vous en rend propriétaire.`
+  const text = `${intro}\n\nVotre lien de connexion :\n${lien}\n\nIl vous connecte directement, sans mot de passe à retenir. Si vous n'attendiez pas ce message, ignorez-le : personne n'a accès à votre espace sans ce lien.`
+  const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.6;color:#1b1a17">
+  <p>${echapper(intro)}</p>
+  <p><a href="${echapper(lien)}" style="display:inline-block;padding:12px 20px;border-radius:10px;background:#1b1a17;color:#fff;text-decoration:none">Ouvrir mon espace</a></p>
+  <p style="font-size:13px;color:#6b6558">Ce lien vous connecte directement, sans mot de passe à retenir. Si vous n'attendiez pas ce message, ignorez-le : personne n'a accès à votre espace sans ce lien.</p>
+</div>`
+  return { subject: objet, text, html }
+}
+
+/** Le strict nécessaire : ces textes viennent de nous, mais le lien est long. */
+function echapper(valeur: string): string {
+  return valeur
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
 export async function envoyerInvitation(
   token: string | null,
   raw: unknown,
@@ -113,6 +190,7 @@ export async function envoyerInvitation(
       return { status: 403, body: { message: "Ce cabinet n'est pas le vôtre." } }
     }
     slugCabinet = data.slug
+
     const { data: invitation } = await appelant
       .from('cabinet_invitations')
       .select('email')
@@ -140,11 +218,44 @@ export async function envoyerInvitation(
   // ---- L'envoi, avec la clé de service ------------------------------------
   // Une praticienne arrive sur l'adresse de son cabinet quand il en a une :
   // la porte porte déjà sa marque, avant qu'elle ait entré son adresse.
-  const destination =
-    kind === 'patiente' ? `${SITE}/mon` : slugCabinet ? `${SITE}/c/${slugCabinet}` : `${SITE}/`
   const admin = clientAdmin()
+  const base = await baseDuCabinet(admin, cabinetId)
+  const destination =
+    kind === 'patiente' ? `${base}/mon` : slugCabinet ? `${base}/c/${slugCabinet}` : `${base}/`
+
+  /* ---- D'abord son serveur d'envoi, si elle en a un --------------------
+     En marque blanche totale, le courriel doit partir de son adresse. Un
+     échec de son serveur ne perd pas l'invitation pour autant : on retombe
+     sur le service de la plateforme, en le disant dans le journal. */
+  const smtp = await smtpDuCabinet(cabinetId)
+  if (smtp) {
+    const { data: fiche } = await admin
+      .from('cabinets')
+      .select('name')
+      .eq('id', cabinetId)
+      .maybeSingle<{ name: string }>()
+    const nomCabinet = fiche?.name ?? 'Votre cabinet'
+    const lien = await lienDeConnexion(admin, email, base ? destination : undefined)
+    if (lien) {
+      try {
+        const courriel = corpsInvitation(kind, nomCabinet, lien)
+        await envoyerParCabinet(cabinetId, { to: email, fromName: nomCabinet, ...courriel })
+        return {
+          status: 200,
+          body: {
+            ok: true,
+            message: `Invitation envoyée à ${email} depuis ${smtp.from}. Le lien la connectera directement.`,
+          },
+        }
+      } catch (err) {
+        // Journal technique seulement : ni mot de passe, ni dossier.
+        console.error(`[invitation] smtp cabinet — ${(err as Error).message}`)
+      }
+    }
+  }
+
   const { error } = await admin.auth.admin.inviteUserByEmail(email, {
-    redirectTo: SITE ? destination : undefined,
+    redirectTo: base ? destination : undefined,
   })
 
   if (error) {

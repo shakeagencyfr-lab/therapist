@@ -17,16 +17,21 @@ export function StatsRow() {
   return (
     <div className={s.row}>
       <StatCard label="Assiduité" value={p.adherence} unit="%" progress={p.adherence} />
+      {/* Le compteur est un total depuis l'ouverture de la fiche : l'ancien
+          libellé « cette semaine » promettait une fenêtre que rien ne calcule. */}
       <StatCard
         label="Écoutes audio"
         value={p.listens}
-        unit="cette semaine"
+        unit="au total"
         progress={Math.min(100, p.listens * 8)}
       />
+      {/* Sans nombre de séances prévu, « 1 / 0 » ne veut rien dire : on
+          montre les séances faites, et rien d'autre. */}
       <StatCard
         label="Séances"
-        value={`${p.sessions} / ${p.totalSessions}`}
-        progress={pct(p.sessions, p.totalSessions)}
+        value={p.totalSessions > 0 ? `${p.sessions} / ${p.totalSessions}` : p.sessions}
+        unit={p.totalSessions > 0 ? undefined : 'réalisées'}
+        progress={p.totalSessions > 0 ? pct(p.sessions, p.totalSessions) : 0}
       />
       <StatCard
         label="Modules du jour"

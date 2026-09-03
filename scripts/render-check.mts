@@ -15,6 +15,7 @@ import { renderToString } from 'react-dom/server'
 import { createElement as h } from 'react'
 import { App } from '../src/App'
 import { RendezVous } from '../src/patient/RendezVous'
+import { VitrinePage } from '../src/views/vitrine/VitrinePage'
 import { AppStoreProvider } from '../src/state/store'
 import { PATIENTS } from '../src/data/patients'
 import type { AppState, ResellerView, ViewMode } from '../src/state/state'
@@ -46,7 +47,7 @@ function rendu(label: string, initial: Partial<AppState>): string {
 // 1. Les six vues du cabinet rendent.
 const MODES: ViewMode[] = [
   'therapist', 'patient', 'session', 'atelier', 'audios', 'notif', 'boutique', 'programmes', 'marque',
-  'integrations',
+  'site', 'integrations',
 ]
 for (const mode of MODES) {
   const html = rendu(`cabinet/${mode}`, { space: 'cabinet', mode })
@@ -283,8 +284,57 @@ if (enBouton && enBouton.includes('<iframe')) {
   console.log(`✓ rdv/bouton          ${String(enBouton.length).padStart(6)} octets · aucun cadre`)
 }
 
+/* 1 quinquies. La vitrine publique d'un cabinet.
+   C'est la page la plus exposée du produit : elle est servie à qui n'est pas
+   connecté. On vérifie qu'elle monte, qu'elle porte la porte de connexion, et
+   surtout qu'elle ne contient RIEN d'un dossier — elle n'a jamais à en lire. */
+const SITE_FICTIF = {
+  slug: 'cabinet-exemple',
+  name: 'Cabinet Exemple',
+  tagline: 'Hypnose et thérapies brèves',
+  branding: {
+    accent: '#A17A45',
+    accentHover: '#856239',
+    accentDeep: '#6E5230',
+    dark: '#33291C',
+    logo: 'CE',
+  },
+  modele: 'sobre',
+  titre: 'Retrouver le sommeil, sans somnifère',
+  sous_titre: 'Hypnothérapie à Nantes, sur rendez-vous',
+  presentation: 'Deux paragraphes de présentation.\n\nEt le second.',
+  adresse: '12 rue des Halles, 44000 Nantes',
+  telephone: '02 40 00 00 00',
+  site_web: 'https://cabinet-exemple.fr',
+  horaires: [{ jour: 'Lundi', heures: '9h – 18h' }],
+  photos: [{ url: 'https://exemple.test/photo.jpg', alt: 'La salle', attribution: 'Photo : Marie D. (Google)' }],
+  services: [{ titre: 'Sommeil', texte: 'Un accompagnement en quatre séances.' }],
+  avis: [{ auteur: 'Claire', note: 5, texte: 'Une écoute rare.', date: 'il y a un mois' }],
+  google_note: 4.9,
+  google_avis: 37,
+}
+
+try {
+  const html = renderToString(h(VitrinePage, { site: SITE_FICTIF as never }))
+  const manque = [
+    !html.includes('Recevoir mon lien') && 'la porte de connexion manque',
+    !html.includes('Photo : Marie D. (Google)') && "l'attribution de la photo n'est pas affichée",
+    !html.includes('Retrouver le sommeil') && 'le titre publié ne paraît pas',
+  ].filter(Boolean)
+  const fuites = [...noms, ...extraits].filter((s) => html.includes(s))
+  if (manque.length || fuites.length) {
+    console.error(`✗ vitrine/publiee : ${[...manque, ...fuites].join(', ')}`)
+    echecs++
+  } else {
+    console.log(`✓ vitrine/publiee   ${String(html.length).padStart(6)} octets · porte posée, aucun dossier`)
+  }
+} catch (err) {
+  console.error(`✗ vitrine/publiee : ${(err as Error).message}`)
+  echecs++
+}
+
 // 2. Les quatre vues du revendeur rendent, et ne montrent aucun patient.
-const VUES: ResellerView[] = ['portfolio', 'brand', 'plans', 'revente']
+const VUES: ResellerView[] = ['portfolio', 'brand', 'plans']
 for (const rView of VUES) {
   const html = rendu(`revendeur/${rView}`, { space: 'reseller', rView })
   if (!html) continue

@@ -28,7 +28,7 @@ import type { Cabinet, CabinetId, PlanCode, Subscription } from '@/types/reselle
 export type Space = 'cabinet' | 'reseller'
 
 /** Vue de l'espace revendeur. */
-export type ResellerView = 'portfolio' | 'brand' | 'plans' | 'revente'
+export type ResellerView = 'portfolio' | 'brand' | 'plans'
 
 /** Vue affichée par le commutateur de l'en-tête. Une seule à la fois. */
 export type ViewMode =
@@ -41,6 +41,7 @@ export type ViewMode =
   | 'boutique'
   | 'programmes'
   | 'marque'
+  | 'site'
   | 'integrations'
 
 /** Vue interne de la maquette téléphone. */

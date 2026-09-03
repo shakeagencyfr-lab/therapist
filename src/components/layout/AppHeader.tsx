@@ -6,18 +6,35 @@ import { useStore } from '@/state/store'
 import type { Space, ViewMode } from '@/state/state'
 import s from './AppHeader.module.css'
 
-const VIEWS: Array<{ value: ViewMode; label: string }> = [
-  { value: 'therapist', label: "Tableau d'évolution" },
-  { value: 'patient', label: 'Vue patient' },
+/**
+ * La navigation, en deux groupes.
+ *
+ * Dix pilules à plat, c'était une rangée qui défilait dès l'écran moyen et
+ * mettait « Intégrations » au même niveau que « Séance ». Une praticienne
+ * passe sa journée sur cinq écrans ; les cinq autres se règlent une fois.
+ * Les premiers restent à plat, les seconds vivent derrière « Réglages ».
+ *
+ * L'aperçu de l'application patiente n'est plus une entrée : il se lit
+ * depuis la fiche de la patiente, à côté de son nom, là où il a un sens.
+ */
+const VUES: Array<{ value: ViewMode; label: string }> = [
+  { value: 'therapist', label: 'Patientes' },
   { value: 'session', label: 'Séance' },
   { value: 'atelier', label: 'Atelier' },
   { value: 'audios', label: 'Audios' },
   { value: 'notif', label: 'Notifications' },
-  { value: 'boutique', label: 'Boutique' },
+]
+
+const REGLAGES: Array<{ value: ViewMode; label: string }> = [
   { value: 'programmes', label: 'Programmes' },
+  { value: 'boutique', label: 'Boutique' },
   { value: 'marque', label: 'Marque' },
+  { value: 'site', label: 'Site vitrine' },
   { value: 'integrations', label: 'Intégrations' },
 ]
+
+/** Toutes les vues, pour le menu des petits écrans et le libellé courant. */
+const VIEWS = [...VUES, { value: 'patient' as ViewMode, label: 'Aperçu patiente' }, ...REGLAGES]
 
 const SPACES: Array<{ value: Space; label: string }> = [
   { value: 'cabinet', label: 'Cabinet' },
@@ -88,7 +105,14 @@ export function AppHeader() {
       {/* Grand écran : les vues en pilules, à plat. */}
       <div className={s.right}>
         {!reseller && (
-          <Segmented options={VIEWS} value={state.mode} onChange={(mode) => set({ mode })} />
+          <>
+            <Segmented
+              options={VUES}
+              value={REGLAGES.some((r) => r.value === state.mode) || state.mode === 'patient' ? ('' as ViewMode) : state.mode}
+              onChange={(mode) => set({ mode })}
+            />
+            <MenuReglages vues={REGLAGES} vue={state.mode} onVue={(mode) => set({ mode })} />
+          </>
         )}
         {montrerCommutateur && (
           <Segmented options={SPACES} value={state.space} onChange={(space) => set({ space })} />
@@ -119,6 +143,63 @@ export function AppHeader() {
         seDeconnecter={auth?.seDeconnecter}
       />
     </header>
+  )
+}
+
+/**
+ * Les réglages, derrière un seul bouton.
+ *
+ * Il prend le nom de la vue ouverte quand c'en est une : on sait où l'on est
+ * sans dérouler, et le bouton reste allumé tant qu'on y est.
+ */
+function MenuReglages({
+  vues,
+  vue,
+  onVue,
+}: {
+  vues: Array<{ value: ViewMode; label: string }>
+  vue: ViewMode
+  onVue: (v: ViewMode) => void
+}) {
+  const [ouvert, setOuvert] = useState(false)
+  const courante = vues.find((v) => v.value === vue)
+
+  return (
+    <div className={s.reglages}>
+      <button
+        type="button"
+        className={courante ? `${s.reglagesBtn} ${s.reglagesBtnOn}` : s.reglagesBtn}
+        aria-haspopup="menu"
+        aria-expanded={ouvert}
+        onClick={() => setOuvert((o) => !o)}
+      >
+        {courante ? courante.label : 'Réglages'}
+        <span className={s.reglagesChevron} aria-hidden>
+          ▾
+        </span>
+      </button>
+      {ouvert ? (
+        <>
+          <button type="button" className={s.voile} aria-label="Fermer les réglages" onClick={() => setOuvert(false)} />
+          <div className={s.menu} role="menu">
+            {vues.map((v) => (
+              <button
+                key={v.value}
+                type="button"
+                role="menuitem"
+                className={v.value === vue ? `${s.menuItem} ${s.menuItemOn}` : s.menuItem}
+                onClick={() => {
+                  onVue(v.value)
+                  setOuvert(false)
+                }}
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : null}
+    </div>
   )
 }
 
@@ -181,21 +262,43 @@ function MenuMobile({
             onClick={() => setOuvert(false)}
           />
           <div className={s.panneau} role="menu">
-            {vues.map((v) => (
-              <button
-                key={v.value}
-                type="button"
-                role="menuitem"
-                className={v.value === vue ? `${s.panneauItem} ${s.panneauItemOn}` : s.panneauItem}
-                aria-current={v.value === vue ? 'page' : undefined}
-                onClick={() => {
-                  onVue(v.value)
-                  setOuvert(false)
-                }}
-              >
-                {v.label}
-              </button>
-            ))}
+            {vues
+              .filter((v) => !REGLAGES.some((r) => r.value === v.value))
+              .map((v) => (
+                <button
+                  key={v.value}
+                  type="button"
+                  role="menuitem"
+                  className={v.value === vue ? `${s.panneauItem} ${s.panneauItemOn}` : s.panneauItem}
+                  aria-current={v.value === vue ? 'page' : undefined}
+                  onClick={() => {
+                    onVue(v.value)
+                    setOuvert(false)
+                  }}
+                >
+                  {v.label}
+                </button>
+              ))}
+
+            {vues.some((v) => REGLAGES.some((r) => r.value === v.value)) ? (
+              <div className={s.panneauGroupe}>
+                <span className={s.panneauTitre}>Réglages</span>
+                {REGLAGES.map((v) => (
+                  <button
+                    key={v.value}
+                    type="button"
+                    role="menuitem"
+                    className={v.value === vue ? `${s.panneauItem} ${s.panneauItemOn}` : s.panneauItem}
+                    onClick={() => {
+                      onVue(v.value)
+                      setOuvert(false)
+                    }}
+                  >
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
 
             {espaces.length > 0 ? (
               <div className={s.panneauGroupe}>
