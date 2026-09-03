@@ -38,6 +38,14 @@ export interface PatientData {
   modules: PatientModuleRow[]
   /** Son journal, de la plus récente à la plus ancienne. */
   journal: JournalPageRow[]
+  /**
+   * Vrai quand le journal n'a PAS pu être lu.
+   *
+   * Un journal illisible et un journal vide se ressemblent à l'écran, et ne
+   * se ressemblent pas du tout pour celle qui l'a écrit : « rien d'écrit pour
+   * l'instant » lui dit que ses pages ont disparu.
+   */
+  journalIllisible: boolean
   affirmations: string[]
   audios: PatientAudioRow[]
   /** Dernière valeur d'échelle enregistrée aujourd'hui, s'il y en a une. */
@@ -59,6 +67,7 @@ export interface PatientData {
 export function usePatientData(patientId: string | null): PatientData {
   const [modules, setModules] = useState<PatientModuleRow[]>([])
   const [journal, setJournal] = useState<JournalPageRow[]>([])
+  const [journalIllisible, setJournalIllisible] = useState(false)
   const [affirmations, setAffirmations] = useState<string[]>([])
   const [audios, setAudios] = useState<PatientAudioRow[]>([])
   const [scaleToday, setScaleToday] = useState<number | null>(null)
@@ -102,6 +111,9 @@ export function usePatientData(patientId: string | null): PatientData {
     }
 
     setModules((mods.data ?? []) as PatientModuleRow[])
+    /* L'échec du journal ne barre pas l'espace — les tâches du jour restent
+       lisibles — mais il se dit, au lieu de passer pour un journal vide. */
+    setJournalIllisible(Boolean(pages.error))
     setJournal((pages.data ?? []) as JournalPageRow[])
     setAffirmations(((affs.data ?? []) as Array<{ text: string }>).map((a) => a.text))
     setAudios((auds.data ?? []) as unknown as PatientAudioRow[])
@@ -130,6 +142,7 @@ export function usePatientData(patientId: string | null): PatientData {
   return {
     modules,
     journal,
+    journalIllisible,
     affirmations,
     audios,
     scaleToday,

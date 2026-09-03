@@ -46,6 +46,7 @@ export function PatientSpace() {
   const {
     modules,
     journal,
+    journalIllisible,
     affirmations,
     audios,
     scaleToday,
@@ -303,6 +304,7 @@ export function PatientSpace() {
         {courant === 'jour' ? (
           <Journal
             pages={journal}
+            illisible={journalIllisible}
             patientId={patient.id}
             cabinetId={patient.cabinet_id}
             accent={patient.branding?.accent}
