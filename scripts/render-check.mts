@@ -284,7 +284,7 @@ if (enBouton && enBouton.includes('<iframe')) {
 }
 
 // 2. Les quatre vues du revendeur rendent, et ne montrent aucun patient.
-const VUES: ResellerView[] = ['portfolio', 'brand', 'plans', 'revente']
+const VUES: ResellerView[] = ['portfolio', 'brand', 'plans']
 for (const rView of VUES) {
   const html = rendu(`revendeur/${rView}`, { space: 'reseller', rView })
   if (!html) continue

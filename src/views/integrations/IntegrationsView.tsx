@@ -7,7 +7,6 @@ import {
   type ActionIntegration,
   type EtatIntegrations,
 } from '@/services/integrations'
-import { CreditsIA } from './CreditsIA'
 import { MotDePasse } from './MotDePasse'
 import s from './IntegrationsView.module.css'
 
@@ -32,12 +31,6 @@ export function IntegrationsView() {
   const [notice, setNotice] = useState('')
   /** Le geste en cours, pour n'afficher qu'un seul « Vérification… » à la fois. */
   const [enCours, setEnCours] = useState<string>('')
-  /**
-   * Comment ce cabinet paie son IA. En mode « crédits », c'est la clé du
-   * revendeur qui paie : demander la sienne à la thérapeute serait lui faire
-   * poser une clé qui ne servira jamais.
-   */
-  const [facturation, setFacturation] = useState<'cle_cabinet' | 'credits'>('cle_cabinet')
 
   const charger = useCallback(async () => {
     setChargement(true)
@@ -125,10 +118,7 @@ export function IntegrationsView() {
 
           {etat ? (
             <div className={s.grid}>
-              <CreditsIA onCharge={setFacturation} />
-              {facturation === 'credits' ? null : (
-                <CleAnthropic etat={etat} enCours={enCours} onAgir={agir} />
-              )}
+              <CleAnthropic etat={etat} enCours={enCours} onAgir={agir} />
               <CleStripe etat={etat} enCours={enCours} onAgir={agir} />
               <RendezVous etat={etat} enCours={enCours} onAgir={agir} />
               <MotDePasse />

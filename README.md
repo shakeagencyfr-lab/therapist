@@ -58,7 +58,7 @@ scripts/              banc de rendu : les dix vues du cabinet rendent, l'espace
                       de rendez-vous monte bien son cadre
 index.html            hôte Vite, polices Google (à auto-héberger en production)
 api/                  fonctions serverless Vercel : les routes IA, les
-                      intégrations, la boutique, la revente et les crédits
+                      intégrations, la boutique, les invitations
 server/               les quatre appels IA : prompts, schémas, mode maquette
                       (ai.ts est commun aux deux enveloppes ; index.ts sert
                       le développement local)
@@ -177,56 +177,24 @@ la fiche d'une patiente on choisit son programme, depuis un programme on coche
 celles qui le suivent. C'est la même colonne, `patients.program`, et le libellé y
 est écrit en clair : renommer un programme renomme donc les fiches avec lui.
 
-## Deux façons de vendre l'IA
+## Un abonnement, et la clé de la thérapeute
 
-Le revendeur choisit **cabinet par cabinet** comment l'analyse est payée. Rien
-ne l'oblige à traiter toutes ses praticiennes pareil, et c'est justement ce
-qu'on veut pouvoir vendre.
+Le revendeur vend l'application, pas l'analyse. Chaque cabinet branche **sa
+propre clé Anthropic** (onglet Intégrations) et paie ses appels directement :
+le revendeur n'avance rien, ne revend rien, et n'a pas de marge à surveiller
+sur l'IA. Ce que son offre règle, c'est ce que l'application ouvre — nombre
+de patientes actives, boutique, marque blanche, site vitrine — et son prix.
 
-| Mode | Qui paie l'appel | Ce que la thérapeute voit |
-| --- | --- | --- |
-| **Clé du cabinet** (défaut) | elle, sur son compte Anthropic | son onglet **Intégrations**, où elle pose sa clé, et le coût en euros de chaque analyse avant de la lancer |
-| **Crédits** | le revendeur, sur sa clé | son solde de crédits, les paquets de son revendeur, et « cette analyse consommera 1 crédit » |
+Le schéma garde un mode « crédits » (migration 0016) où le revendeur avance
+l'IA et la revend : il n'est branché sur aucun écran, et tout cabinet vit en
+mode « clé du cabinet ». Il reste là pour le jour où l'on voudra l'ouvrir.
 
-Les quatre actions ne tournent pas sur le même modèle, ni au même effort de
-raisonnement (`REGLAGES`, `server/ai.ts`) : le brouillon de séance garde Opus,
-le profil et le module descendent sur Sonnet, les affirmations sur Haiku. La
-raison tient dans une mesure — sur un jeu d'affirmations, 533 jetons facturés
-en sortie pour environ 160 jetons de JSON rendus : le reste était du
-raisonnement que personne ne lit, au tarif de sortie. Sur les quatre premiers
-appels réels, la sortie pesait 80 % de la facture. `CLAUDE_MODEL`, s'il est
-posé, impose un modèle à toutes les actions ; l'effort n'est alors transmis
-qu'aux modèles qui l'acceptent.
-
-**Un crédit vaut une action** — un brouillon de séance, un module, un jeu
-d'affirmations, un profil — quelle que soit la longueur de la séance. Une
-thérapeute comprend « il me reste douze analyses » ; elle ne compte pas des
-jetons.
-
-Le revendeur règle tout cela dans son onglet **Revente IA**
-(`src/views/reseller/ReventeView.tsx`) : sa clé Anthropic, son compte Stripe,
-ses paquets, et le découvert qu'il accorde. Il y voit surtout **ce qu'une
-action lui coûte réellement**, relevé sur ses 500 derniers appels et non
-estimé : sans ce chiffre, fixer un prix de revente est un pari. La marge de
-chaque paquet s'affiche à côté de son prix, et devient rouge si le paquet est
-vendu à perte.
-
-Trois règles tiennent le reste :
-
-- **On n'écrit qu'après coup.** Le solde est éprouvé avant l'appel, la ligne
-  n'est inscrite qu'une fois la note produite : une analyse qui échoue ne se
-  facture pas. Le revendeur perd l'appel raté, jamais la thérapeute.
-- **Le découvert existe pour une raison précise.** Une séance ne s'interrompt
-  pas parce qu'un compteur tombe à zéro devant une patiente. Le revendeur
-  choisit jusqu'où il avance ; au-delà, l'analyse est refusée (402) avec un
-  message qui dit quoi faire.
-- **Le solde ne s'écrit pas, il se somme** depuis un grand livre en ajout seul
-  auquel le navigateur n'a aucun droit d'écriture
-  (`supabase/tests/credits.sql`).
-
-Le paiement passe par le compte Stripe **du revendeur**, jamais par un compte
-de la plateforme. S'il n'en branche pas, rien n'est bloqué : il crédite ses
-cabinets à la main depuis son portefeuille, et règle la facture autrement.
+Les cinq actions IA tournent sur Opus 5 à l'effort `high`, sauf les
+affirmations (Haiku) : écrire sept phrases ne demande pas le meilleur modèle
+du monde (`REGLAGES`, `server/ai.ts`). `CLAUDE_MODEL`, s'il est posé, impose
+un modèle à toutes les actions ; l'effort n'est alors transmis qu'aux modèles
+qui l'acceptent. Avant chaque analyse, l'écran de séance montre ce qu'elle
+coûtera — sur la matière réellement captée, jamais sur le temps écoulé.
 
 La marque se règle des deux côtés, et c'est voulu : le revendeur la pose à
 l'ouverture d'un cabinet, la praticienne la reprend ensuite depuis son onglet
@@ -256,11 +224,6 @@ l'adresse publique du cabinet, pas une préférence d'affichage.
 | `PUBLIC_SITE_URL` | adresse publique, fixée par le serveur (liens des courriels, retours de paiement) |
 | `INTEGRATIONS_KEY` | chiffrement des clés confiées par les cabinets ; `openssl rand -base64 32`, à ne jamais changer ensuite |
 | `ANTHROPIC_API_KEY` | clé d'analyse de la plateforme, en repli quand un cabinet n'a pas posé la sienne |
-
-`INTEGRATIONS_KEY` chiffre aussi les clés du revendeur (`reseller_secrets`) :
-son Anthropic et son Stripe de revente. Comme celles des cabinets, elles sont
-vérifiées par un appel réel avant d'être enregistrées, et ne reviennent jamais
-au navigateur — seulement leurs quatre derniers caractères.
 
 Aucune de ces variables, hormis les deux `VITE_`, ne doit approcher un préfixe
 `VITE_` : elles seraient compilées dans le paquet envoyé au navigateur.
