@@ -18,8 +18,18 @@ import {
 import { VitrinePage } from './views/vitrine/VitrinePage'
 import s from './Root.module.css'
 
-/** Adresse de l'espace patient — un site à part, pensé pour le téléphone. */
-const ESPACE_PATIENT = '/mon'
+/**
+ * Adresse de l'espace patient — un site à part, pensé pour le téléphone.
+ *
+ * Quand on arrive par l'adresse d'un cabinet, on y renvoie par la sienne :
+ * `/son-identifiant/mon` ouvre exactement le même espace que `/mon`, mais la
+ * porte porte sa marque. Perdre le cabinet en chemin ferait réapparaître la
+ * nôtre juste après l'avoir quittée.
+ */
+function espacePatient(): string {
+  const slug = typeof window === 'undefined' ? null : slugDuChemin(window.location.pathname)
+  return slug ? `/${slug}/mon` : '/mon'
+}
 
 /**
  * La vitrine du cabinet dont l'adresse a été ouverte.
@@ -168,7 +178,7 @@ function Portail() {
           titre="Votre espace est ailleurs"
           texte="Ce site est celui de votre thérapeute. Le vôtre tient sur un téléphone : c'est là que vous retrouvez vos audios, vos tâches du jour et votre journal."
         >
-          <Button variant="primary" onClick={() => (window.location.href = ESPACE_PATIENT)}>
+          <Button variant="primary" onClick={() => (window.location.href = espacePatient())}>
             Ouvrir mon espace
           </Button>
         </Message>

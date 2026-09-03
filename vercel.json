@@ -29,6 +29,14 @@
     {
       "source": "/e/:slug/",
       "destination": "/embed.html"
+    },
+    {
+      "source": "/:slug/mon",
+      "destination": "/patient.html"
+    },
+    {
+      "source": "/:slug/mon/",
+      "destination": "/patient.html"
     }
   ],
   "headers": [
@@ -112,6 +120,32 @@
     },
     {
       "source": "/patient.html",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'self'"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        }
+      ]
+    },
+    {
+      "source": "/:slug/mon",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'self'"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        }
+      ]
+    },
+    {
+      "source": "/:slug/mon/",
       "headers": [
         {
           "key": "Content-Security-Policy",

@@ -127,3 +127,27 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* L'adresse qui marche déjà, encadrée : c'est elle qu'on donne à ses
+   patients tant qu'aucun domaine n'est posé — et après aussi. */
+.repli {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  background: var(--c-surface-2, rgba(0, 0, 0, 0.02));
+}
+
+.repliTitre {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+
+.repli .note {
+  margin-top: 6px;
+}

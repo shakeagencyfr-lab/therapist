@@ -79,20 +79,23 @@ function adresseValide(email: string): boolean {
  * Le domaine vérifié du cabinet l'emporte sur le nôtre : en marque blanche,
  * un lien qui ramène sur l'adresse de la plateforme annule tout le reste.
  */
-async function baseDuCabinet(admin: SupabaseClient, cabinetId: string): Promise<string> {
+async function baseDuCabinet(
+  admin: SupabaseClient,
+  cabinetId: string,
+): Promise<{ base: string; sien: boolean }> {
   const { data } = await admin
     .from('cabinet_domains')
     .select('domaine, verifie')
     .eq('cabinet_id', cabinetId)
     .maybeSingle<{ domaine: string; verifie: boolean }>()
-  if (!data?.verifie || !data.domaine) return SITE
+  if (!data?.verifie || !data.domaine) return { base: SITE, sien: false }
   /* Un domaine posé et vérifié ne suffit pas : encore faut-il que l'offre
      l'ouvre encore. Depuis 0023, un levier fermé fait cesser de répondre le
      domaine — un lien qui y mène ramènerait donc sur une porte muette, des
      semaines après l'envoi. On repasse alors par l'adresse de la plateforme,
      qui, elle, répond toujours. */
   const ouvert = await levierDuCabinet(cabinetId, 'marqueBlanche', admin)
-  return ouvert ? `https://${data.domaine}` : SITE
+  return ouvert ? { base: `https://${data.domaine}`, sien: true } : { base: SITE, sien: false }
 }
 
 /**
@@ -199,9 +202,28 @@ export async function envoyerInvitation(
 
   // ---- Le droit d'inviter, vérifié sous la RLS de l'appelant --------------
   const appelant = clientAppelant(token)
+  /* La clé de service ne sert QU'À ENVOYER : elle lit l'identifiant public du
+     cabinet et son domaine, jamais un dossier. Le droit d'inviter, lui, est
+     vérifié plus bas avec le jeton de l'appelant, sous la RLS. */
+  const admin = clientAdmin()
 
-  /** L'identifiant public du cabinet : il donne l'adresse de sa vitrine. */
+  /**
+   * L'identifiant public du cabinet.
+   *
+   * Il sert deux fois : l'adresse de la vitrine pour une praticienne, et
+   * celle de l'espace patient — `/son-identifiant/mon` — quand le cabinet
+   * n'a pas de domaine à lui. Sans lui, un patient reçoit un lien vers la
+   * porte du produit alors que son cabinet a une marque.
+   */
   let slugCabinet: string | null = null
+  {
+    const { data } = await admin
+      .from('cabinets')
+      .select('slug')
+      .eq('id', cabinetId)
+      .maybeSingle<{ slug: string | null }>()
+    slugCabinet = data?.slug ?? null
+  }
 
   if (kind === 'praticienne') {
     // Un revendeur ne voit que ses propres cabinets : si la ligne remonte,
@@ -240,13 +262,16 @@ export async function envoyerInvitation(
     }
   }
 
-  // ---- L'envoi, avec la clé de service ------------------------------------
+  // ---- L'envoi -------------------------------------------------------------
   // Une praticienne arrive sur l'adresse de son cabinet quand il en a une :
   // la porte porte déjà sa marque, avant qu'elle ait entré son adresse.
-  const admin = clientAdmin()
-  const base = await baseDuCabinet(admin, cabinetId)
+  const { base, sien } = await baseDuCabinet(admin, cabinetId)
+  /* Sur le domaine du cabinet, `/mon` suffit : l'adresse dit déjà de qui il
+     s'agit. Sur le nôtre, on passe par `/son-identifiant/mon`, qui ouvre la
+     même application avec sa marque à lui sur la porte. */
+  const espacePatient = sien || !slugCabinet ? `${base}/mon` : `${base}/${slugCabinet}/mon`
   const destination =
-    kind === 'patient' ? `${base}/mon` : slugCabinet ? `${base}/c/${slugCabinet}` : `${base}/`
+    kind === 'patient' ? espacePatient : slugCabinet ? `${base}/c/${slugCabinet}` : `${base}/`
 
   /* ---- D'abord son serveur d'envoi, si elle en a un --------------------
      En marque blanche totale, le courriel doit partir de son adresse. Un

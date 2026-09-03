@@ -4,7 +4,14 @@ import { useMaybeAuth } from '@/auth/session'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { BRAND_PRESETS } from '@/data/reseller'
 import { MarqueBlanche } from './MarqueBlanche'
-import { adresseCabinet, codeEmbed, lienCabinet, lienEmbed } from '@/lib/domaine'
+import {
+  adresseCabinet,
+  adresseEspacePatient,
+  codeEmbed,
+  lienCabinet,
+  lienEmbed,
+  lienEspacePatient,
+} from '@/lib/domaine'
 import type { CabinetBranding } from '@/types/reseller'
 import s from './MarqueView.module.css'
 
@@ -95,7 +102,7 @@ export function MarqueView() {
         <>
           <Editeur key={identite.id} publie={publie} slug={identite.slug} />
           <SurVotreSite slug={identite.slug} />
-          <MarqueBlanche key={`mb-${identite.id}`} />
+          <MarqueBlanche key={`mb-${identite.id}`} slug={identite.slug} />
         </>
       )}
     </div>
@@ -229,8 +236,25 @@ function Editeur({ publie, slug }: { publie: Fiche; slug: string }) {
             {adresseCabinet(slug)} ↗
           </a>
           <span className={s.hint}>
-            L'adresse à donner à vos patients : elle ouvre une page à votre nom et à vos
-            couleurs, avant même qu'elles se connectent. Elle est fixée par votre revendeur.
+            Votre page publique : elle ouvre une présentation à votre nom et à vos couleurs, avant
+            même qu'on se connecte. Elle est fixée par votre revendeur.
+          </span>
+        </div>
+
+        <div className={s.field}>
+          <FieldLabel>Adresse de vos patients</FieldLabel>
+          <a
+            className={s.readonly}
+            href={lienEspacePatient(slug)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {adresseEspacePatient(slug)} ↗
+          </a>
+          <span className={s.hint}>
+            Celle-ci ouvre directement leur espace, à votre marque. C'est l'adresse à donner et à
+            mettre en favori sur leur téléphone — elle marche aujourd'hui, sans domaine à acheter
+            ni réglage à faire.
           </span>
         </div>
 
