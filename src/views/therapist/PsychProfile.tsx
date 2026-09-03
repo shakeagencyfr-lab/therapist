@@ -1,5 +1,10 @@
 import { Card, Notice, Overline } from '@/components/ui'
-import { buildPatientContext, refreshProfile } from '@/services/aiClient'
+import { useMaybeCabinet } from '@/cabinet/context'
+import {
+  buildPatientContext,
+  derniereReponseEstMaquette as derniereEstMaquette,
+  refreshProfile,
+} from '@/services/aiClient'
 import { axisBand, profileOf, profilePrecision } from '@/state/selectors'
 import { useStore } from '@/state/store'
 import type { PsychProfile as Profile } from '@/types/domain'
@@ -14,6 +19,7 @@ import s from './PsychProfile.module.css'
  */
 export function PsychProfile() {
   const { state, set } = useStore()
+  const cabinet = useMaybeCabinet()
   const key = state.sel
   const profile = profileOf(state, key)
   const precision = profilePrecision(state, key)
@@ -25,11 +31,16 @@ export function PsychProfile() {
     if (state.profGen) return
     set({ profGen: key })
     try {
+      /* La séance en mémoire est celle de l'écran Séance, et elle n'est pas
+         effacée en changeant de fiche. L'envoyer sans vérifier à qui elle
+         appartient faisait analyser le dossier d'une patiente AVEC la
+         transcription d'une autre — le pire défaut possible ici. */
+      const memeFiche = state.sessionPatient === key
       const result = await refreshProfile({
         context: buildPatientContext(state, key),
-        notes: state.sessionNotes,
-        synthese: state.draft ? state.draft.synthese : '',
-        transcript: state.transcript,
+        notes: memeFiche ? state.sessionNotes : '',
+        synthese: memeFiche && state.draft ? state.draft.synthese : '',
+        transcript: memeFiche ? state.transcript : '',
       })
       const next: Profile = {
         updated: "Actualisé à l'instant, depuis la dernière séance",
@@ -51,6 +62,28 @@ export function PsychProfile() {
         profNew: { ...prev.profNew, [key]: next },
         profNote: { ...prev.profNote, [key]: result.resume || 'Profil actualisé.' },
       }))
+      /* Une actualisation qui ne s'écrit pas est une analyse payée pour rien :
+         elle disparaissait au rechargement, après avoir affiché « Actualisé à
+         l'instant ». Le profil est versionné en base, comme depuis la séance. */
+      if (cabinet?.reel && !derniereEstMaquette()) {
+        const r = await cabinet.enregistrerProfil(key, null, {
+          portrait: next.portrait,
+          axes: next.axes,
+          levers: next.levers,
+          dynamique: next.dynamique,
+          alliance: next.alliance,
+          care: next.care,
+          resume: result.resume ?? '',
+        })
+        if (!r.ok) {
+          set((prev) => ({
+            profNote: {
+              ...prev.profNote,
+              [key]: "Profil actualisé à l'écran, mais pas conservé : réessayez pour l'enregistrer.",
+            },
+          }))
+        }
+      }
     } catch {
       set((prev) => ({
         profGen: '',
