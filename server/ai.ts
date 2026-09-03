@@ -18,13 +18,6 @@ import Anthropic from '@anthropic-ai/sdk'
 import { HttpError } from './errors.js'
 import { baseConfiguree, clientAdmin, identifier, type Appelant } from './auth.js'
 import { cleAnthropicDuCabinet } from './integrations.js'
-import {
-  cleAnthropicDuRevendeur,
-  facturationDuCabinet,
-  inscrire,
-  refusDeCredit,
-  type Facturation,
-} from './credits.js'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import type { ZodType } from 'zod'
 
@@ -155,35 +148,23 @@ function mockMode(): boolean {
 /**
  * D'où vient la clé d'un appel.
  *
- * Trois provenances, dans cet ordre de priorité :
+ * Deux provenances, dans cet ordre :
  *
- *   REVENDEUR   le cabinet est en mode « crédits » : c'est son revendeur qui
- *               avance l'appel, avec sa propre clé, et qui le lui revend.
- *               Ce mode l'emporte, car il a été vendu comme tel.
  *   CABINET     la thérapeute a posé sa clé (onglet Intégrations) et paie
- *               directement Anthropic.
- *   PLATEFORME  celle du serveur, en dernier recours.
+ *               directement Anthropic. C'est le modèle vendu : l'abonnement
+ *               paie l'outil, la clé paie l'analyse.
+ *   PLATEFORME  celle du serveur, en dernier recours — développement,
+ *               démonstration, ou dépannage d'un cabinet.
  *
  * La résolution se fait une fois par requête, avant tout appel : aucune clé
  * nulle part, c'est un 503 qui le dit, jamais un texte inventé.
  */
 export interface Cle {
   apiKey: string
-  source: 'revendeur' | 'cabinet' | 'plateforme'
+  source: 'cabinet' | 'plateforme'
 }
 
-async function resoudreCle(cabinetId: string | null, facturation: Facturation | null): Promise<Cle | null> {
-  if (facturation?.mode === 'credits' && facturation.resellerId) {
-    const duRevendeur = await cleAnthropicDuRevendeur(facturation.resellerId)
-    if (duRevendeur) return { apiKey: duRevendeur, source: 'revendeur' }
-    // Le revendeur a vendu des crédits sans poser sa clé : c'est SON défaut
-    // de configuration, pas celui de la thérapeute. On le dit sans la
-    // renvoyer vers un onglet Intégrations qui ne réglera rien.
-    throw new HttpError(
-      503,
-      "Votre revendeur n'a pas encore branché sa clé d'analyse. Vos crédits sont intacts ; prévenez-le, il n'y a rien à faire de votre côté.",
-    )
-  }
+async function resoudreCle(cabinetId: string | null): Promise<Cle | null> {
   if (cabinetId) {
     const propre = await cleAnthropicDuCabinet(cabinetId)
     if (propre) return { apiKey: propre, source: 'cabinet' }
@@ -549,44 +530,25 @@ export async function handleAi(route: AiRoute, raw: unknown, token: string | nul
     if (!appelant.cabinetId) {
       throw new HttpError(403, "Les fonctions d'analyse sont réservées à l'espace d'un cabinet.")
     }
+  } else if (!mock) {
+    /* Sans base, personne ne s'identifie — et une route d'analyse ouverte à
+       qui atteint le port dépenserait la clé de la plateforme pour n'importe
+       qui. On ne l'accepte qu'en maquette, où rien n'est appelé ni facturé. */
+    throw new HttpError(
+      503,
+      "Le serveur n'est pas relié à sa base de données : il ne peut identifier personne, et n'analysera rien.",
+    )
   }
 
-  // Comment ce cabinet paie, et où il en est. Lu avec la clé de service :
-  // la décision d'autoriser un appel ne dépend pas de ce que le client
-  // envoie.
-  const facturation =
-    !mock && appelant?.cabinetId ? await facturationDuCabinet(appelant.cabinetId) : null
-
-  // Le solde s'éprouve AVANT l'appel : refuser après l'avoir payé n'aurait
-  // aucun sens, ni pour le revendeur ni pour la thérapeute.
-  if (facturation) {
-    const refus = refusDeCredit(facturation)
-    if (refus) throw refus
-  }
-
-  // Hors maquette, il faut une clé — celle du revendeur, celle du cabinet,
-  // sinon celle de la plateforme. Sans aucune, le refus est dit avant tout
-  // travail.
-  const cle = mock ? null : await resoudreCle(appelant?.cabinetId ?? null, facturation)
+  // Hors maquette, il faut une clé — celle du cabinet, sinon celle de la
+  // plateforme. Sans aucune, le refus est dit avant tout travail.
+  const cle = mock ? null : await resoudreCle(appelant?.cabinetId ?? null)
   if (!mock) client(cle)
 
   const produit = await produire(route, body, cle)
 
   if (appelant?.cabinetId && produit.usage) {
     await compter(route, appelant.cabinetId, produit.usage)
-  }
-
-  // Le débit vient APRÈS la note, et seulement si elle existe : une analyse
-  // qui échoue ne se facture pas. Le revendeur perd l'appel raté, jamais la
-  // thérapeute son crédit.
-  if (facturation?.mode === 'credits' && facturation.resellerId && appelant?.cabinetId) {
-    await inscrire({
-      cabinetId: appelant.cabinetId,
-      resellerId: facturation.resellerId,
-      delta: -1,
-      reason: 'consommation',
-      kind: GENRES[route],
-    })
   }
 
   return { mock, data: produit.data }

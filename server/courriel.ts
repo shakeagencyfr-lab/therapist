@@ -176,6 +176,15 @@ export interface Courriel {
   fromName?: string
 }
 
+/**
+ * Le transport, avec des délais courts.
+ *
+ * Par défaut, nodemailer attend deux minutes avant d'abandonner une
+ * connexion. L'hébergeur, lui, coupe la fonction à soixante secondes : la
+ * thérapeute n'aurait jamais le message d'erreur, seulement une page qui
+ * tourne puis une panne sans explication. Dix secondes suffisent à savoir si
+ * un serveur d'envoi répond.
+ */
 function transport(smtp: SmtpPret) {
   return nodemailer.createTransport({
     host: smtp.host,
@@ -183,6 +192,9 @@ function transport(smtp: SmtpPret) {
     // 465 est le port du TLS implicite ; 587 et 25 montent en STARTTLS.
     secure: smtp.port === 465,
     auth: smtp.user ? { user: smtp.user, pass: smtp.pass } : undefined,
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 20_000,
   })
 }
 
@@ -225,6 +237,12 @@ export interface SmtpBody {
   from?: string
 }
 
+/** Le motif technique va au journal ; l'écran reçoit une phrase française. */
+function enregistrementImpossible(cause: string): HttpError {
+  console.error(`[courriel] enregistrement — ${cause}`)
+  return new HttpError(502, "Vos réglages d'envoi n'ont pas pu être enregistrés. Réessayez dans un instant.")
+}
+
 function adresseValide(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)
 }
@@ -250,7 +268,13 @@ async function eprouver(smtp: SmtpPret): Promise<void> {
     if (/certificate|self.signed|SSL|TLS/i.test(message)) {
       throw new HttpError(400, "Le certificat de ce serveur d'envoi n'est pas valide. Essayez le port 587, ou corrigez le nom du serveur.")
     }
-    throw new HttpError(400, `Ce serveur d'envoi n'a pas pu être vérifié : ${message}`)
+    /* Le message de nodemailer est en anglais et parle de sockets : on le
+       garde pour le journal, pas pour l'écran. */
+    console.error(`[courriel] vérification — ${message}`)
+    throw new HttpError(
+      400,
+      "Ce serveur d'envoi n'a pas répondu comme attendu. Vérifiez le nom du serveur, le port et l'identifiant auprès de votre hébergeur de messagerie.",
+    )
   }
 }
 
@@ -298,11 +322,11 @@ export async function reglerSmtp(token: string | null, raw: unknown): Promise<Et
     },
     { onConflict: 'cabinet_id' },
   )
-  if (e1) throw new HttpError(502, `Enregistrement impossible : ${e1.message}`)
+  if (e1) throw enregistrementImpossible(e1.message)
   const { error: e2 } = await db
     .from('cabinet_secrets')
     .upsert({ cabinet_id: cabinetId, smtp_pass_enc: chiffrer(pass), updated_at: maintenant }, { onConflict: 'cabinet_id' })
-  if (e2) throw new HttpError(502, `Enregistrement impossible : ${e2.message}`)
+  if (e2) throw enregistrementImpossible(e2.message)
 
   await db.from('audit_log').insert({
     cabinet_id: cabinetId,

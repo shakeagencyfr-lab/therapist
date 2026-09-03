@@ -317,7 +317,10 @@ export async function enregistrerSite(token: string | null, raw: unknown): Promi
   const { error } = await appelant.client
     .from('cabinet_sites')
     .upsert(ligne, { onConflict: 'cabinet_id' })
-  if (error) throw new HttpError(502, `Votre site n'a pas pu être enregistré : ${error.message}`)
+  if (error) {
+    console.error(`[site] enregistrement — ${error.message}`)
+    throw new HttpError(502, "Votre site n'a pas pu être enregistré. Réessayez dans un instant.")
+  }
   return etatSite(token)
 }
 
@@ -361,6 +364,9 @@ async function google(chemin: string, champs: string | null, corps?: unknown): P
         ...(corps ? { 'Content-Type': 'application/json' } : {}),
       },
       body: corps ? JSON.stringify(corps) : undefined,
+      // L'hébergeur coupe la fonction à soixante secondes : mieux vaut
+      // abandonner avant et le dire, qu'être coupé sans explication.
+      signal: AbortSignal.timeout(15_000),
     })
   } catch {
     throw new HttpError(504, 'Google est injoignable depuis le serveur. Réessayez dans un instant.')
@@ -368,13 +374,15 @@ async function google(chemin: string, champs: string | null, corps?: unknown): P
   const lu = (await reponse.json().catch(() => ({}))) as Record<string, unknown>
   if (!reponse.ok) {
     const message = ((lu.error as { message?: string } | undefined)?.message ?? '').slice(0, 200)
+    // Le motif de Google est en anglais et technique : journal, pas écran.
+    console.error(`[site] google ${reponse.status} — ${message}`)
     if (reponse.status === 403 || reponse.status === 401) {
       throw new HttpError(502, "Google refuse la clé de la plateforme. Prévenez votre revendeur.")
     }
     if (reponse.status === 429) {
       throw new HttpError(429, 'Google a reçu trop de demandes. Réessayez dans quelques minutes.')
     }
-    throw new HttpError(502, `Google a refusé la demande${message ? ` : ${message}` : '.'}`)
+    throw new HttpError(502, "Google n'a pas répondu à cette recherche. Réessayez dans un instant, ou remplissez votre page à la main.")
   }
   return lu
 }
@@ -570,6 +578,9 @@ export async function importerFicheGoogle(token: string | null, raw: unknown): P
   const { error } = await appelant.client
     .from('cabinet_sites')
     .upsert(ligne, { onConflict: 'cabinet_id' })
-  if (error) throw new HttpError(502, `La fiche n'a pas pu être enregistrée : ${error.message}`)
+  if (error) {
+    console.error(`[site] import — ${error.message}`)
+    throw new HttpError(502, "La fiche importée n'a pas pu être enregistrée. Réessayez dans un instant.")
+  }
   return etatSite(token)
 }
