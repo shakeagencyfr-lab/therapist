@@ -5,6 +5,7 @@ import { dateDuJour } from '@/lib/format'
 import { buildPatientContext, derniereReponseEstMaquette as derniereEstMaquette, refreshProfile } from '@/services/aiClient'
 import { profileOf } from '@/state/selectors'
 import { useStore } from '@/state/store'
+import { useEcritureConsignes } from '@/cabinet/useEcritureConsignes'
 import type { LibraryAudio, PatientModule, PsychProfile } from '@/types/domain'
 import { HypnoseCard } from './HypnoseCard'
 import s from './DraftStep.module.css'
@@ -101,6 +102,8 @@ export function DraftStep() {
     })
   }
 
+  const consignes = useEcritureConsignes(cabinet?.majConsigne ?? (async () => ({ ok: false })))
+
   function sendDraft() {
     // Garde de fond : le bouton est déjà barré, mais rien de fictif ne doit
     // pouvoir atteindre un dossier par un autre chemin.
@@ -132,21 +135,28 @@ export function DraftStep() {
     // fois. La séance est clôturée, le compteur de séances avance.
     setEnvoi('en-cours')
     setEchecEnvoi('')
+    const retenues = proposals.filter((_, i) => !state.proposalOff[i])
     void cabinet
       .envoyerSeance(state.sessionId, key, { modules: retained, audioIds: sugOn.map((a) => a.id) })
       .then((r) => {
         setEnvoi('repos')
-        if (r.ok) {
-          /* La séance est versée : le compteur de la fiche la connaît
-             désormais. On oublie le profil « fraîchement généré », sans quoi
-             son +1 s'ajouterait à un compteur qui compte déjà cette séance —
-             et le badge annonçait deux séances pour une. */
-          set((prev) => {
-            const profNew = { ...prev.profNew }
-            delete profNew[key]
-            return { sent: true, profNew }
-          })
-        } else setEchecEnvoi(r.message || "L'envoi a échoué. Réessayez.")
+        if (!r.ok) {
+          setEchecEnvoi(r.message || "L'envoi a échoué. Réessayez.")
+          return
+        }
+        /* La séance est versée : le compteur de la fiche la connaît
+           désormais. On oublie le profil « fraîchement généré », sans quoi
+           son +1 s'ajouterait à un compteur qui compte déjà cette séance —
+           et le badge annonçait deux séances pour une. */
+        set((prev) => {
+          const profNew = { ...prev.profNew }
+          delete profNew[key]
+          return { sent: true, profNew }
+        })
+        /* Les consignes s'écrivent APRÈS, et le savoir change la conduite à
+           tenir en cas d'échec : la séance, les modules et les audios sont
+           déjà en place, il ne manquerait que du texte. */
+        void consignes.ecrire(key, r.modules ?? [], retenues)
       })
   }
 
@@ -531,6 +541,19 @@ export function DraftStep() {
             {state.sent ? '✓ Envoyé' : envoi === 'en-cours' ? 'Envoi…' : 'Valider et envoyer'}
           </button>
         </div>
+
+        {/* L'écriture des consignes se voit : cinq appels d'affilée sans
+            retour à l'écran passeraient pour un écran figé, et la thérapeute
+            fermerait l'onglet au milieu. */}
+        {consignes.ecrit ? (
+          <p className={s.consignes}>
+            {consignes.faits < consignes.total
+              ? `Écriture des consignes — ${consignes.faits + 1} sur ${consignes.total}${consignes.enCours ? ` · ${consignes.enCours}` : ''}`
+              : consignes.echecs
+                ? `Consignes écrites, sauf ${consignes.echecs} sur ${consignes.total}. Ces exercices gardent le « pourquoi » de la séance ; vous pouvez écrire le reste depuis le parcours.`
+                : `Consignes écrites : ${consignes.total} exercice${consignes.total > 1 ? 's' : ''} détaillé${consignes.total > 1 ? 's' : ''} pour ${patient.name}. Relisez-les depuis le parcours.`}
+          </p>
+        ) : null}
       </section>
     </div>
   )

@@ -485,3 +485,16 @@
   line-height: 1.6;
   color: var(--c-text-muted);
 }
+
+
+/* L'écriture des consignes, après l'envoi : elle prend une trentaine de
+   secondes, et la thérapeute doit voir que quelque chose se passe. */
+.consignes {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: var(--c-accent-soft-2);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--c-text-3);
+}

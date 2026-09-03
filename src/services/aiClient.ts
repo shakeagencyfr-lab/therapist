@@ -166,6 +166,14 @@ export interface ModuleInput {
   intent: string
   type: ModuleKind
   quiz: boolean
+  /**
+   * Le dossier de la personne à qui ce module est destiné, s'il y en a une.
+   *
+   * Le serveur l'accepte depuis toujours ; le client ne le proposait pas, et
+   * l'atelier écrivait donc des exercices de manuel quand il aurait pu en
+   * écrire pour quelqu'un.
+   */
+  context?: PatientContext
 }
 
 /** Module sur mesure, depuis le brief de l'atelier. */

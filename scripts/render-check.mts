@@ -18,6 +18,7 @@ import { RendezVous } from '../src/patient/RendezVous'
 import { VitrinePage } from '../src/views/vitrine/VitrinePage'
 import { Tache } from '../src/patient/Tache'
 import { IconeOnglet } from '../src/patient/IconesOnglets'
+import { ConsigneEditeur } from '../src/views/therapist/ConsigneEditeur'
 import { AppStoreProvider } from '../src/state/store'
 import { PATIENTS } from '../src/data/patients'
 import type { AppState, ResellerView, ViewMode } from '../src/state/state'
@@ -423,6 +424,45 @@ try {
   }
 } catch (err) {
   console.error(`✗ patient/tache : ${(err as Error).message}`)
+  echecs++
+}
+
+/* L'éditeur de consigne : ce que l'IA a écrit doit revenir tel quel dans les
+   champs, sinon la thérapeute croit corriger et repart d'une page blanche. */
+try {
+  const rendu = renderToString(
+    h(ConsigneEditeur as never, {
+      module: {
+        id: 'm1',
+        title: 'Le premier geste du matin',
+        meta: '',
+        kind: 'Exercice',
+        done: false,
+        consigne: {
+          duree: '3 minutes',
+          quand: 'Au réveil',
+          steps: ['Posez les pieds au sol.', 'Comptez trois respirations.'],
+          why: 'Pour rompre la première hésitation.',
+        },
+      },
+      onFerme: () => {},
+    } as never),
+  )
+  const manque = [
+    !rendu.includes('3 minutes') && 'la durée ne revient pas',
+    !rendu.includes('Au réveil') && 'le moment ne revient pas',
+    !rendu.includes('Pour rompre la première hésitation.') && 'le « pourquoi » ne revient pas',
+    !rendu.includes('Posez les pieds au sol.') && 'les étapes ne reviennent pas',
+    !rendu.includes('Comptez trois respirations.') && 'la deuxième étape manque',
+  ].filter(Boolean)
+  if (manque.length) {
+    console.error(`✗ therapeute/consigne : ${manque.join(', ')}`)
+    echecs++
+  } else {
+    console.log(`✓ therapeute/consigne ${String(rendu.length).padStart(4)} octets · relue telle qu'écrite`)
+  }
+} catch (err) {
+  console.error(`✗ therapeute/consigne : ${(err as Error).message}`)
   echecs++
 }
 
