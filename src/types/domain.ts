@@ -102,6 +102,10 @@ export interface PatientModule {
    * cocher, sans jamais savoir ce qu'on attendait de lui.
    */
   pourquoi?: string
+  /** L'identifiant en base, absent sur les fiches de démonstration. */
+  id?: string
+  /** La consigne détaillée, écrite par l'IA et corrigée par la thérapeute. */
+  consigne?: Consigne
 }
 
 /** Un audio envoyé à un patient. */

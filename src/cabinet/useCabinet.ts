@@ -17,6 +17,7 @@ import { useStore } from '@/state/store'
 import { durationToSeconds } from '@/lib/format'
 import type { CabinetBranding } from '@/types/reseller'
 import type {
+  Consigne,
   CustomModule,
   HypnoseMouvement,
   JournalEntry,
@@ -67,6 +68,7 @@ interface ModuleRow {
   position: number
   done_at: string | null
   patient_note: string | null
+  consigne: Consigne | null
 }
 
 interface AudioRow {
@@ -136,6 +138,21 @@ interface PushRow {
   scheduled_for: string
   created_at: string
   recipients: Array<{ patient: { display_name: string } | null }>
+}
+
+/** Un module tout juste créé par l'envoi d'une séance. */
+export interface ModuleCree {
+  id: string
+  title: string
+  kind: ModuleKind
+}
+
+/** La consigne détaillée d'un module, telle qu'elle est stockée. */
+export interface ConsigneModule {
+  duree: string
+  quand: string
+  steps: string[]
+  why: string
 }
 
 interface ProfileRow {
@@ -317,6 +334,8 @@ function assembler(
       kind: m.kind,
       done: Boolean(m.done_at),
       note: m.patient_note ?? undefined,
+      id: m.id,
+      consigne: m.consigne ?? undefined,
     })),
     audios: auds.map<PatientAudio>((a) => ({
       title: a.audio?.title ?? 'Enregistrement',
@@ -446,7 +465,14 @@ export interface CabinetData {
    * la complète, l'envoi la clôt et verse au dossier ce qui a été retenu. */
   ouvrirSeance: (patientId: PatientId) => Promise<Resultat & { id?: string }>
   enregistrerBrouillon: (sessionId: string, input: Brouillon) => Promise<Resultat>
-  envoyerSeance: (sessionId: string, patientId: PatientId, input: Envoi) => Promise<Resultat>
+  /** Rend aussi les modules créés : leurs consignes s'écrivent juste après. */
+  envoyerSeance: (
+    sessionId: string,
+    patientId: PatientId,
+    input: Envoi,
+  ) => Promise<Resultat & { modules?: ModuleCree[] }>
+  /** Remplace la consigne d'un module du parcours. */
+  majConsigne: (moduleId: string, consigne: ConsigneModule | null) => Promise<Resultat>
   enregistrerProfil: (patientId: PatientId, sessionId: string | null, profil: ProfilGenere) => Promise<Resultat>
   /** Ouvre ou ferme l'hypnose pour un patient. */
   reglerHypnose: (patientId: PatientId, active: boolean) => Promise<Resultat>
@@ -488,7 +514,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         .select('id, display_name, initials, archived_at')
         .not('archived_at', 'is', null)
         .order('archived_at', { ascending: false }),
-      db.from('patient_modules').select('id, patient_id, title, meta, kind, position, done_at, patient_note'),
+      db.from('patient_modules').select('id, patient_id, title, meta, kind, position, done_at, patient_note, consigne'),
       db.from('patient_audios').select('patient_id, listens, last_listened_at, audio:audio_library (title, duration_seconds)'),
       db.from('scale_entries').select('patient_id, value, recorded_at'),
       db.from('journal_pages').select('patient_id, title, body, trigger_label, written_at'),
@@ -1312,7 +1338,11 @@ export function useCabinet(cabinetId: string | null): CabinetData {
   )
 
   const envoyerSeance = useCallback(
-    async (sessionId: string, patientId: PatientId, input: Envoi): Promise<Resultat> => {
+    async (
+      sessionId: string,
+      patientId: PatientId,
+      input: Envoi,
+    ): Promise<Resultat & { modules?: ModuleCree[] }> => {
       const db = supabase()
       if (!db || !cabinetId) return { ok: false, message: '' }
 
@@ -1325,8 +1355,11 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         .limit(1)
         .maybeSingle<{ position: number }>()
       let position = (dernier?.position ?? -1) + 1
+      /* Les identifiants des modules créés : l'écriture des consignes qui
+         suit l'envoi doit savoir lesquels compléter. */
+      let crees: Array<{ id: string; title: string; kind: ModuleKind }> = []
       if (input.modules.length) {
-        const { error } = await db.from('patient_modules').insert(
+        const { data, error } = await db.from('patient_modules').insert(
           input.modules.map((m) => ({
             cabinet_id: cabinetId,
             patient_id: patientId,
@@ -1341,8 +1374,9 @@ export function useCabinet(cabinetId: string | null): CabinetData {
             consigne: m.pourquoi ? { why: m.pourquoi } : null,
             position: position++,
           })),
-        )
+        ).select('id, title, kind')
         if (error) return { ok: false, message: "Les modules n'ont pas pu être envoyés." }
+        crees = (data ?? []) as Array<{ id: string; title: string; kind: ModuleKind }>
       }
 
       // Les audios : seulement ceux qui existent en base (identifiants UUID).
@@ -1374,6 +1408,28 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         .update({ sessions_done: (fiche?.sessions_done ?? 0) + 1 })
         .eq('id', patientId)
 
+      await recharger()
+      return { ok: true, message: '', modules: crees }
+    },
+    [cabinetId, recharger],
+  )
+
+  /**
+   * Remplacer la consigne d'un module.
+   *
+   * Écrite par l'IA à l'envoi de la séance, relue et corrigée par la
+   * thérapeute : c'est elle qui connaît la personne, et un exercice mal
+   * formulé se fait mal ou pas du tout.
+   */
+  const majConsigne = useCallback(
+    async (moduleId: string, consigne: ConsigneModule | null): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const { error } = await db
+        .from('patient_modules')
+        .update({ consigne })
+        .eq('id', moduleId)
+      if (error) return { ok: false, message: "La consigne n'a pas pu être enregistrée." }
       await recharger()
       return { ok: true, message: '' }
     },
@@ -1609,6 +1665,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     ouvrirSeance,
     enregistrerBrouillon,
     envoyerSeance,
+    majConsigne,
     enregistrerProfil,
     reglerHypnose,
     creerHypnose,
