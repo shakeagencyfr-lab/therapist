@@ -1,0 +1,171 @@
+/* Son compte. Une colonne, des cibles larges : cet écran se touche au pouce. */
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.carte {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 16px;
+  padding: 18px 16px;
+}
+
+.titre {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 400;
+  margin: 0 0 8px;
+}
+
+.texte {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--c-text-3);
+  margin: 0 0 12px;
+}
+
+.infos {
+  margin: 0;
+}
+.ligne {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--c-border-light);
+}
+.ligne:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.cle {
+  font-size: 13px;
+  color: var(--c-text-muted);
+  margin: 0;
+}
+.valeur {
+  font-size: 13.5px;
+  font-weight: 500;
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.champ {
+  width: 100%;
+  /* 16 px : en dessous, le navigateur du téléphone zoome à la mise au point
+     et l'écran saute. */
+  font-size: 16px;
+  font-family: inherit;
+  padding: 13px 14px;
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+  background: var(--c-app);
+  color: var(--c-text);
+}
+.champ:focus {
+  outline: none;
+  border-color: var(--c-accent);
+}
+
+.aide {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+  margin: 9px 0 12px;
+}
+
+.bouton {
+  width: 100%;
+  min-height: 48px;
+  border: none;
+  border-radius: 999px;
+  background: var(--c-dark);
+  color: #fff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.bouton:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.noticeOk,
+.noticeErreur {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.noticeOk {
+  background: var(--c-ok-bg);
+  border: 1px solid var(--c-ok-border);
+  color: var(--c-ok-text);
+}
+.noticeErreur {
+  background: var(--c-warn-bg, #fbf1e6);
+  border: 1px solid var(--c-warn-border, #efdcc4);
+  color: var(--c-warn-text-2);
+}
+
+/* La suppression ne porte pas l'accent du cabinet : ce n'est pas un geste
+   qu'on encourage, seulement un geste qu'on autorise. */
+.lienDanger {
+  border: none;
+  background: none;
+  padding: 4px 0;
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--c-warn-text-2);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.confirme {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.danger {
+  min-height: 48px;
+  border: 1px solid var(--c-warn-text-2);
+  border-radius: 999px;
+  background: none;
+  color: var(--c-warn-text-2);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.danger:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.annuler {
+  min-height: 44px;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--c-text-3);
+  cursor: pointer;
+}
+
+.deconnexion {
+  min-height: 48px;
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  background: var(--c-surface);
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--c-text-3);
+  cursor: pointer;
+}

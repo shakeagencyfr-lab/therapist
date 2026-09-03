@@ -7,9 +7,11 @@ import { usePatientData } from './usePatientData'
 import { RendezVous } from './RendezVous'
 import { Boutique } from './Boutique'
 import { Journal } from './Journal'
+import { MonCompte } from './MonCompte'
+import { MotAuTherapeute } from './MotAuTherapeute'
 import s from './PatientSpace.module.css'
 
-type Onglet = 'jour' | 'boutique'
+type Onglet = 'jour' | 'journal' | 'boutique' | 'moi'
 
 /** Retour de Stripe : la session à vérifier, ou l'annulation. Lus une fois. */
 function retourPaiement(): { commande: string | null; annule: boolean } {
@@ -46,7 +48,7 @@ function aujourdhui(): string {
 }
 
 export function PatientSpace() {
-  const { context, seDeconnecter } = useAuth()
+  const { context } = useAuth()
   const patient = context?.patient ?? null
   const {
     modules,
@@ -173,17 +175,36 @@ export function PatientSpace() {
 
   const valeurEchelle = echelle ?? scaleToday
 
+  /* Quatre destinations, jamais plus : au pouce, une barre à cinq entrées
+     devient une loterie. La journée est la première et celle qui s'ouvre ;
+     le journal quitte le bas de la page pour devenir un lieu, parce qu'on
+     n'écrit pas au bout d'un long défilement. */
   const onglets: Array<{ value: Onglet; label: string }> = [
-    { value: 'jour', label: "Aujourd'hui" },
+    { value: 'jour', label: 'Ma journée' },
+    { value: 'journal', label: 'Journal' },
     ...(shopEnabled ? [{ value: 'boutique' as const, label: 'Boutique' }] : []),
+    { value: 'moi', label: 'Moi' },
   ]
-  const avecOnglets = onglets.length > 1
+  const avecOnglets = true
   // Un onglet qui n'existe plus (boutique fermée entre-temps) ramène au jour.
   const courant: Onglet = onglets.some((o) => o.value === onglet) ? onglet : 'jour'
 
   return (
     <div className={avecOnglets ? `${s.page} ${s.pageOnglets}` : s.page}>
       <header className={s.head} style={{ background: patient.branding?.dark }}>
+        {/* La marque du cabinet, en haut : cet espace est celui de sa
+            thérapeute, pas le nôtre. C'est ce que la marque blanche vend, et
+            l'en-tête était le seul endroit où elle ne se voyait pas. */}
+        <div className={s.marque}>
+          {patient.branding?.logoUrl ? (
+            <img className={s.marqueLogo} src={patient.branding.logoUrl} alt="" />
+          ) : (
+            <span className={s.marquePastille} style={{ background: patient.branding?.accent }}>
+              {patient.branding?.logo ?? 'KL'}
+            </span>
+          )}
+          <span className={s.marqueNom}>{patient.cabinet_name}</span>
+        </div>
         <div className={s.date}>{aujourdhui()}</div>
         <h1 className={s.hello}>Bonjour {prenom(patient.display_name)}</h1>
         {affirmations.length > 0 ? (
@@ -422,7 +443,16 @@ export function PatientSpace() {
         </section>
         ) : null}
 
-        {courant === 'jour' ? (
+        {courant === 'journal' ? (
+          <MotAuTherapeute
+            patientId={patient.id}
+            cabinetId={patient.cabinet_id}
+            accent={patient.branding?.accent}
+            onEnvoye={recharger}
+          />
+        ) : null}
+
+        {courant === 'journal' ? (
           <Journal
             pages={journal}
             illisible={journalIllisible}
@@ -433,6 +463,8 @@ export function PatientSpace() {
           />
         ) : null}
 
+        {courant === 'moi' ? <MonCompte patient={patient} /> : null}
+
         {courant === 'jour' && bookingUrl ? (
           <RendezVous
             url={bookingUrl}
@@ -442,13 +474,6 @@ export function PatientSpace() {
           />
         ) : null}
 
-        <p className={s.foot}>
-          {patient.cabinet_name}
-          <br />
-          <button type="button" className={s.footLink} onClick={() => void seDeconnecter()}>
-            Me déconnecter
-          </button>
-        </p>
       </div>
 
       {avecOnglets ? (

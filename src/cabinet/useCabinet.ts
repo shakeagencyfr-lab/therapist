@@ -10,6 +10,7 @@
  * n'ont pas à savoir d'où elles viennent.
  */
 import { useCallback, useEffect, useState } from 'react'
+import { useRetour } from '@/lib/useRetour'
 import { supabase } from '@/lib/supabase'
 import { demanderInvitation } from '@/services/invitations'
 import { useStore } from '@/state/store'
@@ -655,6 +656,9 @@ export function useCabinet(cabinetId: string | null): CabinetData {
   useEffect(() => {
     void recharger()
   }, [recharger])
+
+  // L'autre côté écrit pendant que cet écran est ouvert : on relit au retour.
+  useRetour(recharger)
 
   /**
    * Créer un patient, c'est écrire une fiche avec son adresse : c'est cette

@@ -10,6 +10,7 @@ import type { Request, Response } from 'express'
 import { AI_ROUTES, currentMode, describeError, handleAi, type AiRoute } from './ai.js'
 import { jetonDe } from './auth.js'
 import { envoyerInvitation } from './invitations.js'
+import { supprimerCompte } from './compte.js'
 import { appliquerIntegration, etatIntegrations } from './integrations.js'
 import { agirVolet, lireVolet } from './cabinet.js'
 import { demarrerPaiement, verifierPaiement } from './shop.js'
@@ -104,6 +105,22 @@ app.post('/api/invitations', async (req: Request, res: Response): Promise<void> 
     // Journal technique seulement. Une exception ne doit pas emporter l'API.
     console.error('[invitation] exception —', (err as Error).message)
     res.status(500).json({ message: "L'invitation n'a pas pu être envoyée." })
+  }
+})
+
+app.post('/api/compte', async (req: Request, res: Response): Promise<void> => {
+  const token = jetonDe(req.headers.authorization)
+  const geste = (req.body as { geste?: string } | undefined)?.geste
+  try {
+    if (geste !== 'supprimer') {
+      res.status(400).json({ message: 'Geste inconnu.' })
+      return
+    }
+    res.json(await supprimerCompte(token))
+  } catch (err) {
+    const { status, message } = describeError(err)
+    console.error(`[compte] ${geste ?? '?'} — ${status} · ${message}`)
+    res.status(status).json({ message })
   }
 })
 

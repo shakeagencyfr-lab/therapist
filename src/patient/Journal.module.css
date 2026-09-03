@@ -194,3 +194,88 @@
 .bascule:hover {
   text-decoration: underline;
 }
+
+
+/* Ce que la refonte de l'écran a ajouté ----------------------------------- */
+
+.compte {
+  font-size: 12px;
+  color: var(--c-text-muted);
+}
+
+/* Écrire est le geste de cet écran : pleine largeur, hauteur du pouce. */
+.ecrire {
+  width: 100%;
+  min-height: 50px;
+  margin-bottom: 4px;
+  border: none;
+  border-radius: 999px;
+  background: var(--c-dark);
+  color: #fff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.filtres {
+  display: flex;
+  gap: 7px;
+}
+.filtre {
+  flex: 1;
+  min-height: 38px;
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  background: var(--c-surface);
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--c-text-3);
+  cursor: pointer;
+}
+.filtreOn {
+  font-weight: 500;
+  border-color: var(--c-accent);
+  color: var(--c-accent);
+}
+
+/* Le mois, comme un intercalaire : il ne se répète pas d'une page à l'autre. */
+.mois {
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+  margin: 16px 0 7px;
+}
+
+.pageHaut {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.pastille {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--c-accent);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* Deux pages appelées « mardi 2 septembre » ne se distinguent pas ; les
+   premiers mots, si. */
+.pageApercu {
+  display: block;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--c-text-3);
+  margin-top: 3px;
+}
+
+.pageOuverte {
+  border-color: var(--c-accent-soft);
+  background: var(--c-surface);
+}
