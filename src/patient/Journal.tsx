@@ -9,6 +9,21 @@ function jour(iso: string): string {
   return new Date(iso).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 }
 
+/** « Septembre 2026 » : le titre sous lequel les pages du mois se rangent. */
+export function mois(iso: string): string {
+  const d = new Date(iso).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+  return d.charAt(0).toUpperCase() + d.slice(1)
+}
+
+/** Les premières lignes d'une page : de quoi la reconnaître sans l'ouvrir. */
+export function apercu(corps: string, max = 90): string {
+  const plat = corps.replace(/\s+/g, ' ').trim()
+  return plat.length > max ? `${plat.slice(0, max).trimEnd()}…` : plat
+}
+
+/** Ce que la liste montre : tout, ou seulement l'une des deux sortes. */
+type Filtre = 'tout' | 'partagees' | 'privees'
+
 /**
  * Le journal du patient.
  *
@@ -49,6 +64,7 @@ export function Journal({
   const [envoi, setEnvoi] = useState(false)
   const [notice, setNotice] = useState<{ tone: 'ok' | 'warn'; text: string } | null>(null)
   const [depliee, setDepliee] = useState('')
+  const [filtre, setFiltre] = useState<Filtre>('tout')
 
   async function enregistrer() {
     const db = supabase()
@@ -90,21 +106,33 @@ export function Journal({
     await onEcrit()
   }
 
+  const retenues = pages.filter((p) =>
+    filtre === 'tout' ? true : filtre === 'partagees' ? p.shared : !p.shared,
+  )
+
   return (
     <section className={s.section}>
       <div className={s.head}>
         <span className={s.titre}>Mon journal</span>
-        {!ouvert ? (
-          <button
-            type="button"
-            className={s.ecrire}
-            style={accent ? { color: accent } : undefined}
-            onClick={() => setOuvert(true)}
-          >
-            Écrire
-          </button>
-        ) : null}
+        <span className={s.compte}>
+          {pages.length === 0
+            ? ''
+            : `${pages.length} page${pages.length > 1 ? 's' : ''}`}
+        </span>
       </div>
+
+      {/* Écrire est LE geste de cet écran : un bouton pleine largeur, au
+          pouce, pas un lien de douze pixels dans un coin. */}
+      {!ouvert ? (
+        <button
+          type="button"
+          className={s.ecrire}
+          style={accent ? { background: accent } : undefined}
+          onClick={() => setOuvert(true)}
+        >
+          Écrire une page
+        </button>
+      ) : null}
 
       {notice ? <Notice tone={notice.tone}>{notice.text}</Notice> : null}
 
@@ -173,36 +201,87 @@ export function Journal({
         </p>
       ) : null}
 
-      {pages.map((page) => {
-        const ouverte = depliee === page.id
-        return (
-          <article key={page.id} className={s.page}>
+      {/* Le tri n'apparaît qu'à partir du moment où il sert : sur trois pages,
+          trois boutons de filtre prennent plus de place qu'ils n'en font
+          gagner. */}
+      {pages.length > 4 ? (
+        <div className={s.filtres} role="tablist" aria-label="Trier mes pages">
+          {(
+            [
+              ['tout', 'Toutes'],
+              ['partagees', 'Partagées'],
+              ['privees', 'Privées'],
+            ] as Array<[Filtre, string]>
+          ).map(([valeur, label]) => (
             <button
+              key={valeur}
               type="button"
-              className={s.pageHead}
-              onClick={() => setDepliee(ouverte ? '' : page.id)}
-              aria-expanded={ouverte}
+              role="tab"
+              aria-selected={filtre === valeur}
+              className={filtre === valeur ? `${s.filtre} ${s.filtreOn}` : s.filtre}
+              style={filtre === valeur && accent ? { color: accent, borderColor: accent } : undefined}
+              onClick={() => setFiltre(valeur)}
             >
-              <span className={s.pageTitre}>{page.title}</span>
-              <span className={s.pageMeta}>
-                {jour(page.written_at)}
-                {page.shared ? ' · partagée' : ' · privée'}
-              </span>
+              {label}
             </button>
-            {ouverte ? (
-              <>
-                <p className={s.pageTexte}>{page.body}</p>
-                <button
-                  type="button"
-                  className={s.bascule}
-                  style={accent && !page.shared ? { color: accent } : undefined}
-                  onClick={() => void basculerPartage(page)}
-                >
-                  {page.shared ? 'Ne plus la montrer' : 'La montrer à ma thérapeute'}
-                </button>
-              </>
-            ) : null}
-          </article>
+          ))}
+        </div>
+      ) : null}
+
+      {/* Rangées par mois : au bout de six mois, une liste à plat ne se
+          parcourt plus — on cherche « en janvier », pas « la page numéro 34 ».
+          Le titre de mois n'apparaît que lorsqu'il change. */}
+      {retenues.length === 0 && pages.length > 0 ? (
+        <p className={s.vide}>
+          {filtre === 'partagees'
+            ? "Aucune page partagée pour l'instant."
+            : 'Aucune page privée : toutes vos pages sont partagées.'}
+        </p>
+      ) : null}
+
+      {retenues.map((page, i) => {
+        const ouverte = depliee === page.id
+        const titreMois = mois(page.written_at)
+        const nouveauMois = i === 0 || mois(retenues[i - 1].written_at) !== titreMois
+        return (
+          <div key={page.id}>
+            {nouveauMois ? <div className={s.mois}>{titreMois}</div> : null}
+            <article className={ouverte ? `${s.page} ${s.pageOuverte}` : s.page}>
+              <button
+                type="button"
+                className={s.pageHead}
+                onClick={() => setDepliee(ouverte ? '' : page.id)}
+                aria-expanded={ouverte}
+              >
+                <span className={s.pageHaut}>
+                  <span className={s.pageTitre}>{page.title}</span>
+                  {page.shared ? (
+                    <span className={s.pastille} style={accent ? { background: accent } : undefined}>
+                      partagée
+                    </span>
+                  ) : null}
+                </span>
+                {/* L'aperçu remplace le titre seul : deux pages appelées
+                    « mardi 2 septembre » ne se distinguent pas l'une de
+                    l'autre tant qu'on ne les a pas ouvertes toutes les deux. */}
+                {!ouverte ? <span className={s.pageApercu}>{apercu(page.body)}</span> : null}
+                <span className={s.pageMeta}>{jour(page.written_at)}</span>
+              </button>
+              {ouverte ? (
+                <>
+                  <p className={s.pageTexte}>{page.body}</p>
+                  <button
+                    type="button"
+                    className={s.bascule}
+                    style={accent && !page.shared ? { color: accent } : undefined}
+                    onClick={() => void basculerPartage(page)}
+                  >
+                    {page.shared ? 'Ne plus la montrer' : 'La montrer à ma thérapeute'}
+                  </button>
+                </>
+              ) : null}
+            </article>
+          </div>
         )
       })}
     </section>

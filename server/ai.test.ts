@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AI_ROUTES, coutCentimes, currentMode, reglageDe } from './ai.js'
+import { AI_ROUTES, coutCentimes, currentMode, profilCreux, reglageDe } from './ai.js'
 
 describe('coutCentimes — au tarif du modèle', () => {
   it('Opus 5 : 5 $ / 25 $ le million', () => {
@@ -61,5 +61,41 @@ describe('reglageDe — le bon modèle et le bon effort par action', () => {
   it('le mode courant nomme chaque action, pour le journal de démarrage', () => {
     const mode = currentMode()
     for (const route of AI_ROUTES) expect(mode).toContain(route)
+  })
+})
+
+/**
+ * Le profil creux.
+ *
+ * Constaté en production : un profil enregistré avec un portrait de 2 259
+ * caractères et trois tableaux vides. Le modèle avait tout versé dans le
+ * portrait ; la carte affichait « Comment l'accompagner » et « Points
+ * d'attention » suivis de rien, et le profil complet de la version
+ * précédente avait été remplacé par celui-là.
+ *
+ * Le schéma de sortie ne peut pas l'empêcher — les contraintes de
+ * cardinalité sur un tableau ne font pas partie du sous-ensemble de JSON
+ * Schema que l'API accepte, et le SDK les retire avant l'envoi. La
+ * vérification est donc du code, et ce code se teste.
+ */
+describe('profilCreux — ce que le modèle a oublié', () => {
+  const complet = { axes: [1, 2, 3, 4, 5], levers: [1, 2, 3, 4], care: [1] }
+
+  it('ne signale rien sur un profil complet', () => {
+    expect(profilCreux(complet)).toBe('')
+  })
+
+  it('nomme ce qui manque, dans la langue de la reprise', () => {
+    expect(profilCreux({ ...complet, axes: [] })).toBe('les axes')
+    expect(profilCreux({ ...complet, care: [] })).toBe("les points d'attention")
+    expect(profilCreux({ axes: [], levers: [], care: [] })).toBe(
+      "les axes, les leviers, les points d'attention",
+    )
+  })
+
+  /* Le cas réel : les trois tableaux absents de la réponse, pas seulement
+     vides. `undefined` doit compter comme manquant, sans lever. */
+  it('traite une clé absente comme un tableau vide', () => {
+    expect(profilCreux({})).toBe("les axes, les leviers, les points d'attention")
   })
 })

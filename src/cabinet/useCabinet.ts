@@ -10,6 +10,7 @@
  * n'ont pas à savoir d'où elles viennent.
  */
 import { useCallback, useEffect, useState } from 'react'
+import { useRetour } from '@/lib/useRetour'
 import { supabase } from '@/lib/supabase'
 import { demanderInvitation } from '@/services/invitations'
 import { useStore } from '@/state/store'
@@ -244,6 +245,7 @@ function assembler(
   echelles: ScaleRow[],
   journal: JournalRow[],
   profil: ProfileRow | undefined,
+  versions: ProfileRow[],
   hypnoses: HypnoseRow[],
   mouvements: MouvementRow[],
   brouillon: SessionDraft | undefined,
@@ -301,6 +303,12 @@ function assembler(
           dynamique: profil.dynamique ?? undefined,
           alliance: profil.alliance ?? undefined,
           care: profil.care ?? [],
+          /* De la plus ancienne à la plus récente : une courbe se lit dans le
+             sens du temps, et la base les rend dans l'autre. */
+          historique: versions
+            .filter((v) => v.patient_id === profil.patient_id)
+            .map((v) => ({ version: v.version, sessions: v.sessions_count, axes: v.axes ?? [] }))
+            .sort((a, b) => a.version - b.version),
         }
       : PROFIL_VIDE,
     modules: mods.map<PatientModule>((m) => ({
@@ -538,6 +546,9 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     for (const pr of (profils.data ?? []) as ProfileRow[]) {
       if (!dernierProfil.has(pr.patient_id)) dernierProfil.set(pr.patient_id, pr)
     }
+    /* Toutes les versions, elles, servent aux courbes de tendance : elles
+       étaient déjà chargées et jetées à chaque rechargement. */
+    const toutesVersions = (profils.data ?? []) as ProfileRow[]
 
     const assemblees: Record<PatientId, Patient> = {}
     for (const ligne of lignes) {
@@ -548,6 +559,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         (echelles.data ?? []) as ScaleRow[],
         (journal.data ?? []) as JournalRow[],
         dernierProfil.get(ligne.id),
+        toutesVersions,
         (hypnoses.data ?? []) as HypnoseRow[],
         (mouvements.data ?? []) as MouvementRow[],
         dernierBrouillon.get(ligne.id),
@@ -644,6 +656,9 @@ export function useCabinet(cabinetId: string | null): CabinetData {
   useEffect(() => {
     void recharger()
   }, [recharger])
+
+  // L'autre côté écrit pendant que cet écran est ouvert : on relit au retour.
+  useRetour(recharger)
 
   /**
    * Créer un patient, c'est écrire une fiche avec son adresse : c'est cette

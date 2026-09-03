@@ -3,8 +3,11 @@ import { Button, Card, Notice, Overline, Title } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { useEcritureHypnose } from '@/cabinet/useEcritureHypnose'
 import { MOUVEMENTS_HYPNOSE, NOM_MOUVEMENT } from '@/services/aiClient'
+import { telechargerHypnose } from '@/lib/hypnosePdf'
 import { patientOf } from '@/state/selectors'
 import { useAppState } from '@/state/store'
+import { useMaybeAuth } from '@/auth/session'
+import type { Hypnose } from '@/types/domain'
 import s from './HypnosesFiche.module.css'
 
 /** « 2 septembre 2026 » */
@@ -28,12 +31,26 @@ function dateLongue(iso: string): string {
 export function HypnosesFiche() {
   const state = useAppState()
   const cabinet = useMaybeCabinet()
+  const auth = useMaybeAuth()
   const fiche = patientOf(state)
   const [ouverte, setOuverte] = useState('')
   const [intention, setIntention] = useState('')
   const [aSupprimer, setASupprimer] = useState('')
   const [notice, setNotice] = useState('')
   const { ecriture, enCours, ecrits, erreur, fini, ecrire, reinitialiser } = useEcritureHypnose()
+  /** L'hypnose dont le PDF se fabrique : jsPDF se charge à la demande. */
+  const [pdf, setPdf] = useState('')
+
+  async function enregistrerPdf(h: Hypnose) {
+    if (pdf) return
+    setPdf(h.id)
+    try {
+      await telechargerHypnose(h, fiche?.name ?? '', auth?.context?.cabinet?.name ?? '')
+    } catch {
+      setNotice("Le PDF n'a pas pu être fabriqué. Réessayez.")
+    }
+    setPdf('')
+  }
 
   const hypnoses = fiche?.hypnoses ?? []
   if (!fiche || (hypnoses.length === 0 && !fiche.hypnoseActivee)) return null
@@ -171,6 +188,19 @@ export function HypnosesFiche() {
                       elle s'efface sans cérémonie. Une confirmation en un clic
                       suffit — ce n'est pas un dossier de santé, c'est un texte
                       qu'on peut réécrire. */}
+                  {/* Le PDF, en un clic : la thérapeute LIT ce texte à voix
+                      haute pendant une demi-heure, elle ne le fait pas défiler
+                      dans un navigateur. */}
+                  <button
+                    type="button"
+                    className={s.pdf}
+                    disabled={pdf === h.id || !h.mouvements.length}
+                    onClick={() => void enregistrerPdf(h)}
+                    aria-label={`Télécharger « ${h.titre} » en PDF`}
+                  >
+                    {pdf === h.id ? 'Préparation…' : 'PDF'}
+                  </button>
+
                   {aSupprimer === h.id ? (
                     <span className={s.confirme}>
                       <button type="button" className={s.oui} onClick={() => void supprimer(h.id)}>

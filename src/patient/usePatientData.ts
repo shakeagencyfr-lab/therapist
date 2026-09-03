@@ -6,6 +6,7 @@
  * fiche de quelqu'un d'autre, ce serait un défaut de la base, pas d'ici.
  */
 import { useCallback, useEffect, useState } from 'react'
+import { useRetour } from '@/lib/useRetour'
 import { supabase } from '@/lib/supabase'
 import type { ModuleKind } from '@/types/domain'
 
@@ -107,23 +108,25 @@ export function usePatientData(patientId: string | null): PatientData {
     setErreur('')
 
     const [mods, affs, auds, fiche, echelle, reglages, pages, courriers] = await Promise.all([
-      db.from('patient_modules').select('id, title, meta, kind, position, done_at, patient_note').order('position'),
-      db.from('affirmations').select('text, position').not('published_at', 'is', null).order('position'),
-      db.from('patient_audios').select('id, listens, audio:audio_library (title, duration_seconds, meta, storage_path)'),
-      db.from('patients').select('scale_question').limit(1).maybeSingle(),
-      db.from('scale_entries').select('value, recorded_at').order('recorded_at', { ascending: false }).limit(1),
+      db.from('patient_modules').select('id, title, meta, kind, position, done_at, patient_note').eq('patient_id', patientId).order('position'),
+      db.from('affirmations').select('text, position').eq('patient_id', patientId).not('published_at', 'is', null).order('position'),
+      db.from('patient_audios').select('id, listens, audio:audio_library (title, duration_seconds, meta, storage_path)').eq('patient_id', patientId),
+      db.from('patients').select('scale_question').eq('id', patientId).maybeSingle(),
+      db.from('scale_entries').select('value, recorded_at').eq('patient_id', patientId).order('recorded_at', { ascending: false }).limit(1),
       // Ce que le patient voit de son cabinet : l'agenda et la boutique, rien
       // des clés. Un échec ici ne bloque pas le reste de l'espace.
       db.rpc('patient_cabinet_settings'),
       db
         .from('journal_pages')
         .select('id, title, body, shared, written_at')
+        .eq('patient_id', patientId)
         .order('written_at', { ascending: false })
         .limit(60),
       // Les mots du cabinet. Un échec ici ne barre pas la journée.
       db
         .from('push_recipients')
         .select('push_id, read_at, push:push_notifications (title, body, created_at)')
+        .eq('patient_id', patientId)
         .limit(20),
     ])
 
@@ -190,6 +193,9 @@ export function usePatientData(patientId: string | null): PatientData {
   useEffect(() => {
     void recharger()
   }, [recharger])
+
+  // L'autre côté écrit pendant que cet écran est ouvert : on relit au retour.
+  useRetour(recharger)
 
   return {
     modules,

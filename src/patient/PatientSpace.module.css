@@ -15,6 +15,47 @@
   padding: max(26px, calc(env(safe-area-inset-top) + 14px)) 20px 22px;
 }
 
+/* La marque du cabinet, en tête : cet espace est celui de sa thérapeute.
+   C'est ce que la marque blanche vend, et c'était le seul écran où elle ne
+   se voyait pas. */
+.marque {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 18px;
+}
+
+.marqueLogo,
+.marquePastille {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  flex: none;
+}
+
+.marqueLogo {
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.marquePastille {
+  display: grid;
+  place-items: center;
+  background: var(--c-accent);
+  color: #fff;
+  font-family: var(--font-serif);
+  font-size: 12px;
+}
+
+.marqueNom {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--c-on-dark);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .date {
   font-size: 11px;
   letter-spacing: 0.1em;
@@ -264,14 +305,19 @@
 
 .tab {
   flex: 1;
-  min-height: 52px;
+  min-height: 54px;
   border: none;
   background: transparent;
-  font-size: 12.5px;
+  /* Quatre entrées au lieu de deux : le libellé se resserre plutôt que de
+     déborder, et la cible reste haute pour le pouce. */
+  font-size: 12px;
   font-weight: 500;
   color: var(--c-text-muted);
   cursor: pointer;
-  padding: 0 8px;
+  padding: 0 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .tabOn {
   color: var(--c-accent);

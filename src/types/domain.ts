@@ -36,6 +36,21 @@ export interface ProfileLever {
 }
 
 /** Profil psychologique, affiné après chaque séance. */
+/**
+ * Une version passée du profil, réduite à ce qui se trace.
+ *
+ * Les versions sont déjà en base — le profil est versionné à chaque
+ * actualisation — et elles étaient déjà toutes chargées : seule la dernière
+ * servait. Une valeur d'axe sans son histoire est une photo ; c'est le
+ * mouvement qui intéresse quelqu'un qui suit la même personne depuis six
+ * séances.
+ */
+export interface ProfileVersion {
+  version: number
+  sessions: number
+  axes: ProfileAxis[]
+}
+
 export interface PsychProfile {
   /** Phrase de contexte : « Mis à jour après la séance du 4 septembre ». */
   updated: string
@@ -48,6 +63,8 @@ export interface PsychProfile {
   alliance?: string
   /** Points d'attention pour la praticienne. */
   care: string[]
+  /** Les versions précédentes, de la plus ancienne à la plus récente. */
+  historique?: ProfileVersion[]
 }
 
 /** Un mouvement d'une séance d'hypnose. */
