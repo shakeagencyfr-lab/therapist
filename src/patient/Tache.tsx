@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { RoundCheck } from '@/components/ui'
 import type { PatientModuleRow } from './usePatientData'
+import { useDictee } from './useDictee'
+import { BoutonDictee } from './BoutonDictee'
 import s from './Tache.module.css'
 
 /**
@@ -35,6 +37,10 @@ export function Tache({
   const [note, setNote] = useState(module.patient_note ?? '')
   const [enCours, setEnCours] = useState(false)
   const [enregistre, setEnregistre] = useState(false)
+  const dictee = useDictee(note, (suite) => {
+    setNote(suite)
+    setEnregistre(false)
+  })
 
   const consigne = module.consigne ?? null
   const etapes = consigne?.steps?.filter((e) => e.trim()) ?? []
@@ -43,6 +49,7 @@ export function Tache({
   async function enregistrer() {
     if (enCours) return
     setEnCours(true)
+    dictee.arreter()
     await onNote(note.trim())
     setEnCours(false)
     setEnregistre(true)
@@ -103,6 +110,7 @@ export function Tache({
           placeholder="Deux mots suffisent…"
           aria-label={`Un mot sur « ${module.title} »`}
         />
+        <BoutonDictee dictee={dictee} accent={accent} />
         <button
           type="button"
           className={s.enregistrer}

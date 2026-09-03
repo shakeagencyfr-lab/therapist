@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Notice } from '@/components/ui'
 import { supabase } from '@/lib/supabase'
+import { useDictee } from './useDictee'
+import { BoutonDictee } from './BoutonDictee'
 import type { JournalPageRow } from './usePatientData'
 import s from './Journal.module.css'
 
@@ -65,6 +67,9 @@ export function Journal({
   const [notice, setNotice] = useState<{ tone: 'ok' | 'warn'; text: string } | null>(null)
   const [depliee, setDepliee] = useState('')
   const [filtre, setFiltre] = useState<Filtre>('tout')
+  /* Dicter plutôt qu'écrire : au téléphone, un soir, taper dix lignes au
+     pouce décourage plus sûrement qu'une page blanche. */
+  const dictee = useDictee(texte, setTexte)
 
   async function enregistrer() {
     const db = supabase()
@@ -83,6 +88,7 @@ export function Journal({
       setNotice({ tone: 'warn', text: "La page n'a pas pu être enregistrée. Réessayez." })
       return
     }
+    dictee.arreter()
     setTitre('')
     setTexte('')
     setPartage(false)
@@ -154,6 +160,8 @@ export function Journal({
             aria-label="Votre page"
           />
 
+          <BoutonDictee dictee={dictee} accent={accent} />
+
           <label className={s.partage}>
             <input type="checkbox" checked={partage} onChange={(e) => setPartage(e.target.checked)} />
             <span>
@@ -178,6 +186,7 @@ export function Journal({
               type="button"
               className={s.annuler}
               onClick={() => {
+                dictee.arreter()
                 setOuvert(false)
                 setTexte('')
                 setTitre('')

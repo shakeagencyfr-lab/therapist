@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useDictee } from './useDictee'
+import { BoutonDictee } from './BoutonDictee'
 import s from './MotAuTherapeute.module.css'
 
 /**
@@ -31,6 +33,7 @@ export function MotAuTherapeute({
   const [envoi, setEnvoi] = useState(false)
   const [envoye, setEnvoye] = useState(false)
   const [erreur, setErreur] = useState('')
+  const dictee = useDictee(texte, setTexte)
 
   async function envoyer() {
     const db = supabase()
@@ -49,6 +52,7 @@ export function MotAuTherapeute({
       setErreur("Votre mot n'est pas parti. Réessayez dans un instant.")
       return
     }
+    dictee.arreter()
     setTexte('')
     setEnvoye(true)
     await onEnvoye()
@@ -81,6 +85,7 @@ export function MotAuTherapeute({
         placeholder="Ce que vous voulez qu'elle sache…"
         aria-label="Un mot pour votre thérapeute"
       />
+      <BoutonDictee dictee={dictee} accent={accent} />
       {erreur ? <p className={s.erreur}>{erreur}</p> : null}
       <button
         type="button"
