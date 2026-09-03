@@ -31,6 +31,44 @@ export function slugDuChemin(chemin: string): string | null {
 }
 
 /**
+ * Les chemins que le produit s'est réservés.
+ *
+ * Un cabinet ne peut pas s'appeler « mon », « api » ou « c » : son adresse
+ * marcherait sur une adresse du produit. C'est la même liste qui doit servir
+ * le jour où l'on validera les identifiants à l'ouverture d'un cabinet —
+ * mieux vaut refuser un nom que le voir capturer une route.
+ */
+export const CHEMINS_RESERVES = new Set([
+  'mon',
+  'api',
+  'c',
+  'e',
+  'assets',
+  'auth',
+  'admin',
+  'static',
+])
+
+/**
+ * L'identifiant du cabinet dans une adresse d'espace patient.
+ *
+ * `/cabinet-fontaine/mon` ouvre le MÊME espace que `/mon` : c'est la session
+ * qui dit qui entre, jamais l'adresse. Ce que l'identifiant change, c'est la
+ * PORTE — le nom, les couleurs et le logo du cabinet s'affichent avant la
+ * connexion, au lieu de la marque du produit.
+ *
+ * C'est ce qui rend la marque blanche utilisable sans domaine à soi : le
+ * cabinet donne une adresse qui lui ressemble, sans acheter de nom de
+ * domaine ni toucher à ses DNS.
+ */
+export function slugDeLEspacePatient(chemin: string): string | null {
+  const m = /^\/([a-z0-9][a-z0-9-]{0,62})\/mon\/?$/i.exec(chemin.trim())
+  if (!m) return null
+  const slug = m[1].toLowerCase()
+  return CHEMINS_RESERVES.has(slug) ? null : slug
+}
+
+/**
  * Le contenu publié d'un site vitrine.
  *
  * Rendu par `site_vitrine()`, ouverte à `anon` : c'est une page publique, et

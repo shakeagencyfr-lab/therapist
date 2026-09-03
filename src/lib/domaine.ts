@@ -26,6 +26,24 @@ export function lienCabinet(slug: string): string {
   return `https://${adresseCabinet(slug)}`
 }
 
+/**
+ * L'adresse de l'espace patient d'un cabinet, sur notre domaine.
+ *
+ * C'est celle qu'une thérapeute sans domaine à elle donne à ses patients :
+ * elle ouvre la même application que `/mon`, avec SA marque sur la porte. Le
+ * domaine personnalisé reste l'option supérieure ; celle-ci ne coûte rien et
+ * ne demande aucun réglage.
+ */
+export function adresseEspacePatient(slug: string): string {
+  const propre = slug.trim()
+  return propre ? `${DOMAINE_CABINETS}/${propre}/mon` : `${DOMAINE_CABINETS}/mon`
+}
+
+/** La même, cliquable. */
+export function lienEspacePatient(slug: string): string {
+  return `https://${adresseEspacePatient(slug)}`
+}
+
 /** L'adresse du widget de connexion, celle qu'un site tiers encadre. */
 export function lienEmbed(slug: string): string {
   return `https://${DOMAINE_CABINETS}/e/${slug.trim()}`

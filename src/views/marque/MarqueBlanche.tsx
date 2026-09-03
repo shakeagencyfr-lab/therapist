@@ -11,6 +11,7 @@ import {
   type EtatDomaine,
   type EtatSmtp,
 } from '@/services/cabinet'
+import { adresseEspacePatient, lienEspacePatient } from '@/lib/domaine'
 import s from './MarqueBlanche.module.css'
 
 /**
@@ -25,10 +26,10 @@ import s from './MarqueBlanche.module.css'
  * été éprouvé. Un domaine n'est « vérifié » qu'après une vraie résolution, un
  * serveur d'envoi qu'après une vraie connexion.
  */
-export function MarqueBlanche() {
+export function MarqueBlanche({ slug }: { slug: string }) {
   return (
     <div className={s.colonne}>
-      <Domaine />
+      <Domaine slug={slug} />
       <Courriels />
     </div>
   )
@@ -45,7 +46,7 @@ function HorsOffre({ offre, quoi }: { offre: string; quoi: string }) {
   )
 }
 
-function Domaine() {
+function Domaine({ slug }: { slug: string }) {
   const [etat, setEtat] = useState<EtatDomaine | null>(null)
   const [chargement, setChargement] = useState(true)
   const [saisie, setSaisie] = useState('')
@@ -84,9 +85,21 @@ function Domaine() {
         Votre domaine
       </Title>
       <p className={s.hint}>
-        L'adresse à laquelle vos patients arrivent. Un sous-domaine du vôtre — par exemple
+        Une option, pas un préalable : vos patients ont déjà une adresse à votre marque, et un
+        domaine à vous ne fait que la remplacer. Un sous-domaine du vôtre — par exemple
         espace.votre-cabinet.fr — suffit, et vous gardez votre site principal où il est.
       </p>
+
+      <div className={s.repli}>
+        <span className={s.repliTitre}>Votre adresse aujourd'hui</span>
+        <a className={s.lien} href={lienEspacePatient(slug)} target="_blank" rel="noreferrer">
+          {adresseEspacePatient(slug)} ↗
+        </a>
+        <p className={s.note}>
+          Elle porte votre nom, votre logo et vos couleurs dès la page de connexion, et elle
+          continuera de fonctionner même après avoir posé votre domaine.
+        </p>
+      </div>
 
       {erreur ? <Notice tone="warn">{erreur}</Notice> : null}
 
