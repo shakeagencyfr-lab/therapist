@@ -7,7 +7,6 @@ import {
   Marque,
   Notice,
   Pill,
-  ProgressBar,
   StatCard,
   TextInput,
 } from '@/components/ui'
@@ -15,15 +14,19 @@ import { adresseCabinet } from '@/lib/domaine'
 import { euroCents, plural } from '@/lib/format'
 import {
   adherenceLabel,
+  levierOuvert,
+  maxPatientsOf,
   mrrCents,
   nearCap,
   needsAttention,
+  occupation,
   slugify,
   totals,
 } from '@/state/resellerSelectors'
 import { useStore } from '@/state/store'
 import { useResellerData } from '@/reseller/context'
 import { PLANS, STATUS_LABEL } from '@/data/reseller'
+import { LEVIERS } from '@/types/reseller'
 import type { PlanCode, PortfolioRow, SubscriptionStatus } from '@/types/reseller'
 import s from './CabinetPortfolio.module.css'
 
@@ -39,7 +42,11 @@ function statusTone(status: SubscriptionStatus) {
 
 function CabinetRow({ row, on, onSelect }: { row: PortfolioRow; on: boolean; onSelect: () => void }) {
   const adherence = adherenceLabel(row)
-  const over = row.usagePct > 100
+  const max = maxPatientsOf(row.subscription, row.plan)
+  /* Serré, c'est quatre cinquièmes du plafond : le moment de proposer l'offre
+     du dessus, pas celui où la praticienne se retrouve bloquée. */
+  const serre = max !== null && row.stats.patientsActive >= max * 0.8
+  const ouverts = LEVIERS.filter((l) => levierOuvert(row.subscription, row.plan, l.code))
   return (
     <button
       type="button"
@@ -64,8 +71,10 @@ function CabinetRow({ row, on, onSelect }: { row: PortfolioRow; on: boolean; onS
       <span className={s.right}>
         <span className={s.counters}>
           <span className={s.counter}>
-            <span className={s.counterValue}>{row.stats.patientsActive}</span>
-            <span className={s.counterLabel}>Patients</span>
+            <span className={serre ? `${s.counterValue} ${s.over}` : s.counterValue}>
+              {max === null ? row.stats.patientsActive : `${row.stats.patientsActive} / ${max}`}
+            </span>
+            <span className={s.counterLabel}>Fiches actives</span>
           </span>
           <span className={s.counter}>
             <span className={adherence.suppressed ? `${s.counterValue} ${s.suppressed}` : s.counterValue}>
@@ -79,12 +88,13 @@ function CabinetRow({ row, on, onSelect }: { row: PortfolioRow; on: boolean; onS
           </span>
         </span>
 
-        <span className={s.usage}>
-          <span className={s.usageLine}>
-            <span className={over ? s.over : undefined}>{euroCents(row.stats.aiSpendCents)}</span>
-            <span>/ {euroCents(row.capCents)}</span>
+        {/* L'offre et ce qu'elle ouvre : c'est le contrat, pas une donnée
+            de santé — et c'est ce qu'on vient vérifier sur cette ligne. */}
+        <span className={s.offre}>
+          <span className={s.offreNom}>{row.plan.label}</span>
+          <span className={s.offreLeviers}>
+            {ouverts.length ? ouverts.map((l) => l.label.toLowerCase()).join(' · ') : 'application seule'}
           </span>
-          <ProgressBar value={row.usagePct} />
         </span>
 
         <Pill tone={statusTone(row.subscription.status)}>{STATUS_LABEL[row.subscription.status]}</Pill>
@@ -97,6 +107,7 @@ export function CabinetPortfolio() {
   const { state, set } = useStore()
   const { rows, reel, chargement, erreur, ouvrirCabinet, inviterPraticienne } = useResellerData()
   const sums = totals(rows)
+  const place = occupation(rows)
   const warned = nearCap(rows)
   const late = needsAttention(rows)
 
@@ -163,17 +174,12 @@ export function CabinetPortfolio() {
       <div className={s.stats}>
         <StatCard label="Cabinets" value={sums.cabinets} progress={100} />
         <StatCard
-          label="Patients suivis"
+          label="Fiches actives"
           value={sums.patients}
-          unit="au total"
-          progress={Math.min(100, (sums.patients / 120) * 100)}
+          unit={place.capacite > 0 ? `sur ${place.capacite} vendues` : 'au total'}
+          progress={place.pct}
         />
-        <StatCard
-          label="Consommation IA"
-          value={euroCents(sums.aiSpendCents)}
-          unit="ce mois"
-          progress={sums.aiCapCents ? (sums.aiSpendCents / sums.aiCapCents) * 100 : 0}
-        />
+        <StatCard label="Séances" value={sums.sessions} unit="sur 30 jours" progress={100} />
         <StatCard label="Revenu mensuel" value={euroCents(mrrCents(rows))} unit="récurrent" progress={100} />
       </div>
 
@@ -282,7 +288,9 @@ export function CabinetPortfolio() {
           {late.length > 0 || warned.length > 0 ? (
             <section className={s.panel}>
               <h2 className={s.panelTitle}>À traiter</h2>
-              <p className={s.panelSub}>Contrats en défaut et plafonds de consommation approchés.</p>
+              <p className={s.panelSub}>
+                Contrats en défaut, et cabinets qui approchent leur plafond de fiches.
+              </p>
               <div className={s.attention}>
                 {late.map((row) => (
                   <div key={row.cabinet.id} className={s.attentionRow}>
@@ -296,7 +304,7 @@ export function CabinetPortfolio() {
                   <div key={`cap-${row.cabinet.id}`} className={s.attentionRow}>
                     <span className={s.attentionName}>{row.cabinet.name}</span>
                     <span style={{ color: 'var(--c-warn-text-2)' }}>
-                      {Math.round(row.usagePct)} % du plafond IA
+                      {row.stats.patientsActive} fiches sur {maxPatientsOf(row.subscription, row.plan)}
                     </span>
                   </div>
                 ))}

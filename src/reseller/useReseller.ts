@@ -14,7 +14,28 @@ import { supabase } from '@/lib/supabase'
 import { demanderInvitation } from '@/services/invitations'
 import { CABINETS, CABINET_STATS, PLANS, SUBSCRIPTIONS } from '@/data/reseller'
 import { slugify } from '@/state/resellerSelectors'
-import type { CabinetBranding, PlanCode, PortfolioRow } from '@/types/reseller'
+import type { CabinetBranding, Plan, PlanCode, PortfolioRow } from '@/types/reseller'
+
+/** Une ligne de la table `plans`, telle que le revendeur la règle. */
+interface PlanRow {
+  code: PlanCode
+  label: string
+  price_cents: number
+  max_patients: number | null
+  shop: boolean
+  marque_blanche: boolean
+  site: boolean
+  position: number
+}
+
+/** Les exceptions négociées, lues sur `subscriptions`. */
+interface ExceptionRow {
+  cabinet_id: string
+  max_patients_override: number | null
+  shop_override: boolean | null
+  marque_blanche_override: boolean | null
+  site_override: boolean | null
+}
 
 /** Une ligne de `reseller_cabinet_overview()`. */
 interface OverviewRow {
@@ -27,8 +48,6 @@ interface OverviewRow {
   patients_active: number
   adherence_avg: number | null
   sessions_30d: number
-  ai_spend_cents_month: number
-  ai_cap_cents: number | null
   plan_code: PlanCode | null
   plan_label: string | null
   status: string | null
@@ -70,8 +89,28 @@ export interface Resultat {
   message: string
 }
 
+/** Ce que le revendeur peut changer sur une offre. */
+export interface ReglageOffre {
+  label?: string
+  priceCents?: number
+  maxPatients?: number | null
+  shop?: boolean
+  marqueBlanche?: boolean
+  site?: boolean
+}
+
+/** Les exceptions accordées à un cabinet. `null` remet l'offre en vigueur. */
+export interface Exceptions {
+  maxPatientsOverride?: number | null
+  shopOverride?: boolean | null
+  marqueBlancheOverride?: boolean | null
+  siteOverride?: boolean | null
+}
+
 export interface ResellerData {
   rows: PortfolioRow[]
+  /** Le catalogue, tel qu'il est en base — ou celui de démonstration. */
+  offres: Plan[]
   praticiennes: Praticienne[]
   invitations: InvitationEnAttente[]
   /** Vrai quand les données viennent de la base et non de la démonstration. */
@@ -86,6 +125,10 @@ export interface ResellerData {
     fiche: { name?: string; slug?: string; tagline?: string; branding?: CabinetBranding },
   ) => Promise<Resultat>
   changerOffre: (cabinetId: string, offre: PlanCode) => Promise<Resultat>
+  /** Règle une offre du catalogue : son prix et ce qu'elle ouvre. */
+  enregistrerOffre: (code: PlanCode, champs: ReglageOffre) => Promise<Resultat>
+  /** Accorde ou retire une exception à un cabinet, sans toucher à l'offre. */
+  reglerExceptions: (cabinetId: string, champs: Exceptions) => Promise<Resultat>
 }
 
 /** Le portefeuille de démonstration, quand il n'y a pas de session. */
@@ -93,24 +136,18 @@ function portefeuilleFictif(): PortfolioRow[] {
   return CABINETS.filter((c) => !c.archived).map((cabinet) => {
     const subscription = SUBSCRIPTIONS[cabinet.id]
     const plan = PLANS.find((p) => p.code === subscription.plan) ?? PLANS[0]
-    const capCents = subscription.capOverrideCents ?? plan.aiCapCents
-    const stats = CABINET_STATS[cabinet.id]
-    return {
-      cabinet,
-      stats,
-      subscription,
-      plan,
-      capCents,
-      usagePct: capCents > 0 ? (stats.aiSpendCents / capCents) * 100 : 0,
-    }
+    return { cabinet, stats: CABINET_STATS[cabinet.id], subscription, plan }
   })
 }
 
 /** Une ligne de la base, mise à la forme que les écrans attendent déjà. */
-function versPortfolio(o: OverviewRow, fiche: CabinetRow | undefined): PortfolioRow {
-  const plan = PLANS.find((p) => p.code === o.plan_code) ?? PLANS[0]
-  const capCents = o.ai_cap_cents ?? plan.aiCapCents
-  const spend = Number(o.ai_spend_cents_month ?? 0)
+function versPortfolio(
+  o: OverviewRow,
+  fiche: CabinetRow | undefined,
+  offres: Plan[],
+  exception: ExceptionRow | undefined,
+): PortfolioRow {
+  const plan = offres.find((p) => p.code === o.plan_code) ?? offres[0]
   return {
     cabinet: {
       id: o.cabinet_id,
@@ -134,23 +171,40 @@ function versPortfolio(o: OverviewRow, fiche: CabinetRow | undefined): Portfolio
       patientsActive: Number(o.patients_active ?? 0),
       adherenceAvg: o.adherence_avg === null ? null : Number(o.adherence_avg),
       sessions30d: Number(o.sessions_30d ?? 0),
-      aiSpendCents: spend,
     },
     subscription: {
       cabinetId: o.cabinet_id,
       plan: (o.plan_code ?? 'cabinet') as PlanCode,
       status: (o.status ?? 'essai') as PortfolioRow['subscription']['status'],
       periodEnd: o.current_period_end ?? '—',
-      capOverrideCents: null,
+      maxPatientsOverride: exception?.max_patients_override ?? null,
+      shopOverride: exception?.shop_override ?? null,
+      marqueBlancheOverride: exception?.marque_blanche_override ?? null,
+      siteOverride: exception?.site_override ?? null,
     },
     plan,
-    capCents,
-    usagePct: capCents > 0 ? (spend / capCents) * 100 : 0,
+  }
+}
+
+/** Le catalogue de la base, à la forme des écrans. */
+function versOffre(r: PlanRow): Plan {
+  return {
+    code: r.code,
+    label: r.label,
+    priceCents: r.price_cents,
+    maxPatients: r.max_patients,
+    shop: Boolean(r.shop),
+    marqueBlanche: Boolean(r.marque_blanche),
+    site: Boolean(r.site),
+    // L'argumentaire reste écrit dans le produit : c'est du texte de vente,
+    // pas une donnée que le revendeur règle écran par écran.
+    includes: PLANS.find((p) => p.code === r.code)?.includes ?? [],
   }
 }
 
 export function useReseller(): ResellerData {
   const [rows, setRows] = useState<PortfolioRow[]>(() => portefeuilleFictif())
+  const [offres, setOffres] = useState<Plan[]>(PLANS)
   const [praticiennes, setPraticiennes] = useState<Praticienne[]>([])
   const [invitations, setInvitations] = useState<InvitationEnAttente[]>([])
   const [reel, setReel] = useState(false)
@@ -177,11 +231,15 @@ export function useReseller(): ResellerData {
     }
     setErreur('')
 
-    const [apercu, fiches, membres, invits] = await Promise.all([
+    const [apercu, fiches, membres, invits, catalogue, exceptions] = await Promise.all([
       db.rpc('reseller_cabinet_overview'),
       db.from('cabinets').select('id, name, slug, tagline, branding, created_at'),
       db.from('cabinet_members').select('cabinet_id, display_name, role'),
       db.from('cabinet_invitations').select('cabinet_id, email, expires_at').is('accepted_at', null),
+      db.from('plans').select('code, label, price_cents, max_patients, shop, marque_blanche, site, position').order('position'),
+      db
+        .from('subscriptions')
+        .select('cabinet_id, max_patients_override, shop_override, marque_blanche_override, site_override'),
     ])
 
     if (apercu.error) {
@@ -193,9 +251,19 @@ export function useReseller(): ResellerData {
     const parId = new Map<string, CabinetRow>()
     for (const f of (fiches.data ?? []) as CabinetRow[]) parId.set(f.id, f)
 
+    /* Le catalogue vient de la base. S'il est vide — une base neuve, une
+       lecture refusée — on garde celui du produit plutôt que de rendre des
+       lignes sans offre : un portefeuille sans prix ne se lit pas. */
+    const lues = ((catalogue.data ?? []) as PlanRow[]).map(versOffre)
+    const cat = lues.length ? lues : PLANS
+    setOffres(cat)
+
+    const parCabinet = new Map<string, ExceptionRow>()
+    for (const e of (exceptions.data ?? []) as ExceptionRow[]) parCabinet.set(e.cabinet_id, e)
+
     const equipes = (membres.data ?? []) as Praticienne[]
     const lignes = ((apercu.data ?? []) as OverviewRow[]).map((o) => {
-      const row = versPortfolio(o, parId.get(o.cabinet_id))
+      const row = versPortfolio(o, parId.get(o.cabinet_id), cat, parCabinet.get(o.cabinet_id))
       const equipe = equipes.find((m) => m.cabinet_id === o.cabinet_id)
       const invit = ((invits.data ?? []) as InvitationEnAttente[]).find((i) => i.cabinet_id === o.cabinet_id)
       row.cabinet.therapist = equipe?.display_name ?? (invit ? 'Invitation envoyée' : 'Aucune praticienne')
@@ -370,16 +438,73 @@ export function useReseller(): ResellerData {
         .update({ plan_code: offre, updated_at: new Date().toISOString() })
         .eq('cabinet_id', cabinetId)
       await recharger()
-      const label = PLANS.find((p) => p.code === offre)?.label ?? offre
+      const label = offres.find((p) => p.code === offre)?.label ?? offre
       return error
         ? { ok: false, message: "L'offre n'a pas pu être changée." }
         : { ok: true, message: `Offre ${label} appliquée. Le nouveau plafond vaut pour le prochain cycle.` }
+    },
+    [offres, recharger, reel],
+  )
+
+  /**
+   * Régler une offre du catalogue.
+   *
+   * Le changement vaut pour TOUS les cabinets qui la portent, immédiatement :
+   * c'est le propre d'un catalogue. Pour une faveur à un seul cabinet, ce sont
+   * les exceptions ci-dessous.
+   */
+  const enregistrerOffre = useCallback(
+    async (code: PlanCode, champs: ReglageOffre): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !reel) return { ok: false, message: 'Connectez-vous pour régler vos offres.' }
+      const ligne: Record<string, unknown> = {}
+      if (champs.label !== undefined) ligne.label = champs.label.trim()
+      if (champs.priceCents !== undefined) ligne.price_cents = Math.max(0, Math.round(champs.priceCents))
+      if (champs.maxPatients !== undefined) ligne.max_patients = champs.maxPatients
+      if (champs.shop !== undefined) ligne.shop = champs.shop
+      if (champs.marqueBlanche !== undefined) ligne.marque_blanche = champs.marqueBlanche
+      if (champs.site !== undefined) ligne.site = champs.site
+      if (!Object.keys(ligne).length) return { ok: true, message: '' }
+
+      const { error } = await db.from('plans').update(ligne).eq('code', code)
+      await recharger()
+      if (error) return { ok: false, message: "L'offre n'a pas pu être enregistrée." }
+      return {
+        ok: true,
+        message: 'Offre enregistrée. Elle vaut dès maintenant pour tous les cabinets qui la portent.',
+      }
+    },
+    [recharger, reel],
+  )
+
+  /**
+   * Accorder une exception à un cabinet.
+   *
+   * `null` remet l'offre en vigueur pour ce levier — c'est ce qui permet de
+   * retirer une faveur sans avoir à se souvenir de ce que l'offre disait.
+   */
+  const reglerExceptions = useCallback(
+    async (cabinetId: string, champs: Exceptions): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !reel) return { ok: false, message: 'Connectez-vous pour régler ce cabinet.' }
+      const ligne: Record<string, unknown> = { updated_at: new Date().toISOString() }
+      if (champs.maxPatientsOverride !== undefined) ligne.max_patients_override = champs.maxPatientsOverride
+      if (champs.shopOverride !== undefined) ligne.shop_override = champs.shopOverride
+      if (champs.marqueBlancheOverride !== undefined) ligne.marque_blanche_override = champs.marqueBlancheOverride
+      if (champs.siteOverride !== undefined) ligne.site_override = champs.siteOverride
+
+      const { error } = await db.from('subscriptions').update(ligne).eq('cabinet_id', cabinetId)
+      await recharger()
+      return error
+        ? { ok: false, message: "L'exception n'a pas pu être enregistrée." }
+        : { ok: true, message: 'Réglage appliqué à ce cabinet seul.' }
     },
     [recharger, reel],
   )
 
   return {
     rows,
+    offres,
     praticiennes,
     invitations,
     reel,
@@ -390,5 +515,7 @@ export function useReseller(): ResellerData {
     inviterPraticienne,
     enregistrerMarque,
     changerOffre,
+    enregistrerOffre,
+    reglerExceptions,
   }
 }

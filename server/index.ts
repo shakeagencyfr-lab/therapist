@@ -11,6 +11,7 @@ import { AI_ROUTES, currentMode, describeError, handleAi, type AiRoute } from '.
 import { jetonDe } from './auth.js'
 import { envoyerInvitation } from './invitations.js'
 import { appliquerIntegration, etatIntegrations } from './integrations.js'
+import { agirVolet, lireVolet } from './cabinet.js'
 import { demarrerPaiement, verifierPaiement } from './shop.js'
 
 const PORT = Number(process.env.PORT) || 8787
@@ -54,6 +55,26 @@ app.post('/api/integrations', async (req: Request, res: Response): Promise<void>
     const { status, message } = describeError(err)
     // Journal technique seulement : jamais une clé, jamais un corps de requête.
     console.error(`[integrations] ${status} · ${message}`)
+    res.status(status).json({ error: message })
+  }
+})
+
+/** Réglages du cabinet : offre, domaine, envoi de courriels, site vitrine. */
+app.get('/api/cabinet', async (req: Request, res: Response): Promise<void> => {
+  try {
+    res.json(await lireVolet(req.query.volet, jetonDe(req.headers.authorization)))
+  } catch (err) {
+    const { status, message } = describeError(err)
+    res.status(status).json({ error: message })
+  }
+})
+app.post('/api/cabinet', async (req: Request, res: Response): Promise<void> => {
+  try {
+    res.json(await agirVolet(req.body, jetonDe(req.headers.authorization)))
+  } catch (err) {
+    const { status, message } = describeError(err)
+    // Journal technique seulement : jamais un secret, jamais un corps de requête.
+    console.error(`[cabinet] ${status} · ${message}`)
     res.status(status).json({ error: message })
   }
 })

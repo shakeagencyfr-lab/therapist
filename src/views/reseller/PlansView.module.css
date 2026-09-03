@@ -40,43 +40,96 @@
   margin-left: 5px;
 }
 
-.includes {
+/* Le nom de l'offre s'édite sur place : c'est un titre, pas un formulaire. */
+.planNameInput {
+  font-family: var(--font-serif);
+  font-size: 21px;
+  font-weight: 400;
+  color: var(--c-text);
+  background: none;
+  border: none;
+  border-bottom: 1px dashed var(--c-border);
+  padding: 0 0 2px;
+  min-width: 0;
+  width: 100%;
+}
+.planNameInput:focus {
+  outline: none;
+  border-bottom-color: var(--c-accent);
+}
+
+.reglages {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.champUnite {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.champUnite input {
+  min-width: 0;
+}
+.unite {
+  font-size: 12px;
+  color: var(--c-text-muted);
+  flex: none;
+}
+
+.leviers {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 10px;
 }
-.include {
+.levier {
   display: flex;
-  gap: 9px;
+  align-items: flex-start;
+  gap: 10px;
+}
+.levierLabel {
+  display: block;
   font-size: 12.5px;
-  line-height: 1.5;
-  color: var(--c-text-3);
+  color: var(--c-text);
+}
+.levierDetail {
+  display: block;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--c-text-muted);
+  margin-top: 1px;
 }
 .tick {
   color: var(--c-accent);
   flex: none;
 }
+.cross {
+  color: var(--c-text-muted);
+  flex: none;
+}
 
-.limits {
+.planPied {
   border-top: 1px solid var(--c-border-light);
   padding-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--c-text-muted);
   margin-top: auto;
-}
-.limitRow {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 10px;
 }
-.limitValue {
-  color: var(--c-text);
+.planPiedNote {
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+  line-height: 1.4;
+}
+.probleme {
+  font-size: 11.5px;
+  color: var(--c-warn-text-2);
+  line-height: 1.4;
 }
 
 .table {
@@ -101,16 +154,19 @@
   margin: 0;
 }
 
+.bloc {
+  border-bottom: 1px solid var(--c-border-light);
+}
+.bloc:last-of-type {
+  border-bottom: none;
+}
+
 .row {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) auto auto auto;
+  grid-template-columns: minmax(0, 1.3fr) auto auto auto auto;
   gap: 14px;
   align-items: center;
   padding: 14px 20px;
-  border-bottom: 1px solid var(--c-border-light);
-}
-.row:last-child {
-  border-bottom: none;
 }
 
 .name {
@@ -140,12 +196,13 @@
   min-width: 110px;
 }
 
-.spend {
-  min-width: 110px;
+.fiches {
+  min-width: 118px;
 }
-.spendLine {
+.fichesLine {
   display: flex;
   justify-content: space-between;
+  gap: 8px;
   font-size: 11px;
   color: var(--c-text-muted);
   margin-bottom: 5px;
@@ -188,4 +245,57 @@
   padding: 12px 20px;
   font-size: 11.5px;
   color: var(--c-text-muted);
+}
+
+/* Le bouton d'exceptions, et la pastille qui dit qu'il y en a. */
+.reglerBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-pill);
+  background: var(--c-surface);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--c-text-4);
+  white-space: nowrap;
+}
+.reglerBtn:hover:not(:disabled) {
+  background: var(--c-surface-2);
+}
+.reglerBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.pastille {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--c-accent);
+  flex: none;
+}
+
+/* Les exceptions d'un cabinet : sous sa rangée, jamais dedans. */
+.exception {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 16px;
+  padding: 4px 20px 18px;
+  background: var(--c-surface-2);
+}
+.exceptionMax input {
+  min-width: 0;
+}
+.exceptionEtats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.exceptionNote {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--c-text-muted);
+  margin: 6px 0 0;
 }

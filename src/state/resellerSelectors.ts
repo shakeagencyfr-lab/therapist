@@ -7,7 +7,7 @@
  */
 import { CABINET_STATS, PLANS } from '@/data/reseller'
 import type { AppState } from './state'
-import type { CabinetId, Plan, PlanCode, PortfolioRow, Subscription } from '@/types/reseller'
+import type { CabinetId, Levier, Plan, PlanCode, PortfolioRow, Subscription } from '@/types/reseller'
 
 /** Sous ce nombre de patients actifs, une moyenne devient un chiffre individuel. */
 export const SEUIL_ANONYMAT = 3
@@ -16,9 +16,21 @@ export function planOf(code: PlanCode): Plan {
   return PLANS.find((p) => p.code === code) ?? PLANS[0]
 }
 
-/** Plafond effectif : celui négocié avec le cabinet, sinon celui de l'offre. */
-export function capOf(subscription: Subscription): number {
-  return subscription.capOverrideCents ?? planOf(subscription.plan).aiCapCents
+/** Fiches actives autorisées : celles négociées, sinon celles de l'offre. */
+export function maxPatientsOf(subscription: Subscription, plan: Plan): number | null {
+  return subscription.maxPatientsOverride ?? plan.maxPatients
+}
+
+/** L'exception posée sur un levier, s'il y en a une. null = rien de négocié. */
+export function overrideDe(subscription: Subscription, levier: Levier): boolean | null {
+  if (levier === 'shop') return subscription.shopOverride
+  if (levier === 'marqueBlanche') return subscription.marqueBlancheOverride
+  return subscription.siteOverride
+}
+
+/** Un levier est-il ouvert à ce cabinet ? L'exception l'emporte sur l'offre. */
+export function levierOuvert(subscription: Subscription, plan: Plan, levier: Levier): boolean {
+  return overrideDe(subscription, levier) ?? plan[levier]
 }
 
 /** Le portefeuille, prêt à afficher. */
@@ -28,22 +40,13 @@ export function portfolio(state: AppState): PortfolioRow[] {
     .map((cabinet) => {
       const subscription = state.rSubs[cabinet.id]
       const plan = planOf(subscription.plan)
-      const capCents = capOf(subscription)
       const stats = CABINET_STATS[cabinet.id] ?? {
         therapists: 1,
         patientsActive: 0,
         adherenceAvg: null,
         sessions30d: 0,
-        aiSpendCents: 0,
       }
-      return {
-        cabinet,
-        stats,
-        subscription,
-        plan,
-        capCents,
-        usagePct: capCents > 0 ? (stats.aiSpendCents / capCents) * 100 : 0,
-      }
+      return { cabinet, stats, subscription, plan }
     })
 }
 
@@ -70,9 +73,18 @@ export function mrrCents(rows: PortfolioRow[]): number {
     .reduce((total, r) => total + r.plan.priceCents, 0)
 }
 
-/** Cabinets qui approchent ou dépassent leur plafond de consommation IA. */
+/**
+ * Cabinets dont les fiches actives approchent le plafond de leur offre.
+ *
+ * C'est le seul compteur qui appelle une action commerciale : une praticienne
+ * qui bute sur son plafond est une praticienne prête à monter d'offre, et
+ * mieux vaut le lui proposer que la laisser buter.
+ */
 export function nearCap(rows: PortfolioRow[]): PortfolioRow[] {
-  return rows.filter((r) => r.usagePct >= 80)
+  return rows.filter((r) => {
+    const max = maxPatientsOf(r.subscription, r.plan)
+    return max !== null && r.stats.patientsActive >= max * 0.8
+  })
 }
 
 /** Cabinets dont le contrat demande une action. */
@@ -86,9 +98,30 @@ export function totals(rows: PortfolioRow[]) {
     cabinets: rows.length,
     patients: rows.reduce((n, r) => n + r.stats.patientsActive, 0),
     sessions: rows.reduce((n, r) => n + r.stats.sessions30d, 0),
-    aiSpendCents: rows.reduce((n, r) => n + r.stats.aiSpendCents, 0),
-    aiCapCents: rows.reduce((n, r) => n + r.capCents, 0),
   }
+}
+
+/**
+ * Occupation du portefeuille : fiches actives rapportées aux plafonds.
+ *
+ * C'est le chiffre qui dit s'il reste de la place à vendre. Les cabinets sans
+ * limite sont comptés à part : les inclure ferait tendre le taux vers zéro et
+ * cacherait justement ceux qui butent.
+ */
+export function occupation(rows: PortfolioRow[]) {
+  let actives = 0
+  let capacite = 0
+  let illimites = 0
+  for (const r of rows) {
+    const max = maxPatientsOf(r.subscription, r.plan)
+    if (max === null) {
+      illimites += 1
+      continue
+    }
+    actives += r.stats.patientsActive
+    capacite += max
+  }
+  return { actives, capacite, illimites, pct: capacite > 0 ? (actives / capacite) * 100 : 0 }
 }
 
 /** Sous-domaine proposé pour un nom de cabinet. */
