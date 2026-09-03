@@ -79,7 +79,7 @@ export function SiteView() {
       setSite(suite.site)
       setMessage(
         suite.site.publie
-          ? 'Site publié. Il répond à votre adresse publique.'
+          ? 'Enregistré et en ligne : vos modifications sont visibles à votre adresse publique.'
           : 'Brouillon enregistré. Rien n’est visible de l’extérieur tant que vous ne publiez pas.',
       )
     } catch (err) {
@@ -300,8 +300,11 @@ export function SiteView() {
               <Button variant="primary" disabled={occupe !== ''} onClick={() => void enregistrer(true)}>
                 {occupe === 'enregistrer' ? 'Enregistrement…' : site.publie ? 'Publier les modifications' : 'Publier'}
               </Button>
+              {/* Sur un site déjà en ligne, « enregistrer » publie forcément :
+                  promettre le contraire ferait croire à un brouillon. Le
+                  bouton ne le dit donc que lorsque c'est vrai. */}
               <Button variant="secondary" disabled={occupe !== ''} onClick={() => void enregistrer()}>
-                Enregistrer sans publier
+                {site.publie ? 'Enregistrer le brouillon en ligne' : 'Enregistrer sans publier'}
               </Button>
               {site.publie ? (
                 <>

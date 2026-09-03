@@ -121,15 +121,18 @@ export function PatientSpace() {
     void db.rpc('patient_count_listen', { p_audio: id }).then(() => recharger())
   }
 
+  /**
+   * La note du soir.
+   *
+   * Une ligne par jour, corrigée si elle change d'avis : chaque appui posait
+   * un point de plus sur la courbe de sa thérapeute, qui comptait trois
+   * mesures là où il y avait une soirée d'hésitation.
+   */
   async function noterEchelle(valeur: number) {
     const db = supabase()
     if (!db) return
     setEchelle(valeur)
-    const { error } = await db.from('scale_entries').insert({
-      patient_id: patient!.id,
-      cabinet_id: patient!.cabinet_id,
-      value: valeur,
-    })
+    const { error } = await db.rpc('patient_note_echelle', { p_value: valeur })
     setEnvoi(error ? "L'enregistrement a échoué. Réessayez." : "C'est noté, merci.")
     if (!error) await recharger()
   }

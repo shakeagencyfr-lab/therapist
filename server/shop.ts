@@ -20,6 +20,7 @@
  * se déclarer payée, seul Stripe le dit au serveur.
  */
 import Stripe from 'stripe'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { clientAdmin, identifier } from './auth.js'
 import { levierDuCabinet } from './droits.js'
 import { HttpError } from './errors.js'
@@ -46,6 +47,23 @@ interface OrderRow {
   product_id: string | null
   title: string
   status: 'en_attente' | 'payee' | 'annulee'
+}
+
+/**
+ * L'adresse à laquelle la patiente revient après le paiement.
+ *
+ * En marque blanche, c'est CELLE DE SON CABINET : renvoyer sur le domaine de
+ * la plateforme après un paiement, c'est révéler le fournisseur au pire
+ * moment — juste après avoir demandé une carte bancaire. Le domaine n'est
+ * retenu que vérifié, faute de quoi le retour tomberait dans le vide.
+ */
+async function retourDuCabinet(cabinetId: string, db: SupabaseClient): Promise<string> {
+  const { data } = await db
+    .from('cabinet_domains')
+    .select('domaine, verifie')
+    .eq('cabinet_id', cabinetId)
+    .maybeSingle<{ domaine: string; verifie: boolean }>()
+  return data?.verifie && data.domaine ? `https://${data.domaine}` : SITE
 }
 
 function admin() {
@@ -116,6 +134,7 @@ export async function demarrerPaiement(token: string | null, raw: unknown): Prom
     throw new HttpError(503, "L'adresse publique du site n'est pas configurée (PUBLIC_SITE_URL).")
   }
 
+  const retour = await retourDuCabinet(cabinetId, db)
   const stripe = await stripeDuCabinet(cabinetId)
   let session: Stripe.Checkout.Session
   try {
@@ -133,8 +152,8 @@ export async function demarrerPaiement(token: string | null, raw: unknown): Prom
         },
       ],
       metadata: { cabinet_id: cabinetId, patient_id: patientId, product_id: produit.id },
-      success_url: `${SITE}/mon?commande={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${SITE}/mon?annule=1`,
+      success_url: `${retour}/mon?commande={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${retour}/mon?annule=1`,
     })
   } catch (err) {
     console.error('[boutique] création de session —', (err as Error).message)
@@ -165,9 +184,11 @@ export interface VerifierBody {
 }
 
 export interface Verification {
-  /** Le paiement est confirmé et la commande livrée. */
+  /** Le paiement est confirmé. */
   payee: boolean
   title: string | null
+  /** Ce qui a été acheté est arrivé. Faux : la livraison sera reprise. */
+  livre: boolean
 }
 
 export async function verifierPaiement(token: string | null, raw: unknown): Promise<Verification> {
@@ -186,7 +207,15 @@ export async function verifierPaiement(token: string | null, raw: unknown): Prom
   if (!commande || commande.patient_id !== patientId || commande.cabinet_id !== cabinetId) {
     throw new HttpError(404, 'Commande introuvable.')
   }
-  if (commande.status === 'payee') return { payee: true, title: commande.title }
+  /* Déjà payée : on retente la livraison plutôt que de la déclarer faite.
+     L'état « payée » passait AVANT la livraison, et une livraison en échec
+     n'était jamais reprise — la patiente avait payé un audio qui n'arrivait
+     pas, et chaque rechargement lui répondait que tout allait bien.
+     L'écriture est idempotente : rien ne se livre deux fois. */
+  if (commande.status === 'payee') {
+    const livre = await livrer(commande, cabinetId, patientId, false)
+    return { payee: true, title: commande.title, livre }
+  }
 
   const stripe = await stripeDuCabinet(cabinetId)
   let session: Stripe.Checkout.Session
@@ -195,7 +224,7 @@ export async function verifierPaiement(token: string | null, raw: unknown): Prom
   } catch {
     throw new HttpError(502, 'Le paiement n’a pas pu être vérifié. Réessayez dans un instant.')
   }
-  if (session.payment_status !== 'paid') return { payee: false, title: commande.title }
+  if (session.payment_status !== 'paid') return { payee: false, title: commande.title, livre: false }
 
   // Payée : on le note, puis on livre. L'état passe d'abord, pour que deux
   // vérifications simultanées ne livrent pas deux fois.
@@ -205,33 +234,56 @@ export async function verifierPaiement(token: string | null, raw: unknown): Prom
     .eq('id', commande.id)
     .eq('status', 'en_attente')
     .select('id')
-  if (!passee?.length) return { payee: true, title: commande.title }
+  if (!passee?.length) {
+    const livre = await livrer(commande, cabinetId, patientId, false)
+    return { payee: true, title: commande.title, livre }
+  }
 
-  await livrer(commande, cabinetId, patientId)
-  return { payee: true, title: commande.title }
+  const livre = await livrer(commande, cabinetId, patientId, true)
+  return { payee: true, title: commande.title, livre }
 }
 
-/** Ce qu'un achat déclenche : un audio rejoint la bibliothèque de la patiente. */
-async function livrer(commande: OrderRow, cabinetId: string, patientId: string): Promise<void> {
-  if (!commande.product_id) return
+/**
+ * Ce qu'un achat déclenche : un audio rejoint la bibliothèque de la patiente.
+ *
+ * Rend vrai quand il n'y a plus rien à livrer — livraison faite, ou produit
+ * sans livraison automatique (une séance, un programme, qui se règlent hors
+ * de l'application). Faux quand l'écriture a échoué : l'appelant le dit à la
+ * patiente, et la tentative repart au rechargement suivant.
+ */
+async function livrer(
+  commande: OrderRow,
+  cabinetId: string,
+  patientId: string,
+  journaliser: boolean,
+): Promise<boolean> {
   const db = admin()
+  if (journaliser) {
+    await db.from('audit_log').insert({
+      cabinet_id: cabinetId,
+      action: 'boutique.commande_payee',
+      target_table: 'orders',
+      target_id: commande.id,
+    })
+  }
+  if (!commande.product_id) return true
   const { data: produit } = await db
     .from('products')
     .select('kind, audio_id')
     .eq('id', commande.product_id)
     .maybeSingle<{ kind: string; audio_id: string | null }>()
-  if (produit?.kind === 'audio' && produit.audio_id) {
-    await db
-      .from('patient_audios')
-      .upsert(
-        { cabinet_id: cabinetId, patient_id: patientId, audio_id: produit.audio_id },
-        { onConflict: 'patient_id,audio_id', ignoreDuplicates: true },
-      )
+  if (produit?.kind !== 'audio' || !produit.audio_id) return true
+
+  const { error } = await db
+    .from('patient_audios')
+    .upsert(
+      { cabinet_id: cabinetId, patient_id: patientId, audio_id: produit.audio_id },
+      { onConflict: 'patient_id,audio_id', ignoreDuplicates: true },
+    )
+  if (error) {
+    // Journal technique seulement : ni dossier, ni contenu.
+    console.error(`[boutique] livraison — commande ${commande.id} · ${error.message}`)
+    return false
   }
-  await db.from('audit_log').insert({
-    cabinet_id: cabinetId,
-    action: 'boutique.commande_payee',
-    target_table: 'orders',
-    target_id: commande.id,
-  })
+  return true
 }
