@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clock, dateDuJour, durationToSeconds, euro, plural, timecode } from './format'
+import { clock, dateDuJour, dateLongue, durationToSeconds, euro, plural, timecode } from './format'
 
 describe('formats partagés', () => {
   it('clock : mm:ss sur deux chiffres', () => {
@@ -25,5 +25,16 @@ describe('formats partagés', () => {
   })
   it('dateDuJour : jour et mois en toutes lettres', () => {
     expect(dateDuJour(new Date(2026, 8, 1))).toBe('1 septembre')
+  })
+
+  /* Les horodatages sortent de Postgres en ISO. Affichés tels quels à côté de
+     « Échéance le », ils ne se lisent pas — donc ne se vérifient pas. */
+  it('dateLongue : une date de base devient lisible', () => {
+    expect(dateLongue('2026-10-03T00:00:00+00:00')).toBe('3 octobre 2026')
+    expect(dateLongue(null)).toBe('—')
+    expect(dateLongue('')).toBe('—')
+    // Une valeur qu'on ne sait pas lire est rendue telle quelle : mieux vaut
+    // une chaîne étrange qu'un « Invalid Date » ou un tiret qui efface.
+    expect(dateLongue('pas une date')).toBe('pas une date')
   })
 })

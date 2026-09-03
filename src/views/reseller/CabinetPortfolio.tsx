@@ -295,8 +295,11 @@ export function CabinetPortfolio() {
                 {late.map((row) => (
                   <div key={row.cabinet.id} className={s.attentionRow}>
                     <span className={s.attentionName}>{row.cabinet.name}</span>
+                    {/* La date est celle de fin de période, pas celle du défaut :
+                        écrire « impayé depuis » sur une échéance à venir serait
+                        faux. On nomme donc ce qu'on affiche. */}
                     <Pill tone="warn">
-                      {STATUS_LABEL[row.subscription.status]} depuis le {row.subscription.periodEnd}
+                      {STATUS_LABEL[row.subscription.status]} · échéance {row.subscription.periodEnd}
                     </Pill>
                   </div>
                 ))}

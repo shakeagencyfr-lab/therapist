@@ -39,3 +39,17 @@ export function euroCents(cents: number): string {
 export function dateDuJour(now: Date = new Date()): string {
   return now.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
 }
+
+/**
+ * Une date de base, telle qu'on la lit : « 3 octobre 2026 ».
+ *
+ * Les horodatages sortent de Postgres en ISO — « 2026-10-03T00:00:00+00:00 ».
+ * Affiché tel quel, à côté de « Échéance le », c'est illisible ; et une date
+ * illisible est une date qu'on ne vérifie pas.
+ */
+export function dateLongue(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+}

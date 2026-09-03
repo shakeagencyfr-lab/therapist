@@ -10,6 +10,7 @@
  * fictif de src/data/reseller.ts : les écrans restent montrables sans compte.
  */
 import { useCallback, useEffect, useState } from 'react'
+import { dateLongue } from '@/lib/format'
 import { supabase } from '@/lib/supabase'
 import { demanderInvitation } from '@/services/invitations'
 import { CABINETS, CABINET_STATS, PLANS, SUBSCRIPTIONS } from '@/data/reseller'
@@ -176,7 +177,7 @@ function versPortfolio(
       cabinetId: o.cabinet_id,
       plan: (o.plan_code ?? 'cabinet') as PlanCode,
       status: (o.status ?? 'essai') as PortfolioRow['subscription']['status'],
-      periodEnd: o.current_period_end ?? '—',
+      periodEnd: dateLongue(o.current_period_end),
       maxPatientsOverride: exception?.max_patients_override ?? null,
       shopOverride: exception?.shop_override ?? null,
       marqueBlancheOverride: exception?.marque_blanche_override ?? null,
