@@ -40,6 +40,8 @@ export function demarrerPaiement(productId: string): Promise<{ url: string }> {
 }
 
 /** Au retour de Stripe : le paiement est-il confirmé, et qu'a-t-elle acheté ? */
-export function verifierPaiement(sessionId: string): Promise<{ payee: boolean; title: string | null }> {
+export function verifierPaiement(
+  sessionId: string,
+): Promise<{ payee: boolean; title: string | null; livre: boolean }> {
   return appel({ action: 'verifier', sessionId })
 }

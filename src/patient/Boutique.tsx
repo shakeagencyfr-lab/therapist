@@ -88,7 +88,17 @@ export function Boutique({
       .then(async (r) => {
         if (!vivant) return
         if (r.payee) {
-          setNotice({ tone: 'ok', text: `Paiement confirmé${r.title ? ` : ${r.title}` : ''}. Merci.` })
+          /* Payé mais pas encore livré : le dire, plutôt que remercier pour
+             quelque chose qui n'est pas arrivé. La livraison est reprise à
+             chaque retour sur cette page. */
+          setNotice(
+            r.livre
+              ? { tone: 'ok', text: `Paiement confirmé${r.title ? ` : ${r.title}` : ''}. Merci.` }
+              : {
+                  tone: 'hot',
+                  text: `Paiement confirmé${r.title ? ` : ${r.title}` : ''}, mais la livraison n'a pas abouti. Rouvrez cette page dans un instant : elle repartira toute seule.`,
+                },
+          )
           await onLivre()
           await charger()
         } else {

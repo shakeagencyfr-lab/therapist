@@ -32,7 +32,7 @@ export interface NotifTemplate {
 export const NOTIF_TEMPLATES: NotifTemplate[] = [
   {
     label: 'Relance douce',
-    title: 'Un mot de Laetitia',
+    title: 'Un mot de votre cabinet',
     message: "Rien d'urgent. Si la semaine a été dense, prenez seulement l'audio de dix minutes, le reste attendra la séance.",
   },
   {

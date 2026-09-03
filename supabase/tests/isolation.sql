@@ -10,16 +10,37 @@
 
 do $$
 declare
-  sante text[] := array[
-    'patients', 'patient_modules', 'module_quiz_answers', 'audio_categories',
-    'audio_library', 'patient_audios', 'scale_entries', 'journal_pages',
-    'therapy_sessions', 'psych_profiles', 'affirmations', 'patient_settings',
-    'custom_modules', 'push_notifications', 'push_recipients'
+  /* La liste ne se tient plus à la main : elle se déduit.
+     Toute table portant une colonne `patient_id` est une table de santé, par
+     construction — c'est ainsi que les tables d'hypnose et les commandes ont
+     échappé à cette épreuve pendant deux migrations. Restent les quelques
+     tables qui portent du contenu de soin sans désigner de patiente : elles
+     sont nommées ici, et elles seules. */
+  sante text[];
+  sans_patient text[] := array[
+    'patients', 'module_quiz_answers', 'audio_categories', 'audio_library',
+    'custom_modules', 'push_notifications', 'hypnose_mouvements'
   ];
   t text;
   n integer;
   fuite text;
 begin
+  select array_agg(distinct c.relname::text order by c.relname::text)
+    into sante
+  from pg_class c
+  join pg_namespace ns on ns.oid = c.relnamespace
+  join pg_attribute a on a.attrelid = c.oid and a.attnum > 0 and not a.attisdropped
+  where ns.nspname = 'public' and c.relkind = 'r' and a.attname = 'patient_id';
+
+  sante := sante || sans_patient;
+
+  -- Une table nommée à la main qui n'existe plus est un oubli, pas un succès.
+  foreach t in array sans_patient loop
+    if to_regclass('public.' || quote_ident(t)) is null then
+      raise exception 'La table de santé public.% est nommée dans l''épreuve mais n''existe pas', t;
+    end if;
+  end loop;
+
   -- 1. RLS active partout.
   foreach t in array sante loop
     select count(*) into n
@@ -54,5 +75,5 @@ begin
     raise exception 'Le rôle anonyme a des droits sur : %', fuite;
   end if;
 
-  raise notice 'Cloisonnement vérifié : % tables de santé, aucun accès revendeur, aucun accès anonyme.', array_length(sante, 1);
+  raise exception 'REUSSITE : % tables de santé, RLS partout, aucun chemin revendeur, aucun droit anonyme.', array_length(sante, 1);
 end $$;

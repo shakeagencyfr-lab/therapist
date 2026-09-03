@@ -317,7 +317,10 @@ export async function enregistrerSite(token: string | null, raw: unknown): Promi
   const { error } = await appelant.client
     .from('cabinet_sites')
     .upsert(ligne, { onConflict: 'cabinet_id' })
-  if (error) throw new HttpError(502, `Votre site n'a pas pu être enregistré : ${error.message}`)
+  if (error) {
+    console.error(`[site] enregistrement — ${error.message}`)
+    throw new HttpError(502, "Votre site n'a pas pu être enregistré. Réessayez dans un instant.")
+  }
   return etatSite(token)
 }
 
@@ -341,7 +344,15 @@ function exigerGoogle(): string {
   return GOOGLE_KEY
 }
 
-async function google(chemin: string, champs: string, corps?: unknown): Promise<Record<string, unknown>> {
+/**
+ * Un appel à l'API Places.
+ *
+ * `champs` est le masque de champs, obligatoire sur la recherche et sur le
+ * détail — Google refuse une demande qui ne dit pas ce qu'elle veut. Sur le
+ * point d'accès des photos, en revanche, il n'a pas de sens : on ne l'envoie
+ * donc pas plutôt que d'envoyer une étoile qui se ferait refuser.
+ */
+async function google(chemin: string, champs: string | null, corps?: unknown): Promise<Record<string, unknown>> {
   const cle = exigerGoogle()
   let reponse: Response
   try {
@@ -349,10 +360,13 @@ async function google(chemin: string, champs: string, corps?: unknown): Promise<
       method: corps ? 'POST' : 'GET',
       headers: {
         'X-Goog-Api-Key': cle,
-        'X-Goog-FieldMask': champs,
+        ...(champs ? { 'X-Goog-FieldMask': champs } : {}),
         ...(corps ? { 'Content-Type': 'application/json' } : {}),
       },
       body: corps ? JSON.stringify(corps) : undefined,
+      // L'hébergeur coupe la fonction à soixante secondes : mieux vaut
+      // abandonner avant et le dire, qu'être coupé sans explication.
+      signal: AbortSignal.timeout(15_000),
     })
   } catch {
     throw new HttpError(504, 'Google est injoignable depuis le serveur. Réessayez dans un instant.')
@@ -360,13 +374,15 @@ async function google(chemin: string, champs: string, corps?: unknown): Promise<
   const lu = (await reponse.json().catch(() => ({}))) as Record<string, unknown>
   if (!reponse.ok) {
     const message = ((lu.error as { message?: string } | undefined)?.message ?? '').slice(0, 200)
+    // Le motif de Google est en anglais et technique : journal, pas écran.
+    console.error(`[site] google ${reponse.status} — ${message}`)
     if (reponse.status === 403 || reponse.status === 401) {
       throw new HttpError(502, "Google refuse la clé de la plateforme. Prévenez votre revendeur.")
     }
     if (reponse.status === 429) {
       throw new HttpError(429, 'Google a reçu trop de demandes. Réessayez dans quelques minutes.')
     }
-    throw new HttpError(502, `Google a refusé la demande${message ? ` : ${message}` : '.'}`)
+    throw new HttpError(502, "Google n'a pas répondu à cette recherche. Réessayez dans un instant, ou remplissez votre page à la main.")
   }
   return lu
 }
@@ -435,8 +451,15 @@ async function recopierPhoto(cabinetId: string, nom: string, rang: number): Prom
   const client = clientAdmin()
   if (!client || !adminConfigure()) return null
 
-  const lu = await google(`${nom}/media?maxWidthPx=1600&skipHttpRedirect=true`, '*')
-  const source = String((lu as { photoUri?: string }).photoUri ?? '')
+  /* Une photo qui ne se recopie pas ne doit pas emporter tout l'import : la
+     fiche vaut d'être importée même amputée d'une image. */
+  let source = ''
+  try {
+    const lu = await google(`${nom}/media?maxWidthPx=1600&skipHttpRedirect=true`, null)
+    source = String((lu as { photoUri?: string }).photoUri ?? '')
+  } catch {
+    return null
+  }
   if (!source.startsWith('https://')) return null
 
   let octets: ArrayBuffer
@@ -555,6 +578,9 @@ export async function importerFicheGoogle(token: string | null, raw: unknown): P
   const { error } = await appelant.client
     .from('cabinet_sites')
     .upsert(ligne, { onConflict: 'cabinet_id' })
-  if (error) throw new HttpError(502, `La fiche n'a pas pu être enregistrée : ${error.message}`)
+  if (error) {
+    console.error(`[site] import — ${error.message}`)
+    throw new HttpError(502, "La fiche importée n'a pas pu être enregistrée. Réessayez dans un instant.")
+  }
   return etatSite(token)
 }

@@ -189,3 +189,22 @@
   font-size: 12px;
   color: var(--c-text-muted);
 }
+
+/* Clore un suivi : au-dessus de la zone dangereuse, et d'un autre ton — c'est
+   le geste ordinaire de fin d'accompagnement, pas la destruction d'un dossier. */
+.clore {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 22px;
+  padding: 14px 16px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  background: var(--c-surface-2);
+}
+
+.cloreTitre {
+  font-size: 13.5px;
+  font-weight: 500;
+}

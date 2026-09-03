@@ -10,6 +10,7 @@
  * fictif de src/data/reseller.ts : les écrans restent montrables sans compte.
  */
 import { useCallback, useEffect, useState } from 'react'
+import { dateLongue } from '@/lib/format'
 import { supabase } from '@/lib/supabase'
 import { demanderInvitation } from '@/services/invitations'
 import { CABINETS, CABINET_STATS, PLANS, SUBSCRIPTIONS } from '@/data/reseller'
@@ -147,6 +148,10 @@ function versPortfolio(
   offres: Plan[],
   exception: ExceptionRow | undefined,
 ): PortfolioRow {
+  /* Un cabinet sans ligne d'abonnement retombe sur la première offre du
+     catalogue — et l'offre affichée doit alors être CELLE-LÀ. Prendre le
+     libellé d'un côté et le code de l'autre allumait deux pastilles à la
+     fois sur la même ligne. */
   const plan = offres.find((p) => p.code === o.plan_code) ?? offres[0]
   return {
     cabinet: {
@@ -174,9 +179,9 @@ function versPortfolio(
     },
     subscription: {
       cabinetId: o.cabinet_id,
-      plan: (o.plan_code ?? 'cabinet') as PlanCode,
+      plan: (o.plan_code ?? plan.code) as PlanCode,
       status: (o.status ?? 'essai') as PortfolioRow['subscription']['status'],
-      periodEnd: o.current_period_end ?? '—',
+      periodEnd: dateLongue(o.current_period_end),
       maxPatientsOverride: exception?.max_patients_override ?? null,
       shopOverride: exception?.shop_override ?? null,
       marqueBlancheOverride: exception?.marque_blanche_override ?? null,
@@ -433,10 +438,18 @@ export function useReseller(): ResellerData {
     async (cabinetId: string, offre: PlanCode): Promise<Resultat> => {
       const db = supabase()
       if (!db || !reel) return { ok: false, message: "Connectez-vous pour changer d'offre." }
+      /* Un `update` sur un cabinet sans ligne d'abonnement ne touche rien et
+         ne se plaint pas : l'écran annonçait l'offre appliquée, la base
+         n'avait rien, et le cabinet restait sans offre à jamais. Un cabinet
+         ouvert hors du formulaire — repris à la main, importé — est
+         exactement dans ce cas. `upsert` sur la clé primaire pose la ligne si
+         elle manque, et ne touche qu'à l'offre si elle est là. */
       const { error } = await db
         .from('subscriptions')
-        .update({ plan_code: offre, updated_at: new Date().toISOString() })
-        .eq('cabinet_id', cabinetId)
+        .upsert(
+          { cabinet_id: cabinetId, plan_code: offre, updated_at: new Date().toISOString() },
+          { onConflict: 'cabinet_id' },
+        )
       await recharger()
       const label = offres.find((p) => p.code === offre)?.label ?? offre
       return error
@@ -498,11 +511,24 @@ export function useReseller(): ResellerData {
       if (champs.marqueBlancheOverride !== undefined) ligne.marque_blanche_override = champs.marqueBlancheOverride
       if (champs.siteOverride !== undefined) ligne.site_override = champs.siteOverride
 
-      const { error } = await db.from('subscriptions').update(ligne).eq('cabinet_id', cabinetId)
+      /* On redemande les lignes touchées : sans abonnement, l'`update` ne
+         touche rien et rendrait un succès pour une écriture qui n'a pas eu
+         lieu. Une exception se pose sur une offre — il faut donc lui en poser
+         une d'abord, et c'est ce qu'on lui dit. */
+      const { data, error } = await db
+        .from('subscriptions')
+        .update(ligne)
+        .eq('cabinet_id', cabinetId)
+        .select('cabinet_id')
       await recharger()
-      return error
-        ? { ok: false, message: "L'exception n'a pas pu être enregistrée." }
-        : { ok: true, message: 'Réglage appliqué à ce cabinet seul.' }
+      if (error) return { ok: false, message: "L'exception n'a pas pu être enregistrée." }
+      if (!data?.length) {
+        return {
+          ok: false,
+          message: "Ce cabinet n'a pas encore d'offre. Posez-lui-en une, puis accordez l'exception.",
+        }
+      }
+      return { ok: true, message: 'Réglage appliqué à ce cabinet seul.' }
     },
     [recharger, reel],
   )

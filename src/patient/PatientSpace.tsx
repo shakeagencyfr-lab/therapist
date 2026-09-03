@@ -24,6 +24,11 @@ function retourPaiement(): { commande: string | null; annule: boolean } {
   return { commande, annule }
 }
 
+/** « mardi 2 septembre » — la même date que dans le journal. */
+function jourDe(iso: string): string {
+  return new Date(iso).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+}
+
 /** Le prénom seul : c'est ainsi que la thérapeute s'adresse à lui. */
 function prenom(nom: string): string {
   return nom.split(' ')[0] ?? nom
@@ -45,7 +50,10 @@ export function PatientSpace() {
   const patient = context?.patient ?? null
   const {
     modules,
+    mots,
+    marquerMotLu,
     journal,
+    journalIllisible,
     affirmations,
     audios,
     scaleToday,
@@ -60,6 +68,10 @@ export function PatientSpace() {
   } = usePatientData(patient?.id ?? null)
 
   const [retour] = useState(retourPaiement)
+  /* La note libre en cours d'écriture : le module ouvert, et son texte. */
+  const [noteOuverte, setNoteOuverte] = useState('')
+  const [noteTexte, setNoteTexte] = useState('')
+  const [noteEnCours, setNoteEnCours] = useState(false)
   const [onglet, setOnglet] = useState<Onglet>(retour.commande || retour.annule ? 'boutique' : 'jour')
 
   /** L'audio en cours d'écoute : son identifiant et son URL signée. */
@@ -86,6 +98,7 @@ export function PatientSpace() {
   // ont leur propre place, le reste tient dans « aujourd'hui ».
   const taches = modules.filter((m) => m.kind !== 'Audio' && m.kind !== 'Échelle')
   const faites = taches.filter((m) => m.done_at).length
+  const nonLus = mots.filter((m) => !m.read_at).length
   const journeeFaite = taches.length > 0 && faites === taches.length
 
   async function basculer(id: string, done: boolean) {
@@ -93,6 +106,27 @@ export function PatientSpace() {
     if (!db) return
     const { error } = await db.rpc('patient_set_module_done', { p_module: id, p_done: done })
     if (!error) await recharger()
+  }
+
+  /**
+   * Écrire un mot sur un exercice.
+   *
+   * `patient_save_note` existe en base depuis 0007 et n'avait jamais été
+   * appelée : la colonne était lue à chaque chargement, et rien ne l'écrivait.
+   * C'est pourtant ce que l'aperçu de la thérapeute montre depuis le début —
+   * un mot posé sur l'exercice, là où il s'est passé quelque chose, plutôt
+   * qu'une page de journal.
+   */
+  async function enregistrerNote(id: string) {
+    const db = supabase()
+    if (!db || noteEnCours) return
+    setNoteEnCours(true)
+    const { error } = await db.rpc('patient_save_note', { p_module: id, p_note: noteTexte.trim() })
+    setNoteEnCours(false)
+    if (error) return
+    setNoteOuverte('')
+    setNoteTexte('')
+    await recharger()
   }
 
   /**
@@ -121,15 +155,18 @@ export function PatientSpace() {
     void db.rpc('patient_count_listen', { p_audio: id }).then(() => recharger())
   }
 
+  /**
+   * La note du soir.
+   *
+   * Une ligne par jour, corrigée si elle change d'avis : chaque appui posait
+   * un point de plus sur la courbe de sa thérapeute, qui comptait trois
+   * mesures là où il y avait une soirée d'hésitation.
+   */
   async function noterEchelle(valeur: number) {
     const db = supabase()
     if (!db) return
     setEchelle(valeur)
-    const { error } = await db.from('scale_entries').insert({
-      patient_id: patient!.id,
-      cabinet_id: patient!.cabinet_id,
-      value: valeur,
-    })
+    const { error } = await db.rpc('patient_note_echelle', { p_value: valeur })
     setEnvoi(error ? "L'enregistrement a échoué. Réessayez." : "C'est noté, merci.")
     if (!error) await recharger()
   }
@@ -186,6 +223,44 @@ export function PatientSpace() {
           />
         ) : null}
 
+        {/* Les mots du cabinet, avant les tâches : un message de sa
+            thérapeute passe avant un exercice. Ils étaient enregistrés et
+            adressés depuis des mois, et aucun écran ne les ouvrait. */}
+        {courant === 'jour' && mots.length > 0 ? (
+          <section className={s.section}>
+            <div className={s.sectionHead}>
+              <span className={s.sectionTitle}>
+                {mots.length > 1 ? 'Mots de votre cabinet' : 'Un mot de votre cabinet'}
+              </span>
+              {nonLus > 0 ? <span className={s.count}>{nonLus} non {nonLus > 1 ? 'lus' : 'lu'}</span> : null}
+            </div>
+            {mots.map((mot) => {
+              const lu = Boolean(mot.read_at)
+              return (
+                <button
+                  key={mot.push_id}
+                  type="button"
+                  className={s.mot}
+                  onClick={() => void marquerMotLu(mot.push_id)}
+                >
+                  <span
+                    className={lu ? `${s.motPastille} ${s.motLu}` : s.motPastille}
+                    style={!lu && patient.branding?.accent ? { background: patient.branding.accent } : undefined}
+                    aria-hidden
+                  />
+                  <span className={s.motCorps}>
+                    <span className={lu ? `${s.motTitre} ${s.motLuTitre}` : s.motTitre}>
+                      {mot.push?.title}
+                    </span>
+                    <span className={s.motTexte}>{mot.push?.body}</span>
+                    <span className={s.motDate}>{jourDe(mot.push?.created_at ?? '')}</span>
+                  </span>
+                </button>
+              )
+            })}
+          </section>
+        ) : null}
+
         {courant === 'jour' && taches.length > 0 ? (
           <section className={s.section}>
             <div className={s.sectionHead}>
@@ -218,6 +293,56 @@ export function PatientSpace() {
                         {m.title}
                       </span>
                       <span className={s.taskMeta}>{m.meta}</span>
+
+                      {noteOuverte === m.id ? (
+                        <>
+                          <textarea
+                            className={s.noteZone}
+                            rows={3}
+                            value={noteTexte}
+                            onChange={(e) => setNoteTexte(e.target.value)}
+                            placeholder="Ce qui s'est passé, en deux mots. Votre thérapeute le lira."
+                            aria-label={`Un mot sur « ${m.title} »`}
+                            autoFocus
+                          />
+                          <span className={s.noteBoutons}>
+                            <button
+                              type="button"
+                              className={s.noteEnregistrer}
+                              style={patient.branding?.accent ? { background: patient.branding.accent } : undefined}
+                              disabled={noteEnCours}
+                              onClick={() => void enregistrerNote(m.id)}
+                            >
+                              {noteEnCours ? 'Enregistrement…' : 'Enregistrer'}
+                            </button>
+                            <button
+                              type="button"
+                              className={s.noteAnnuler}
+                              onClick={() => {
+                                setNoteOuverte('')
+                                setNoteTexte('')
+                              }}
+                            >
+                              Annuler
+                            </button>
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          {m.patient_note ? <span className={s.noteEcrite}>{m.patient_note}</span> : null}
+                          <button
+                            type="button"
+                            className={s.noteOuvrir}
+                            style={patient.branding?.accent ? { color: patient.branding.accent } : undefined}
+                            onClick={() => {
+                              setNoteOuverte(m.id)
+                              setNoteTexte(m.patient_note ?? '')
+                            }}
+                          >
+                            {m.patient_note ? 'Modifier mon mot' : 'Ajouter un mot'}
+                          </button>
+                        </>
+                      )}
                     </span>
                   </div>
                 )
@@ -300,6 +425,7 @@ export function PatientSpace() {
         {courant === 'jour' ? (
           <Journal
             pages={journal}
+            illisible={journalIllisible}
             patientId={patient.id}
             cabinetId={patient.cabinet_id}
             accent={patient.branding?.accent}

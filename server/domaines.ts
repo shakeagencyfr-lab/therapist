@@ -87,6 +87,9 @@ async function appelVercel(chemin: string, methode: 'GET' | 'POST' | 'DELETE', c
         ...(corps ? { 'Content-Type': 'application/json' } : {}),
       },
       body: corps ? JSON.stringify(corps) : undefined,
+      // L'hébergeur coupe la fonction à soixante secondes : on abandonne
+      // avant, pour pouvoir dire pourquoi.
+      signal: AbortSignal.timeout(15_000),
     })
   } catch {
     throw new HttpError(504, "L'hébergeur est injoignable depuis le serveur. Réessayez dans un instant.")
@@ -231,7 +234,8 @@ async function enregistrer(
     if (error.code === '23505') {
       throw new HttpError(409, 'Ce domaine est déjà utilisé par un autre cabinet.')
     }
-    throw new HttpError(502, `Le domaine n'a pas pu être enregistré : ${error.message}`)
+    console.error(`[domaine] enregistrement — ${error.message}`)
+    throw new HttpError(502, "Le domaine n'a pas pu être enregistré. Réessayez dans un instant.")
   }
   await db.from('audit_log').insert({
     cabinet_id: cabinetId,

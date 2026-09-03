@@ -17,6 +17,7 @@
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { envoyerParCabinet, smtpDuCabinet } from './courriel.js'
+import { levierDuCabinet } from './droits.js'
 
 const URL = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? ''
 const PUBLISHABLE = process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? ''
@@ -84,34 +85,50 @@ async function baseDuCabinet(admin: SupabaseClient, cabinetId: string): Promise<
     .select('domaine, verifie')
     .eq('cabinet_id', cabinetId)
     .maybeSingle<{ domaine: string; verifie: boolean }>()
-  return data?.verifie && data.domaine ? `https://${data.domaine}` : SITE
+  if (!data?.verifie || !data.domaine) return SITE
+  /* Un domaine posé et vérifié ne suffit pas : encore faut-il que l'offre
+     l'ouvre encore. Depuis 0023, un levier fermé fait cesser de répondre le
+     domaine — un lien qui y mène ramènerait donc sur une porte muette, des
+     semaines après l'envoi. On repasse alors par l'adresse de la plateforme,
+     qui, elle, répond toujours. */
+  const ouvert = await levierDuCabinet(cabinetId, 'marqueBlanche', admin)
+  return ouvert ? `https://${data.domaine}` : SITE
 }
 
 /**
- * Le lien de connexion, fabriqué sans envoyer de courriel.
+ * Le lien de connexion d'un compte QUI N'EXISTE PAS ENCORE.
  *
  * C'est ce qui permet de l'expédier nous-mêmes, depuis le serveur d'envoi du
- * cabinet. `invite` crée le compte ; si le compte existe déjà, `magiclink`
- * est la bonne porte — et refuser à ce stade serait absurde.
+ * cabinet — et c'est aussi ce qui rend la limite indispensable.
+ *
+ * Un lien de connexion ouvre un compte. Le fabriquer ici, c'est le faire
+ * passer par un serveur d'envoi que le cabinet possède et dont il lit les
+ * journaux. Tant que le compte est neuf, la seule chose qui transite est une
+ * porte vers un espace vide, celui que le cabinet vient lui-même de créer.
+ *
+ * Si le compte existe déjà, non. `magiclink` rendrait un lien qui ouvre un
+ * compte EXISTANT — celui d'une consœur, d'un revendeur, de qui l'on veut
+ * pourvu qu'on connaisse son adresse et qu'on ait posé une fiche à ce nom.
+ * On ne le fabrique donc pas : l'envoi retombe sur le service de la
+ * plateforme, dont le courriel ne passe que par la boîte de la destinataire.
  */
 async function lienDeConnexion(
   admin: SupabaseClient,
   email: string,
   redirectTo: string | undefined,
 ): Promise<string | null> {
-  for (const type of ['invite', 'magiclink'] as const) {
-    const { data, error } = await admin.auth.admin.generateLink({ type, email, options: { redirectTo } })
-    if (!error) {
-      const lien = (data as { properties?: { action_link?: string } } | null)?.properties?.action_link
-      if (lien) return lien
-    }
-    const dejaInscrit = /already|registered|exists/i.test(error?.message ?? '') || error?.status === 422
-    if (!dejaInscrit) {
-      if (error) console.error(`[invitation] lien — ${error.status ?? ''} ${error.message}`)
-      return null
-    }
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: 'invite',
+    email,
+    options: { redirectTo },
+  })
+  if (error) {
+    // Compte existant : ce n'est pas une panne, c'est le cas qu'on refuse.
+    const dejaInscrit = /already|registered|exists/i.test(error.message) || error.status === 422
+    if (!dejaInscrit) console.error(`[invitation] lien — ${error.status ?? ''} ${error.message}`)
+    return null
   }
-  return null
+  return (data as { properties?: { action_link?: string } } | null)?.properties?.action_link ?? null
 }
 
 /** Le courriel d'invitation, en marque blanche. Rien d'un dossier n'y figure. */
@@ -120,11 +137,14 @@ function corpsInvitation(
   cabinet: string,
   lien: string,
 ): { subject: string; text: string; html: string } {
-  const objet = kind === 'patiente' ? `Votre espace — ${cabinet}` : `Votre cabinet sur ${cabinet}`
+  /* `cabinet` est le nom du cabinet lui-même. L'objet disait donc « Votre
+     cabinet sur Cabinet Claire Fontaine » : son cabinet sur son cabinet. La
+     praticienne est invitée DANS le sien, pas sur quelque chose d'autre. */
+  const objet = kind === 'patiente' ? `Votre espace — ${cabinet}` : `${cabinet} vous attend`
   const intro =
     kind === 'patiente'
       ? `${cabinet} vous a ouvert votre espace entre les séances : vos exercices de la semaine, votre journal et vos audios.`
-      : `Votre cabinet est ouvert sur ${cabinet}. Ce lien vous connecte et vous en rend propriétaire.`
+      : `${cabinet} est ouvert. Ce lien vous y connecte et vous en rend propriétaire.`
   const text = `${intro}\n\nVotre lien de connexion :\n${lien}\n\nIl vous connecte directement, sans mot de passe à retenir. Si vous n'attendiez pas ce message, ignorez-le : personne n'a accès à votre espace sans ce lien.`
   const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.6;color:#1b1a17">
   <p>${echapper(intro)}</p>
@@ -228,6 +248,10 @@ export async function envoyerInvitation(
      échec de son serveur ne perd pas l'invitation pour autant : on retombe
      sur le service de la plateforme, en le disant dans le journal. */
   const smtp = await smtpDuCabinet(cabinetId)
+  /* Vrai quand son serveur a été essayé et n'a pas abouti : le courriel
+     partira quand même, mais depuis la plateforme — et elle doit le savoir,
+     sinon elle croira son domaine en service alors qu'il ne l'est pas. */
+  let replie = false
   if (smtp) {
     const { data: fiche } = await admin
       .from('cabinets')
@@ -250,6 +274,7 @@ export async function envoyerInvitation(
       } catch (err) {
         // Journal technique seulement : ni mot de passe, ni dossier.
         console.error(`[invitation] smtp cabinet — ${(err as Error).message}`)
+        replie = true
       }
     }
   }
@@ -288,7 +313,9 @@ export async function envoyerInvitation(
     status: 200,
     body: {
       ok: true,
-      message: `Invitation envoyée à ${email}. Le lien la connectera directement.`,
+      message: replie
+        ? `Invitation envoyée à ${email}, mais depuis nos serveurs : les vôtres n'ont pas répondu. Vérifiez vos réglages d'envoi dans Marque blanche.`
+        : `Invitation envoyée à ${email}. Le lien la connectera directement.`,
     },
   }
 }

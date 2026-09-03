@@ -38,11 +38,15 @@ function Portail() {
     )
   }
 
+  /* Deux situations mènent ici, et l'une n'est pas une erreur : le suivi
+     s'est terminé, sa fiche a été close, et l'espace se ferme avec elle. Lui
+     dire que son adresse est fausse serait lui faire chercher une faute qui
+     n'existe pas. */
   if (!context?.patient) {
     return (
       <SignIn
-        titre="Cette adresse n'a pas de fiche"
-        intro="Votre compte existe, mais aucune fiche patient ne lui est rattachée. Vérifiez avec votre thérapeute l'adresse qu'elle a enregistrée."
+        titre="Aucun suivi en cours à cette adresse"
+        intro="Votre compte existe. Si votre suivi vient de se terminer, c'est normal : votre espace se ferme avec lui, et votre thérapeute peut le rouvrir. Sinon, vérifiez avec elle l'adresse qu'elle a enregistrée."
       />
     )
   }

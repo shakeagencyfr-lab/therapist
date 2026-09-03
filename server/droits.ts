@@ -101,6 +101,37 @@ export async function droitsDuCabinet(cabinetId: string, client: SupabaseClient)
   return versDroits(data)
 }
 
+/**
+ * Un levier, lu par le serveur POUR LUI-MÊME, avec la clé de service.
+ *
+ * `cabinet_droits()` ne répond qu'à un membre du cabinet ou à son revendeur ;
+ * elle ne rendrait donc rien ici, où c'est le serveur qui demande — pour le
+ * compte d'une patiente, par exemple, qui n'est ni l'un ni l'autre. On lit
+ * alors les deux tables directement, avec la même règle : l'exception
+ * négociée l'emporte sur l'offre.
+ */
+export async function levierDuCabinet(
+  cabinetId: string,
+  levier: Levier,
+  admin: SupabaseClient,
+): Promise<boolean> {
+  const colonne = levier === 'marqueBlanche' ? 'marque_blanche' : levier
+  const { data: abo } = await admin
+    .from('subscriptions')
+    .select(`plan_code, ${colonne}_override`)
+    .eq('cabinet_id', cabinetId)
+    .maybeSingle<Record<string, unknown>>()
+  if (!abo) return false
+  const exception = abo[`${colonne}_override`]
+  if (exception === true || exception === false) return exception
+  const { data: offre } = await admin
+    .from('plans')
+    .select(colonne)
+    .eq('code', String(abo.plan_code ?? ''))
+    .maybeSingle<Record<string, unknown>>()
+  return offre?.[colonne] === true
+}
+
 /** Refuse si le levier est fermé, avec le message que l'écran affichera. */
 export function exigerDroit(droits: Droits, levier: Levier): void {
   if (!droits[levier]) throw new HttpError(403, REFUS[levier])

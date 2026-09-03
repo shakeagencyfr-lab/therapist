@@ -94,10 +94,13 @@ export function TherapistView() {
               </>
             ) : null}
 
+            {/* Les deux cartes portent la clé de la fiche : sans elle, une
+                écriture d'hypnose lancée sur Nadia restait affichée « en
+                cours » en passant à Camille, avec les titres de la première. */}
             {volet === 'profil' ? (
               <>
-                <PsychProfile />
-                <HypnosesFiche />
+                <PsychProfile key={`profil-${state.sel}`} />
+                <HypnosesFiche key={`hypnoses-${state.sel}`} />
               </>
             ) : null}
 

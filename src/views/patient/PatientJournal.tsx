@@ -84,7 +84,7 @@ export function PatientJournal() {
             aria-pressed={current.shared}
             onClick={() => patchPage({ shared: !current.shared })}
           >
-            {current.shared ? 'Partagée avec Laetitia' : 'Partager cette page avec Laetitia'}
+            {current.shared ? 'Partagée avec sa thérapeute' : 'Partager cette page avec sa thérapeute'}
           </button>
           <div className={s.pageFootRow}>
             <span className={s.shareHint}>
@@ -126,7 +126,7 @@ export function PatientJournal() {
         <h2 className={s.title}>Mon journal</h2>
         <div className={s.sub}>
           Vos pages restent ici, consultables à tout moment. Vous choisissez page par page ce que
-          Laetitia peut lire.
+          Sa thérapeute peut lire.
         </div>
       </div>
 
@@ -150,7 +150,7 @@ export function PatientJournal() {
             </span>
             <span className={s.rowExcerpt}>{excerptOf(page)}</span>
             <span className={page.shared ? `${s.badge} ${s.badgeShared}` : s.badge}>
-              {page.shared ? 'Partagée avec Laetitia' : 'Privée'}
+              {page.shared ? 'Partagée' : 'Privée'}
             </span>
           </button>
         ))}

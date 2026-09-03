@@ -133,6 +133,13 @@ function admin() {
   return client
 }
 
+/** Le motif technique va au journal ; l'écran reçoit une phrase française. */
+function enregistrementImpossible(cause: string): HttpError {
+  // Journal technique seulement : jamais une clé, jamais un dossier.
+  console.error(`[integrations] enregistrement — ${cause}`)
+  return new HttpError(502, "Le réglage n'a pas pu être enregistré. Réessayez dans un instant.")
+}
+
 async function ecrire(
   cabinetId: string,
   settings: Partial<SettingsRow>,
@@ -145,12 +152,12 @@ async function ecrire(
   const { error: e1 } = await db
     .from('cabinet_settings')
     .upsert({ cabinet_id: cabinetId, ...settings, updated_at: maintenant }, { onConflict: 'cabinet_id' })
-  if (e1) throw new HttpError(502, `Enregistrement impossible : ${e1.message}`)
+  if (e1) throw enregistrementImpossible(e1.message)
   if (secrets) {
     const { error: e2 } = await db
       .from('cabinet_secrets')
       .upsert({ cabinet_id: cabinetId, ...secrets, updated_at: maintenant }, { onConflict: 'cabinet_id' })
-    if (e2) throw new HttpError(502, `Enregistrement impossible : ${e2.message}`)
+    if (e2) throw enregistrementImpossible(e2.message)
   }
   // Le geste se voit dans le journal ; la clé, jamais.
   await db.from('audit_log').insert({

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Button, Card, Chip, Notice, TextInput, Title } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
+import { useDroits } from '@/cabinet/droits'
 import { patientOf } from '@/state/selectors'
 import { useAppState } from '@/state/store'
 import s from './FicheSettings.module.css'
@@ -18,6 +19,7 @@ const REPLI_PROCHAINE = 'Aucune séance planifiée'
 export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: boolean } = {}) {
   const state = useAppState()
   const cabinet = useMaybeCabinet()
+  const droits = useDroits()
   const fiche = patientOf(state)
   const [ouvert, setOuvert] = useState(ouvertParDefaut)
   const [envoi, setEnvoi] = useState(false)
@@ -34,6 +36,8 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
   /** La suppression se confirme en toutes lettres : elle est irréversible. */
   const [suppression, setSuppression] = useState('')
   const [supprime, setSupprime] = useState(false)
+  /** Clôture en cours : elle demande un aller-retour à la base. */
+  const [cloture, setCloture] = useState(false)
 
   // Les champs suivent la fiche OUVERTE : on ne garde pas les saisies d'une
   // patiente quand on passe à la suivante. Ils ne suivent pas chaque
@@ -276,6 +280,34 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
             </Button>
           </div>
 
+          {/* Clore un suivi, c'est ce que le plafond de l'offre demande quand
+              il est atteint. Ce n'est pas une suppression : le dossier reste,
+              et la fiche se rouvre depuis la colonne de gauche. */}
+          <div className={s.clore}>
+            <span className={s.cloreTitre}>Clore le suivi de {fiche.name}</span>
+            <span className={s.hint}>
+              Sa fiche quitte vos patientes actives et libère une place sur votre offre. Son
+              dossier est conservé entier, et vous pouvez rouvrir le suivi depuis « Suivis clos »,
+              en bas de la colonne de gauche. Elle perd en revanche l'accès à son espace : un
+              suivi clos est un accompagnement terminé.
+            </span>
+            <Button
+              variant="secondary"
+              type="button"
+              disabled={cloture || supprime}
+              onClick={() => {
+                setCloture(true)
+                void cabinet?.archiverPatiente(state.sel).then((r) => {
+                  setCloture(false)
+                  setNotice({ tone: r.ok ? 'ok' : 'warn', text: r.message })
+                  if (r.ok) void droits?.recharger()
+                })
+              }}
+            >
+              {cloture ? 'Clôture…' : 'Clore le suivi'}
+            </Button>
+          </div>
+
           {/* Supprimer une fiche emporte un dossier de santé entier. On fait
               écrire le nom : un bouton seul se clique par erreur, un nom
               recopié ne s'écrit pas par accident. */}
@@ -303,7 +335,10 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
                     if (!r.ok) {
                       setSupprime(false)
                       setNotice({ tone: 'warn', text: r.message })
+                      return
                     }
+                    // Une fiche de moins : le compte des places suit.
+                    void droits?.recharger()
                   })
                 }}
               >

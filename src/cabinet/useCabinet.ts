@@ -65,6 +65,7 @@ interface ModuleRow {
   kind: ModuleKind
   position: number
   done_at: string | null
+  patient_note: string | null
 }
 
 interface AudioRow {
@@ -307,6 +308,7 @@ function assembler(
       meta: m.meta,
       kind: m.kind,
       done: Boolean(m.done_at),
+      note: m.patient_note ?? undefined,
     })),
     audios: auds.map<PatientAudio>((a) => ({
       title: a.audio?.title ?? 'Enregistrement',
@@ -374,13 +376,27 @@ export interface MarqueCabinet {
   branding: CabinetBranding
 }
 
+/** Une fiche close, telle qu'on la retrouve pour la rouvrir. */
+export interface FicheClose {
+  id: PatientId
+  nom: string
+  initiales: string
+  closeLe: string
+}
+
 export interface CabinetData {
   /** Vrai quand les fiches viennent de la base. */
   reel: boolean
+  /** Les suivis clos : hors du compte des fiches actives, et récupérables. */
+  archivees: FicheClose[]
   chargement: boolean
   erreur: string
   recharger: () => Promise<void>
   creerPatiente: (input: NouvellePatiente) => Promise<Resultat>
+  /** Clôt un suivi : la fiche sort des actives, le dossier reste. */
+  archiverPatiente: (patientId: PatientId) => Promise<Resultat>
+  /** Rouvre un suivi clos, si l'offre a encore une place. */
+  rouvrirPatiente: (patientId: PatientId) => Promise<Resultat>
   /** Coche ou décoche un module du parcours. */
   basculerModule: (patientId: PatientId, position: number, fait: boolean) => Promise<Resultat>
   /** Règle la fiche : programme, échelle, question du soir, prochaine séance. */
@@ -442,6 +458,10 @@ export function useCabinet(cabinetId: string | null): CabinetData {
   const { state, set } = useStore()
   const [chargement, setChargement] = useState(Boolean(cabinetId))
   const [erreur, setErreur] = useState('')
+  /* Les suivis clos ne rejoignent pas l'état des fiches : ils n'ont ni
+     parcours, ni journal, ni profil à afficher. Une liste de noms suffit à
+     les retrouver, et c'est tout ce qu'on charge. */
+  const [archivees, setArchivees] = useState<FicheClose[]>([])
   const reel = state.patientsReels
 
   const recharger = useCallback(async () => {
@@ -453,9 +473,14 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     setErreur('')
     setChargement(true)
 
-    const [fiches, modules, audios, echelles, journal, profils, categories, progs, rdv, bibliotheque, ateliers, affs, reglages, pushes, hypnoses, mouvements, brouillons] = await Promise.all([
+    const [fiches, closes, modules, audios, echelles, journal, profils, categories, progs, rdv, bibliotheque, ateliers, affs, reglages, pushes, hypnoses, mouvements, brouillons] = await Promise.all([
       db.from('patients').select('*').is('archived_at', null).order('created_at'),
-      db.from('patient_modules').select('id, patient_id, title, meta, kind, position, done_at'),
+      db
+        .from('patients')
+        .select('id, display_name, initials, archived_at')
+        .not('archived_at', 'is', null)
+        .order('archived_at', { ascending: false }),
+      db.from('patient_modules').select('id, patient_id, title, meta, kind, position, done_at, patient_note'),
       db.from('patient_audios').select('patient_id, listens, last_listened_at, audio:audio_library (title, duration_seconds)'),
       db.from('scale_entries').select('patient_id, value, recorded_at'),
       db.from('journal_pages').select('patient_id, title, body, trigger_label, written_at'),
@@ -494,6 +519,12 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       setChargement(false)
       return
     }
+
+    setArchivees(
+      ((closes.data ?? []) as Array<{ id: string; display_name: string; initials: string; archived_at: string }>).map(
+        (f) => ({ id: f.id, nom: f.display_name, initiales: f.initials, closeLe: f.archived_at }),
+      ),
+    )
 
     const lignes = (fiches.data ?? []) as PatientRow[]
     // Un seul brouillon par patiente : le plus récent, l'ordre étant décroissant.
@@ -1425,6 +1456,62 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     [cabinetId, recharger],
   )
 
+  /**
+   * Clore un suivi.
+   *
+   * La fiche sort des actives — donc du plafond de l'offre — et le dossier
+   * reste entier. C'est ce que le message du plafond demande de faire, et il
+   * fallait bien que quelque chose le fasse.
+   *
+   * Conséquence à dire à l'écran : la patiente perd l'accès à son espace,
+   * `my_context()` ne rendant que les fiches actives. Clore, c'est finir un
+   * accompagnement, pas ranger un dossier encombrant.
+   */
+  const archiverPatiente = useCallback(
+    async (patientId: PatientId): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: 'Connectez-vous à votre cabinet.' }
+      const { error } = await db
+        .from('patients')
+        .update({ archived_at: new Date().toISOString() })
+        .eq('id', patientId)
+        .is('archived_at', null)
+      if (error) return { ok: false, message: "Le suivi n'a pas pu être clos. Réessayez." }
+      await recharger()
+      return { ok: true, message: 'Suivi clos. Le dossier est conservé, et la place est libre.' }
+    },
+    [cabinetId, recharger],
+  )
+
+  /** Rouvrir un suivi clos. Le plafond de l'offre s'applique de nouveau. */
+  const rouvrirPatiente = useCallback(
+    async (patientId: PatientId): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: 'Connectez-vous à votre cabinet.' }
+      /* Le déclencheur du plafond ne joue qu'à l'insertion : une réouverture
+         est une mise à jour, et passerait au-dessus. On compte donc ici, avec
+         les droits de l'appelante — la fonction refuse à qui n'est pas du
+         cabinet. */
+      const { data: droits } = await db.rpc('mes_droits')
+      const d = (droits ?? {}) as { max_patients?: number | null; patients_actives?: number }
+      if (d.max_patients !== null && d.max_patients !== undefined && (d.patients_actives ?? 0) >= d.max_patients) {
+        return {
+          ok: false,
+          message: `Votre offre permet ${d.max_patients} fiches actives, et elles le sont toutes. Closez un autre suivi, ou demandez à votre revendeur de relever le plafond.`,
+        }
+      }
+      const { error } = await db
+        .from('patients')
+        .update({ archived_at: null })
+        .eq('id', patientId)
+        .not('archived_at', 'is', null)
+      if (error) return { ok: false, message: "Le suivi n'a pas pu être rouvert. Réessayez." }
+      await recharger()
+      return { ok: true, message: 'Suivi rouvert. Sa patiente retrouve son espace.' }
+    },
+    [cabinetId, recharger],
+  )
+
   const supprimerPatiente = useCallback(
     async (patientId: PatientId): Promise<Resultat> => {
       const db = supabase()
@@ -1474,10 +1561,13 @@ export function useCabinet(cabinetId: string | null): CabinetData {
 
   return {
     reel,
+    archivees,
     chargement,
     erreur,
     recharger,
     creerPatiente,
+    archiverPatiente,
+    rouvrirPatiente,
     basculerModule,
     majFiche,
     enregistrerMarque,

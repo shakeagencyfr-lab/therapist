@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Button, Card, Overline, SquareCheck, TextArea, TextInput, Title } from '@/components/ui'
 import { ATELIER_SEEDS, ATELIER_SEED_BRIEFS, ATELIER_TYPES } from '@/data/atelier'
 import { plural } from '@/lib/format'
@@ -19,10 +20,24 @@ interface LibraryRow {
 }
 
 /** Les patients dont le parcours contient déjà ce module. */
+/**
+ * Qui porte déjà ce module.
+ *
+ * Sur un cabinet réel, un module assigné est rangé dans la FICHE par le
+ * rechargement, pas dans `state.extra` — qui ne sert qu'à la démonstration.
+ * Ne lire que `extra` laissait « déjà assigné » éteint pour toujours, et la
+ * bibliothèque du cabinet sans aucun porteur : la thérapeute réassignait le
+ * même module sans le savoir.
+ */
+function porteLeModule(state: AppState, key: string, title: string): boolean {
+  const fiche = state.patients[key]?.modules ?? []
+  return fiche.concat(state.extra[key] ?? []).some((module) => module.title === title)
+}
+
 function holders(state: AppState, title: string): string[] {
-  return state.patientOrder.filter((key) =>
-    (state.extra[key] ?? []).some((module) => module.title === title),
-  ).map((key) => state.patients[key].name)
+  return state.patientOrder
+    .filter((key) => porteLeModule(state, key, title))
+    .map((key) => state.patients[key].name)
 }
 
 /** Les modules écrits dans l'atelier : la carte reste absente tant qu'il n'y en a aucun. */
@@ -71,6 +86,8 @@ function QuizItem({ question }: { question: QuizQuestion }) {
 export function AtelierView() {
   const { state, set } = useStore()
   const cabinet = useMaybeCabinet()
+  /** Assignation en cours : le bouton ne se reclique pas. */
+  const [assignation, setAssignation] = useState(false)
   const mod = state.aMod
   const rows = libraryRows(state)
   const selected = state.patientOrder.filter((key) => state.aAssign[key])
@@ -88,13 +105,16 @@ export function AtelierView() {
       const generated = await generateModule({ intent, type, quiz: state.aQuiz })
       set({ aMod: { ...generated, type }, aGen: false, aAssign: {}, aLastAssigned: '' })
     } catch (error) {
-      const reason = error instanceof AiError ? error.message : 'erreur inconnue'
+      const reason = error instanceof AiError ? error.message : "le serveur n'a pas répondu"
       set({ aGen: false, aNotice: `La génération a échoué : ${reason}. Réessayez.` })
     }
   }
 
   async function assign() {
-    if (!mod || !selected.length) return
+    /* Sans garde, un second clic pendant l'écriture insérait le module une
+       deuxième fois au parcours : deux lignes pour la même patiente, parfois
+       à la même position, et cocher l'une cochait l'autre. */
+    if (!mod || !selected.length || assignation || state.aGen) return
     const title = mod.titre || 'Module sur mesure'
     const duree = mod.duree || 'Quelques minutes'
     const quand = mod.quand || 'Comme indiqué sur le module'
@@ -103,10 +123,11 @@ export function AtelierView() {
     // Cabinet réel : bibliothèque et parcours s'écrivent en base, puis la
     // fiche est rechargée depuis là.
     if (cabinet?.reel) {
-      set({ aGen: true, aNotice: '' })
+      setAssignation(true)
+      set({ aNotice: '' })
       const r = await cabinet.assignerModule(entry, selected)
+      setAssignation(false)
       set({
-        aGen: false,
         aNotice: r.ok ? '' : r.message,
         aAssign: r.ok ? {} : state.aAssign,
         aLastAssigned: r.ok ? selected.map((key) => state.patients[key]?.name ?? '').filter(Boolean).join(', ') : '',
@@ -334,7 +355,7 @@ export function AtelierView() {
                 {state.patientOrder.map((key) => {
                   const patient = state.patients[key]
                   const on = !!state.aAssign[key]
-                  const has = (state.extra[key] ?? []).some((m) => m.title === mod.titre)
+                  const has = porteLeModule(state, key, mod.titre)
                   return (
                     <button
                       key={key}
@@ -359,12 +380,14 @@ export function AtelierView() {
                 <Button
                   variant="primary"
                   className={s.assignBtn}
-                  disabled={selected.length === 0}
+                  disabled={selected.length === 0 || assignation}
                   onClick={() => void assign()}
                 >
-                  {selected.length
-                    ? `Assigner à ${plural(selected.length, 'patient', 'patients')}`
-                    : 'Assigner'}
+                  {assignation
+                    ? 'Assignation…'
+                    : selected.length
+                      ? `Assigner à ${plural(selected.length, 'patient', 'patients')}`
+                      : 'Assigner'}
                 </Button>
                 <span className={s.assignHint}>
                   {state.aLastAssigned

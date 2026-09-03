@@ -21,6 +21,8 @@ export function DraftStep() {
   /** L'envoi en base : en cours, ou l'échec à afficher. */
   const [envoi, setEnvoi] = useState<'repos' | 'en-cours'>('repos')
   const [echecEnvoi, setEchecEnvoi] = useState('')
+  /** Envoi des audios en cours : le bouton ne se reclique pas. */
+  const [envoiAudios, setEnvoiAudios] = useState(false)
 
   /* La fiche de la séance, pas celle de la barre latérale : c'est elle qui
      recevra la note, les modules et les audios, même si la sélection a
@@ -52,8 +54,31 @@ export function DraftStep() {
   const profFresh = Boolean(state.profNew[key])
   const profBusy = state.profGen === key
 
-  function sendSuggested() {
-    if (!sugOn.length) return
+  /**
+   * Envoyer les audios retenus dans la bibliothèque de la patiente.
+   *
+   * Sur un cabinet réel, l'écran annonçait l'envoi sans rien écrire : les
+   * audios n'arrivaient qu'à la validation de la note, et pas du tout si la
+   * thérapeute quittait avant. Ils partent maintenant tout de suite, et le
+   * message n'apparaît qu'au retour de la base.
+   */
+  async function sendSuggested() {
+    if (!sugOn.length || envoiAudios) return
+    if (cabinet?.reel) {
+      setEnvoiAudios(true)
+      // L'écriture est idempotente (patient_id, audio_id) : un audio déjà
+      // envoyé ne fait pas de doublon, ni ici ni à la validation de la note.
+      const retours = await Promise.all(sugOn.map((audio) => cabinet.envoyerAudio(audio.id, [key])))
+      setEnvoiAudios(false)
+      const echecs = retours.filter((r) => !r.ok).length
+      set({
+        sugSent: echecs
+          ? "Certains audios n'ont pas pu être envoyés. Réessayez."
+          : `${sugOn.length}${sugOn.length > 1 ? ' audios ajoutés' : ' audio ajouté'} à la bibliothèque de ${patient.name}.`,
+      })
+      return
+    }
+    // Fiches de démonstration : la bibliothèque se remplit en mémoire.
     set((prev) => {
       const existing = prev.extraAudios[key] ?? []
       const add = sugOn
@@ -388,11 +413,15 @@ export function DraftStep() {
           <div className={s.sendRow}>
             <button
               type="button"
-              className={cx(s.dispatch, !sugOn.length && s.dispatchOff)}
-              onClick={sendSuggested}
-              disabled={!sugOn.length}
+              className={cx(s.dispatch, (!sugOn.length || envoiAudios) && s.dispatchOff)}
+              onClick={() => void sendSuggested()}
+              disabled={!sugOn.length || envoiAudios}
             >
-              {sugOn.length ? `Ajouter à la bibliothèque de ${firstName}` : 'Ajouter'}
+              {envoiAudios
+                ? 'Envoi…'
+                : sugOn.length
+                  ? `Ajouter à la bibliothèque de ${firstName}`
+                  : 'Ajouter'}
             </button>
             <span className={s.sendHint}>
               {state.sugSent || 'Ce sont vos enregistrements, pas des audios générés.'}

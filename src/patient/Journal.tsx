@@ -28,12 +28,15 @@ function jour(iso: string): string {
  */
 export function Journal({
   pages,
+  illisible,
   patientId,
   cabinetId,
   accent,
   onEcrit,
 }: {
   pages: JournalPageRow[]
+  /** La lecture a échoué : ses pages existent, on n'a pas pu les servir. */
+  illisible?: boolean
   patientId: string
   cabinetId: string
   accent?: string
@@ -158,7 +161,12 @@ export function Journal({
         </div>
       ) : null}
 
-      {pages.length === 0 && !ouvert ? (
+      {illisible ? (
+        <p className={s.vide}>
+          Vos pages n'ont pas pu être relues à l'instant. Elles sont bien là — réessayez dans un
+          moment, ou rouvrez l'application.
+        </p>
+      ) : pages.length === 0 && !ouvert ? (
         <p className={s.vide}>
           Rien d'écrit pour l'instant. Quelques lignes suffisent — ce que vous avez remarqué, ce
           qui a été difficile. Vous seule les lisez, sauf si vous décidez de les montrer.
