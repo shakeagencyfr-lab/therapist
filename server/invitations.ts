@@ -88,30 +88,39 @@ async function baseDuCabinet(admin: SupabaseClient, cabinetId: string): Promise<
 }
 
 /**
- * Le lien de connexion, fabriqué sans envoyer de courriel.
+ * Le lien de connexion d'un compte QUI N'EXISTE PAS ENCORE.
  *
  * C'est ce qui permet de l'expédier nous-mêmes, depuis le serveur d'envoi du
- * cabinet. `invite` crée le compte ; si le compte existe déjà, `magiclink`
- * est la bonne porte — et refuser à ce stade serait absurde.
+ * cabinet — et c'est aussi ce qui rend la limite indispensable.
+ *
+ * Un lien de connexion ouvre un compte. Le fabriquer ici, c'est le faire
+ * passer par un serveur d'envoi que le cabinet possède et dont il lit les
+ * journaux. Tant que le compte est neuf, la seule chose qui transite est une
+ * porte vers un espace vide, celui que le cabinet vient lui-même de créer.
+ *
+ * Si le compte existe déjà, non. `magiclink` rendrait un lien qui ouvre un
+ * compte EXISTANT — celui d'une consœur, d'un revendeur, de qui l'on veut
+ * pourvu qu'on connaisse son adresse et qu'on ait posé une fiche à ce nom.
+ * On ne le fabrique donc pas : l'envoi retombe sur le service de la
+ * plateforme, dont le courriel ne passe que par la boîte de la destinataire.
  */
 async function lienDeConnexion(
   admin: SupabaseClient,
   email: string,
   redirectTo: string | undefined,
 ): Promise<string | null> {
-  for (const type of ['invite', 'magiclink'] as const) {
-    const { data, error } = await admin.auth.admin.generateLink({ type, email, options: { redirectTo } })
-    if (!error) {
-      const lien = (data as { properties?: { action_link?: string } } | null)?.properties?.action_link
-      if (lien) return lien
-    }
-    const dejaInscrit = /already|registered|exists/i.test(error?.message ?? '') || error?.status === 422
-    if (!dejaInscrit) {
-      if (error) console.error(`[invitation] lien — ${error.status ?? ''} ${error.message}`)
-      return null
-    }
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: 'invite',
+    email,
+    options: { redirectTo },
+  })
+  if (error) {
+    // Compte existant : ce n'est pas une panne, c'est le cas qu'on refuse.
+    const dejaInscrit = /already|registered|exists/i.test(error.message) || error.status === 422
+    if (!dejaInscrit) console.error(`[invitation] lien — ${error.status ?? ''} ${error.message}`)
+    return null
   }
-  return null
+  return (data as { properties?: { action_link?: string } } | null)?.properties?.action_link ?? null
 }
 
 /** Le courriel d'invitation, en marque blanche. Rien d'un dossier n'y figure. */
@@ -228,6 +237,10 @@ export async function envoyerInvitation(
      échec de son serveur ne perd pas l'invitation pour autant : on retombe
      sur le service de la plateforme, en le disant dans le journal. */
   const smtp = await smtpDuCabinet(cabinetId)
+  /* Vrai quand son serveur a été essayé et n'a pas abouti : le courriel
+     partira quand même, mais depuis la plateforme — et elle doit le savoir,
+     sinon elle croira son domaine en service alors qu'il ne l'est pas. */
+  let replie = false
   if (smtp) {
     const { data: fiche } = await admin
       .from('cabinets')
@@ -250,6 +263,7 @@ export async function envoyerInvitation(
       } catch (err) {
         // Journal technique seulement : ni mot de passe, ni dossier.
         console.error(`[invitation] smtp cabinet — ${(err as Error).message}`)
+        replie = true
       }
     }
   }
@@ -288,7 +302,9 @@ export async function envoyerInvitation(
     status: 200,
     body: {
       ok: true,
-      message: `Invitation envoyée à ${email}. Le lien la connectera directement.`,
+      message: replie
+        ? `Invitation envoyée à ${email}, mais depuis nos serveurs : les vôtres n'ont pas répondu. Vérifiez vos réglages d'envoi dans Marque blanche.`
+        : `Invitation envoyée à ${email}. Le lien la connectera directement.`,
     },
   }
 }
