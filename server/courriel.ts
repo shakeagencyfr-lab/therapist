@@ -19,7 +19,7 @@
 import nodemailer from 'nodemailer'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { adminConfigure, clientAdmin, exigerCabinet, identifier } from './auth.js'
-import { droitsDuCabinet, exigerDroit } from './droits.js'
+import { droitsDuCabinet, exigerDroit, levierDuCabinet } from './droits.js'
 import { HttpError } from './errors.js'
 import { chiffrementConfigure, chiffrer, dechiffrer, empreinte } from './secrets.js'
 
@@ -138,8 +138,12 @@ export async function smtpDuCabinet(cabinetId: string): Promise<SmtpPret | null>
     .maybeSingle<SmtpRow>()
   if (!data?.smtp_host || !data.smtp_port || !data.smtp_from) return null
 
-  const { data: droits } = await db.rpc('cabinet_droits', { p_cabinet: cabinetId })
-  const ouvert = Boolean((droits as { marque_blanche?: boolean } | null)?.marque_blanche)
+  /* Le droit se lit ici avec `levierDuCabinet`, pas avec `cabinet_droits()` :
+     cette dernière ne répond qu'à un membre du cabinet ou à son revendeur, et
+     c'est le serveur qui demande, sous la clé de service, sans aucun
+     `auth.uid()`. Elle rendait donc NULL à tous les coups — et le SMTP du
+     cabinet, jamais utilisé, retombait silencieusement sur la plateforme. */
+  const ouvert = await levierDuCabinet(cabinetId, 'marqueBlanche', db)
   if (!ouvert) return null
 
   const { data: secret } = await db
