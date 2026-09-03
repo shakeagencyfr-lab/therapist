@@ -441,7 +441,12 @@ export function useReseller(): ResellerData {
       const label = offres.find((p) => p.code === offre)?.label ?? offre
       return error
         ? { ok: false, message: "L'offre n'a pas pu être changée." }
-        : { ok: true, message: `Offre ${label} appliquée. Le nouveau plafond vaut pour le prochain cycle.` }
+        : {
+            ok: true,
+            // Le plafond de fiches et les leviers sont lus à chaque geste :
+            // ils valent tout de suite, pas au prochain cycle de facturation.
+            message: `Offre ${label} appliquée. Son plafond de fiches et ses options valent dès maintenant.`,
+          }
     },
     [offres, recharger, reel],
   )

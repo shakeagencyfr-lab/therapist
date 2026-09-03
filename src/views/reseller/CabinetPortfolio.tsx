@@ -25,7 +25,7 @@ import {
 } from '@/state/resellerSelectors'
 import { useStore } from '@/state/store'
 import { useResellerData } from '@/reseller/context'
-import { PLANS, STATUS_LABEL } from '@/data/reseller'
+import { STATUS_LABEL } from '@/data/reseller'
 import { LEVIERS } from '@/types/reseller'
 import type { PlanCode, PortfolioRow, SubscriptionStatus } from '@/types/reseller'
 import s from './CabinetPortfolio.module.css'
@@ -105,7 +105,7 @@ function CabinetRow({ row, on, onSelect }: { row: PortfolioRow; on: boolean; onS
 
 export function CabinetPortfolio() {
   const { state, set } = useStore()
-  const { rows, reel, chargement, erreur, ouvrirCabinet, inviterPraticienne } = useResellerData()
+  const { rows, offres, reel, chargement, erreur, ouvrirCabinet, inviterPraticienne } = useResellerData()
   const sums = totals(rows)
   const place = occupation(rows)
   const warned = nearCap(rows)
@@ -354,7 +354,7 @@ export function CabinetPortfolio() {
                 <div>
                   <FieldLabel>Offre de départ</FieldLabel>
                   <div className={s.planPick}>
-                    {PLANS.map((plan) => (
+                    {offres.map((plan) => (
                       <Chip
                         key={plan.code}
                         on={state.rNewPlan === plan.code}
