@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { RoundCheck } from '@/components/ui'
+import { useMaybeAuth } from '@/auth/session'
 import { durationToSeconds, timecode } from '@/lib/format'
 import { buildPatientContext, generateAffirmations } from '@/services/aiClient'
 import { allModules, isModuleDone, patientOf, toggleModulePatch } from '@/state/selectors'
@@ -88,6 +89,12 @@ function ApercuRendezVous({ booking }: { booking: Reservation }) {
 /** Accueil de l'application patient : une à trois tâches, un audio, une échelle. */
 export function PatientHome() {
   const { state, set, read } = useStore()
+  /* La notification porte le nom du cabinet connecté. En aperçu comme dans
+     l'espace d'une patiente, elle affichait le nom d'un cabinet de
+     démonstration — celui d'une autre praticienne. */
+  const auth = useMaybeAuth()
+  const nomCabinet =
+    auth?.context?.cabinet?.name ?? auth?.context?.patient?.cabinet_name ?? 'Votre cabinet'
   const key = state.sel
   const p = patientOf(state)
   // Un cabinet qui vient d'ouvrir n'a aucune patiente : l'aperçu n'a alors
@@ -199,7 +206,7 @@ export function PatientHome() {
       {hasPush && push && (
         <div className={s.push}>
           <div className={s.pushHead}>
-            <span className={s.pushFrom}>Cabinet Laetitia Ollivier</span>
+            <span className={s.pushFrom}>{nomCabinet}</span>
             <span className={s.pushAgo}>{push.when}</span>
           </div>
           <div className={s.pushTitle}>{push.title}</div>

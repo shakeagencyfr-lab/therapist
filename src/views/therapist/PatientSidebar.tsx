@@ -22,7 +22,9 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
 
   const rows = sidebarPatients(state)
   const slipping = slippingPatients(state).length
-  const count = state.q.trim() ? `${rows.length} / ${state.patientOrder.length}` : `${state.patientOrder.length}`
+  /* Pendant une recherche, le compteur dit déjà « trouvées sur total » : y
+     ajouter le plafond ferait trois nombres à la file, qu'on ne lit plus. */
+  const cherche = state.q.trim().length > 0
 
   /* Le plafond de l'offre, tenu par la base : ici il n'est qu'affiché, pour
      qu'une praticienne le voie venir au lieu de le découvrir sur un refus. */
@@ -81,7 +83,13 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
 
         <div className={s.head}>
           <span className={s.overline}>Patients actifs</span>
-          <span className={s.count}>{max === null ? count : `${count} / ${max}`}</span>
+          <span className={s.count}>
+            {cherche
+              ? `${rows.length} / ${state.patientOrder.length}`
+              : max === null
+                ? `${state.patientOrder.length}`
+                : `${state.patientOrder.length} / ${max}`}
+          </span>
         </div>
 
         <div className={s.list}>

@@ -9,6 +9,7 @@ import {
   valeurChamp,
 } from '@/lib/planification'
 import { NOTIF_SITUATIONS, notifRows } from '@/state/selectors'
+import { useMaybeAuth } from '@/auth/session'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { useStore } from '@/state/store'
 import s from './NotificationsView.module.css'
@@ -30,6 +31,11 @@ export function NotificationsView() {
   const canSend = recipients.length > 0 && state.nMsg.trim().length > 0
 
   const cabinet = useMaybeCabinet()
+  /* L'aperçu porte le nom du cabinet connecté : il montrait « Cabinet Laetitia
+     Ollivier » à tout le monde, c'est-à-dire le nom d'un autre cabinet sur
+     l'écran d'une praticienne. */
+  const auth = useMaybeAuth()
+  const nomCabinet = auth?.context?.cabinet?.name ?? 'Votre cabinet'
   const previewTitle = state.nTitle.trim()
   /* Les fiches portent le libellé nu ; le catalogue peut être vide sur un
      cabinet qui n'a encore rien nommé. On retombe alors sur les programmes
@@ -278,7 +284,7 @@ export function NotificationsView() {
 
             <div className={s.preview}>
               <div className={s.previewTop}>
-                <span className={s.previewFrom}>Cabinet Laetitia Ollivier</span>
+                <span className={s.previewFrom}>{nomCabinet}</span>
                 <span className={s.previewWhen}>{state.nWhen}</span>
               </div>
               <div className={previewTitle ? s.previewTitle : `${s.previewTitle} ${s.ghost}`}>
