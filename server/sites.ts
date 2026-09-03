@@ -341,7 +341,15 @@ function exigerGoogle(): string {
   return GOOGLE_KEY
 }
 
-async function google(chemin: string, champs: string, corps?: unknown): Promise<Record<string, unknown>> {
+/**
+ * Un appel à l'API Places.
+ *
+ * `champs` est le masque de champs, obligatoire sur la recherche et sur le
+ * détail — Google refuse une demande qui ne dit pas ce qu'elle veut. Sur le
+ * point d'accès des photos, en revanche, il n'a pas de sens : on ne l'envoie
+ * donc pas plutôt que d'envoyer une étoile qui se ferait refuser.
+ */
+async function google(chemin: string, champs: string | null, corps?: unknown): Promise<Record<string, unknown>> {
   const cle = exigerGoogle()
   let reponse: Response
   try {
@@ -349,7 +357,7 @@ async function google(chemin: string, champs: string, corps?: unknown): Promise<
       method: corps ? 'POST' : 'GET',
       headers: {
         'X-Goog-Api-Key': cle,
-        'X-Goog-FieldMask': champs,
+        ...(champs ? { 'X-Goog-FieldMask': champs } : {}),
         ...(corps ? { 'Content-Type': 'application/json' } : {}),
       },
       body: corps ? JSON.stringify(corps) : undefined,
@@ -435,8 +443,15 @@ async function recopierPhoto(cabinetId: string, nom: string, rang: number): Prom
   const client = clientAdmin()
   if (!client || !adminConfigure()) return null
 
-  const lu = await google(`${nom}/media?maxWidthPx=1600&skipHttpRedirect=true`, '*')
-  const source = String((lu as { photoUri?: string }).photoUri ?? '')
+  /* Une photo qui ne se recopie pas ne doit pas emporter tout l'import : la
+     fiche vaut d'être importée même amputée d'une image. */
+  let source = ''
+  try {
+    const lu = await google(`${nom}/media?maxWidthPx=1600&skipHttpRedirect=true`, null)
+    source = String((lu as { photoUri?: string }).photoUri ?? '')
+  } catch {
+    return null
+  }
   if (!source.startsWith('https://')) return null
 
   let octets: ArrayBuffer
