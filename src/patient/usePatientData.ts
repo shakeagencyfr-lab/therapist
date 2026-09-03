@@ -61,6 +61,8 @@ export interface JournalPageRow {
   body: string
   shared: boolean
   written_at: string
+  /** Rang choisi par le patient. null tant qu'il n'a rien déplacé. */
+  position: number | null
 }
 
 export interface PatientData {
@@ -132,8 +134,12 @@ export function usePatientData(patientId: string | null): PatientData {
       db.rpc('patient_cabinet_settings'),
       db
         .from('journal_pages')
-        .select('id, title, body, shared, written_at')
+        .select('id, title, body, shared, written_at, position')
         .eq('patient_id', patientId)
+        /* L'ordre choisi d'abord, la chronologie ensuite : tant que rien n'a
+           été déplacé, la position est nulle partout et le journal se lit du
+           plus récent au plus ancien, comme un journal. */
+        .order('position', { ascending: true, nullsFirst: false })
         .order('written_at', { ascending: false })
         .limit(60),
       // Les mots du cabinet. Un échec ici ne barre pas la journée.

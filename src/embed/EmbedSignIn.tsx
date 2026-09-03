@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
 import { messageEnvoiLien } from '@/lib/messageAuth'
 import { supabase } from '@/lib/supabase'
+import { captchaConfigure, useCaptcha } from '@/auth/Captcha'
 import { lireVitrine, slugDuChemin, type Vitrine } from '@/lib/vitrine'
 import s from './EmbedSignIn.module.css'
 
@@ -44,6 +45,8 @@ export function EmbedSignIn() {
     }
   }, [slug])
 
+  const captcha = useCaptcha()
+
   async function soumettre(e: FormEvent) {
     e.preventDefault()
     const db = supabase()
@@ -52,9 +55,13 @@ export function EmbedSignIn() {
     setErreur('')
     const { error } = await db.auth.signInWithOtp({
       email: email.trim(),
-      options: { emailRedirectTo: `${window.location.origin}${DESTINATION}` },
+      options: {
+        emailRedirectTo: `${window.location.origin}${DESTINATION}`,
+        captchaToken: captcha.jeton,
+      },
     })
     setEnvoi(false)
+    captcha.reinitialiser()
     if (error) {
       setErreur(messageEnvoiLien(error))
       return
@@ -111,10 +118,15 @@ export function EmbedSignIn() {
               placeholder="vous@exemple.fr"
               aria-label="Votre adresse électronique"
             />
-            <button className={s.bouton} type="submit" disabled={envoi || !email.includes('@')}>
+            <button
+              className={s.bouton}
+              type="submit"
+              disabled={envoi || !email.includes('@') || (captchaConfigure() && !captcha.jeton)}
+            >
               {envoi ? 'Envoi…' : 'Recevoir mon lien'}
             </button>
           </form>
+          {captcha.widget}
           {erreur ? <p className={s.erreur}>{erreur}</p> : null}
           <p className={s.aide}>
             Pas encore de fiche à votre nom ? Demandez à votre thérapeute de vous inviter.

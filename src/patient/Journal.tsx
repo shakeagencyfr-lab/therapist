@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Notice } from '@/components/ui'
 import { supabase } from '@/lib/supabase'
 import { useDictee } from './useDictee'
 import { BoutonDictee } from './BoutonDictee'
+import { deplacer, rangVise, type Boite } from './reordonner'
 import type { JournalPageRow } from './usePatientData'
 import s from './Journal.module.css'
 
@@ -70,6 +71,49 @@ export function Journal({
   /* Dicter plutôt qu'écrire : au téléphone, un soir, taper dix lignes au
      pouce décourage plus sûrement qu'une page blanche. */
   const dictee = useDictee(texte, setTexte)
+  const [aSupprimer, setASupprimer] = useState('')
+  /** La page saisie au doigt, et le rang où elle se trouve à l'instant. */
+  const [saisie, setSaisie] = useState<{ id: string; rang: number } | null>(null)
+  /** L'ordre affiché pendant le déplacement : la base ne le sait pas encore. */
+  const [ordre, setOrdre] = useState<JournalPageRow[] | null>(null)
+  const liste = useRef<HTMLDivElement | null>(null)
+
+  async function supprimer(id: string) {
+    const db = supabase()
+    if (!db) return
+    const { error } = await db.from('journal_pages').delete().eq('id', id)
+    setASupprimer('')
+    if (error) {
+      setNotice({ tone: 'warn', text: "La page n'a pas pu être supprimée. Réessayez." })
+      return
+    }
+    setNotice({ tone: 'ok', text: 'Page supprimée.' })
+    await onEcrit()
+  }
+
+  /**
+   * Écrire l'ordre choisi.
+   *
+   * TOUTES les pages reçoivent leur rang, pas seulement celles qui ont bougé :
+   * une position posée sur deux pages et nulle sur les autres donnerait un
+   * ordre à moitié chronologique, à moitié choisi — c'est-à-dire aucun ordre
+   * lisible. Le premier déplacement fige donc la liste entière.
+   */
+  async function enregistrerOrdre(pages: JournalPageRow[]) {
+    const db = supabase()
+    if (!db) return
+    const retours = await Promise.all(
+      pages.map((page, rang) =>
+        db.from('journal_pages').update({ position: rang }).eq('id', page.id),
+      ),
+    )
+    if (retours.some((r) => r.error)) {
+      setNotice({ tone: 'warn', text: "L'ordre n'a pas pu être enregistré. Réessayez." })
+    }
+    await onEcrit()
+    setOrdre(null)
+  }
+
 
   async function enregistrer() {
     const db = supabase()
@@ -112,9 +156,66 @@ export function Journal({
     await onEcrit()
   }
 
-  const retenues = pages.filter((p) =>
+  const retenues = (ordre ?? pages).filter((p) =>
     filtre === 'tout' ? true : filtre === 'partagees' ? p.shared : !p.shared,
   )
+
+  /* Le glisser-déposer ne vaut que sur la liste entière : réordonner une
+     liste filtrée écrirait des rangs qui n'ont pas de sens pour les pages
+     qu'on ne voit pas. */
+  const deplacable = filtre === 'tout' && retenues.length > 1
+
+  /**
+   * Le doigt sur la poignée.
+   *
+   * `setPointerCapture` garde les événements sur cette poignée même quand le
+   * doigt sort de la page — sans lui, un déplacement rapide lâche la page au
+   * milieu de l'écran. Les mesures sont prises une fois, au début : les lire
+   * à chaque mouvement mesurerait la liste en train de bouger.
+   */
+  function prendre(event: React.PointerEvent, rang: number, page: JournalPageRow) {
+    if (!deplacable) return
+    event.preventDefault()
+    const poignee = event.currentTarget as HTMLElement
+    poignee.setPointerCapture(event.pointerId)
+
+    const cadre = liste.current
+    const boites: Boite[] = cadre
+      ? Array.from(cadre.querySelectorAll('[data-page]')).map((el) => {
+          const r = (el as HTMLElement).getBoundingClientRect()
+          return { haut: r.top, hauteur: r.height }
+        })
+      : []
+
+    let courant = retenues
+    let dernier = rang
+    setSaisie({ id: page.id, rang })
+
+    const bouge = (e: PointerEvent) => {
+      const vise = rangVise(rang, e.clientY, boites)
+      if (vise === dernier) return
+      dernier = vise
+      courant = deplacer(retenues, rang, vise)
+      setOrdre(courant)
+      setSaisie({ id: page.id, rang: vise })
+    }
+
+    const lache = () => {
+      poignee.removeEventListener('pointermove', bouge)
+      poignee.removeEventListener('pointerup', lache)
+      poignee.removeEventListener('pointercancel', lache)
+      setSaisie(null)
+      if (dernier === rang) {
+        setOrdre(null)
+        return
+      }
+      void enregistrerOrdre(courant)
+    }
+
+    poignee.addEventListener('pointermove', bouge)
+    poignee.addEventListener('pointerup', lache)
+    poignee.addEventListener('pointercancel', lache)
+  }
 
   return (
     <section className={s.section}>
@@ -248,51 +349,118 @@ export function Journal({
         </p>
       ) : null}
 
-      {retenues.map((page, i) => {
-        const ouverte = depliee === page.id
-        const titreMois = mois(page.written_at)
-        const nouveauMois = i === 0 || mois(retenues[i - 1].written_at) !== titreMois
-        return (
-          <div key={page.id}>
-            {nouveauMois ? <div className={s.mois}>{titreMois}</div> : null}
-            <article className={ouverte ? `${s.page} ${s.pageOuverte}` : s.page}>
-              <button
-                type="button"
-                className={s.pageHead}
-                onClick={() => setDepliee(ouverte ? '' : page.id)}
-                aria-expanded={ouverte}
+      <div ref={liste}>
+        {retenues.map((page, i) => {
+          const ouverte = depliee === page.id
+          const titreMois = mois(page.written_at)
+          /* Les intercalaires de mois n'ont de sens que dans l'ordre du temps.
+             Dès qu'une page a été rangée à la main, ils disparaissent : un
+             « Septembre » posé au milieu d'un ordre choisi ment sur ce qui
+             suit. */
+          const parDate = page.position === null
+          const nouveauMois =
+            parDate && (i === 0 || mois(retenues[i - 1].written_at) !== titreMois)
+          const prise = saisie?.id === page.id
+          return (
+            <div key={page.id} data-page>
+              {nouveauMois ? <div className={s.mois}>{titreMois}</div> : null}
+              <article
+                className={[s.page, ouverte && s.pageOuverte, prise && s.pagePrise]
+                  .filter(Boolean)
+                  .join(' ')}
               >
-                <span className={s.pageHaut}>
-                  <span className={s.pageTitre}>{page.title}</span>
-                  {page.shared ? (
-                    <span className={s.pastille} style={accent ? { background: accent } : undefined}>
-                      partagée
-                    </span>
+                <div className={s.pageLigne}>
+                  {/* La poignée, et elle seule : un article entier saisissable
+                      empêcherait de faire défiler la liste au pouce. */}
+                  {deplacable ? (
+                    <button
+                      type="button"
+                      className={s.poignee}
+                      onPointerDown={(e) => prendre(e, i, page)}
+                      aria-label={`Déplacer « ${page.title} »`}
+                    >
+                      <svg viewBox="0 0 16 16" aria-hidden focusable="false">
+                        <path d="M2.5 5h11M2.5 8h11M2.5 11h11" />
+                      </svg>
+                    </button>
                   ) : null}
-                </span>
-                {/* L'aperçu remplace le titre seul : deux pages appelées
-                    « mardi 2 septembre » ne se distinguent pas l'une de
-                    l'autre tant qu'on ne les a pas ouvertes toutes les deux. */}
-                {!ouverte ? <span className={s.pageApercu}>{apercu(page.body)}</span> : null}
-                <span className={s.pageMeta}>{jour(page.written_at)}</span>
-              </button>
-              {ouverte ? (
-                <>
-                  <p className={s.pageTexte}>{page.body}</p>
+
                   <button
                     type="button"
-                    className={s.bascule}
-                    style={accent && !page.shared ? { color: accent } : undefined}
-                    onClick={() => void basculerPartage(page)}
+                    className={s.pageHead}
+                    onClick={() => setDepliee(ouverte ? '' : page.id)}
+                    aria-expanded={ouverte}
                   >
-                    {page.shared ? 'Ne plus la montrer' : 'La montrer à ma thérapeute'}
+                    <span className={s.pageHaut}>
+                      <span className={s.pageTitre}>{page.title}</span>
+                      {page.shared ? (
+                        <span
+                          className={s.pastille}
+                          style={accent ? { background: accent } : undefined}
+                        >
+                          partagée
+                        </span>
+                      ) : null}
+                    </span>
+                    {/* L'aperçu remplace le titre seul : deux pages appelées
+                        « mardi 2 septembre » ne se distinguent pas l'une de
+                        l'autre tant qu'on ne les a pas ouvertes toutes les
+                        deux. */}
+                    {!ouverte ? <span className={s.pageApercu}>{apercu(page.body)}</span> : null}
+                    <span className={s.pageMeta}>{jour(page.written_at)}</span>
                   </button>
-                </>
-              ) : null}
-            </article>
-          </div>
-        )
-      })}
+                </div>
+
+                {ouverte ? (
+                  <>
+                    <p className={s.pageTexte}>{page.body}</p>
+                    <div className={s.pageActions}>
+                      <button
+                        type="button"
+                        className={s.bascule}
+                        style={accent && !page.shared ? { color: accent } : undefined}
+                        onClick={() => void basculerPartage(page)}
+                      >
+                        {page.shared ? 'Ne plus la montrer' : 'La montrer à ma thérapeute'}
+                      </button>
+
+                      {/* Une page effacée l'est pour de bon, y compris chez la
+                          thérapeute si elle était partagée : on demande une
+                          fois, on ne rattrape pas. */}
+                      {aSupprimer === page.id ? (
+                        <span className={s.confirme}>
+                          <button
+                            type="button"
+                            className={s.oui}
+                            onClick={() => void supprimer(page.id)}
+                          >
+                            Supprimer définitivement
+                          </button>
+                          <button
+                            type="button"
+                            className={s.non}
+                            onClick={() => setASupprimer('')}
+                          >
+                            Annuler
+                          </button>
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          className={s.effacer}
+                          onClick={() => setASupprimer(page.id)}
+                        >
+                          Supprimer
+                        </button>
+                      )}
+                    </div>
+                  </>
+                ) : null}
+              </article>
+            </div>
+          )
+        })}
+      </div>
     </section>
   )
 }

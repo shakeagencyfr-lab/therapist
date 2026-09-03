@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Button, FieldLabel, Marque, Notice, TextInput } from '@/components/ui'
 import { useAuth } from './session'
+import { captchaConfigure, useCaptcha } from './Captcha'
 import s from './SignIn.module.css'
 
 /**
@@ -38,14 +39,17 @@ export function SignIn({
    */
   const [avecMotDePasse, setAvecMotDePasse] = useState(false)
   const [motDePasse, setMotDePasse] = useState('')
+  const captcha = useCaptcha()
 
   async function soumettre(e: FormEvent) {
     e.preventDefault()
     if (!email.includes('@')) return
     setEnvoi(true)
-    if (avecMotDePasse) await connecterParMotDePasse(email, motDePasse)
-    else await envoyerLien(email)
+    if (avecMotDePasse) await connecterParMotDePasse(email, motDePasse, captcha.jeton)
+    else await envoyerLien(email, captcha.jeton)
     setEnvoi(false)
+    // Un jeton ne vaut qu'une fois : le suivant se regagne.
+    captcha.reinitialiser()
   }
 
   return (
@@ -110,12 +114,22 @@ export function SignIn({
                 </Notice>
               ) : null}
 
+              {captcha.widget}
+
               <div className={s.actions}>
                 <Button
                   type="submit"
                   variant="primary"
                   big
-                  disabled={envoi || !email.includes('@') || (avecMotDePasse && !motDePasse)}
+                  disabled={
+                    envoi ||
+                    !email.includes('@') ||
+                    (avecMotDePasse && !motDePasse) ||
+                    /* Tant que la case n'est pas franchie, le bouton attend :
+                       cliquer pour rien et lire un refus est pire que de voir
+                       le bouton grisé. */
+                    (captchaConfigure() && !captcha.jeton)
+                  }
                 >
                   {envoi
                     ? avecMotDePasse

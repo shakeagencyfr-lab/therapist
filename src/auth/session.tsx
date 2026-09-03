@@ -64,9 +64,9 @@ export interface AuthState {
   error: string
   /** Le lien magique vient d'être envoyé à cette adresse. */
   sent: string
-  envoyerLien: (email: string) => Promise<void>
+  envoyerLien: (email: string, captchaToken?: string) => Promise<void>
   /** Connexion classique, pour qui a posé un mot de passe. */
-  connecterParMotDePasse: (email: string, motDePasse: string) => Promise<void>
+  connecterParMotDePasse: (email: string, motDePasse: string, captchaToken?: string) => Promise<void>
   /** Pose ou remplace le mot de passe du compte connecté. */
   definirMotDePasse: (motDePasse: string) => Promise<{ ok: boolean; message: string }>
   seDeconnecter: () => Promise<void>
@@ -138,7 +138,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }, [charger])
 
-  const envoyerLien = useCallback(async (email: string) => {
+  const envoyerLien = useCallback(async (email: string, captchaToken?: string) => {
     const db = supabase()
     if (!db) {
       setError("L'application n'est pas reliée à sa base de données.")
@@ -147,7 +147,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setError('')
     const { error: err } = await db.auth.signInWithOtp({
       email: email.trim(),
-      options: { emailRedirectTo: window.location.origin + window.location.pathname },
+      options: {
+        emailRedirectTo: window.location.origin + window.location.pathname,
+        /* Le jeton du CAPTCHA, quand il y en a un. Supabase le vérifie côté
+           serveur avec la clé secrète posée dans son tableau de bord ; s'il
+           est absent alors que la protection est active, il refuse. */
+        captchaToken,
+      },
     })
     if (err) {
       setError(messageEnvoiLien(err))
@@ -168,7 +174,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
    * Le mot de passe n'est donc jamais imposé : il se pose depuis l'espace,
    * une fois connectée, par qui le souhaite.
    */
-  const connecterParMotDePasse = useCallback(async (email: string, motDePasse: string) => {
+  const connecterParMotDePasse = useCallback(async (email: string, motDePasse: string, captchaToken?: string) => {
     const db = supabase()
     if (!db) {
       setError("L'application n'est pas reliée à sa base de données.")
@@ -178,6 +184,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const { error: err } = await db.auth.signInWithPassword({
       email: email.trim(),
       password: motDePasse,
+      options: { captchaToken },
     })
     if (err) {
       // On ne distingue jamais « adresse inconnue » de « mot de passe faux » :

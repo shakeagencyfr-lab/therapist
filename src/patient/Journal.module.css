@@ -279,3 +279,88 @@
   border-color: var(--c-accent-soft);
   background: var(--c-surface);
 }
+
+
+/* Ranger et supprimer ----------------------------------------------------- */
+
+.pageLigne {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+}
+
+/* La poignée, et elle seule, est saisissable : un article entier attrapable
+   empêcherait de faire défiler la liste au pouce. `touch-action: none` dit au
+   navigateur de nous laisser le geste vertical plutôt que de le prendre pour
+   un défilement. */
+.poignee {
+  flex: none;
+  width: 38px;
+  align-self: center;
+  border: none;
+  background: none;
+  padding: 10px 8px;
+  cursor: grab;
+  touch-action: none;
+  color: var(--c-text-muted);
+}
+.poignee:active {
+  cursor: grabbing;
+}
+.poignee svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+/* La page en cours de déplacement se décolle du reste. */
+.pagePrise {
+  border-color: var(--c-accent);
+  box-shadow: 0 8px 22px rgba(27, 26, 23, 0.14);
+  transform: scale(1.01);
+}
+
+.pageActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-top: 4px;
+}
+
+.effacer,
+.oui,
+.non {
+  border: none;
+  background: none;
+  padding: 6px 0;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.effacer {
+  color: var(--c-text-muted);
+}
+.effacer:hover {
+  color: var(--c-warn-text-2);
+}
+
+.confirme {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* Une page effacée l'est pour de bon : le mot le dit avant le clic. */
+.oui {
+  color: var(--c-warn-text-2);
+  font-weight: 500;
+}
+
+.non {
+  color: var(--c-text-3);
+}

@@ -1,6 +1,7 @@
 import { useState, type CSSProperties, type FormEvent } from 'react'
 import { messageEnvoiLien } from '@/lib/messageAuth'
 import { supabase } from '@/lib/supabase'
+import { captchaConfigure, useCaptcha } from '@/auth/Captcha'
 import type { SiteVitrine } from '@/lib/vitrine'
 import s from './VitrinePage.module.css'
 
@@ -204,6 +205,7 @@ function AccesEspace({ cabinet, apercu }: { cabinet: string; apercu?: boolean })
   const [envoi, setEnvoi] = useState(false)
   const [envoye, setEnvoye] = useState('')
   const [erreur, setErreur] = useState('')
+  const captcha = useCaptcha()
 
   async function soumettre(e: FormEvent) {
     e.preventDefault()
@@ -217,9 +219,13 @@ function AccesEspace({ cabinet, apercu }: { cabinet: string; apercu?: boolean })
     setErreur('')
     const { error } = await db.auth.signInWithOtp({
       email: email.trim(),
-      options: { emailRedirectTo: `${window.location.origin}${DESTINATION}` },
+      options: {
+        emailRedirectTo: `${window.location.origin}${DESTINATION}`,
+        captchaToken: captcha.jeton,
+      },
     })
     setEnvoi(false)
+    captcha.reinitialiser()
     if (error) {
       setErreur(messageEnvoiLien(error))
       return
@@ -261,11 +267,19 @@ function AccesEspace({ cabinet, apercu }: { cabinet: string; apercu?: boolean })
             <button
               className={s.bouton}
               type="submit"
-              disabled={apercu || envoi || !email.includes('@')}
+              disabled={
+                apercu ||
+                envoi ||
+                !email.includes('@') ||
+                (captchaConfigure() && !captcha.jeton)
+              }
             >
               {envoi ? 'Envoi…' : 'Recevoir mon lien'}
             </button>
           </form>
+          {/* La même porte que l'application : la protéger ailleurs et pas
+              ici laisserait la seule entrée publique ouverte. */}
+          {apercu ? null : captcha.widget}
           {erreur ? <p className={s.erreur}>{erreur}</p> : null}
           <p className={s.mention}>
             Réservé aux personnes suivies par le cabinet. Sans fiche à cette adresse, le lien
