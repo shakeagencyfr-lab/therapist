@@ -16,9 +16,22 @@
  *      choses : la photo est de quelqu'un. Elle voyage avec l'image, dans la
  *      même ligne, pour qu'on ne puisse pas afficher l'une sans l'autre.
  *
- * La clé Google est celle de la PLATEFORME (GOOGLE_PLACES_KEY, sans préfixe
- * VITE_) : l'import est un service rendu, pas une clé à demander à chaque
- * cabinet. Sans elle, tout l'écran fonctionne — à la main.
+ * DEUX SOURCES POSSIBLES, dans cet ordre. SerpAPI (SERPAPI_KEY) lit la fiche
+ * telle qu'elle s'affiche sur Google Maps ; l'API Places de Google
+ * (GOOGLE_PLACES_KEY) la lit à la source. La première se branche en une
+ * variable et rend les avis et les photos sans démarche ; la seconde demande
+ * un projet Google Cloud et une facturation, mais ses champs sont stables.
+ *
+ * L'une ou l'autre suffit. La clé est celle de la PLATEFORME, sans préfixe
+ * VITE_ : l'import est un service rendu, pas une clé à demander à chaque
+ * cabinet. Sans aucune des deux, tout l'écran fonctionne — à la main.
+ *
+ * POURQUOI LE LECTEUR SERPAPI EST AUSSI TOLÉRANT. SerpAPI recopie une page
+ * qui change : un champ y est tantôt une chaîne, tantôt un objet, tantôt un
+ * tableau, et il disparaît sans prévenir. Chaque champ est donc lu par une
+ * fonction qui accepte plusieurs formes et rend du vide plutôt que de lever.
+ * Un import amputé de ses horaires reste un import ; un import qui plante
+ * n'est rien.
  */
 import { adminConfigure, clientAdmin, exigerCabinet, identifier } from './auth.js'
 import { droitsDuCabinet, exigerDroit } from './droits.js'
@@ -329,9 +342,19 @@ export async function enregistrerSite(token: string | null, raw: unknown): Promi
  * ------------------------------------------------------------------ */
 
 const GOOGLE_KEY = (process.env.GOOGLE_PLACES_KEY ?? '').trim()
+const SERPAPI_KEY = (process.env.SERPAPI_KEY ?? '').trim()
+
+/** Quelle source lit la fiche. SerpAPI d'abord : elle demande moins. */
+export type SourceFiche = 'serpapi' | 'places' | 'aucune'
+
+export function sourceFiche(): SourceFiche {
+  if (SERPAPI_KEY) return 'serpapi'
+  if (GOOGLE_KEY) return 'places'
+  return 'aucune'
+}
 
 export function googleConfigure(): boolean {
-  return Boolean(GOOGLE_KEY)
+  return sourceFiche() !== 'aucune'
 }
 
 function exigerGoogle(): string {
@@ -342,6 +365,200 @@ function exigerGoogle(): string {
     )
   }
   return GOOGLE_KEY
+}
+
+/* ------------------------------------------------------------------ *
+ * SerpAPI
+ * ------------------------------------------------------------------ */
+
+/**
+ * Un appel à SerpAPI.
+ *
+ * La clé passe en paramètre d'URL : c'est ce que l'API demande. Elle ne sort
+ * jamais d'ici — ni vers le navigateur, ni dans un message d'erreur, ni dans
+ * le journal, où l'URL complète serait recopiée avec.
+ */
+async function serpapi(parametres: Record<string, string>): Promise<Record<string, unknown>> {
+  const url = new URL('https://serpapi.com/search.json')
+  for (const [clef, valeur] of Object.entries(parametres)) url.searchParams.set(clef, valeur)
+  url.searchParams.set('api_key', SERPAPI_KEY)
+
+  let reponse: Response
+  try {
+    reponse = await fetch(url, { signal: AbortSignal.timeout(20_000) })
+  } catch {
+    throw new HttpError(504, 'Le service de recherche est injoignable depuis le serveur. Réessayez dans un instant.')
+  }
+  const lu = (await reponse.json().catch(() => ({}))) as Record<string, unknown>
+  if (!reponse.ok || typeof lu.error === 'string') {
+    const motif = String(lu.error ?? reponse.status).slice(0, 200)
+    // Le motif est en anglais et technique : journal, pas écran. Et jamais
+    // l'URL, qui porte la clé.
+    console.error(`[site] serpapi ${reponse.status} — ${motif}`)
+    if (reponse.status === 401 || /api_key|invalid key/i.test(motif)) {
+      throw new HttpError(502, 'La clé de recherche de la plateforme est refusée. Prévenez votre revendeur.')
+    }
+    if (reponse.status === 429 || /run out|limit/i.test(motif)) {
+      throw new HttpError(429, 'Le quota de recherche de la plateforme est atteint. Réessayez plus tard, ou prévenez votre revendeur.')
+    }
+    throw new HttpError(502, "La recherche n'a rien rendu. Réessayez dans un instant, ou remplissez votre page à la main.")
+  }
+  return lu
+}
+
+/* Les lecteurs tolérants ------------------------------------------------ *
+ * SerpAPI recopie une page qui bouge. Un champ peut arriver en chaîne, en
+ * objet, en tableau, ou pas du tout — et le jour où il change de forme, un
+ * import doit perdre ce champ, pas s'arrêter.                             */
+
+/** Une chaîne, d'où qu'elle vienne : chaîne nue, `{ snippet }`, `{ text }`. */
+export function chaineSouple(brut: unknown, max: number): string {
+  if (typeof brut === 'string') return texte(brut, max)
+  if (typeof brut === 'number') return texte(String(brut), max)
+  if (brut && typeof brut === 'object') {
+    const o = brut as Record<string, unknown>
+    for (const clef of ['snippet', 'text', 'description', 'name', 'title', 'value']) {
+      if (typeof o[clef] === 'string') return texte(o[clef] as string, max)
+    }
+  }
+  return ''
+}
+
+export function nombreSouple(brut: unknown): number | null {
+  /* `Number(null)` vaut ZÉRO, et `Number('')` aussi : sans ces deux gardes,
+     une fiche sans note s'importait notée 0 sur 5 et l'affichait en tête de
+     la page d'accueil du cabinet. Une note absente est absente. */
+  if (typeof brut === 'number') return Number.isFinite(brut) ? brut : null
+  if (typeof brut !== 'string') return null
+  const propre = brut.replace(',', '.').replace(/[^\d.]/g, '')
+  if (!propre) return null
+  const n = Number(propre)
+  return Number.isFinite(n) ? n : null
+}
+
+/**
+ * Les horaires, dans les trois formes rencontrées :
+ *   [{ "lundi": "09:00–19:00" }, …]         — la plus courante
+ *   [{ day: "lundi", times: ["09:00–19:00"] }, …]
+ *   { "lundi": "09:00–19:00", … }
+ */
+export function horairesSouples(brut: unknown): Array<{ jour: string; heures: string }> {
+  const sortie: Array<{ jour: string; heures: string }> = []
+  const pousser = (jour: string, heures: unknown) => {
+    const j = texte(jour, 40)
+    const h = Array.isArray(heures) ? heures.map((x) => chaineSouple(x, 40)).filter(Boolean).join(', ') : chaineSouple(heures, 80)
+    if (j) sortie.push({ jour: j, heures: texte(h, 80) })
+  }
+  if (Array.isArray(brut)) {
+    for (const entree of brut) {
+      if (!entree || typeof entree !== 'object') continue
+      const o = entree as Record<string, unknown>
+      if (typeof o.day === 'string') {
+        pousser(o.day, o.times ?? o.hours ?? o.time)
+        continue
+      }
+      for (const [jour, heures] of Object.entries(o)) pousser(jour, heures)
+    }
+  } else if (brut && typeof brut === 'object') {
+    for (const [jour, heures] of Object.entries(brut as Record<string, unknown>)) pousser(jour, heures)
+  }
+  return sortie.slice(0, 7)
+}
+
+/** Les avis, depuis `user_reviews.most_relevant` ou un tableau `reviews`. */
+export function avisSouples(brut: unknown): Array<{ auteur: string; note: number; texte: string; date: string }> {
+  const source = Array.isArray(brut)
+    ? brut
+    : brut && typeof brut === 'object'
+      ? ((brut as Record<string, unknown>).most_relevant ?? (brut as Record<string, unknown>).reviews ?? [])
+      : []
+  if (!Array.isArray(source)) return []
+  return source
+    .slice(0, 5)
+    .map((brute) => {
+      const r = (brute ?? {}) as Record<string, unknown>
+      return {
+        auteur: chaineSouple(r.username ?? r.user ?? r.author, 80),
+        note: Math.max(0, Math.min(5, nombreSouple(r.rating) ?? 0)),
+        texte: chaineSouple(r.description ?? r.snippet ?? r.extracted_snippet ?? r.text, 800),
+        date: chaineSouple(r.date ?? r.iso_date ?? r.relative_date, 40),
+      }
+    })
+    .filter((a) => a.texte)
+}
+
+/** Les adresses d'images, depuis `images`, `photos` ou une simple vignette. */
+export function imagesSouples(brut: unknown, secours: unknown): string[] {
+  const urls: string[] = []
+  const ajouter = (valeur: unknown) => {
+    const u = typeof valeur === 'string' ? valeur : chaineSouple(valeur, 600)
+    if (u.startsWith('https://') && !urls.includes(u)) urls.push(u)
+  }
+  if (Array.isArray(brut)) {
+    for (const entree of brut) {
+      if (typeof entree === 'string') ajouter(entree)
+      else if (entree && typeof entree === 'object') {
+        const o = entree as Record<string, unknown>
+        ajouter(o.image ?? o.thumbnail ?? o.serpapi_thumbnail ?? o.original ?? o.link)
+      }
+    }
+  }
+  if (!urls.length) ajouter(secours)
+  return urls.slice(0, 6)
+}
+
+/** Ce que les deux sources rendent, une fois mises à la même forme. */
+interface FicheLue {
+  placeId: string
+  nom: string
+  adresse: string
+  telephone: string
+  siteWeb: string
+  presentation: string
+  note: number | null
+  avisNombre: number | null
+  horaires: Array<{ jour: string; heures: string }>
+  avis: Array<{ auteur: string; note: number; texte: string; date: string }>
+  /** Adresses d'images à recopier chez nous, ou noms de photos Places. */
+  images: string[]
+}
+
+/** La recherche, par SerpAPI. */
+async function chercherParSerpapi(requete: string): Promise<FicheTrouvee[]> {
+  const lu = await serpapi({ engine: 'google_maps', type: 'search', q: requete, hl: 'fr', gl: 'fr' })
+  /* Une requête très précise renvoie parfois LA fiche au lieu d'une liste :
+     c'est le même écran de choix, avec un seul choix. */
+  const uniques = lu.place_results ? [lu.place_results] : []
+  const liste = Array.isArray(lu.local_results) ? lu.local_results : uniques
+  return (liste as Array<Record<string, unknown>>)
+    .map((r) => ({
+      placeId: chaineSouple(r.place_id, 300),
+      nom: chaineSouple(r.title, 120),
+      adresse: chaineSouple(r.address, 240),
+      note: nombreSouple(r.rating),
+      avis: nombreSouple(r.reviews),
+    }))
+    .filter((f) => f.placeId && f.nom)
+    .slice(0, 6)
+}
+
+/** Le détail d'une fiche, par SerpAPI. */
+async function lireParSerpapi(placeId: string): Promise<FicheLue> {
+  const lu = await serpapi({ engine: 'google_maps', type: 'place', place_id: placeId, hl: 'fr', gl: 'fr' })
+  const p = ((lu.place_results ?? {}) as Record<string, unknown>)
+  return {
+    placeId: chaineSouple(p.place_id, 300) || placeId,
+    nom: chaineSouple(p.title, 120),
+    adresse: chaineSouple(p.address, 240),
+    telephone: chaineSouple(p.phone, 40),
+    siteWeb: lien(p.website),
+    presentation: chaineSouple(p.description, 3000),
+    note: nombreSouple(p.rating),
+    avisNombre: nombreSouple(p.reviews),
+    horaires: horairesSouples(p.hours ?? p.operating_hours),
+    avis: avisSouples(p.user_reviews ?? p.reviews_results),
+    images: imagesSouples(p.images ?? p.photos, p.thumbnail),
+  }
 }
 
 /**
@@ -422,6 +639,8 @@ export async function chercherFicheGoogle(token: string | null, raw: unknown): P
     throw new HttpError(400, 'Cherchez avec le nom de votre cabinet et votre ville.')
   }
 
+  if (sourceFiche() === 'serpapi') return chercherParSerpapi(requete)
+
   const lu = await google(
     'places:searchText',
     'places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount',
@@ -439,6 +658,45 @@ export async function chercherFicheGoogle(token: string | null, raw: unknown): P
     }))
 }
 
+/** Le détail d'une fiche, par l'API Places. */
+async function lireParPlaces(placeId: string): Promise<FicheLue> {
+  const p = (await google(
+    `places/${encodeURIComponent(placeId)}?languageCode=fr`,
+    'id,displayName,formattedAddress,nationalPhoneNumber,websiteUri,rating,userRatingCount,editorialSummary,regularOpeningHours.weekdayDescriptions,reviews,photos',
+  )) as PlaceGoogle
+
+  const horaires = (p.regularOpeningHours?.weekdayDescriptions ?? []).slice(0, 7).map((ligne) => {
+    const coupe = ligne.indexOf(':')
+    return coupe === -1
+      ? { jour: texte(ligne, 40), heures: '' }
+      : { jour: texte(ligne.slice(0, coupe), 40), heures: texte(ligne.slice(coupe + 1), 80) }
+  })
+
+  return {
+    placeId: p.id ?? placeId,
+    nom: texte(p.displayName?.text, 120),
+    adresse: texte(p.formattedAddress, 240),
+    telephone: texte(p.nationalPhoneNumber, 40),
+    siteWeb: lien(p.websiteUri),
+    presentation: texte(p.editorialSummary?.text, 3000),
+    note: typeof p.rating === 'number' ? p.rating : null,
+    avisNombre: typeof p.userRatingCount === 'number' ? p.userRatingCount : null,
+    horaires,
+    avis: (p.reviews ?? [])
+      .slice(0, 5)
+      .map((r) => ({
+        auteur: texte(r.authorAttribution?.displayName, 80),
+        note: Math.max(0, Math.min(5, Number(r.rating ?? 0))),
+        texte: texte(r.text?.text, 800),
+        date: texte(r.relativePublishTimeDescription, 40),
+      }))
+      .filter((a) => a.texte),
+    /* Places ne rend pas d'adresse d'image mais un NOM de photo, à échanger
+       contre une adresse éphémère. `recopierPhoto` reconnaît les deux. */
+    images: (p.photos ?? []).slice(0, 6).map((ph) => ph.name ?? '').filter(Boolean),
+  }
+}
+
 /**
  * Recopier une photo de Google chez nous.
  *
@@ -452,13 +710,20 @@ async function recopierPhoto(cabinetId: string, nom: string, rang: number): Prom
   if (!client || !adminConfigure()) return null
 
   /* Une photo qui ne se recopie pas ne doit pas emporter tout l'import : la
-     fiche vaut d'être importée même amputée d'une image. */
+     fiche vaut d'être importée même amputée d'une image.
+
+     SerpAPI rend directement une adresse ; Places rend un NOM de photo qu'il
+     faut d'abord échanger contre une adresse éphémère. */
   let source = ''
-  try {
-    const lu = await google(`${nom}/media?maxWidthPx=1600&skipHttpRedirect=true`, null)
-    source = String((lu as { photoUri?: string }).photoUri ?? '')
-  } catch {
-    return null
+  if (nom.startsWith('https://')) {
+    source = nom
+  } else {
+    try {
+      const lu = await google(`${nom}/media?maxWidthPx=1600&skipHttpRedirect=true`, null)
+      source = String((lu as { photoUri?: string }).photoUri ?? '')
+    } catch {
+      return null
+    }
   }
   if (!source.startsWith('https://')) return null
 
@@ -502,13 +767,12 @@ export async function importerFicheGoogle(token: string | null, raw: unknown): P
   exigerDroit(droits, 'site')
 
   const body = (raw && typeof raw === 'object' ? raw : {}) as { placeId?: string }
-  const placeId = texte(body.placeId, 200)
+  const placeId = texte(body.placeId, 300)
   if (!placeId) throw new HttpError(400, 'Choisissez la fiche à importer.')
 
-  const p = (await google(
-    `places/${encodeURIComponent(placeId)}?languageCode=fr`,
-    'id,displayName,formattedAddress,nationalPhoneNumber,websiteUri,rating,userRatingCount,editorialSummary,regularOpeningHours.weekdayDescriptions,reviews,photos',
-  )) as PlaceGoogle
+  // Une seule lecture, quelle que soit la source : la suite ne sait plus d'où
+  // vient la fiche, et n'a pas à le savoir.
+  const fiche = sourceFiche() === 'serpapi' ? await lireParSerpapi(placeId) : await lireParPlaces(placeId)
 
   const { data: existant } = await appelant.client
     .from('cabinet_sites')
@@ -517,38 +781,18 @@ export async function importerFicheGoogle(token: string | null, raw: unknown): P
     .maybeSingle<SiteRow>()
   const actuel = versSite(existant ?? null)
 
-  const horaires = (p.regularOpeningHours?.weekdayDescriptions ?? []).slice(0, 7).map((ligne) => {
-    const coupe = ligne.indexOf(':')
-    return coupe === -1
-      ? { jour: texte(ligne, 40), heures: '' }
-      : { jour: texte(ligne.slice(0, coupe), 40), heures: texte(ligne.slice(coupe + 1), 80) }
-  })
-
-  const avis = (p.reviews ?? [])
-    .slice(0, 5)
-    .map((r) => ({
-      auteur: texte(r.authorAttribution?.displayName, 80),
-      note: Math.max(0, Math.min(5, Number(r.rating ?? 0))),
-      texte: texte(r.text?.text, 800),
-      date: texte(r.relativePublishTimeDescription, 40),
-    }))
-    .filter((a) => a.texte)
-
   /* Les photos ne sont recopiées que la première fois : reprendre l'import
      pour rafraîchir les avis ne doit pas redéposer six fichiers. */
   let photos = actuel.photos
   if (!photos.length) {
-    const noms = (p.photos ?? []).slice(0, 6)
     const recopiees: PhotoSite[] = []
-    for (const [rang, ph] of noms.entries()) {
-      if (!ph.name) continue
-      const url = await recopierPhoto(cabinetId, ph.name, rang + 1)
+    for (const [rang, reference] of fiche.images.entries()) {
+      const url = await recopierPhoto(cabinetId, reference, rang + 1)
       if (!url) continue
-      const auteurs = (ph.authorAttributions ?? []).map((a) => a.displayName).filter(Boolean)
       recopiees.push({
         url,
-        alt: `${p.displayName?.text ?? 'Cabinet'} — photo ${rang + 1}`,
-        attribution: auteurs.length ? `Photo : ${auteurs.join(', ')} (Google)` : 'Photo : Google',
+        alt: `${fiche.nom || 'Cabinet'} — photo ${rang + 1}`,
+        attribution: 'Photo : Google',
       })
     }
     photos = recopiees
@@ -558,19 +802,19 @@ export async function importerFicheGoogle(token: string | null, raw: unknown): P
     cabinet_id: cabinetId,
     modele: actuel.modele,
     publie: actuel.publie,
-    titre: actuel.titre || texte(p.displayName?.text, 120),
+    titre: actuel.titre || fiche.nom,
     sous_titre: actuel.sousTitre,
-    presentation: actuel.presentation || texte(p.editorialSummary?.text, 3000),
-    adresse: actuel.adresse || texte(p.formattedAddress, 240),
-    telephone: actuel.telephone || texte(p.nationalPhoneNumber, 40),
-    site_web: actuel.siteWeb || lien(p.websiteUri),
-    horaires: horaires.length ? horaires : actuel.horaires,
+    presentation: actuel.presentation || fiche.presentation,
+    adresse: actuel.adresse || fiche.adresse,
+    telephone: actuel.telephone || fiche.telephone,
+    site_web: actuel.siteWeb || fiche.siteWeb,
+    horaires: fiche.horaires.length ? fiche.horaires : actuel.horaires,
     photos,
     services: actuel.services,
-    avis: avis.length ? avis : actuel.avis,
-    google_place_id: p.id ?? placeId,
-    google_note: typeof p.rating === 'number' ? Number(p.rating.toFixed(1)) : null,
-    google_avis: typeof p.userRatingCount === 'number' ? p.userRatingCount : null,
+    avis: fiche.avis.length ? fiche.avis : actuel.avis,
+    google_place_id: fiche.placeId,
+    google_note: fiche.note === null ? null : Number(fiche.note.toFixed(1)),
+    google_avis: fiche.avisNombre === null ? null : Math.round(fiche.avisNombre),
     importe_le: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }
