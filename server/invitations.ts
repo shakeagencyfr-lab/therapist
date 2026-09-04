@@ -271,7 +271,7 @@ export async function envoyerInvitation(
      même application avec sa marque à lui sur la porte. */
   const espacePatient = sien || !slugCabinet ? `${base}/mon` : `${base}/${slugCabinet}/mon`
   const destination =
-    kind === 'patient' ? espacePatient : slugCabinet ? `${base}/c/${slugCabinet}` : `${base}/`
+    kind === 'patient' ? espacePatient : slugCabinet ? `${base}/${slugCabinet}` : `${base}/`
 
   /* ---- D'abord son serveur d'envoi, si elle en a un --------------------
      En marque blanche totale, le courriel doit partir de son adresse. Un

@@ -15,14 +15,6 @@
       "destination": "/patient.html"
     },
     {
-      "source": "/c/:slug",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/c/:slug/",
-      "destination": "/index.html"
-    },
-    {
       "source": "/e/:slug",
       "destination": "/embed.html"
     },
@@ -37,6 +29,14 @@
     {
       "source": "/:slug/mon/",
       "destination": "/patient.html"
+    },
+    {
+      "source": "/:slug([a-z0-9][a-z0-9-]*)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/:slug([a-z0-9][a-z0-9-]*)/",
+      "destination": "/index.html"
     }
   ],
   "headers": [
@@ -68,32 +68,6 @@
     },
     {
       "source": "/mon/",
-      "headers": [
-        {
-          "key": "Content-Security-Policy",
-          "value": "frame-ancestors 'self'"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "SAMEORIGIN"
-        }
-      ]
-    },
-    {
-      "source": "/c/:slug",
-      "headers": [
-        {
-          "key": "Content-Security-Policy",
-          "value": "frame-ancestors 'self'"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "SAMEORIGIN"
-        }
-      ]
-    },
-    {
-      "source": "/c/:slug/",
       "headers": [
         {
           "key": "Content-Security-Policy",
@@ -156,6 +130,44 @@
           "value": "SAMEORIGIN"
         }
       ]
+    },
+    {
+      "source": "/:slug([a-z0-9][a-z0-9-]*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'self'"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        }
+      ]
+    },
+    {
+      "source": "/:slug([a-z0-9][a-z0-9-]*)/",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'self'"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        }
+      ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/c/:slug",
+      "destination": "/:slug",
+      "permanent": true
+    },
+    {
+      "source": "/c/:slug/",
+      "destination": "/:slug",
+      "permanent": true
     }
   ]
 }

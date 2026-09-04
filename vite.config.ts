@@ -12,11 +12,14 @@ import { fileURLToPath, URL } from 'node:url'
  * pas une ligne.
  */
 function adressesEnDev() {
+  // Dans l'ordre, comme en production : la dernière attrape tout ce qui
+  // tient en un segment, elle ne peut donc pas passer avant les autres.
   const routes: [RegExp, string][] = [
     [/^\/mon\/?$/, '/patient.html'],
-    [/^\/c\/[a-z0-9][a-z0-9-]{0,62}\/?$/i, '/index.html'],
     [/^\/e\/[a-z0-9][a-z0-9-]{0,62}\/?$/i, '/embed.html'],
     [/^\/[a-z0-9][a-z0-9-]{0,62}\/mon\/?$/i, '/patient.html'],
+    [/^\/c\/[a-z0-9][a-z0-9-]{0,62}\/?$/i, '/index.html'],
+    [/^\/[a-z0-9][a-z0-9-]{0,62}\/?$/i, '/index.html'],
   ]
   return {
     name: 'klaro-adresses-dev',
