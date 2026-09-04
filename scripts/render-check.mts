@@ -369,6 +369,43 @@ try {
   } else {
     console.log(`✓ vitrine/apercu    ${String(apercu.length).padStart(6)} octets · porte montrée, inerte`)
   }
+  /* LES AVIS GOOGLE : LE BADGE FAIT FOI, ET LA PISTE MARCHE SANS SCRIPT.
+     Le carrousel est un défilement natif : rendu côté serveur, les trois avis
+     doivent déjà être dans la page. S'ils n'y sont qu'après hydratation, un
+     robot d'indexation et un navigateur sans script ne voient qu'un cadre
+     vide — et sur la page la plus exposée du produit. */
+  const troisAvis = {
+    ...SITE_FICTIF,
+    avis: [
+      { auteur: 'Claire', note: 5, texte: 'Une écoute rare.', date: 'il y a un mois' },
+      { auteur: 'Karim', note: 4, texte: 'Deux séances ont suffi.', date: 'il y a 3 mois' },
+      { auteur: 'Léa', note: 5, texte: 'Je dors enfin.', date: 'il y a un an' },
+    ],
+  }
+  const carrousel = renderToString(h(VitrinePage, { site: troisAvis as never }))
+  const avisManque = [
+    // Les trois avis, sans script.
+    !['Une écoute rare.', 'Deux séances ont suffi.', 'Je dors enfin.'].every((t) =>
+      carrousel.includes(t),
+    ) && 'la piste ne porte pas les trois avis sans script',
+    // Le badge : la note ET son nombre d'avis. Une note sans son volume ne
+    // dit rien, et 4,9 doit rester 4,9 — pas 5 arrondi.
+    !carrousel.includes('4,9') && 'la note Google exacte ne paraît pas',
+    !carrousel.includes('37 avis sur Google') && "le nombre d'avis Google manque",
+    // La marque Google, inline et non chargée chez Google : une page de
+    // cabinet ne signale pas ses visiteurs à un tiers.
+    !carrousel.includes('#EA4335') && "le logo Google n'est pas dans la page",
+    /(gstatic|googleusercontent|google\.com\/images)/.test(carrousel) &&
+      'le logo Google est chargé depuis un serveur tiers',
+  ].filter(Boolean)
+  if (avisManque.length) {
+    console.error(`✗ vitrine/avis : ${avisManque.join(', ')}`)
+    echecs++
+  } else {
+    console.log(
+      `✓ vitrine/avis      ${String(carrousel.length).padStart(6)} octets · badge Google, piste sans script`,
+    )
+  }
 } catch (err) {
   console.error(`✗ vitrine/publiee : ${(err as Error).message}`)
   echecs++
