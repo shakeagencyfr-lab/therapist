@@ -122,6 +122,8 @@ export interface SiteVitrine {
   tagline: string
   branding: CabinetBranding
   modele: string
+  /** L'habillage, tel qu'il sort de la base : relu en liste blanche au rendu. */
+  theme?: unknown
   titre: string | null
   sous_titre: string | null
   presentation: string | null

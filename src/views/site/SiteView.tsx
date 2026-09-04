@@ -25,6 +25,17 @@ import {
   type Site,
 } from '@/services/cabinet'
 import { VitrinePage } from '@/views/vitrine/VitrinePage'
+import {
+  CARTES,
+  COINS,
+  FONDS,
+  POLICES_TEXTE,
+  POLICES_TITRES,
+  PRESETS,
+  resoudreTheme,
+  themeDuPreset,
+  type ThemeVitrine,
+} from '@/lib/themeVitrine'
 import type { SiteVitrine } from '@/lib/vitrine'
 import type { CabinetBranding } from '@/types/reseller'
 import s from './SiteView.module.css'
@@ -54,6 +65,7 @@ function versVitrine(
       logo: 'KL',
     },
     modele: site.modele,
+    theme: site.theme,
     titre: site.titre,
     sous_titre: site.sousTitre,
     presentation: site.presentation,
@@ -221,6 +233,8 @@ export function SiteView() {
               ))}
             </div>
           </Card>
+
+          <Apparence theme={site.theme} onChange={(theme) => patch({ theme })} />
 
           <Card className={s.panel}>
             <Title large as="h2">
@@ -708,6 +722,175 @@ function Photos({
           {depot ? 'Dépôt…' : 'Ajouter une photo'}
         </Button>
       </div>
+    </Card>
+  )
+}
+
+
+/**
+ * L'habillage de la page : préréglages, polices, fond, cartes, angles.
+ *
+ * TOUT SE VOIT À DROITE PENDANT QU'ON RÈGLE. C'est la seule raison pour
+ * laquelle ces réglages sont utilisables : six options combinées font des
+ * centaines de pages possibles, et personne ne peut les imaginer. On clique,
+ * on regarde, on garde ou on change.
+ *
+ * LES PRÉRÉGLAGES D'ABORD, LE DÉTAIL ENSUITE. Six réglages indépendants
+ * produisent surtout des combinaisons ratées ; les préréglages posent une
+ * intention cohérente en un clic, et restent modifiables après coup. Toucher
+ * un réglage ne détache pas du préréglage : il en garde le nom, parce que
+ * c'est de là qu'on est parti.
+ *
+ * LES COULEURS NE SONT PAS ICI, et c'est délibéré : elles viennent de la
+ * marque du cabinet, qui habille déjà l'espace des patients vers lequel cette
+ * page mène. Les redoubler ici garantirait qu'un jour les deux divergent.
+ */
+function Apparence({
+  theme: brut,
+  onChange,
+}: {
+  theme: ThemeVitrine
+  onChange: (theme: ThemeVitrine) => void
+}) {
+  const theme = resoudreTheme(brut)
+  const regler = (champs: Partial<ThemeVitrine>) => onChange({ ...theme, ...champs })
+
+  return (
+    <Card className={s.panel}>
+      <Title large as="h2">
+        L'apparence
+      </Title>
+      <p className={s.hint}>
+        Chaque choix se voit tout de suite dans l'aperçu. Rien n'est en ligne tant que vous
+        n'enregistrez pas.
+      </p>
+
+      <FieldLabel>Préréglages</FieldLabel>
+      <div className={s.presets}>
+        {PRESETS.map((p) => (
+          <button
+            key={p.code}
+            type="button"
+            className={theme.preset === p.code ? `${s.preset} ${s.presetOn}` : s.preset}
+            aria-pressed={theme.preset === p.code}
+            onClick={() => onChange(themeDuPreset(p.code))}
+          >
+            <span className={s.presetNom}>{p.label}</span>
+            <span className={s.presetDetail}>{p.detail}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className={s.deux}>
+        <div className={s.field}>
+          <FieldLabel>Police des titres</FieldLabel>
+          <select
+            className={s.select}
+            value={theme.titres}
+            onChange={(e) => regler({ titres: e.target.value })}
+          >
+            {POLICES_TITRES.map((p) => (
+              <option key={p.code} value={p.code}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className={s.field}>
+          <FieldLabel>Police du texte</FieldLabel>
+          <select
+            className={s.select}
+            value={theme.texte}
+            onChange={(e) => regler({ texte: e.target.value })}
+          >
+            {POLICES_TEXTE.map((p) => (
+              <option key={p.code} value={p.code}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className={s.field}>
+        <FieldLabel>Fond de page</FieldLabel>
+        <div className={s.puces}>
+          {FONDS.map((f) => (
+            <button
+              key={f.code}
+              type="button"
+              title={f.detail}
+              className={theme.fond === f.code ? `${s.puce} ${s.puceOn}` : s.puce}
+              aria-pressed={theme.fond === f.code}
+              onClick={() => regler({ fond: f.code })}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <span className={s.hint}>{FONDS.find((f) => f.code === theme.fond)?.detail}</span>
+      </div>
+
+      {/* Le mouvement ne s'offre que sur les motifs qui se répètent : animer
+          une lueur ou un dégradé ne se verrait pas. Proposer une case sans
+          effet ferait douter du reste. */}
+      {['grille', 'points', 'lignes'].includes(theme.fond) ? (
+        <label className={s.bascule}>
+          <input
+            type="checkbox"
+            checked={theme.anime}
+            onChange={(e) => regler({ anime: e.target.checked })}
+          />
+          <span>
+            <span className={s.basculeTitre}>Faire dériver le motif</span>
+            <span className={s.hint}>
+              Très lentement, sans jamais gêner la lecture. Sans effet pour qui a demandé à son
+              appareil de limiter les animations.
+            </span>
+          </span>
+        </label>
+      ) : null}
+
+      <div className={s.deux}>
+        <div className={s.field}>
+          <FieldLabel>Style des cartes</FieldLabel>
+          <div className={s.puces}>
+            {CARTES.map((c) => (
+              <button
+                key={c.code}
+                type="button"
+                title={c.detail}
+                className={theme.carte === c.code ? `${s.puce} ${s.puceOn}` : s.puce}
+                aria-pressed={theme.carte === c.code}
+                onClick={() => regler({ carte: c.code })}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className={s.field}>
+          <FieldLabel>Angles</FieldLabel>
+          <div className={s.puces}>
+            {COINS.map((c) => (
+              <button
+                key={c.code}
+                type="button"
+                className={theme.coins === c.code ? `${s.puce} ${s.puceOn}` : s.puce}
+                aria-pressed={theme.coins === c.code}
+                onClick={() => regler({ coins: c.code })}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <p className={s.note}>
+        Les couleurs, le logo et le nom viennent de votre marque, dans « Votre marque » : ils
+        habillent aussi l'application de vos patients, et cette page mène à elle.
+      </p>
     </Card>
   )
 }

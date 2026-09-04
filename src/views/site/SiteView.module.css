@@ -390,3 +390,100 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ---- L'apparence : préréglages, polices, fond, cartes, angles ----------- */
+
+.presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin: 6px 0 16px;
+}
+
+.preset {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  padding: 11px 13px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  background: var(--c-surface);
+  color: var(--c-text);
+  cursor: pointer;
+}
+.preset:hover {
+  background: var(--c-surface-2);
+}
+.presetOn,
+.presetOn:hover {
+  border-color: var(--c-accent);
+  background: var(--c-accent-tint);
+}
+.presetNom {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.presetDetail {
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+}
+
+.select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font-family: inherit;
+  font-size: 13.5px;
+}
+.select:focus {
+  outline: none;
+  border-color: var(--c-accent);
+}
+
+/* Des puces plutôt qu'une liste déroulante : sept fonds se comparent d'un
+   coup d'œil, et chaque clic se voit dans l'aperçu. */
+.puces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.puce {
+  padding: 7px 13px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-pill);
+  background: var(--c-surface);
+  color: var(--c-text-3);
+  font-family: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.puce:hover {
+  border-color: var(--c-accent);
+}
+.puceOn,
+.puceOn:hover {
+  border-color: var(--c-accent);
+  background: var(--c-accent);
+  color: #fff;
+}
+
+.bascule {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 4px 0 16px;
+  cursor: pointer;
+}
+.bascule input {
+  margin-top: 3px;
+  flex: none;
+}
+.basculeTitre {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 500;
+}

@@ -36,6 +36,7 @@
 import { adminConfigure, clientAdmin, exigerCabinet, identifier } from './auth.js'
 import { droitsDuCabinet, exigerDroit } from './droits.js'
 import { HttpError } from './errors.js'
+import { THEME_DEFAUT, resoudreTheme, type ThemeVitrine } from '../src/lib/themeVitrine.js'
 
 /* ------------------------------------------------------------------ *
  * La bibliothèque de modèles
@@ -104,6 +105,10 @@ export interface AvisSite {
 
 export interface Site {
   modele: string
+  /* L'habillage : polices, fond, cartes, angles. Les couleurs n'y sont pas —
+     elles viennent de la marque du cabinet, qui habille déjà l'espace des
+     patients vers lequel cette page mène. */
+  theme: ThemeVitrine
   publie: boolean
   titre: string
   sousTitre: string
@@ -144,6 +149,7 @@ export interface FicheTrouvee {
 
 const VIDE: Site = {
   modele: 'sobre',
+  theme: THEME_DEFAUT,
   publie: false,
   titre: '',
   sousTitre: '',
@@ -163,6 +169,7 @@ const VIDE: Site = {
 
 interface SiteRow {
   modele: string | null
+  theme: unknown
   publie: boolean | null
   titre: string | null
   sous_titre: string | null
@@ -181,12 +188,16 @@ interface SiteRow {
 }
 
 const COLONNES =
-  'modele, publie, titre, sous_titre, presentation, adresse, telephone, site_web, horaires, photos, services, avis, google_place_id, google_note, google_avis, importe_le'
+  'modele, theme, publie, titre, sous_titre, presentation, adresse, telephone, site_web, horaires, photos, services, avis, google_place_id, google_note, google_avis, importe_le'
 
 function versSite(row: SiteRow | null): Site {
   if (!row) return VIDE
   return {
     modele: CODES.has(row.modele ?? '') ? (row.modele as string) : 'sobre',
+    /* Relu par la liste blanche à CHAQUE lecture, pas seulement à
+       l'écriture : une ligne écrite avant qu'une police soit retirée de la
+       liste rendrait sinon un code que plus rien ne connaît. */
+    theme: resoudreTheme(row.theme),
     publie: Boolean(row.publie),
     titre: row.titre ?? '',
     sousTitre: row.sous_titre ?? '',
@@ -268,6 +279,7 @@ function photo(brut: unknown): PhotoSite | null {
 
 export interface SiteBody {
   modele?: string
+  theme?: unknown
   publie?: boolean
   titre?: string
   sousTitre?: string
@@ -299,6 +311,9 @@ export async function enregistrerSite(token: string | null, raw: unknown): Promi
   const ligne = {
     cabinet_id: cabinetId,
     modele,
+    /* La même liste blanche qu'à la lecture : ce qui entre en base est déjà
+       propre, et rien d'inconnu ne s'y accumule. */
+    theme: resoudreTheme(body.theme),
     publie: Boolean(body.publie),
     titre: texte(body.titre, 120),
     sous_titre: texte(body.sousTitre, 200),

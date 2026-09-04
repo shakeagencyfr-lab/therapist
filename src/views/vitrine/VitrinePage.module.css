@@ -28,7 +28,17 @@
   min-height: 100dvh;
   background: var(--c-surface);
   color: var(--c-text);
+  font-family: var(--vitrine-texte, inherit);
   padding-bottom: 40px;
+
+  /* Les trois variables que les variantes ci-dessous font bouger. Les poser
+     ici plutôt que dans chaque règle évite d'avoir à redéfinir la bordure, le
+     fond et l'ombre d'une carte à quatre endroits. */
+  --carte-fond: var(--c-surface);
+  --carte-bord: 1px solid var(--c-border);
+  --carte-ombre: none;
+  --carte-flou: none;
+  --coin: var(--r-lg);
   /* Dernier garde-fou : rien ne doit faire défiler la page latéralement. */
   overflow-x: clip;
 }
@@ -76,7 +86,7 @@
   color: #fff;
   display: grid;
   place-items: center;
-  font-family: var(--font-serif);
+  font-family: var(--vitrine-titres, var(--font-serif));
   font-size: 16px;
 }
 
@@ -121,7 +131,7 @@
 }
 
 .titre {
-  font-family: var(--font-serif);
+  font-family: var(--vitrine-titres, var(--font-serif));
   font-size: clamp(30px, 5.2vw, 56px);
   line-height: 1.08;
   letter-spacing: -0.02em;
@@ -182,7 +192,7 @@
 }
 
 .h2 {
-  font-family: var(--font-serif);
+  font-family: var(--vitrine-titres, var(--font-serif));
   font-size: clamp(22px, 2.6vw, 32px);
   font-weight: 400;
   letter-spacing: -0.015em;
@@ -522,4 +532,179 @@
     font-size: 14px;
     padding: 8px 0;
   }
+}
+
+
+/* ======================================================================== *
+ * L'habillage réglable
+ *
+ * Chaque famille est une liste fermée, tenue en liste blanche dans
+ * src/lib/themeVitrine.ts : le nom de classe est composé depuis un code
+ * validé, jamais depuis une chaîne venue de la base.
+ * ======================================================================== */
+
+/* ---- Le fond de page ---------------------------------------------------- */
+
+/* Ils passent tous par un pseudo-élément fixe plutôt que par le fond de
+   `.page` : un motif attaché au bloc se rejoue à chaque hauteur d'écran et
+   se déforme quand la page s'allonge. Là il reste stable, et n'attrape aucun
+   clic. */
+.fond_uni {
+  background: var(--c-surface);
+}
+
+.fond_lueur,
+.fond_grille,
+.fond_points,
+.fond_lignes,
+.fond_degrade,
+.fond_grain {
+  position: relative;
+  isolation: isolate;
+}
+.fond_lueur::before,
+.fond_grille::before,
+.fond_points::before,
+.fond_lignes::before,
+.fond_degrade::before,
+.fond_grain::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.fond_lueur::before {
+  background:
+    radial-gradient(
+      120% 60% at 50% -10%,
+      color-mix(in srgb, var(--c-accent) 22%, transparent) 0%,
+      transparent 62%
+    );
+}
+
+.fond_grille::before {
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--c-text) 6%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--c-text) 6%, transparent) 1px, transparent 1px);
+  background-size: 44px 44px;
+  /* Le quadrillage s'efface vers le bas : plein cadre il concurrence le
+     texte, en haut seulement il tient lieu d'en-tête. */
+  mask-image: linear-gradient(to bottom, #000 0%, transparent 70%);
+}
+
+.fond_points::before {
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--c-text) 12%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 22px 22px;
+  mask-image: linear-gradient(to bottom, #000 0%, transparent 75%);
+}
+
+.fond_lignes::before {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--c-text) 5%, transparent) 0 1px,
+    transparent 1px 14px
+  );
+  mask-image: linear-gradient(to bottom, #000 0%, transparent 70%);
+}
+
+.fond_degrade::before {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--c-accent) 12%, transparent) 0%,
+    transparent 40%
+  );
+}
+
+.fond_grain::before {
+  /* Un grain en SVG : quelques centaines d'octets dans la feuille, aucune
+     requête, et il ne pixellise pas. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23g)' opacity='0.32'/%3E%3C/svg%3E");
+  opacity: 0.5;
+}
+
+/* Le mouvement : lent, et seulement sur les motifs qui se répètent — animer
+   une lueur ou un dégradé ne se verrait pas, ou donnerait le mal de mer. */
+.anime.fond_grille::before,
+.anime.fond_points::before,
+.anime.fond_lignes::before {
+  animation: derive 34s linear infinite;
+}
+@keyframes derive {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 44px 44px;
+  }
+}
+/* Qui a réglé sa machine pour ne pas avoir de mouvement n'en a pas. */
+@media (prefers-reduced-motion: reduce) {
+  .anime.fond_grille::before,
+  .anime.fond_points::before,
+  .anime.fond_lignes::before {
+    animation: none;
+  }
+}
+
+/* ---- La matière des cartes ---------------------------------------------- */
+
+.carte_contour {
+  --carte-fond: transparent;
+  --carte-bord: 1px solid var(--c-border);
+  --carte-ombre: none;
+}
+.carte_papier {
+  --carte-fond: var(--c-surface);
+  --carte-bord: 1px solid var(--c-border-light);
+  --carte-ombre: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px -12px rgba(0, 0, 0, 0.16);
+}
+.carte_plat {
+  --carte-fond: var(--c-surface-2);
+  --carte-bord: none;
+  --carte-ombre: none;
+}
+.carte_verre {
+  --carte-fond: color-mix(in srgb, var(--c-surface) 62%, transparent);
+  --carte-bord: 1px solid color-mix(in srgb, var(--c-text) 8%, transparent);
+  --carte-ombre: 0 8px 30px -18px rgba(0, 0, 0, 0.28);
+  --carte-flou: blur(10px);
+}
+
+/* Les trois surfaces qui portent la matière choisie. */
+.service,
+.avisItem {
+  background: var(--carte-fond);
+  border: var(--carte-bord);
+  box-shadow: var(--carte-ombre);
+  backdrop-filter: var(--carte-flou);
+}
+
+/* ---- Les angles ---------------------------------------------------------- */
+
+.coins_arrondis {
+  --coin: var(--r-lg);
+}
+.coins_doux {
+  --coin: 8px;
+}
+.coins_vifs {
+  --coin: 0px;
+}
+
+.service,
+.avisItem,
+.photo img,
+.couverture img,
+.espace {
+  border-radius: var(--coin);
+}
+/* Le modèle « chaleur » dessine une arche : elle prime sur le réglage
+   d'angles, sinon le modèle ne se distingue plus de rien. */
+.chaleur .couverture img {
+  border-radius: 180px 180px var(--coin) var(--coin);
 }
