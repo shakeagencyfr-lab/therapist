@@ -34,32 +34,36 @@ interface Police {
   code: string
   label: string
   pile: string
-  /** Le nom Google Fonts, ou null si la police est déjà servie par la page. */
-  google: string | null
+  /**
+   * La police vit-elle dans la feuille de la vitrine, plutôt que dans celle
+   * du document ? Les deux polices du produit sont déjà servies partout ;
+   * les autres demandent une feuille de plus.
+   */
+  propre: boolean
 }
 
 /* Les deux premières sont déjà chargées par le document : les choisir ne
    coûte aucune requête de plus. */
 export const POLICES_TITRES: Police[] = [
-  { code: 'newsreader', label: 'Newsreader', pile: "'Newsreader', Georgia, serif", google: null },
-  { code: 'fraunces', label: 'Fraunces', pile: "'Fraunces', Georgia, serif", google: 'Fraunces:opsz,wght@9..144,400;9..144,600' },
-  { code: 'playfair', label: 'Playfair Display', pile: "'Playfair Display', Georgia, serif", google: 'Playfair+Display:wght@400;600' },
-  { code: 'lora', label: 'Lora', pile: "'Lora', Georgia, serif", google: 'Lora:wght@400;600' },
-  { code: 'cormorant', label: 'Cormorant Garamond', pile: "'Cormorant Garamond', Georgia, serif", google: 'Cormorant+Garamond:wght@400;600' },
-  { code: 'instrument', label: 'Instrument Serif', pile: "'Instrument Serif', Georgia, serif", google: 'Instrument+Serif' },
-  { code: 'space', label: 'Space Grotesk', pile: "'Space Grotesk', system-ui, sans-serif", google: 'Space+Grotesk:wght@400;600' },
-  { code: 'dmserif', label: 'DM Serif Display', pile: "'DM Serif Display', Georgia, serif", google: 'DM+Serif+Display' },
+  { code: 'newsreader', label: 'Newsreader', pile: "'Newsreader', Georgia, serif", propre: false },
+  { code: 'fraunces', label: 'Fraunces', pile: "'Fraunces', Georgia, serif", propre: true },
+  { code: 'playfair', label: 'Playfair Display', pile: "'Playfair Display', Georgia, serif", propre: true },
+  { code: 'lora', label: 'Lora', pile: "'Lora', Georgia, serif", propre: true },
+  { code: 'cormorant', label: 'Cormorant Garamond', pile: "'Cormorant Garamond', Georgia, serif", propre: true },
+  { code: 'instrument', label: 'Instrument Serif', pile: "'Instrument Serif', Georgia, serif", propre: true },
+  { code: 'space', label: 'Space Grotesk', pile: "'Space Grotesk', system-ui, sans-serif", propre: true },
+  { code: 'dmserif', label: 'DM Serif Display', pile: "'DM Serif Display', Georgia, serif", propre: true },
 ]
 
 export const POLICES_TEXTE: Police[] = [
-  { code: 'publicsans', label: 'Public Sans', pile: "'Public Sans', system-ui, sans-serif", google: null },
-  { code: 'inter', label: 'Inter', pile: "'Inter', system-ui, sans-serif", google: 'Inter:wght@400;500;600' },
-  { code: 'manrope', label: 'Manrope', pile: "'Manrope', system-ui, sans-serif", google: 'Manrope:wght@400;500;600' },
-  { code: 'jakarta', label: 'Plus Jakarta Sans', pile: "'Plus Jakarta Sans', system-ui, sans-serif", google: 'Plus+Jakarta+Sans:wght@400;500;600' },
-  { code: 'worksans', label: 'Work Sans', pile: "'Work Sans', system-ui, sans-serif", google: 'Work+Sans:wght@400;500;600' },
-  { code: 'karla', label: 'Karla', pile: "'Karla', system-ui, sans-serif", google: 'Karla:wght@400;500;600' },
-  { code: 'nunito', label: 'Nunito Sans', pile: "'Nunito Sans', system-ui, sans-serif", google: 'Nunito+Sans:wght@400;500;600' },
-  { code: 'source', label: 'Source Sans 3', pile: "'Source Sans 3', system-ui, sans-serif", google: 'Source+Sans+3:wght@400;500;600' },
+  { code: 'publicsans', label: 'Public Sans', pile: "'Public Sans', system-ui, sans-serif", propre: false },
+  { code: 'inter', label: 'Inter', pile: "'Inter', system-ui, sans-serif", propre: true },
+  { code: 'manrope', label: 'Manrope', pile: "'Manrope', system-ui, sans-serif", propre: true },
+  { code: 'jakarta', label: 'Plus Jakarta Sans', pile: "'Plus Jakarta Sans', system-ui, sans-serif", propre: true },
+  { code: 'worksans', label: 'Work Sans', pile: "'Work Sans', system-ui, sans-serif", propre: true },
+  { code: 'karla', label: 'Karla', pile: "'Karla', system-ui, sans-serif", propre: true },
+  { code: 'nunito', label: 'Nunito Sans', pile: "'Nunito Sans', system-ui, sans-serif", propre: true },
+  { code: 'source', label: 'Source Sans 3', pile: "'Source Sans 3', system-ui, sans-serif", propre: true },
 ]
 
 export const FONDS = [
@@ -187,15 +191,26 @@ export function pileTexte(theme: ThemeVitrine): string {
 }
 
 /**
- * L'adresse Google Fonts à charger, ou null s'il n'y a rien à charger.
+ * La feuille de polices à charger, ou null s'il n'y a rien à charger.
  *
- * Elle est null pour le thème d'origine : ses deux polices sont déjà servies
- * par le document, et une page qui n'a rien à demander ne demande rien.
+ * LES FICHIERS SONT CHEZ NOUS. Une page publique qui va chercher sa police
+ * chez Google lui signale la visite de chacun — et sur la page d'un cabinet
+ * de thérapie, cela suffit à révéler une consultation. Les .woff2 sont dans
+ * public/fonts, engendrés par scripts/telecharger-polices.mjs.
+ *
+ * DEUX FEUILLES, ET CELLE-CI EST LA SECONDE. `base.css` porte les deux
+ * polices du produit et est chargée par le document lui-même ; celle-ci porte
+ * les quatorze autres, et n'est demandée que par une page dont le thème en
+ * emploie une. L'espace patient, ouvert sur un téléphone, n'analyse donc
+ * jamais les règles de polices qu'il n'affichera pas.
+ *
+ * Elle est null pour le thème d'origine : une page qui n'a rien à demander ne
+ * demande rien.
  */
+export const FEUILLE_POLICES = '/fonts/vitrine.css'
+
 export function policesAcharger(theme: ThemeVitrine): string | null {
-  const titres = POLICES_TITRES.find((p) => p.code === theme.titres)?.google ?? null
-  const texte = POLICES_TEXTE.find((p) => p.code === theme.texte)?.google ?? null
-  const familles = [titres, texte].filter((f): f is string => Boolean(f))
-  if (!familles.length) return null
-  return `https://fonts.googleapis.com/css2?${familles.map((f) => `family=${f}`).join('&')}&display=swap`
+  const titres = POLICES_TITRES.find((p) => p.code === theme.titres)?.propre ?? false
+  const texte = POLICES_TEXTE.find((p) => p.code === theme.texte)?.propre ?? false
+  return titres || texte ? FEUILLE_POLICES : null
 }

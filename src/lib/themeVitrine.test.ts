@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   CARTES,
+  FEUILLE_POLICES,
   COINS,
   FONDS,
   POLICES_TEXTE,
@@ -106,17 +107,28 @@ describe('les polices', () => {
     expect(policesAcharger(THEME_DEFAUT)).toBeNull()
   })
 
-  it('ne demandent que les familles réellement choisies', () => {
-    const t = resoudreTheme({ titres: 'fraunces', texte: 'publicsans' })
-    const url = policesAcharger(t)
-    expect(url).toContain('family=Fraunces')
-    expect(url).not.toContain('Public')
-    expect(url?.startsWith('https://fonts.googleapis.com/')).toBe(true)
+  it('demandent la feuille dès qu’une police sort du défaut', () => {
+    expect(policesAcharger(resoudreTheme({ titres: 'fraunces', texte: 'publicsans' }))).toBe(
+      FEUILLE_POLICES,
+    )
+    expect(policesAcharger(resoudreTheme({ titres: 'newsreader', texte: 'karla' }))).toBe(
+      FEUILLE_POLICES,
+    )
+    expect(policesAcharger(resoudreTheme({ titres: 'lora', texte: 'karla' }))).toBe(FEUILLE_POLICES)
   })
 
-  it('demandent les deux quand les deux sortent du défaut', () => {
-    const url = policesAcharger(resoudreTheme({ titres: 'lora', texte: 'karla' }))
-    expect(url).toContain('family=Lora')
-    expect(url).toContain('family=Karla')
+  /* LE POINT DE TOUT L'EXERCICE. Une page publique qui va chercher sa police
+     chez Google lui signale la visite de chacun ; sur la page d'un cabinet de
+     thérapie, cela suffit à révéler une consultation. Aucune adresse de tiers
+     ne doit pouvoir ressortir d'ici, quelle que soit la police choisie. */
+  it('ne pointent jamais vers un serveur tiers', () => {
+    for (const t of POLICES_TITRES) {
+      for (const x of POLICES_TEXTE) {
+        const url = policesAcharger(resoudreTheme({ titres: t.code, texte: x.code }))
+        if (url === null) continue
+        expect(url.startsWith('/')).toBe(true)
+        expect(url).not.toMatch(/googleapis|gstatic|https?:/)
+      }
+    }
   })
 })
