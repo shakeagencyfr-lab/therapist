@@ -58,6 +58,14 @@ interface OrderRow {
  * retenu que vérifié, faute de quoi le retour tomberait dans le vide.
  */
 async function retourDuCabinet(cabinetId: string, db: SupabaseClient): Promise<string> {
+  /* VÉRIFIÉ NE SUFFIT PAS : IL FAUT AUSSI QUE LE LEVIER SOIT OUVERT.
+     `cabinet_par_domaine()` exige la marque blanche pour reconnaître un
+     domaine. Un cabinet dont l'offre a été refermée garde sa ligne de domaine
+     vérifiée, mais son adresse ne désigne plus personne : y renvoyer un
+     patient qui vient de payer l'amène sur une porte muette. C'est exactement
+     le raisonnement que `baseDuCabinet` tient déjà pour les invitations ; il
+     manquait ici, au seul endroit où de l'argent a déjà changé de main. */
+  if (!(await levierDuCabinet(cabinetId, 'marqueBlanche', db))) return SITE
   const { data } = await db
     .from('cabinet_domains')
     .select('domaine, verifie')

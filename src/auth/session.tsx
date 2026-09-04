@@ -83,6 +83,16 @@ export interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null)
 
+/**
+ * La longueur minimale d'un mot de passe, et le SEUL endroit qui la décide.
+ *
+ * Elle était écrite trois fois : dix ici, huit dans le placeholder de l'espace
+ * patient, huit dans la garde de son bouton. Le patient tapait donc neuf
+ * caractères, le bouton s'activait, l'enregistrement était refusé — et le
+ * champ était vidé au passage, sans qu'il puisse relire ce qu'il avait mis.
+ */
+export const LONGUEUR_MOT_DE_PASSE = 10
+
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [phase, setPhase] = useState<AuthPhase>(isConfigured() ? 'chargement' : 'sans-base')
   const [session, setSession] = useState<Session | null>(null)
@@ -201,7 +211,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     async (motDePasse: string): Promise<{ ok: boolean; message: string }> => {
       const db = supabase()
       if (!db) return { ok: false, message: "L'application n'est pas reliée à sa base." }
-      if (motDePasse.length < 10) {
+      if (motDePasse.length < LONGUEUR_MOT_DE_PASSE) {
         return { ok: false, message: 'Choisissez un mot de passe d’au moins dix caractères.' }
       }
       const { error: err } = await db.auth.updateUser({ password: motDePasse })

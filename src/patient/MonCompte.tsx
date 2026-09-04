@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useAuth } from '@/auth/session'
+import { useAuth, LONGUEUR_MOT_DE_PASSE } from '@/auth/session'
 import { supabase } from '@/lib/supabase'
 import type { PatientIdentity } from '@/auth/session'
 import s from './MonCompte.module.css'
@@ -27,11 +27,13 @@ export function MonCompte({ patient }: { patient: PatientIdentity }) {
   const [confirme, setConfirme] = useState(false)
 
   async function poserMotDePasse() {
-    if (motDePasse.length < 8 || enCours) return
+    if (motDePasse.length < LONGUEUR_MOT_DE_PASSE || enCours) return
     setEnCours('mdp')
     const r = await definirMotDePasse(motDePasse)
     setEnCours('')
-    setMotDePasse('')
+    // On ne vide le champ qu'en cas de succès : sur un refus, effacer ce qui
+    // vient d'être tapé oblige à tout retaper sans savoir ce qui clochait.
+    if (r.ok) setMotDePasse('')
     setNotice({ ton: r.ok ? 'ok' : 'erreur', texte: r.message })
   }
 
@@ -89,7 +91,7 @@ export function MonCompte({ patient }: { patient: PatientIdentity }) {
           type="password"
           value={motDePasse}
           onChange={(e) => setMotDePasse(e.target.value)}
-          placeholder="Au moins 8 caractères"
+          placeholder={`Au moins ${LONGUEUR_MOT_DE_PASSE} caractères`}
           autoComplete="new-password"
           aria-label="Nouveau mot de passe"
         />
@@ -101,7 +103,7 @@ export function MonCompte({ patient }: { patient: PatientIdentity }) {
           type="button"
           className={s.bouton}
           style={{ background: patient.branding?.accent }}
-          disabled={motDePasse.length < 8 || enCours !== ''}
+          disabled={motDePasse.length < LONGUEUR_MOT_DE_PASSE || enCours !== ''}
           onClick={() => void poserMotDePasse()}
         >
           {enCours === 'mdp' ? 'Enregistrement…' : 'Enregistrer ce mot de passe'}

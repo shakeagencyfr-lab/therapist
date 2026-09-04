@@ -17,6 +17,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import Stripe from 'stripe'
 import { adminConfigure, clientAdmin, exigerCabinet, identifier } from './auth.js'
+import { droitsDuCabinet, exigerDroit } from './droits.js'
 import { HttpError } from './errors.js'
 import { chiffrementConfigure, chiffrer, dechiffrer, empreinte } from './secrets.js'
 
@@ -393,6 +394,13 @@ export async function appliquerIntegration(token: string | null, raw: unknown): 
       break
 
     case 'boutique': {
+      /* Le levier de l'offre, vérifié ICI comme il l'est pour le domaine, le
+         SMTP et le site vitrine. Sans lui, une thérapeute dont l'offre ne
+         comprend pas la boutique pouvait l'ouvrir, croire qu'elle vend — et
+         ses patients ne voyaient rien, puisque patient_cabinet_settings()
+         exige les DEUX depuis 0026. Le geste réussissait et ne produisait
+         rien : le pire des retours. */
+      if (body.enabled) await exigerDroit(await droitsDuCabinet(cabinetId, appelant.client), 'shop')
       const etat = await etatIntegrations(token)
       if (body.enabled && !etat.stripe) {
         throw new HttpError(400, 'Connectez d’abord votre compte Stripe : sans lui, la boutique ne peut rien encaisser.')
