@@ -30,6 +30,14 @@ jobs:
       - name: Typage
         run: npm run typecheck
 
+      # Les épreuves unitaires. Elles ne tournaient PAS ici : vingt-cinq
+      # fichiers, dont le garde statique qui interdit d'appeler cabinet_droits
+      # sous la clé de service et celui qui interdit de charger une police chez
+      # un tiers, ne s'exécutaient que sur la machine de qui pensait à les
+      # lancer. Une protection qui ne tourne pas n'en est pas une.
+      - name: Épreuves
+        run: npm run test
+
       # Les neuf vues rendent hors navigateur, et l'espace revendeur ne
       # laisse filtrer aucun nom de patient ni extrait de dossier.
       - name: Rendu et cloisonnement

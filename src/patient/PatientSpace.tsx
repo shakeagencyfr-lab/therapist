@@ -239,6 +239,7 @@ export function PatientSpace() {
 
         {courant === 'boutique' ? (
           <Boutique
+            patientId={patient.id}
             accent={patient.branding?.accent}
             retourCommande={retour.commande}
             retourAnnule={retour.annule}

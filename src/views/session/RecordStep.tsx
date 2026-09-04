@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Notice, Overline } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
+import { lireIntegrations } from '@/services/integrations'
 import { NOTE_TAGS, NOTE_TAG_PREFIXES } from '@/data/session'
 import { clock, euro } from '@/lib/format'
 import {
@@ -37,6 +38,22 @@ export function RecordStep() {
   const { state, set, read } = useStore()
   const cabinet = useMaybeCabinet()
   const transcriber = useRef<Transcriber | null>(null)
+
+  /* QUI PAIE L'APPEL. L'écran l'affirmait en dur : « facturé sur le compte
+     Anthropic de votre cabinet ». C'est faux pour tout cabinet qui n'a pas
+     posé sa clé — resoudreCle() retombe alors sur celle de la plateforme, et
+     c'est nous qui payons. Le produit dit d'ailleurs la vérité dans Réglages ;
+     seul l'écran où la dépense s'engage disait le contraire. */
+  const [saCle, setSaCle] = useState<boolean | null>(null)
+  useEffect(() => {
+    let vivant = true
+    lireIntegrations()
+      .then((e) => vivant && setSaCle(Boolean(e.anthropic)))
+      .catch(() => vivant && setSaCle(null))
+    return () => {
+      vivant = false
+    }
+  }, [])
 
   // Le minuteur n'avance que pendant l'enregistrement, et jamais après.
   useEffect(() => {
@@ -165,6 +182,16 @@ export function RecordStep() {
    */
   const devis = estimationBrouillon(state.transcript, state.sessionNotes)
 
+  /* Tant qu'on ne sait pas, on ne dit rien : annoncer le mauvais payeur est
+     pire que de ne pas nommer le payeur. */
+  const qui =
+    saCle === null
+      ? ''
+      : saCle
+        ? " L'appel est facturé sur le compte Anthropic de votre cabinet."
+        : " L'appel est pris en charge par la plateforme : vous n'avez pas posé votre propre clé Anthropic."
+
+
   const recLabel = state.recording
     ? 'Enregistrement en cours'
     : state.transcript
@@ -259,7 +286,7 @@ export function RecordStep() {
             : "Aucune limite de durée : l'enregistrement est découpé en segments de quinze minutes transcrits au fil de la séance."}{' '}
           {devis.euros === 0
             ? "Le coût d'analyse s'affiche dès les premiers mots transcrits, et suit ce qui est réellement dit."
-            : `Estimation au tarif de ${MODELE_ANALYSE} — ${TARIF.entree} $ le million de jetons envoyés, ${TARIF.sortie} $ le million rendus — sur ${devis.entree.toLocaleString('fr-FR')} jetons envoyés et ${devis.sortie.toLocaleString('fr-FR')} attendus en retour. Elle ne dépassera pas ${euro(devis.eurosMax)} : la longueur du brouillon est plafonnée. L'appel est facturé sur le compte Anthropic de votre cabinet.`}
+            : `Estimation au tarif de ${MODELE_ANALYSE} — ${TARIF.entree} $ le million de jetons envoyés, ${TARIF.sortie} $ le million rendus — sur ${devis.entree.toLocaleString('fr-FR')} jetons envoyés et ${devis.sortie.toLocaleString('fr-FR')} attendus en retour. Elle ne dépassera pas ${euro(devis.eurosMax)} : la longueur du brouillon est plafonnée.${qui}`}
         </div>
 
         <div className={s.body}>

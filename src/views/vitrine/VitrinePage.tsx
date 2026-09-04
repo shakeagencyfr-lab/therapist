@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { captchaConfigure, useCaptcha } from '@/auth/Captcha'
 import type { SiteVitrine } from '@/lib/vitrine'
 import { cheminEspacePatient } from '@/lib/domaine'
+import { titreDuCabinet, useEnTete } from '@/lib/enTete'
 import { pileTexte, pileTitres, policesAcharger, resoudreTheme } from '@/lib/themeVitrine'
 import { AvisGoogle } from './AvisGoogle'
 import s from './VitrinePage.module.css'
@@ -40,6 +41,15 @@ export function VitrinePage({ site, apercu = false }: { site: SiteVitrine; aperc
     '--vitrine-titres': pileTitres(theme),
     '--vitrine-texte': pileTexte(theme),
   } as CSSProperties
+
+  /* L'onglet porte le nom du cabinet, jamais le nôtre : sur son domaine, le
+     titre est le dernier endroit par lequel le fournisseur se voyait encore.
+     Dans l'aperçu de l'éditeur, on n'y touche pas — la thérapeute est dans son
+     tableau de bord, pas sur sa page. */
+  useEnTete(
+    apercu ? '' : titreDuCabinet(site.name, site.titre || site.tagline),
+    apercu ? undefined : (site.sous_titre || site.presentation || '').slice(0, 300),
+  )
 
   const modele = ['sobre', 'chaleur', 'clinique'].includes(site.modele) ? site.modele : 'sobre'
   const couverture = site.photos[0] ?? null

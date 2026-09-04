@@ -70,12 +70,22 @@ export function useEcritureConsignes(
             quiz: false,
             context: contexte,
           })
-          await majConsigne(module.id, {
+          /* LIRE LE RETOUR. `majConsigne` ne lève pas : elle rend { ok: false }
+             quand la base refuse l'écriture. Sans cette lecture, un refus ne
+             passait par aucun catch, `echecs` restait à zéro, et l'écran
+             annonçait « Consignes écrites : N exercices détaillés » alors que
+             rien n'avait été enregistré — le pire des messages, puisqu'il
+             dispense d'aller vérifier. */
+          const ecriture = await majConsigne(module.id, {
             duree: rendu.duree,
             quand: rendu.quand,
             steps: rendu.steps,
             why: rendu.pourquoi || pourquoi,
           })
+          if (!ecriture.ok) {
+            rates += 1
+            setEchecs(rates)
+          }
         } catch {
           rates += 1
           setEchecs(rates)

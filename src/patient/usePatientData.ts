@@ -203,11 +203,14 @@ export function usePatientData(patientId: string | null): PatientData {
     )
     const db = supabase()
     if (!db) return
-    await db
-      .from('push_recipients')
-      .update({ read_at: new Date().toISOString() })
-      .eq('push_id', pushId)
-      .is('read_at', null)
+    /* Par une fonction, plus par un UPDATE direct. La politique qui autorisait
+       cet UPDATE ne contraignait que patient_id : push_id restait libre, et la
+       lecture des notifications fait confiance à cette ligne. Un patient
+       repointait sa propre ligne de destinataire sur la notification d'un
+       autre cabinet, puis en lisait le titre et le corps. Une politique ne
+       sait pas dire « cette colonne ne change pas » ; une fonction si. */
+    const { error } = await db.rpc('patient_marquer_lue', { p_push: pushId })
+    if (error) console.warn('[patient] marquage lu impossible', error.message)
   }, [])
 
   useEffect(() => {

@@ -20,6 +20,7 @@ import nodemailer from 'nodemailer'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { adminConfigure, clientAdmin, exigerCabinet, identifier } from './auth.js'
 import { droitsDuCabinet, exigerDroit, levierDuCabinet } from './droits.js'
+import { lookup } from 'node:dns/promises'
 import { HttpError } from './errors.js'
 import { chiffrementConfigure, chiffrer, dechiffrer, empreinte } from './secrets.js'
 
@@ -252,6 +253,66 @@ function adresseValide(email: string): boolean {
 }
 
 /**
+ * L'hôte est-il un vrai nom de domaine, et mène-t-il dehors ?
+ *
+ * `eprouver()` ouvre une VRAIE connexion TCP vers ce que la thérapeute écrit,
+ * depuis notre serveur, et trie l'échec en trois messages distincts. Sur un
+ * nom public, ce n'est qu'une aide au réglage : n'importe qui peut sonder
+ * smtp.free.fr depuis sa propre machine. Sur `127.0.0.1`, `10.0.0.5` ou
+ * `169.254.169.254`, cela devient un scanner de ports pointé sur NOTRE
+ * infrastructure, et sur celle de l'hébergeur — l'adresse lien-local est
+ * l'endroit exact où les fournisseurs de nuage servent les jetons d'instance.
+ *
+ * Deux barrières, parce qu'une seule ne suffit pas. La forme d'abord : un TLD
+ * alphabétique écarte toutes les adresses IPv4 littérales, que la précédente
+ * expression acceptait — les chiffres sont dans [a-z0-9]. La résolution
+ * ensuite : un nom public peut parfaitement pointer sur 127.0.0.1, et c'est
+ * même la manière habituelle de contourner un filtre qui ne regarde que la
+ * chaîne.
+ */
+export function priveOuLocal(ip: string): boolean {
+  const v4 = ip.startsWith('::ffff:') ? ip.slice(7) : ip
+  const o = v4.split('.').map(Number)
+  if (o.length === 4 && o.every((n) => Number.isInteger(n) && n >= 0 && n <= 255)) {
+    const [a, b] = o as [number, number, number, number]
+    return (
+      a === 0 || a === 10 || a === 127 ||
+      (a === 100 && b >= 64 && b <= 127) ||   // CGNAT
+      (a === 169 && b === 254) ||             // lien-local, jetons d'instance
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 192 && b === 0) ||
+      (a === 198 && (b === 18 || b === 19)) ||
+      a >= 224                                 // multidiffusion et réservé
+    )
+  }
+  const v6 = ip.toLowerCase()
+  return v6 === '::1' || v6 === '::' || /^f[cd]/.test(v6) || /^fe[89ab]/.test(v6)
+}
+
+async function exigerHotePublic(host: string): Promise<void> {
+  const refus = new HttpError(
+    400,
+    "Ce serveur d'envoi n'est pas valide. Entrez le nom que vous a donné votre hébergeur de messagerie, par exemple smtp.votre-hebergeur.fr.",
+  )
+  if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}$/.test(host)) {
+    throw refus
+  }
+  let adresses: Array<{ address: string }>
+  try {
+    adresses = await lookup(host, { all: true })
+  } catch {
+    throw new HttpError(400, "Ce serveur d'envoi est introuvable : vérifiez son nom auprès de votre hébergeur de messagerie.")
+  }
+  if (!adresses.length || adresses.some((a) => priveOuLocal(a.address))) {
+    /* Le motif reste au journal : le dire à l'écran apprendrait à l'appelant
+       ce qu'il cherchait précisément à savoir. */
+    console.error(`[courriel] hôte refusé — ${host} résout vers une adresse interne`)
+    throw refus
+  }
+}
+
+/**
  * Éprouve le SMTP par une vraie connexion.
  *
  * `verify()` ouvre la connexion, monte le TLS et s'authentifie sans rien
@@ -297,9 +358,7 @@ export async function reglerSmtp(token: string | null, raw: unknown): Promise<Et
   const from = String(body.from ?? '').trim().toLowerCase()
   const pass = String(body.pass ?? '')
 
-  if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(host)) {
-    throw new HttpError(400, "Le serveur d'envoi n'est pas valide. Entrez par exemple smtp.votre-hebergeur.fr.")
-  }
+  await exigerHotePublic(host)
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new HttpError(400, 'Le port doit être un nombre — 465 en SSL, 587 en STARTTLS.')
   }

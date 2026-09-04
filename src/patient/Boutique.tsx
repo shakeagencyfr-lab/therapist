@@ -40,11 +40,14 @@ function prix(cents: number, currency: string): string {
  * serveur vérifie et livre — un audio acheté apparaît dans « Vos audios ».
  */
 export function Boutique({
+  patientId,
   accent,
   retourCommande,
   retourAnnule,
   onLivre,
 }: {
+  /** La fiche dont on montre les achats. Nommée, jamais devinée. */
+  patientId: string
   accent?: string
   /** L'identifiant de session Stripe, si l'on revient d'un paiement. */
   retourCommande: string | null
@@ -65,16 +68,22 @@ export function Boutique({
     if (!db) return
     const [p, a] = await Promise.all([
       db.from('products').select('id, title, description, kind, price_cents, currency').order('position'),
+      /* NOMMER LE PATIENT, ET PAS S'EN REMETTRE À LA RLS. `orders` porte deux
+         politiques de lecture qui s'additionnent : celle de la fiche et celle
+         du cabinet. Un compte qui est à la fois membre du cabinet ET titulaire
+         d'une fiche — il en existe un en production — voyait donc tout le
+         carnet de commandes du cabinet sous une étiquette « Vos achats ». */
       db
         .from('orders')
         .select('id, title, amount_cents, paid_at')
+        .eq('patient_id', patientId)
         .eq('status', 'payee')
         .order('paid_at', { ascending: false }),
     ])
     setProduits((p.data ?? []) as Produit[])
     setAchats((a.data ?? []) as Achat[])
     setChargement(false)
-  }, [])
+  }, [patientId])
 
   useEffect(() => {
     void charger()

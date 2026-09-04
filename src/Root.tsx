@@ -131,11 +131,20 @@ function Portail() {
 
   if (phase === 'chargement') return <Attente />
 
+  /* UNE PAGE PUBLIQUE EST PUBLIQUE, MÊME POUR QUI EST CONNECTÉ.
+     Elle ne se montrait qu'aux visiteurs déconnectés : la thérapeute ne
+     pouvait pas voir sa propre page publiée — « Voir ma page ↗ » lui ouvrait
+     son tableau de bord — et un patient qui avait une session ouverte
+     recevait l'application au lieu de la page de son cabinet, sur le domaine
+     de ce cabinet. C'est l'ADRESSE qui décide de cette page, pas la session ;
+     l'application, elle, vit à la racine et sur /mon. */
+  /* `cherche` n'est vrai que sur une adresse de cabinet — un identifiant dans
+     le chemin, ou un domaine posé par un cabinet. À la racine, il est faux et
+     l'application s'ouvre sans attendre. */
+  if (cherche) return <Attente />
+  if (site) return <VitrinePage site={site} />
+
   if (phase === 'deconnecte') {
-    if (cherche) return <Attente />
-    // Un site publié tient lieu de page d'accueil : la porte y est posée,
-    // au milieu de ce que la thérapeute a écrit sur elle.
-    if (site) return <VitrinePage site={site} />
     // Sinon, sur l'adresse d'un cabinet, la porte porte SA marque : c'est
     // tout l'intérêt de l'adresse. Ailleurs, celle du produit — avant la
     // connexion, on ne sait pas encore qui arrive.
