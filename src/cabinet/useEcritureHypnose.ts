@@ -39,6 +39,15 @@ export interface EcritureHypnose {
   ecrits: MouvementEcrit[]
   erreur: string
   fini: boolean
+  /**
+   * L'hypnose a-t-elle vraiment rejoint la base ?
+   *
+   * Distincte de `fini` : le texte peut être entièrement écrit et n'exister
+   * que dans cet onglet — sans cabinet réel, ou sur un refus d'écriture. Le
+   * dire « conservé » dans ce cas le fait perdre au premier rechargement,
+   * alors qu'il vient de coûter l'appel le plus cher du produit.
+   */
+  conservee: boolean
   ecrire: (patientId: PatientId, brouillon: SessionDraft, intention: string) => Promise<void>
   /** Repartir d'un écran vierge, sans toucher à ce qui est en base. */
   reinitialiser: () => void
@@ -53,11 +62,14 @@ export function useEcritureHypnose(): EcritureHypnose {
   const [ecrits, setEcrits] = useState<MouvementEcrit[]>([])
   const [erreur, setErreur] = useState('')
   const [fini, setFini] = useState(false)
+  /** L'hypnose a-t-elle vraiment rejoint la base ? */
+  const [conservee, setConservee] = useState(true)
 
   const reinitialiser = useCallback(() => {
     setEcrits([])
     setErreur('')
     setFini(false)
+    setConservee(true)
     setEnCours('')
   }, [])
 
@@ -69,6 +81,7 @@ export function useEcritureHypnose(): EcritureHypnose {
       setErreur('')
       setFini(false)
       setEcrits([])
+      setConservee(true)
 
       const prenom = read().patients[patientId]?.name.split(' ')[0] ?? 'votre patient'
 
@@ -92,13 +105,26 @@ export function useEcritureHypnose(): EcritureHypnose {
             // Le mouvement SUIVANT, celui qui commence à s'écrire.
             const suivant = MOUVEMENTS_HYPNOSE[rang]
             setEnCours(suivant ? NOM_MOUVEMENT[suivant] : '')
-            if (hypnoseId) await cabinet?.ajouterMouvement(hypnoseId, ecrit, rang)
+            /* Chaque mouvement est versé dès qu'il arrive — et l'on RETIENT
+               si le versement a eu lieu. Sans hypnoseId, ou sur un refus de
+               la base, le texte n'existe que dans cet onglet : l'annoncer
+               « conservé » le fait perdre au premier rechargement. */
+            if (!hypnoseId) {
+              setConservee(false)
+            } else {
+              const versee = await cabinet?.ajouterMouvement(hypnoseId, ecrit, rang)
+              if (!versee?.ok) setConservee(false)
+            }
           },
         )
         if (hypnoseId) {
           // Le titre de la séance est celui de son induction : c'est la
           // métaphore qui la porte d'un bout à l'autre.
-          await cabinet?.acheverHypnose(hypnoseId, tous[0]?.titre || `Séance pour ${prenom}`)
+          const achevee = await cabinet?.acheverHypnose(
+            hypnoseId,
+            tous[0]?.titre || `Séance pour ${prenom}`,
+          )
+          if (!achevee?.ok) setConservee(false)
         }
         setFini(true)
       } catch (err) {
@@ -111,5 +137,5 @@ export function useEcritureHypnose(): EcritureHypnose {
     [cabinet, ecriture, read, state.sessionId],
   )
 
-  return { ecriture, enCours, ecrits, erreur, fini, ecrire, reinitialiser }
+  return { ecriture, enCours, ecrits, erreur, fini, conservee, ecrire, reinitialiser }
 }

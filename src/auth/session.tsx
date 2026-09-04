@@ -64,6 +64,15 @@ export interface AuthState {
   error: string
   /** Le lien magique vient d'être envoyé à cette adresse. */
   sent: string
+  /**
+   * La lecture du rôle a-t-elle abouti ?
+   *
+   * « echec » N'EST PAS « aucun accès ». Sans cette distinction, une panne de
+   * lecture d'une seconde annonçait à une praticienne qui a bien un cabinet
+   * qu'aucun accès n'existe pour son adresse — et l'envoyait chercher une
+   * faute de frappe inexistante.
+   */
+  lecture: 'attente' | 'faite' | 'echec'
   envoyerLien: (email: string, captchaToken?: string) => Promise<void>
   /** Connexion classique, pour qui a posé un mot de passe. */
   connecterParMotDePasse: (email: string, motDePasse: string, captchaToken?: string) => Promise<void>
@@ -99,6 +108,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [context, setContext] = useState<AccountContext | null>(null)
   const [error, setError] = useState('')
   const [sent, setSent] = useState('')
+  /** La lecture du rôle a-t-elle abouti ? « echec » n'est pas « aucun accès ». */
+  const [lecture, setLecture] = useState<'attente' | 'faite' | 'echec'>('attente')
 
   /** Rattache puis lit le rôle. Les deux vont ensemble. */
   const charger = useCallback(async (): Promise<void> => {
@@ -111,9 +122,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
     const { data, error: ctxError } = await db.rpc('my_context')
     if (ctxError) {
-      setError("Impossible de lire votre accès. Réessayez dans un instant.")
+      /* NE PAS CONFONDRE « pas d'accès » ET « on n'a pas pu lire l'accès ».
+         En sortant d'ici sans contexte, l'écran d'après concluait « Aucun
+         accès pour cette adresse » : une praticienne qui a bien un cabinet se
+         voyait accusée d'avoir tapé la mauvaise adresse, et allait chercher
+         une faute inexistante, pendant qu'il suffisait de recharger. */
+      setError("Vos accès n'ont pas pu être lus — ce n'est pas votre adresse qui est en cause. Rechargez la page dans un instant.")
+      setContext(null)
+      setLecture('echec')
       return
     }
+    setLecture('faite')
     setContext(data as AccountContext)
   }, [])
 
@@ -241,6 +260,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       context,
       error,
       sent,
+      lecture,
       envoyerLien,
       connecterParMotDePasse,
       definirMotDePasse,
@@ -253,6 +273,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       context,
       error,
       sent,
+      lecture,
       envoyerLien,
       connecterParMotDePasse,
       definirMotDePasse,

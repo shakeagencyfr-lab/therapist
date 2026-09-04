@@ -111,7 +111,7 @@ function Message({
 }
 
 function Portail() {
-  const { phase, context, seDeconnecter } = useAuth()
+  const { phase, context, seDeconnecter, lecture } = useAuth()
   const { vitrine, site, cherche } = useVitrine()
 
   // Sans base configurée, l'application tourne sur ses données de
@@ -177,6 +177,22 @@ function Portail() {
         titre="Entrer dans votre espace"
         intro="Cet espace est réservé à la praticienne et à son cabinet. Entrez l'adresse à laquelle vous avez été invitée : vous recevrez un lien de connexion."
       />
+    )
+  }
+
+  /* Une panne de lecture n'est pas une absence d'accès. Sans cette branche,
+     l'écran d'après accuse l'adresse et fait chercher une faute inexistante,
+     alors qu'il suffit de recharger. */
+  if (lecture === 'echec') {
+    return (
+      <Message
+        titre="Vos accès n'ont pas pu être lus"
+        texte="Ce n'est pas votre adresse qui est en cause : la base n'a pas répondu. Réessayez dans un instant."
+      >
+        <Button variant="primary" onClick={() => window.location.reload()}>
+          Recharger
+        </Button>
+      </Message>
     )
   }
 

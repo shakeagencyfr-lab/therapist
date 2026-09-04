@@ -121,12 +121,24 @@ export function PatientSpace() {
    * un mot posé sur l'exercice, là où il s'est passé quelque chose, plutôt
    * qu'une page de journal.
    */
-  /** La note d'une tâche, écrite depuis son écran. */
-  async function noterTache(id: string, texte: string) {
+  /**
+   * La note d'une tâche, écrite depuis son écran.
+   *
+   * Elle REND si l'écriture a eu lieu. Avant, elle avalait l'erreur et
+   * l'écran affichait « Enregistré » de toute façon : le patient repartait
+   * en croyant que sa thérapeute lirait son mot, et son mot n'existait nulle
+   * part. C'est le pire des retours — il dispense d'aller vérifier.
+   */
+  async function noterTache(id: string, texte: string): Promise<boolean> {
     const db = supabase()
-    if (!db) return
+    if (!db) return false
     const { error } = await db.rpc('patient_save_note', { p_module: id, p_note: texte })
-    if (!error) await recharger()
+    if (error) {
+      console.warn('[patient] mot non enregistré', error.message)
+      return false
+    }
+    await recharger()
+    return true
   }
 
 

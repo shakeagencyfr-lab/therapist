@@ -39,7 +39,7 @@ export function HypnoseCard() {
    * réactif — et laisse la démonstration fonctionner sans base.
    */
   const [ouverteIci, setOuverteIci] = useState<boolean | null>(null)
-  const { ecriture, enCours, ecrits, erreur, fini, ecrire } = useEcritureHypnose()
+  const { ecriture, enCours, ecrits, erreur, fini, conservee, ecrire } = useEcritureHypnose()
 
   if (!patient) return null
 
@@ -127,7 +127,9 @@ export function HypnoseCard() {
 
           {fini ? (
             <Notice tone="ok">
-              Hypnose écrite et conservée. Vous la retrouverez sur la fiche de {prenom}.
+              {conservee
+                ? `Hypnose écrite et conservée. Vous la retrouverez sur la fiche de ${prenom}.`
+                : `Hypnose écrite, mais NON conservée : elle n'a pas pu rejoindre le dossier de ${prenom}. Copiez-la maintenant — elle disparaîtra au prochain chargement.`}
             </Notice>
           ) : null}
         </>
