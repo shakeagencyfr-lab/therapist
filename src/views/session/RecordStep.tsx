@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { Notice, Overline } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
-import { NOTE_TAGS, NOTE_TAG_PREFIXES, TRANSCRIPT_SAMPLES } from '@/data/session'
+import { NOTE_TAGS, NOTE_TAG_PREFIXES } from '@/data/session'
 import { clock, euro } from '@/lib/format'
 import {
   AiError,
@@ -263,36 +263,6 @@ export function RecordStep() {
         </div>
 
         <div className={s.body}>
-          <div className={s.samples}>
-            <div className={s.overline}>
-              <Overline>Séances d'exemple, pour tester sans micro</Overline>
-            </div>
-            <div className={s.sampleGrid}>
-              {TRANSCRIPT_SAMPLES.map((sample, i) => (
-                <button
-                  type="button"
-                  key={sample.label}
-                  className={cx(s.sample, state.sample === i && s.sampleOn)}
-                  aria-pressed={state.sample === i}
-                  onClick={() =>
-                    set({
-                      transcript: sample.text,
-                      interim: '',
-                      notice: '',
-                      draft: null,
-                      sent: false,
-                      sample: i,
-                      elapsed: Math.round(sample.text.split(/\s+/).length / 2.3),
-                    })
-                  }
-                >
-                  <span className={s.sampleLabel}>{sample.label}</span>
-                  <span className={s.sampleMeta}>{sample.meta}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
           <div className={s.transcriptHead}>
             <Overline>Transcription en direct</Overline>
             <span className={s.count}>{wordsNow ? `${wordsNow} mots` : ''}</span>

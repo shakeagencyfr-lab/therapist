@@ -130,7 +130,6 @@ export function nouvelleSeance(patient: PatientId = ''): Partial<AppState> {
     interim: '',
     notice: '',
     sessionNotes: '',
-    sample: null,
     generating: false,
     draft: null,
     draftMaquette: false,
