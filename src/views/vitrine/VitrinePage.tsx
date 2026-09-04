@@ -24,6 +24,11 @@ import s from './VitrinePage.module.css'
  * Trois modèles se partagent ce composant : ils ne changent que la mise en
  * page, jamais les rubriques. Un changement de modèle ne doit rien perdre.
  */
+/** Une couleur hexadécimale, ou undefined — jamais la chaîne telle quelle. */
+function couleurSure(valeur: string | undefined): string | undefined {
+  return valeur && /^#[0-9a-f]{3,8}$/i.test(valeur.trim()) ? valeur.trim() : undefined
+}
+
 export function VitrinePage({ site, apercu = false }: { site: SiteVitrine; apercu?: boolean }) {
   const b = site.branding
   /* Le thème est relu par la liste blanche à CHAQUE rendu, et pas seulement
@@ -33,11 +38,17 @@ export function VitrinePage({ site, apercu = false }: { site: SiteVitrine; aperc
   const theme = resoudreTheme(site.theme)
   const polices = policesAcharger(theme)
 
+  /* LES COULEURS SONT VALIDÉES AVANT D'ENTRER DANS UNE VARIABLE CSS.
+     Une propriété personnalisée accepte à peu près n'importe quoi, et
+     `background: var(--c-accent)` la substitue telle quelle : une valeur du
+     genre « red; background-image: url(https://tiers/x) » ferait charger une
+     ressource chez un tiers depuis la page publique d'un cabinet. Le reste du
+     produit interdit précisément cela. Une couleur hexadécimale, ou rien. */
   const couleurs = {
-    '--c-accent': b?.accent,
-    '--c-accent-hover': b?.accentHover,
-    '--c-accent-deep': b?.accentDeep,
-    '--c-dark': b?.dark,
+    '--c-accent': couleurSure(b?.accent),
+    '--c-accent-hover': couleurSure(b?.accentHover),
+    '--c-accent-deep': couleurSure(b?.accentDeep),
+    '--c-dark': couleurSure(b?.dark),
     '--vitrine-titres': pileTitres(theme),
     '--vitrine-texte': pileTexte(theme),
   } as CSSProperties

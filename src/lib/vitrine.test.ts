@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import {
   CHEMINS_RESERVES,
   estDomainePersonnalise,
@@ -79,7 +79,12 @@ describe('estDomainePersonnalise', () => {
  * un thème qu'on lui donne. Les deux passaient, et le réglage ne servait à
  * rien. L'épreuve porte donc sur CHAQUE champ, pas sur un échantillon.
  */
+const STOCKAGE = 'https://projet-temoin.supabase.co'
+
 describe('versSiteVitrine', () => {
+  beforeAll(() => vi.stubEnv('VITE_SUPABASE_URL', STOCKAGE))
+  afterAll(() => vi.unstubAllEnvs())
+
   const LIGNE = {
     slug: 'cabinet-fontaine',
     name: 'Cabinet Fontaine',
@@ -94,7 +99,7 @@ describe('versSiteVitrine', () => {
     telephone: '02 40 00 00 00',
     site_web: 'https://exemple.fr',
     horaires: [{ jour: 'Lundi', heures: '9h – 18h' }],
-    photos: [{ url: 'https://x.test/a.jpg', alt: '', attribution: '' }],
+    photos: [{ url: `${STOCKAGE}/storage/v1/object/public/sites/a.jpg`, alt: '', attribution: '' }],
     services: [{ titre: 'Sommeil', texte: '' }],
     avis: [{ auteur: 'Claire', note: 5, texte: 'Merci', date: '' }],
     google_note: 4.9,
@@ -107,6 +112,29 @@ describe('versSiteVitrine', () => {
     for (const [clef, valeur] of Object.entries(LIGNE)) {
       expect({ [clef]: site![clef as keyof typeof site] }).toEqual({ [clef]: valeur })
     }
+  })
+
+  /* LA PAGE PUBLIQUE NE CHARGE RIEN CHEZ UN TIERS. C'est l'invariant que le
+     produit tient partout — polices auto-hébergées, logo Google en SVG inline.
+     Une image venue d'ailleurs signalerait à ce tiers qu'un patient a ouvert
+     la page de son cabinet, avant même d'avoir pris rendez-vous. Le serveur
+     filtre à l'écriture ; ici on filtre à l'AFFICHAGE, parce que la page
+     publique lit la base sans passer par le serveur. */
+  it('écarte les images qui ne viennent pas de notre stockage', () => {
+    const site = versSiteVitrine(
+      {
+        ...LIGNE,
+        photos: [
+          { url: `${STOCKAGE}/storage/v1/object/public/sites/ok.jpg`, alt: '', attribution: '' },
+          { url: 'https://tiers.test/pixel.gif', alt: '', attribution: '' },
+          { url: `${STOCKAGE}.evil.test/storage/v1/object/public/x.jpg`, alt: '', attribution: '' },
+        ],
+      },
+      'x',
+    )!
+    expect(site.photos.map((p) => p.url)).toEqual([
+      `${STOCKAGE}/storage/v1/object/public/sites/ok.jpg`,
+    ])
   })
 
   it('rend null sans nom : une page sans cabinet ne se montre pas', () => {

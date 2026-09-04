@@ -147,6 +147,26 @@ export interface SiteVitrine {
  * police, la page publique gardait la sienne, et rien nulle part ne le disait.
  * Une épreuve sur le composant ne remplace pas une épreuve sur le fil.
  */
+/**
+ * L'image vient-elle de NOTRE stockage ?
+ *
+ * La page publique d'un cabinet est celle qu'un patient ouvre avant d'oser
+ * prendre rendez-vous. Une image chargée chez un tiers lui signale cette
+ * visite — c'est exactement ce que le produit refuse partout ailleurs :
+ * polices auto-hébergées, logo Google en SVG inline.
+ *
+ * Le serveur filtre déjà à l'écriture. Celle-ci filtre à l'AFFICHAGE, parce
+ * que la page publique ne passe pas par le serveur : elle lit la base par
+ * `site_vitrine()`, et une ligne écrite avant ce filtre serait rendue telle
+ * quelle. La barrière est au point d'usage, là où elle compte.
+ */
+export function imageDeNous(url: string): boolean {
+  const env = import.meta.env ?? {}
+  const base = String(env.VITE_SUPABASE_URL ?? '').trim().replace(/\/+$/, '')
+  if (!base) return false
+  return url.startsWith(`${base}/storage/v1/object/public/`)
+}
+
 export function versSiteVitrine(brut: unknown, slug: string): SiteVitrine | null {
   const v = (brut ?? {}) as Partial<SiteVitrine>
   if (!v.name) return null
@@ -168,7 +188,7 @@ export function versSiteVitrine(brut: unknown, slug: string): SiteVitrine | null
     telephone: v.telephone ?? null,
     site_web: v.site_web ?? null,
     horaires: v.horaires ?? [],
-    photos: v.photos ?? [],
+    photos: (v.photos ?? []).filter((p) => imageDeNous(p.url)),
     services: v.services ?? [],
     avis: v.avis ?? [],
     google_note: v.google_note ?? null,
