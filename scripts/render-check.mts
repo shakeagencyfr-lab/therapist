@@ -171,11 +171,17 @@ if (maquette) {
   }
 }
 
-// 1 quinquies bis. L'hypnose se décide DANS la séance, aux deux moments où la
-// question se pose : au démarrage, avant de lancer l'analyse et là où le coût
-// s'affiche ; puis dans la note, quand on découvre qu'il y a matière. Elle
-// vivait auparavant sur la seule fiche patient, ce qui obligeait la
-// thérapeute à quitter la séance pour cocher une case.
+// 1 quinquies bis. L'hypnose se décide DANS la séance — mais à un seul
+// moment, et c'est en lisant la note. Elle se demandait aussi à l'écran
+// d'enregistrement, « avant de lancer, là où le coût s'affiche » : sauf que
+// cette case-là ne conditionnait pas le lancement. Elle réglait la fiche, et
+// l'étape suivante reposait la même question avec, elle, le bouton qui écrit.
+// Deux endroits pour un choix dont un seul agit : la question était posée
+// trop tôt, avant même de savoir s'il y a matière.
+//
+// Les deux scènes se tiennent donc ensemble, et dans les deux sens : absente
+// à l'enregistrement, présente dans la note. Vérifier l'absence seule
+// passerait le jour où la case disparaîtrait des deux écrans.
 const enregistrement = rendu('cabinet/session-hypnose-demarrage', {
   space: 'cabinet',
   mode: 'session',
@@ -183,12 +189,14 @@ const enregistrement = rendu('cabinet/session-hypnose-demarrage', {
   consent: true,
 })
 if (enregistrement) {
-  if (!enregistrement.includes('Écrire une hypnose pour')) {
-    console.error("✗ session/hypnose-démarrage : la case manque à l'écran d'enregistrement")
+  if (enregistrement.includes('Écrire une hypnose pour')) {
+    console.error(
+      "✗ session/hypnose-départ : la case revient à l'écran d'enregistrement, où elle n'agit pas",
+    )
     echecs++
   } else {
     console.log(
-      `✓ session/hypnose-départ ${String(enregistrement.length).padStart(6)} octets · case au démarrage`,
+      `✓ session/hypnose-départ ${String(enregistrement.length).padStart(6)} octets · rien à décider avant la note`,
     )
   }
 }
@@ -210,6 +218,13 @@ if (hypnose) {
     !hypnose.includes('Écrire une hypnose pour') && "la case ne s'offre pas depuis la séance",
     !hypnose.includes('type="checkbox"') && 'aucune case à cocher',
     !hypnose.includes(prenom) && `la case ne nomme pas ${prenom}`,
+    /* Le prix a suivi la décision, et il doit se lire AVANT de cocher : c'est
+       la case qui le porte, pas le bouton — sinon il n'apparaîtrait qu'une
+       fois l'option déjà ouverte. La scène a l'hypnose fermée, donc le voir
+       ici prouve qu'il éclaire bien le choix. */
+    // Sans l'apostrophe : React l'échappe en &#x27; dans le balisage rendu.
+    !hypnose.includes('analyse la plus coûteuse') && "le coût ne s'affiche plus nulle part",
+    !hypnose.includes('0,24') && 'le coût est annoncé sans chiffre',
   ].filter(Boolean)
   if (manque.length) {
     console.error(`✗ session/hypnose : ${manque.join(', ')}`)

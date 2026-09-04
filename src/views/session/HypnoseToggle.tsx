@@ -1,30 +1,35 @@
 import { useMaybeCabinet } from '@/cabinet/context'
+import { COUT_HYPNOSE } from '@/lib/coutIA'
+import { euro } from '@/lib/format'
 import { useStore } from '@/state/store'
 import s from './HypnoseToggle.module.css'
 
 /**
  * La case qui décide de l'hypnose.
  *
- * Une seule implémentation, posée à DEUX moments de la séance, parce que la
- * décision se prend à l'un ou à l'autre selon les praticiennes : avant de
- * lancer l'analyse, quand on sait déjà où va la séance et qu'on voit ce
- * qu'elle coûtera ; ou après avoir lu la note, quand on découvre qu'il y a
- * matière. C'est le même réglage aux deux endroits — le cocher ici le coche
- * là-bas, et l'ouvre pour les prochaines séances de ce patient.
+ * UN SEUL MOMENT, et c'est en lisant la note. Elle se posait aussi à l'écran
+ * d'enregistrement, avant de lancer l'analyse ; mais elle n'y conditionnait
+ * pas le lancement — elle réglait la fiche, et l'étape suivante reposait la
+ * même question avec, elle, le bouton qui écrit. Demander deux fois un choix
+ * dont une seule réponse agit, c'est le demander trop tôt : on ne sait pas
+ * encore s'il y a matière.
  *
- * L'état local mirroite la fiche : l'écran répond au clic sans attendre la
- * base, et la démonstration fonctionne sans base du tout.
+ * ELLE PORTE SON PRIX. C'est l'appel le plus cher du produit, et le chiffre
+ * doit se lire au moment de cocher — pas après, quand l'option est déjà
+ * ouverte et qu'il ne reste qu'à cliquer.
+ *
+ * Cocher ici ouvre aussi les prochaines séances de ce patient : c'est le même
+ * réglage que sur sa fiche, pas un doublon. L'état local mirroite la fiche :
+ * l'écran répond au clic sans attendre la base, et la démonstration
+ * fonctionne sans base du tout.
  */
 export function HypnoseToggle({
   actif,
   onChange,
-  compact = false,
   disabled = false,
 }: {
   actif: boolean
   onChange: (actif: boolean) => void
-  /** Version courte, pour l'écran d'enregistrement où la place manque. */
-  compact?: boolean
   disabled?: boolean
 }) {
   const { state } = useStore()
@@ -35,7 +40,7 @@ export function HypnoseToggle({
   const prenom = patient.name.split(' ')[0] ?? patient.name
 
   return (
-    <label className={compact ? `${s.bascule} ${s.compact}` : s.bascule}>
+    <label className={s.bascule}>
       <input
         type="checkbox"
         checked={actif}
@@ -49,9 +54,9 @@ export function HypnoseToggle({
       <span>
         <span className={s.titre}>Écrire une hypnose pour {prenom}</span>
         <span className={s.hint}>
-          {compact
-            ? "Une séance complète d'environ trente minutes, bâtie sur ses mots, à lire à voix haute. Elle s'écrit après la note."
-            : "Une séance complète, bâtie sur les formulations relevées ci-dessus et lisible à voix haute. C'est l'analyse la plus coûteuse du produit : cochez-la quand elle sert. Le réglage vaut aussi pour ses prochaines séances."}
+          Une séance complète, bâtie sur les formulations relevées ci-dessus et lisible à voix
+          haute. C'est l'analyse la plus coûteuse du produit — environ {euro(COUT_HYPNOSE)} —
+          alors cochez-la quand elle sert. Le réglage vaut aussi pour ses prochaines séances.
         </span>
       </span>
     </label>

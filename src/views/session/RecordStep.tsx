@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { Notice, Overline } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
-import { HypnoseToggle } from './HypnoseToggle'
 import { NOTE_TAGS, NOTE_TAG_PREFIXES, TRANSCRIPT_SAMPLES } from '@/data/session'
 import { clock, euro } from '@/lib/format'
 import {
@@ -10,7 +9,7 @@ import {
   derniereReponseEstMaquette,
   draftSessionNote,
 } from '@/services/aiClient'
-import { COUT_HYPNOSE, MODELE_ANALYSE, TARIF, estimationBrouillon } from '@/lib/coutIA'
+import { MODELE_ANALYSE, TARIF, estimationBrouillon } from '@/lib/coutIA'
 import {
   appendSegment,
   createTranscriber,
@@ -25,15 +24,18 @@ const SEGMENT = 900
 
 const cx = (...parts: Array<string | false>) => parts.filter(Boolean).join(' ')
 
-/** Étape 3 : minuteur, transcription en direct, notes écrites, brouillon. */
+/**
+ * Étape 3 : minuteur, transcription en direct, notes écrites, brouillon.
+ *
+ * L'HYPNOSE NE SE DÉCIDE PLUS ICI. La case y était posée « avant de lancer,
+ * là où le coût s'affiche » — sauf qu'elle ne conditionnait pas le lancement :
+ * elle réglait la fiche, et l'étape suivante portait déjà le même réglage
+ * ET le bouton qui écrit vraiment. Deux endroits pour un choix, dont un seul
+ * agit, c'est une question posée trop tôt : on décide en lisant la note.
+ */
 export function RecordStep() {
   const { state, set, read } = useStore()
   const cabinet = useMaybeCabinet()
-  /* La case mirroite la fiche, pour que l'écran réponde au clic sans attendre
-     la base — et que la démonstration fonctionne sans base du tout. */
-  const fichePatiente = state.patients[state.sessionPatient]
-  const [hypnoseIci, setHypnose] = useState<boolean | null>(null)
-  const hypnose = hypnoseIci ?? Boolean(fichePatiente?.hypnoseActivee)
   const transcriber = useRef<Transcriber | null>(null)
 
   // Le minuteur n'avance que pendant l'enregistrement, et jamais après.
@@ -326,19 +328,6 @@ export function RecordStep() {
             />
           </div>
 
-          {/* La décision se prend AVANT de lancer, là où le coût s'affiche.
-              C'est le même réglage que sur la fiche et que dans la note :
-              certaines praticiennes savent d'avance, d'autres découvrent en
-              lisant la synthèse qu'il y a matière. */}
-          <div className={s.hypnose}>
-            <HypnoseToggle
-              actif={hypnose}
-              onChange={setHypnose}
-              compact
-              disabled={state.generating}
-            />
-          </div>
-
           <div className={s.actions}>
             <button
               type="button"
@@ -363,7 +352,6 @@ export function RecordStep() {
               <span className={s.devis}>
                 Cet appel vous coûtera environ <strong>{euro(devis.euros)}</strong>, au plus{' '}
                 {euro(devis.eurosMax)}.
-                {hypnose ? ` L'hypnose s'ajoutera après la note, pour ${euro(COUT_HYPNOSE)} environ.` : ''}
               </span>
             ) : null}
           </div>

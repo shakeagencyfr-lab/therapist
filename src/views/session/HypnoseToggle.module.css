@@ -44,14 +44,3 @@
   line-height: 1.5;
   color: var(--c-text-muted);
 }
-
-/* Version courte : sur l'écran d'enregistrement, la case s'insère entre le
-   devis et le bouton d'analyse, là où la dépense s'engage. */
-.compact {
-  margin: 0;
-  padding: 12px 14px;
-}
-
-.compact .hint {
-  font-size: 11.5px;
-}
