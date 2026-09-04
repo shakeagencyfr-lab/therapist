@@ -39,7 +39,7 @@ function espacePatient(): string {
  * on a trouvé (on affiche sa marque), ou l'adresse ne désigne aucun cabinet
  * (on affiche Klaro, comme sur la page d'accueil).
  *
- * Deux adresses mènent au même cabinet : le chemin /c/son-identifiant, et son
+ * Deux adresses mènent au même cabinet : le chemin /son-identifiant, et son
  * propre domaine quand il en a posé un. Le domaine est interrogé le premier —
  * une thérapeute qui a payé sa marque blanche n'a pas à voir la nôtre.
  *

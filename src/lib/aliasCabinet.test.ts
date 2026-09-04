@@ -34,11 +34,13 @@ describe('slugDeLEspacePatient', () => {
     }
   })
 
-  /* Les deux lectures d'adresse ne doivent pas se marcher dessus : la vitrine
-     vit sous /c/, l'espace patient sous /<slug>/mon. */
+  /* Les deux lectures d'adresse partagent maintenant la racine : la vitrine
+     est /<slug>, l'espace patient /<slug>/mon. Elles ne doivent pas se
+     marcher dessus — c'est le nombre de segments qui les sépare. */
   it('ne se confond pas avec l’adresse de la vitrine', () => {
     expect(slugDuChemin('/cabinet-fontaine/mon')).toBeNull()
-    expect(slugDeLEspacePatient('/c/cabinet-fontaine/')).toBeNull()
-    expect(slugDuChemin('/c/cabinet-fontaine')).toBe('cabinet-fontaine')
+    expect(slugDeLEspacePatient('/cabinet-fontaine')).toBeNull()
+    expect(slugDuChemin('/cabinet-fontaine')).toBe('cabinet-fontaine')
+    expect(slugDeLEspacePatient('/cabinet-fontaine/mon')).toBe('cabinet-fontaine')
   })
 })

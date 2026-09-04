@@ -1,16 +1,26 @@
 /**
- * L'adresse d'un cabinet : klaroweb.site/c/son-identifiant.
+ * L'adresse d'un cabinet : klaroweb.site/son-identifiant.
  *
  * Ouverte par un patient ou une praticienne qui n'est pas encore connectée,
  * elle doit montrer le nom et les couleurs du cabinet avant de demander une
  * adresse électronique. Le reste de l'application n'en dépend pas : sans ce
  * chemin, tout fonctionne comme avant, aux couleurs de Klaro.
+ *
+ * ELLE VIVAIT SOUS /c/ JUSQU'ICI. Le préfixe protégeait la racine, mais il
+ * trahissait l'hébergeur dans l'adresse même qu'un cabinet imprime sur ses
+ * cartes — exactement ce que la marque blanche achète. La racine est donc
+ * dépensée pour les cabinets, et /c/... redirige à demeure : des liens sont
+ * partis, et une adresse publiée ne se reprend pas.
+ *
+ * CE QUE ÇA COÛTE, ET COMMENT ON LE PAIE. La racine ne peut plus accueillir
+ * de page du produit sans risquer de heurter un identifiant déjà pris — et
+ * on ne reprend pas son adresse à un cabinet qui l'a imprimée. D'où la liste
+ * ci-dessous, tenue LARGE À L'AVANCE plutôt qu'au fil des besoins : réserver
+ * un mot dont on ne se servira jamais ne coûte rien, le réclamer trop tard
+ * coûte l'adresse de quelqu'un.
  */
 import { supabase } from '@/lib/supabase'
 import type { CabinetBranding } from '@/types/reseller'
-
-/** Le préfixe des adresses de cabinet. */
-export const PREFIXE_CABINET = '/c/'
 
 export interface Vitrine {
   name: string
@@ -19,35 +29,66 @@ export interface Vitrine {
 }
 
 /**
- * L'identifiant de cabinet porté par un chemin, s'il y en a un.
+ * Les mots que le produit se garde à la racine.
  *
- * Seule la forme exacte est reconnue — /c/mon-cabinet, avec ou sans barre
- * finale. Un chemin plus profond n'est pas une vitrine : mieux vaut la page
- * ordinaire qu'une marque prise au hasard d'une URL malformée.
- */
-export function slugDuChemin(chemin: string): string | null {
-  const m = /^\/c\/([a-z0-9][a-z0-9-]{0,62})\/?$/i.exec(chemin.trim())
-  return m ? m[1].toLowerCase() : null
-}
-
-/**
- * Les chemins que le produit s'est réservés.
+ * Deux familles : ce qui est DÉJÀ une route (mon, api, e, assets…) — un
+ * cabinet qui s'y appellerait deviendrait inaccessible — et ce qu'une page
+ * du produit voudra vraisemblablement un jour (tarifs, aide, blog…). La
+ * seconde famille est de la place gardée : le jour où l'on ajoute /tarifs,
+ * il ne faut pas découvrir qu'un cabinet s'appelle « tarifs ».
  *
- * Un cabinet ne peut pas s'appeler « mon », « api » ou « c » : son adresse
- * marcherait sur une adresse du produit. C'est la même liste qui doit servir
- * le jour où l'on validera les identifiants à l'ouverture d'un cabinet —
- * mieux vaut refuser un nom que le voir capturer une route.
+ * LA MÊME LISTE EST APPLIQUÉE EN BASE, par une contrainte sur `cabinets`.
+ * Ici elle rend un message utile au revendeur ; là-bas elle empêche
+ * réellement l'écriture — un formulaire se contourne, pas une contrainte.
  */
 export const CHEMINS_RESERVES = new Set([
-  'mon',
-  'api',
-  'c',
-  'e',
-  'assets',
-  'auth',
-  'admin',
-  'static',
+  // Ce qui est déjà servi.
+  'mon', 'api', 'c', 'e', 'assets', 'auth', 'admin', 'static', 'public',
+  'index', 'patient', 'embed', 'favicon', 'robots', 'sitemap', 'manifest',
+  // Les pages qu'un produit finit toujours par vouloir.
+  'accueil', 'home', 'a-propos', 'apropos', 'about', 'aide', 'help', 'faq',
+  'support', 'contact', 'tarifs', 'prix', 'pricing', 'blog', 'actualites',
+  'presse', 'equipe', 'partenaires', 'demo', 'essai', 'docs', 'doc',
+  'guide', 'nouveautes', 'statut', 'status',
+  // Les mentions légales, qu'on ne choisit pas d'avoir.
+  'cgv', 'cgu', 'legal', 'mentions', 'confidentialite', 'cookies', 'rgpd',
+  // Le vocabulaire du produit : ambigu comme adresse de cabinet.
+  'klaro', 'cabinet', 'cabinets', 'therapeute', 'therapeutes', 'patients',
+  'revendeur', 'revendeurs', 'compte', 'connexion', 'login', 'logout',
+  'deconnexion', 'inscription', 'signup', 'app', 'espace', 'boutique',
+  // Ce qu'une infrastructure réclame tôt ou tard.
+  'www', 'cdn', 'media', 'img', 'images', 'files', 'fichiers', 'css', 'js',
+  'fonts', 'webhook', 'webhooks', 'health', 'stripe', 'supabase', 'well-known',
 ])
+
+/**
+ * L'identifiant de cabinet porté par un chemin, s'il y en a un.
+ *
+ * Deux formes sont acceptées, et l'ancienne n'est pas de la nostalgie :
+ * `/c/mon-cabinet` a circulé, et une redirection peut manquer à l'appel — un
+ * signet, une capture d'écran, `vercel dev`. Mieux vaut la comprendre ici
+ * que d'afficher Klaro à quelqu'un qui a suivi un lien du cabinet.
+ *
+ * Un chemin plus profond n'est pas une vitrine : mieux vaut la page
+ * ordinaire qu'une marque prise au hasard d'une URL malformée. Et à la
+ * racine, un mot réservé n'est jamais un cabinet — sans quoi `/mon`
+ * afficherait la vitrine d'un cabinet qui se serait appelé ainsi.
+ */
+export function slugDuChemin(chemin: string): string | null {
+  const propre = chemin.trim()
+
+  /* L'ancienne forme d'abord, et sur SON PROPRE motif : sous /c/, le préfixe
+     isole déjà, aucun mot n'y est réservé. Un seul motif à préfixe optionnel
+     serait plus court et faux — « /c/ » s'y lirait comme la racine portant
+     l'identifiant « c », qu'on croirait alors préfixé. */
+  const ancien = /^\/c\/([a-z0-9][a-z0-9-]{0,62})\/?$/i.exec(propre)
+  if (ancien) return ancien[1].toLowerCase()
+
+  const m = /^\/([a-z0-9][a-z0-9-]{0,62})\/?$/i.exec(propre)
+  if (!m) return null
+  const slug = m[1].toLowerCase()
+  return CHEMINS_RESERVES.has(slug) ? null : slug
+}
 
 /**
  * L'identifiant du cabinet dans une adresse d'espace patient.
@@ -140,7 +181,7 @@ export function estDomainePersonnalise(host: string): boolean {
  * Le cabinet qui répond à ce domaine, s'il y en a un.
  *
  * C'est ce qui permet à espace.son-cabinet.fr d'ouvrir SON espace : le
- * domaine remplace le chemin /c/son-identifiant, sans que rien d'autre change.
+ * domaine remplace le chemin /son-identifiant, sans que rien d'autre change.
  */
 export async function cabinetDuDomaine(host: string): Promise<(Vitrine & { slug: string }) | null> {
   const db = supabase()

@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { dateLongue } from '@/lib/format'
 import { supabase } from '@/lib/supabase'
+import { CHEMINS_RESERVES } from '@/lib/vitrine'
 import { demanderInvitation } from '@/services/invitations'
 import { CABINETS, CABINET_STATS, PLANS, SUBSCRIPTIONS } from '@/data/reseller'
 import { slugify } from '@/state/resellerSelectors'
@@ -303,6 +304,16 @@ export function useReseller(): ResellerData {
       if (eMoi || !moi) return { ok: false, message: "Votre organisation n'a pas pu être identifiée." }
 
       const slug = slugify(input.slug || input.nom)
+      /* L'identifiant est une adresse à la racine du domaine : certains mots
+         y heurteraient une route du produit. La base refuse déjà — mais son
+         refus est un code d'erreur, et le revendeur mérite de savoir lequel
+         de ses mots pose problème avant d'avoir rempli tout le formulaire. */
+      if (CHEMINS_RESERVES.has(slug)) {
+        return {
+          ok: false,
+          message: `L'identifiant « ${slug} » est réservé par la plateforme : il servirait une page de Klaro plutôt que le cabinet. Choisissez-en un autre.`,
+        }
+      }
       const initiales =
         input.nom
           .split(/\s+/)
@@ -331,11 +342,15 @@ export function useReseller(): ResellerData {
 
       if (eCab || !cabinet) {
         const doublon = eCab?.code === '23505'
+        // 23514 : la contrainte de forme. Le message doit dire quoi corriger.
+        const refuse = eCab?.code === '23514'
         return {
           ok: false,
           message: doublon
             ? `L'identifiant « ${slug} » est déjà pris. Choisissez-en un autre.`
-            : "Le cabinet n'a pas pu être créé. Réessayez.",
+            : refuse
+              ? `L'identifiant « ${slug} » ne peut pas servir d'adresse : lettres non accentuées, chiffres et tirets, et pas un mot réservé par la plateforme.`
+              : "Le cabinet n'a pas pu être créé. Réessayez.",
         }
       }
 
