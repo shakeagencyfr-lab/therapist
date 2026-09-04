@@ -419,7 +419,9 @@ try {
     !themee.includes('Fraunces') && "la police des titres n'atteint pas la page",
     !themee.includes('Karla') && "la police du texte n'atteint pas la page",
     !themee.includes('fond_grain') && "la classe du fond n'est pas posée",
-    !themee.includes('fonts.googleapis.com') && "la feuille de police n'est pas demandée",
+    !themee.includes('/fonts/vitrine.css') && "la feuille de police n'est pas demandée",
+    /(fonts\.googleapis|fonts\.gstatic)/.test(themee) &&
+      'la page va chercher sa police chez Google',
   ].filter(Boolean)
 
   /* ET UN THÈME HOSTILE NE PASSE PAS. Ces valeurs deviennent des noms de
@@ -436,7 +438,7 @@ try {
     rendu.includes('<script>alert') && 'du balisage étranger a traversé',
     !rendu.includes('Newsreader') && 'le thème d’origine ne reprend pas la main',
     // Rien à charger : le thème d'origine est déjà servi par le document.
-    rendu.includes('fonts.googleapis.com') && 'une feuille de police est demandée pour rien',
+    rendu.includes('/fonts/vitrine.css') && 'une feuille de police est demandée pour rien',
   ].filter(Boolean)
 
   if (themeManque.length || fuite.length) {
