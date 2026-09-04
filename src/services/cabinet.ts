@@ -107,6 +107,8 @@ export interface EtatSite {
   droit: boolean
   offre: string
   google: boolean
+  /** 'serpapi', 'places' ou 'aucune' — ce que le serveur voit réellement. */
+  source: string
   modeles: ModeleSite[]
 }
 

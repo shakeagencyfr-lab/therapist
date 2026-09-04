@@ -186,6 +186,7 @@ export function SiteView() {
         <div className={s.editeur}>
           <ImportGoogle
             possible={etat?.google ?? false}
+            connu={etat !== null}
             importeLe={site.importeLe}
             occupe={occupe}
             setOccupe={setOccupe}
@@ -400,6 +401,7 @@ export function SiteView() {
 
 function ImportGoogle({
   possible,
+  connu,
   importeLe,
   occupe,
   setOccupe,
@@ -407,6 +409,8 @@ function ImportGoogle({
   onErreur,
 }: {
   possible: boolean
+  /** Les réglages ont-ils pu être lus ? Sans quoi on ne sait rien, même pas non. */
+  connu: boolean
   importeLe: string | null
   occupe: string
   setOccupe: (v: string) => void
@@ -506,10 +510,19 @@ function ImportGoogle({
             </ul>
           ) : null}
         </>
-      ) : (
+      ) : connu ? (
         <p className={s.hint}>
-          L'import depuis Google n'est pas configuré sur ce serveur. Vous pouvez remplir votre page
-          à la main : tout ce qui suit est modifiable, et le résultat est le même.
+          L'import depuis Google n'est pas configuré sur ce serveur : prévenez votre revendeur, la
+          clé se pose de son côté et non du vôtre. En attendant, remplissez votre page à la main —
+          tout ce qui suit est modifiable, et le résultat est exactement le même.
+        </p>
+      ) : (
+        /* Distinction qui manquait : une réponse « pas de clé » et une requête
+           qui n'a pas abouti donnaient le même message, et envoyaient chercher
+           une clé quand il n'y avait qu'à recharger. */
+        <p className={s.hint}>
+          Vos réglages n'ont pas pu être lus, l'import est donc indisponible pour l'instant.
+          Rechargez la page ; si cela persiste, prévenez votre revendeur.
         </p>
       )}
     </Card>

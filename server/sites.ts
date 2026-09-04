@@ -128,6 +128,8 @@ export interface EtatSite {
   offre: string
   /** L'import depuis Google est-il configuré sur ce serveur ? */
   google: boolean
+  /** Laquelle des deux sources répond — pour que l'écran puisse le dire. */
+  source: SourceFiche
   modeles: ModeleSite[]
 }
 
@@ -222,6 +224,7 @@ export async function etatSite(token: string | null): Promise<EtatSite> {
     droit: droits.site,
     offre: droits.offre,
     google: googleConfigure(),
+    source: sourceFiche(),
     modeles: MODELES,
   }
 }
@@ -356,6 +359,22 @@ export function sourceFiche(): SourceFiche {
 export function googleConfigure(): boolean {
   return sourceFiche() !== 'aucune'
 }
+
+/*
+ * UNE LIGNE AU DÉMARRAGE DE LA FONCTION, ET JAMAIS UNE CLÉ.
+ *
+ * Une variable d'environnement absente est la panne la plus difficile à
+ * diagnostiquer d'ici : l'écran dit « pas configuré », et cela peut vouloir
+ * dire que la clé n'a pas été posée, qu'elle l'a été sur le mauvais
+ * environnement, que le déploiement est antérieur, ou que le code ne la lit
+ * pas. Vue du navigateur, ces quatre causes sont identiques.
+ *
+ * Ce journal les sépare : il dit ce que la fonction voit réellement, au
+ * moment où elle démarre. Il n'écrit que le NOM de la source — jamais la
+ * clé, ni sa longueur, ni son début, qui suffiraient à la reconstituer par
+ * recoupements.
+ */
+console.log(`[site] fiches Google — source active : ${sourceFiche()}`)
 
 function exigerGoogle(): string {
   if (!GOOGLE_KEY) {
