@@ -270,10 +270,29 @@ function lien(valeur: unknown): string {
  * chargerait une image depuis n'importe où laisserait fuir la visite de la
  * page vers ce tiers.
  */
+/**
+ * Le préfixe de NOTRE stockage public. Tout le reste est refusé.
+ *
+ * Le commentaire ci-dessus promettait cette règle depuis le début ; le code
+ * n'exigeait que « https ». N'importe quelle adresse passait donc, et la page
+ * publique d'un cabinet — celle qu'un patient ouvre avant d'oser prendre
+ * rendez-vous — allait chercher une image chez un tiers, en lui signalant la
+ * visite. C'est exactement l'invariant que le produit tient partout ailleurs :
+ * polices auto-hébergées, logo Google en SVG inline.
+ */
+const STOCKAGE = (process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? '')
+  .trim()
+  .replace(/\/+$/, '')
+
+function nousAppartient(url: string): boolean {
+  if (!STOCKAGE) return false
+  return url.startsWith(`${STOCKAGE}/storage/v1/object/public/`)
+}
+
 function photo(brut: unknown): PhotoSite | null {
   const p = (brut ?? {}) as Partial<PhotoSite>
   const url = lien(p.url)
-  if (!url || !url.startsWith('https://')) return null
+  if (!url || !nousAppartient(url)) return null
   return { url, alt: texte(p.alt, 160), attribution: texte(p.attribution, 160) }
 }
 
