@@ -406,6 +406,47 @@ try {
       `✓ vitrine/avis      ${String(carrousel.length).padStart(6)} octets · badge Google, piste sans script`,
     )
   }
+  /* L'HABILLAGE ARRIVE JUSQU'À LA PAGE. Un réglage qu'on peut choisir et qui
+     ne change rien à l'écran est pire qu'un réglage absent. On vérifie donc
+     les trois chemins par lesquels il passe : la police en variable, la
+     classe du fond, et la feuille de police demandée. */
+  const habille = {
+    ...SITE_FICTIF,
+    theme: { preset: 'atelier', titres: 'fraunces', texte: 'karla', fond: 'grain', anime: false, carte: 'papier', coins: 'doux' },
+  }
+  const themee = renderToString(h(VitrinePage, { site: habille as never }))
+  const themeManque = [
+    !themee.includes('Fraunces') && "la police des titres n'atteint pas la page",
+    !themee.includes('Karla') && "la police du texte n'atteint pas la page",
+    !themee.includes('fond_grain') && "la classe du fond n'est pas posée",
+    !themee.includes('fonts.googleapis.com') && "la feuille de police n'est pas demandée",
+  ].filter(Boolean)
+
+  /* ET UN THÈME HOSTILE NE PASSE PAS. Ces valeurs deviennent des noms de
+     classe et une `font-family` sur une page publique : la liste blanche est
+     la seule barrière, et une épreuve qui ne la met pas à l'épreuve ne prouve
+     rien. La page doit se rendre, avec le thème d'origine. */
+  const piege = {
+    ...SITE_FICTIF,
+    theme: { titres: 'Georgia; } body { display:none } .x {', fond: '<script>alert(1)</script>' },
+  }
+  const rendu = renderToString(h(VitrinePage, { site: piege as never }))
+  const fuite = [
+    rendu.includes('display:none') && 'du CSS étranger a traversé jusqu’à la page',
+    rendu.includes('<script>alert') && 'du balisage étranger a traversé',
+    !rendu.includes('Newsreader') && 'le thème d’origine ne reprend pas la main',
+    // Rien à charger : le thème d'origine est déjà servi par le document.
+    rendu.includes('fonts.googleapis.com') && 'une feuille de police est demandée pour rien',
+  ].filter(Boolean)
+
+  if (themeManque.length || fuite.length) {
+    console.error(`✗ vitrine/theme : ${[...themeManque, ...fuite].join(', ')}`)
+    echecs++
+  } else {
+    console.log(
+      `✓ vitrine/theme     ${String(themee.length).padStart(6)} octets · habillage appliqué, thème hostile écarté`,
+    )
+  }
 } catch (err) {
   console.error(`✗ vitrine/publiee : ${(err as Error).message}`)
   echecs++

@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { captchaConfigure, useCaptcha } from '@/auth/Captcha'
 import type { SiteVitrine } from '@/lib/vitrine'
 import { cheminEspacePatient } from '@/lib/domaine'
+import { pileTexte, pileTitres, policesAcharger, resoudreTheme } from '@/lib/themeVitrine'
 import { AvisGoogle } from './AvisGoogle'
 import s from './VitrinePage.module.css'
 
@@ -24,11 +25,20 @@ import s from './VitrinePage.module.css'
  */
 export function VitrinePage({ site, apercu = false }: { site: SiteVitrine; apercu?: boolean }) {
   const b = site.branding
+  /* Le thème est relu par la liste blanche à CHAQUE rendu, et pas seulement
+     à l'écriture : ses valeurs deviennent des noms de classe et une
+     `font-family` sur une page publique. Une chaîne recopiée telle quelle
+     d'ici laisserait écrire du CSS dans la page d'un cabinet. */
+  const theme = resoudreTheme(site.theme)
+  const polices = policesAcharger(theme)
+
   const couleurs = {
     '--c-accent': b?.accent,
     '--c-accent-hover': b?.accentHover,
     '--c-accent-deep': b?.accentDeep,
     '--c-dark': b?.dark,
+    '--vitrine-titres': pileTitres(theme),
+    '--vitrine-texte': pileTexte(theme),
   } as CSSProperties
 
   const modele = ['sobre', 'chaleur', 'clinique'].includes(site.modele) ? site.modele : 'sobre'
@@ -37,7 +47,24 @@ export function VitrinePage({ site, apercu = false }: { site: SiteVitrine; aperc
   const joignable = site.adresse || site.telephone || site.horaires.some((h) => h.heures)
 
   return (
-    <div className={`${s.page} ${s[modele]}`} style={couleurs}>
+    <div
+      className={[
+        s.page,
+        s[modele],
+        s[`fond_${theme.fond}`],
+        s[`carte_${theme.carte}`],
+        s[`coins_${theme.coins}`],
+        theme.anime ? s.anime : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      style={couleurs}
+    >
+      {/* Les polices non standard se chargent depuis la page elle-même : le
+          document est commun aux trois surfaces, et chaque cabinet n'a pas à
+          faire télécharger la police choisie par un autre. Le thème d'origine
+          ne demande rien — ses deux polices sont déjà servies. */}
+      {polices ? <link rel="stylesheet" href={polices} /> : null}
       <header className={s.entete}>
         <div className={s.marque}>
           {b?.logoUrl ? (

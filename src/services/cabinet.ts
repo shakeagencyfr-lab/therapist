@@ -1,3 +1,4 @@
+import type { ThemeVitrine } from '@/lib/themeVitrine'
 /**
  * Les réglages du cabinet, vus du navigateur.
  *
@@ -100,6 +101,8 @@ export interface Site {
   googleNote: number | null
   googleAvis: number | null
   importeLe: string | null
+  /** L'habillage : polices, fond, cartes, angles. */
+  theme: ThemeVitrine
 }
 
 export interface EtatSite {
