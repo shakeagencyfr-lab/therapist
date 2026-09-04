@@ -4,11 +4,46 @@
    elles, sont les mêmes partout. */
 
 .page {
-  --largeur: 940px;
-  min-height: 100vh;
+  /* La colonne de lecture, et la gouttière. Les deux respirent avec l'écran :
+     18px de marge sur un téléphone, 56px sur un grand écran. */
+  --largeur: 1280px;
+  --marge: clamp(18px, 4vw, 56px);
+
+  /* UNE GRILLE À TROIS COLONNES, PAS UNE SUITE DE `margin: auto`.
+     La colonne du milieu porte le texte et s'arrête à --largeur ; les deux
+     gouttières absorbent le reste. Une rubrique qui doit occuper toute la
+     largeur — la galerie — n'a qu'à s'étendre d'un bord à l'autre, sans
+     `100vw` : celui-ci compte la barre de défilement et déclenche un
+     débordement horizontal sur les navigateurs qui l'affichent. */
+  display: grid;
+  grid-template-columns:
+    [pleine-debut] minmax(var(--marge), 1fr)
+    [contenu-debut] minmax(0, var(--largeur))
+    [contenu-fin] minmax(var(--marge), 1fr)
+    [pleine-fin];
+  align-content: start;
+
+  /* 100dvh plutôt que 100vh : sur un téléphone, la barre d'adresse qui se
+     rétracte fait sauter la page d'une centaine de pixels avec vh. */
+  min-height: 100dvh;
   background: var(--c-surface);
   color: var(--c-text);
   padding-bottom: 40px;
+  /* Dernier garde-fou : rien ne doit faire défiler la page latéralement. */
+  overflow-x: clip;
+}
+
+/* Tout se pose dans la colonne de lecture, sauf mention contraire. */
+.page > * {
+  grid-column: contenu-debut / contenu-fin;
+  min-width: 0;
+}
+
+/* Les rubriques d'un bord à l'autre : des images, jamais du texte — une ligne
+   de 2000 pixels de large ne se lit pas. */
+.pleine {
+  grid-column: pleine-debut / pleine-fin;
+  padding-inline: var(--marge);
 }
 
 /* ---- En-tête ------------------------------------------------------------ */
@@ -18,9 +53,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  max-width: var(--largeur);
-  margin: 0 auto;
-  padding: 20px 24px;
+  padding: 22px 0 14px;
 }
 
 .marque {
@@ -84,14 +117,12 @@
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 34px;
   align-items: center;
-  max-width: var(--largeur);
-  margin: 0 auto;
-  padding: 30px 24px 44px;
+  padding: clamp(20px, 4vw, 44px) 0 clamp(32px, 5vw, 60px);
 }
 
 .titre {
   font-family: var(--font-serif);
-  font-size: 42px;
+  font-size: clamp(30px, 5.2vw, 56px);
   line-height: 1.08;
   letter-spacing: -0.02em;
   font-weight: 400;
@@ -99,7 +130,7 @@
 }
 
 .sousTitre {
-  font-size: 16px;
+  font-size: clamp(15px, 1.4vw, 18px);
   line-height: 1.6;
   color: var(--c-text-3);
   margin: 0 0 16px;
@@ -147,17 +178,15 @@
 /* ---- Sections ----------------------------------------------------------- */
 
 .section {
-  max-width: var(--largeur);
-  margin: 0 auto;
-  padding: 24px;
+  padding-block: clamp(20px, 3vw, 34px);
 }
 
 .h2 {
   font-family: var(--font-serif);
-  font-size: 25px;
+  font-size: clamp(22px, 2.6vw, 32px);
   font-weight: 400;
   letter-spacing: -0.015em;
-  margin: 0 0 14px;
+  margin: 0 0 16px;
 }
 
 .texte {
@@ -293,9 +322,8 @@
 /* ---- L'espace patient -------------------------------------------------- */
 
 .espace {
-  max-width: var(--largeur);
-  margin: 24px auto 0;
-  padding: 30px 24px 34px;
+  margin-top: 24px;
+  padding: clamp(24px, 4vw, 38px) clamp(20px, 3vw, 34px);
   background: var(--c-accent-soft);
   border-radius: var(--r-xl);
 }
@@ -339,9 +367,8 @@
 }
 
 .pied {
-  max-width: var(--largeur);
-  margin: 30px auto 0;
-  padding: 18px 24px 0;
+  margin-top: 30px;
+  padding: 18px 0 0;
   border-top: 1px solid var(--c-border-light);
   font-size: 11.5px;
   color: var(--c-text-muted);
@@ -365,7 +392,7 @@
 
 /* Chaleur : la photo prend la moitié droite et déborde en hauteur. */
 .chaleur {
-  --largeur: 1040px;
+  --largeur: 1360px;
 }
 .chaleur .couverture img {
   aspect-ratio: 3 / 4;
@@ -387,7 +414,7 @@
 
 /* Clinique : le pratique d'abord, le hero resserré. */
 .clinique {
-  --largeur: 900px;
+  --largeur: 1120px;
 }
 .clinique .titre {
   font-size: 34px;
@@ -408,17 +435,91 @@
   padding: 4px 0 4px 16px;
 }
 
+/* ---- Le téléphone ------------------------------------------------------- */
+
+/* La taille du texte est déjà fluide : ces règles ne traitent que ce qu'une
+   interpolation ne sait pas faire — l'ordre des blocs, les cibles du doigt et
+   ce qui doit disparaître. */
+
 @media (max-width: 820px) {
   .hero,
   .pratique {
     grid-template-columns: minmax(0, 1fr);
   }
-  .titre,
-  .sobre .titre {
-    font-size: 32px;
+  /* Sur un écran étroit, on veut voir le lieu avant de lire : la photo passe
+     au-dessus du titre. */
+  .hero .couverture {
+    order: -1;
+  }
+  .hero {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
   }
   .chaleur .couverture img {
     aspect-ratio: 4 / 3;
     border-radius: var(--r-xl);
+  }
+  .chaleur .titre,
+  .clinique .titre,
+  .sobre .titre {
+    max-width: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .entete {
+    /* Le nom du cabinet garde sa ligne ; le bouton passe dessous plutôt que
+       de comprimer le nom en trois lettres suivies de points. */
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .acces {
+    /* 44px de haut : la cible minimale au doigt. Un lien de 28px se rate. */
+    padding: 12px 18px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+  .bouton {
+    min-height: 48px;
+    padding: 14px 24px;
+    /* Le bouton principal prend la ligne : c'est le geste de la page. */
+    width: 100%;
+    text-align: center;
+  }
+  .heroActions {
+    gap: 12px;
+  }
+  .heroActions .lien {
+    /* Le numéro devient une vraie cible, pas un mot au milieu d'un texte. */
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+  .formulaire {
+    flex-direction: column;
+    max-width: none;
+  }
+  .champ,
+  .formulaire .bouton {
+    width: 100%;
+    /* 16px exactement : en dessous, Safari zoome à la mise au point du champ
+       et la page ne revient jamais à sa place. */
+    font-size: 16px;
+    min-height: 48px;
+  }
+  .services,
+  .galerie {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .couverture img,
+  .sobre .couverture img,
+  .clinique .couverture img {
+    aspect-ratio: 4 / 3;
+  }
+  .horaire {
+    font-size: 14px;
+    padding: 8px 0;
   }
 }

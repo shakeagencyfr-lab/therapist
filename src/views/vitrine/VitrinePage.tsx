@@ -3,10 +3,9 @@ import { messageEnvoiLien } from '@/lib/messageAuth'
 import { supabase } from '@/lib/supabase'
 import { captchaConfigure, useCaptcha } from '@/auth/Captcha'
 import type { SiteVitrine } from '@/lib/vitrine'
+import { cheminEspacePatient } from '@/lib/domaine'
+import { AvisGoogle } from './AvisGoogle'
 import s from './VitrinePage.module.css'
-
-/** Où mène le lien reçu : l'espace du patient, sur son téléphone. */
-const DESTINATION = '/mon'
 
 /**
  * La page d'accueil publique d'un cabinet.
@@ -69,6 +68,7 @@ export function VitrinePage({ site, apercu = false }: { site: SiteVitrine; aperc
               {site.google_avis ? ` · ${site.google_avis} avis Google` : ''}
             </p>
           ) : null}
+
           <div className={s.heroActions}>
             <a className={s.bouton} href="#espace">
               Ouvrir mon espace
@@ -151,7 +151,7 @@ export function VitrinePage({ site, apercu = false }: { site: SiteVitrine; aperc
       ) : null}
 
       {autres.length ? (
-        <section className={s.section}>
+        <section className={`${s.section} ${s.pleine}`}>
           <div className={s.galerie}>
             {autres.map((p) => (
               <figure key={p.url} className={s.photo}>
@@ -166,22 +166,11 @@ export function VitrinePage({ site, apercu = false }: { site: SiteVitrine; aperc
       {site.avis.length ? (
         <section className={s.section}>
           <h2 className={s.h2}>Ce qu'on en dit</h2>
-          <ul className={s.avis}>
-            {site.avis.map((a, i) => (
-              <li key={`${a.auteur}-${i}`} className={s.avisItem}>
-                <p className={s.avisTexte}>« {a.texte} »</p>
-                <p className={s.avisAuteur}>
-                  {a.auteur || 'Anonyme'}
-                  {a.date ? ` · ${a.date}` : ''}
-                </p>
-              </li>
-            ))}
-          </ul>
-          <p className={s.creditAvis}>Avis publiés sur Google.</p>
+          <AvisGoogle avis={site.avis} note={site.google_note} nombre={site.google_avis} />
         </section>
       ) : null}
 
-      <AccesEspace cabinet={site.name} apercu={apercu} />
+      <AccesEspace cabinet={site.name} slug={site.slug} apercu={apercu} />
 
       <footer className={s.pied}>
         <span>
@@ -200,7 +189,15 @@ export function VitrinePage({ site, apercu = false }: { site: SiteVitrine; aperc
  * montée ici. Tant que personne n'est connecté, cette page ne charge ni
  * dossier ni session.
  */
-function AccesEspace({ cabinet, apercu }: { cabinet: string; apercu?: boolean }) {
+function AccesEspace({
+  cabinet,
+  slug,
+  apercu,
+}: {
+  cabinet: string
+  slug: string
+  apercu?: boolean
+}) {
   const [email, setEmail] = useState('')
   const [envoi, setEnvoi] = useState(false)
   const [envoye, setEnvoye] = useState('')
@@ -220,7 +217,7 @@ function AccesEspace({ cabinet, apercu }: { cabinet: string; apercu?: boolean })
     const { error } = await db.auth.signInWithOtp({
       email: email.trim(),
       options: {
-        emailRedirectTo: `${window.location.origin}${DESTINATION}`,
+        emailRedirectTo: `${window.location.origin}${cheminEspacePatient(slug)}`,
         captchaToken: captcha.jeton,
       },
     })

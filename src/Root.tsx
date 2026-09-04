@@ -5,6 +5,7 @@ import { DroitsProvider } from './cabinet/droits'
 import { SignIn } from './auth/SignIn'
 import { SessionProvider, useAuth } from './auth/session'
 import { Button } from './components/ui'
+import { cheminEspacePatient } from './lib/domaine'
 import { AppStoreProvider } from './state/store'
 import {
   cabinetDuDomaine,
@@ -28,7 +29,7 @@ import s from './Root.module.css'
  */
 function espacePatient(): string {
   const slug = typeof window === 'undefined' ? null : slugDuChemin(window.location.pathname)
-  return slug ? `/${slug}/mon` : '/mon'
+  return cheminEspacePatient(slug ?? '')
 }
 
 /**

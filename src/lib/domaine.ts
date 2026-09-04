@@ -48,6 +48,19 @@ export function lienEspacePatient(slug: string): string {
   return `https://${adresseEspacePatient(slug)}`
 }
 
+/**
+ * Le CHEMIN seul de l'espace patient, sans domaine.
+ *
+ * C'est ce qu'il faut pour rester là où l'on est : sur le domaine du cabinet
+ * comme sur le nôtre, sur un aperçu comme en production. Y coller un domaine
+ * en dur enverrait une patiente du domaine de sa thérapeute vers le nôtre —
+ * exactement l'accroc que la marque blanche paie pour éviter.
+ */
+export function cheminEspacePatient(slug: string): string {
+  const propre = slug.trim()
+  return propre ? `/${propre}/mon` : '/mon'
+}
+
 /** L'adresse du widget de connexion, celle qu'un site tiers encadre. */
 export function lienEmbed(slug: string): string {
   return `https://${DOMAINE_CABINETS}/e/${slug.trim()}`

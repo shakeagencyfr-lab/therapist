@@ -1,0 +1,222 @@
+/* Les avis Google : un badge qui fait foi, et une piste qui défile.
+
+   La piste est un défilement natif avec accrochage — pas un empilement de
+   cartes positionnées en absolu. Au doigt sur un téléphone, c'est le geste
+   attendu ; sans script, ça marche encore. */
+
+.bloc {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ---- Le badge ----------------------------------------------------------- */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-self: flex-start;
+  padding: 10px 16px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-pill);
+  background: var(--c-surface);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.logoG {
+  flex: none;
+  display: block;
+}
+
+.badgeNote {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
+.badgeCompte {
+  font-size: 12.5px;
+  color: var(--c-text-muted);
+}
+
+/* ---- Les étoiles -------------------------------------------------------- */
+
+/* Deux rangées superposées : l'une vide, l'autre pleine et coupée à la
+   fraction exacte. Arrondir à l'étoile entière ajoute ou retire une demi-
+   étoile que personne n'a donnée. */
+.etoiles {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+  flex: none;
+}
+.etoilesVides,
+.etoilesPleines {
+  display: flex;
+  gap: 1px;
+}
+.etoilesVides {
+  fill: var(--c-border);
+}
+.etoilesPleines {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  fill: #fbbc05;
+}
+.etoilesPleines svg {
+  flex: none;
+}
+
+/* ---- Le carrousel ------------------------------------------------------- */
+
+.carrousel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.piste {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0 10px;
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  /* La piste peut déborder jusqu'au bord de l'écran : le rembourrage la
+     ramène dans l'alignement du texte, sans couper la carte suivante. */
+  padding-inline: var(--marge-piste, 0);
+}
+.piste::-webkit-scrollbar {
+  display: none;
+}
+/* Le clavier peut la parcourir : sans cela, une piste qui défile est
+   inatteignable pour qui n'a pas de souris. */
+.piste:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 3px;
+  border-radius: var(--r-lg);
+}
+
+.carte {
+  scroll-snap-align: start;
+  flex: 0 0 min(360px, 82%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 20px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  background: var(--c-surface);
+}
+
+.carteHaut {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.carteTexte {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--c-text-3);
+  /* Un avis Google peut faire trente lignes. On en montre huit : la carte
+     garde sa hauteur, et la piste reste une piste. */
+  display: -webkit-box;
+  -webkit-line-clamp: 8;
+  line-clamp: 8;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.carteAuteur {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: auto 0 0;
+  font-size: 12px;
+}
+.carteNom {
+  font-weight: 600;
+}
+.carteDate {
+  color: var(--c-text-muted);
+}
+
+/* ---- Les commandes ------------------------------------------------------ */
+
+.commandes {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.fleche {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--c-text-3);
+  border: 1px solid var(--c-border);
+  border-radius: 50%;
+  background: var(--c-surface);
+  cursor: pointer;
+}
+.fleche:hover {
+  border-color: var(--c-accent);
+  color: var(--c-accent);
+}
+
+.points {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.point {
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--c-border);
+  cursor: pointer;
+  transition: width 0.2s ease, background 0.2s ease;
+}
+.pointActif {
+  width: 20px;
+  border-radius: var(--r-pill);
+  background: var(--c-accent);
+}
+
+/* Sur un téléphone, les flèches ne servent à rien : on fait glisser. Elles
+   partent, les points restent — ils disent où l'on en est. */
+@media (max-width: 640px) {
+  .fleche {
+    display: none;
+  }
+  .carte {
+    flex: 0 0 min(320px, 86%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .piste {
+    scroll-behavior: auto;
+  }
+  .point {
+    transition: none;
+  }
+}
