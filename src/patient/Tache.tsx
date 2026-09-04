@@ -31,12 +31,14 @@ export function Tache({
   accent?: string
   onFermer: () => void
   onBasculer: (fait: boolean) => Promise<void>
-  onNote: (texte: string) => Promise<void>
+  /** Rend vrai si le mot a bien été enregistré. */
+  onNote: (texte: string) => Promise<boolean>
 }) {
   const fait = Boolean(module.done_at)
   const [note, setNote] = useState(module.patient_note ?? '')
   const [enCours, setEnCours] = useState(false)
   const [enregistre, setEnregistre] = useState(false)
+  const [echec, setEchec] = useState(false)
   const dictee = useDictee(note, (suite) => {
     setNote(suite)
     setEnregistre(false)
@@ -49,10 +51,15 @@ export function Tache({
   async function enregistrer() {
     if (enCours) return
     setEnCours(true)
+    setEchec(false)
     dictee.arreter()
-    await onNote(note.trim())
+    /* « Enregistré » ne s'affiche QUE si ça l'est. Sinon le patient repart en
+       croyant que sa thérapeute lira son mot, et son mot n'existe nulle part —
+       et il n'a plus aucune raison d'aller vérifier. */
+    const ok = await onNote(note.trim())
     setEnCours(false)
-    setEnregistre(true)
+    setEnregistre(ok)
+    setEchec(!ok)
   }
 
   return (
@@ -106,6 +113,7 @@ export function Tache({
           onChange={(e) => {
             setNote(e.target.value)
             setEnregistre(false)
+            setEchec(false)
           }}
           placeholder="Deux mots suffisent…"
           aria-label={`Un mot sur « ${module.title} »`}
@@ -119,6 +127,11 @@ export function Tache({
         >
           {enCours ? 'Enregistrement…' : enregistre ? 'Enregistré' : 'Enregistrer mon mot'}
         </button>
+        {echec ? (
+          <p className={s.echec} role="status">
+            Votre mot n'a pas pu être enregistré. Il est encore là : réessayez dans un instant.
+          </p>
+        ) : null}
       </section>
 
       {/* La case reste en bas, sous la main, une fois la consigne lue. */}

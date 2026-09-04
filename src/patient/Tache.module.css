@@ -147,3 +147,12 @@
   font-size: 15px;
   font-weight: 500;
 }
+
+/* L'échec d'enregistrement, dit sur place. Le texte reste dans le champ : on
+   ne fait pas retaper quelqu'un à qui l'on vient d'annoncer une panne. */
+.echec {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--c-warn-text-2);
+}

@@ -1397,16 +1397,13 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         .eq('id', sessionId)
       if (e2) return { ok: false, message: "La séance n'a pas pu être clôturée." }
 
-      // Une séance de plus au compteur de la fiche.
-      const { data: fiche } = await db
-        .from('patients')
-        .select('sessions_done')
-        .eq('id', patientId)
-        .maybeSingle<{ sessions_done: number }>()
-      await db
-        .from('patients')
-        .update({ sessions_done: (fiche?.sessions_done ?? 0) + 1 })
-        .eq('id', patientId)
+      /* Une séance de plus au compteur de la fiche, EN BASE et en une seule
+         instruction. Le lire-puis-écrire d'avant confondait « la fiche dit
+         zéro » et « la lecture n'a rien rendu » : une panne d'une seconde
+         remettait à un le compteur d'une patiente suivie depuis deux ans. Et
+         deux clôtures simultanées n'en comptaient qu'une. */
+      const { error: eCompte } = await db.rpc('cabinet_compter_seance', { p_patient: patientId })
+      if (eCompte) console.warn('[cabinet] séance non comptée', eCompte.message)
 
       await recharger()
       return { ok: true, message: '', modules: crees }
