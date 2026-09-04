@@ -122,8 +122,6 @@ export interface AppState {
   /** Message d'information affiché sous la zone de captation. */
   notice: string
   sessionNotes: string
-  /** Index de l'échantillon de démonstration chargé, s'il y en a un. */
-  sample: number | null
 
   /* Brouillon de note --------------------------------------------- */
   generating: boolean
@@ -287,7 +285,6 @@ export const initialState: AppState = {
   interim: '',
   notice: '',
   sessionNotes: '',
-  sample: null,
 
   generating: false,
   draft: null,

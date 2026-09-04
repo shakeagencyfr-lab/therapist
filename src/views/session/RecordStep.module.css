@@ -155,43 +155,6 @@
   padding: 20px 24px;
 }
 
-.samples {
-  margin-bottom: 20px;
-}
-.sampleGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 8px;
-}
-.sample {
-  text-align: left;
-  padding: 12px 14px;
-  border-radius: var(--r-md);
-  cursor: pointer;
-  border: 1px solid var(--c-border);
-  background: var(--c-surface);
-  color: var(--c-text);
-}
-.sample:hover {
-  background: var(--c-surface-2);
-}
-.sampleOn,
-.sampleOn:hover {
-  border-color: var(--c-accent);
-  background: var(--c-accent-tint);
-}
-.sampleLabel {
-  font-size: 13.5px;
-  font-weight: 600;
-  display: block;
-  margin-bottom: 3px;
-}
-.sampleMeta {
-  font-size: 12px;
-  color: var(--c-text-muted);
-  display: block;
-}
-
 .transcriptHead {
   display: flex;
   align-items: baseline;
