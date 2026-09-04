@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { CHEMINS_RESERVES, estDomainePersonnalise, slugDuChemin } from './vitrine'
+import {
+  CHEMINS_RESERVES,
+  estDomainePersonnalise,
+  slugDuChemin,
+  versSiteVitrine,
+} from './vitrine'
 
 describe('adresse de cabinet', () => {
   it('reconnaît /<slug> à la racine, avec ou sans barre finale', () => {
@@ -63,5 +68,60 @@ describe('estDomainePersonnalise', () => {
   it("reconnaît le domaine d'un cabinet", () => {
     expect(estDomainePersonnalise('espace.cabinet-ollivier.fr')).toBe(true)
     expect(estDomainePersonnalise('Cabinet-Ollivier.FR')).toBe(true)
+  })
+})
+
+/**
+ * La conversion de la ligne rendue par site_vitrine().
+ *
+ * Elle existe parce qu'elle a déjà menti : elle oubliait de recopier le thème,
+ * pendant que le banc de rendu vérifiait sagement que la page sait afficher
+ * un thème qu'on lui donne. Les deux passaient, et le réglage ne servait à
+ * rien. L'épreuve porte donc sur CHAQUE champ, pas sur un échantillon.
+ */
+describe('versSiteVitrine', () => {
+  const LIGNE = {
+    slug: 'cabinet-fontaine',
+    name: 'Cabinet Fontaine',
+    tagline: 'Hypnose',
+    branding: { accent: '#A17A45', logo: 'CF' },
+    modele: 'chaleur',
+    theme: { preset: 'atelier', titres: 'fraunces' },
+    titre: 'Retrouver le sommeil',
+    sous_titre: 'À Nantes',
+    presentation: 'Deux mots.',
+    adresse: '12 rue des Halles',
+    telephone: '02 40 00 00 00',
+    site_web: 'https://exemple.fr',
+    horaires: [{ jour: 'Lundi', heures: '9h – 18h' }],
+    photos: [{ url: 'https://x.test/a.jpg', alt: '', attribution: '' }],
+    services: [{ titre: 'Sommeil', texte: '' }],
+    avis: [{ auteur: 'Claire', note: 5, texte: 'Merci', date: '' }],
+    google_note: 4.9,
+    google_avis: 37,
+  }
+
+  it('ne perd aucun champ de la ligne', () => {
+    const site = versSiteVitrine(LIGNE, 'cabinet-fontaine')
+    expect(site).not.toBeNull()
+    for (const [clef, valeur] of Object.entries(LIGNE)) {
+      expect({ [clef]: site![clef as keyof typeof site] }).toEqual({ [clef]: valeur })
+    }
+  })
+
+  it('rend null sans nom : une page sans cabinet ne se montre pas', () => {
+    expect(versSiteVitrine({}, 'x')).toBeNull()
+    expect(versSiteVitrine(null, 'x')).toBeNull()
+    expect(versSiteVitrine({ titre: 'orphelin' }, 'x')).toBeNull()
+  })
+
+  it('comble les absences sans inventer', () => {
+    const site = versSiteVitrine({ name: 'Seul' }, 'seul')!
+    expect(site.slug).toBe('seul')
+    expect(site.modele).toBe('sobre')
+    expect(site.horaires).toEqual([])
+    expect(site.photos).toEqual([])
+    expect(site.avis).toEqual([])
+    expect(site.google_note).toBeNull()
   })
 })

@@ -138,13 +138,17 @@ export interface SiteVitrine {
   google_avis: number | null
 }
 
-/** Le site publié d'un cabinet, ou null s'il n'y en a pas. */
-export async function lireSiteVitrine(slug: string): Promise<SiteVitrine | null> {
-  const db = supabase()
-  if (!db) return null
-  const { data, error } = await db.rpc('site_vitrine', { p_slug: slug })
-  if (error || !data) return null
-  const v = data as Partial<SiteVitrine>
+/**
+ * La ligne rendue par site_vitrine(), mise à la forme de la page.
+ *
+ * ELLE EST À PART POUR ÊTRE ÉPROUVÉE. Le banc de rendu vérifiait que
+ * VitrinePage sait afficher un thème, et il passait — pendant que cette
+ * conversion-ci l'oubliait, une clé plus haut. La thérapeute choisissait une
+ * police, la page publique gardait la sienne, et rien nulle part ne le disait.
+ * Une épreuve sur le composant ne remplace pas une épreuve sur le fil.
+ */
+export function versSiteVitrine(brut: unknown, slug: string): SiteVitrine | null {
+  const v = (brut ?? {}) as Partial<SiteVitrine>
   if (!v.name) return null
   return {
     slug: v.slug ?? slug,
@@ -152,6 +156,11 @@ export async function lireSiteVitrine(slug: string): Promise<SiteVitrine | null>
     tagline: v.tagline ?? '',
     branding: v.branding as CabinetBranding,
     modele: v.modele ?? 'sobre',
+    /* Le thème vient de la base et repart tel quel : c'est la page qui le
+       relit en liste blanche, au rendu. L'oublier ici rendait le réglage
+       muet — la thérapeute choisissait une police, la page publique gardait
+       la sienne, et rien ne le disait. */
+    theme: v.theme ?? null,
     titre: v.titre ?? null,
     sous_titre: v.sous_titre ?? null,
     presentation: v.presentation ?? null,
@@ -165,6 +174,15 @@ export async function lireSiteVitrine(slug: string): Promise<SiteVitrine | null>
     google_note: v.google_note ?? null,
     google_avis: v.google_avis ?? null,
   }
+}
+
+/** Le site publié d'un cabinet, ou null s'il n'y en a pas. */
+export async function lireSiteVitrine(slug: string): Promise<SiteVitrine | null> {
+  const db = supabase()
+  if (!db) return null
+  const { data, error } = await db.rpc('site_vitrine', { p_slug: slug })
+  if (error || !data) return null
+  return versSiteVitrine(data, slug)
 }
 
 /**

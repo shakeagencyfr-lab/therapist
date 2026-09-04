@@ -17,6 +17,7 @@ import {
   slugDeLEspacePatient,
   type Vitrine,
 } from './lib/vitrine'
+import { titreDuCabinet, useEnTete } from './lib/enTete'
 import { applyTheme, defaultTheme } from './theme/theme'
 import './styles/global.css'
 
@@ -65,6 +66,11 @@ function useCabinetDeLaPorte(): { vitrine: Vitrine | null; cherche: boolean } {
 function Portail() {
   const { phase, context } = useAuth()
   const { vitrine, cherche } = useCabinetDeLaPorte()
+
+  /* L'onglet aussi porte la marque du cabinet. Un patient qui met son espace
+     en favori garde ce titre sur son écran d'accueil : « Klaro » y resterait
+     des mois après que sa thérapeute a payé pour ne plus le voir. */
+  useEnTete(vitrine ? titreDuCabinet(vitrine.name, 'Votre espace') : '')
 
   /** La porte, à la marque du cabinet quand l'adresse en désigne un. */
   const marque = vitrine
