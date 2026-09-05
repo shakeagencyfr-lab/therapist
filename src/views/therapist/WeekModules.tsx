@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { Card, Pill, RoundCheck, Title } from '@/components/ui'
+import { Card, Notice, Pill, RoundCheck, Title } from '@/components/ui'
 import { ConsigneEditeur } from './ConsigneEditeur'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { consigneFor } from '@/data/consignes'
-import { allModules, isModuleDone, moduleProgress, toggleModulePatch } from '@/state/selectors'
+import { allModules, isModuleDone, moduleProgress, releaseModulePatch, toggleModulePatch } from '@/state/selectors'
 import type { AppState } from '@/state/state'
 import { useStore } from '@/state/store'
 import type { PatientId, PatientModule } from '@/types/domain'
@@ -38,6 +38,31 @@ export function WeekModules() {
   const { done, total } = moduleProgress(state, key)
   /** Le module dont la consigne est ouverte à la correction. */
   const [aCorriger, setACorriger] = useState('')
+  /** Ce que la base a refusé, dit là où le geste a été fait. */
+  const [echec, setEchec] = useState('')
+
+  /**
+   * Cocher un exercice, et ne pas mentir sur le résultat.
+   *
+   * La case basculait à l'écran, l'écriture partait avec `void`, et son échec
+   * n'allait nulle part : la case restait cochée sur une base inchangée, et
+   * `recharger()` n'était même pas rappelé sur ce chemin — l'illusion tenait
+   * jusqu'au prochain rechargement complet.
+   *
+   * Le correctif local se retire dans les deux cas : réussite, la base fait
+   * foi ; échec, l'écran revient à ce qu'elle dit. Sans ce retrait, l'avis de
+   * la thérapeute masquait pour toute la session ce que le patient faisait
+   * ensuite de l'exercice.
+   */
+  async function basculer(index: number, base: boolean) {
+    const vise = !isModuleDone(state, key, index, base)
+    set(toggleModulePatch(key, index, base))
+    setEchec('')
+    if (!cabinet?.reel) return
+    const r = await cabinet.basculerModule(key, index, vise)
+    set(releaseModulePatch(key, index))
+    if (!r.ok) setEchec(r.message || "L'exercice n'a pas pu être mis à jour. Réessayez.")
+  }
 
   return (
     <Card padded={false} flush>
@@ -45,6 +70,12 @@ export function WeekModules() {
         <Title>Parcours de la semaine</Title>
         <span className={s.count}>{`${done} / ${total} modules réalisés`}</span>
       </div>
+
+      {echec ? (
+        <Notice tone="warn" style={{ margin: '0 20px 12px' }}>
+          {echec}
+        </Notice>
+      ) : null}
 
       <div className={s.list}>
         {modules.map((m, i) => {
@@ -55,14 +86,7 @@ export function WeekModules() {
               <RoundCheck
                 on={on}
                 label={on ? `Marquer « ${m.title} » comme non réalisé` : `Marquer « ${m.title} » comme réalisé`}
-                onClick={() => {
-                  // La case bascule tout de suite à l'écran ; l'écriture suit.
-                  // Sur les fiches de démonstration, il n'y a rien à écrire.
-                  set(toggleModulePatch(key, i, m.done))
-                  if (cabinet?.reel) {
-                    void cabinet.basculerModule(key, i, !isModuleDone(state, key, i, m.done))
-                  }
-                }}
+                onClick={() => void basculer(i, m.done)}
               />
               <div className={s.body}>
                 <span className={on ? `${s.title} ${s.titleDone}` : s.title}>{m.title}</span>

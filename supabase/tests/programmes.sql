@@ -13,6 +13,7 @@
 
 do $$
 declare
+  v_plan text;
   v_rev uuid; v_org uuid; v_a uuid; v_b uuid; v_pat uuid; v_prog text; n integer;
 begin
   select m.user_id, m.reseller_id into v_rev, v_org from public.reseller_members m limit 1;
@@ -25,6 +26,13 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', v_rev, 'role','authenticated')::text, true);
   insert into public.cabinets (reseller_id, name, slug, tagline) values (v_org,'Cabinet Prog A','cabinet-prog-a','Espace thérapie') returning id into v_a;
   insert into public.cabinets (reseller_id, name, slug, tagline) values (v_org,'Cabinet Prog B','cabinet-prog-b','Espace thérapie') returning id into v_b;
+  /* Depuis 0035, une fiche ne s'ouvre pas dans un cabinet sans contrat. Le
+     témoin en reçoit un actif : ce n'est pas ce qu'on éprouve ici. */
+  select code into v_plan from public.plans where max_patients is null limit 1;
+  if v_plan is null then select code into v_plan from public.plans order by position desc limit 1; end if;
+  insert into public.subscriptions (cabinet_id, plan_code, status) values (v_a, v_plan, 'actif');
+  insert into public.subscriptions (cabinet_id, plan_code, status) values (v_b, v_plan, 'actif');
+
   insert into public.cabinet_invitations (cabinet_id, email, role, expires_at) values (v_a,'test-prog-a@exemple.fr','owner', now() + interval '1 day');
 
   -- Le cabinet voisin a déjà nommé le sien. Posé hors RLS, faute de

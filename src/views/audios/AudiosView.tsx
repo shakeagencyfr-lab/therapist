@@ -59,6 +59,8 @@ export function AudiosView() {
   const [titreSaisi, setTitreSaisi] = useState<string | null>(null)
   /** Lecture : l'URL signée de l'audio sélectionné, quand il est réel. */
   const [ecoute, setEcoute] = useState<string | null>(null)
+  /** Vrai tant que l'URL se prépare. Faux et sans URL : elle a échoué. */
+  const [ecoutePrete, setEcoutePrete] = useState(false)
 
   const filtered =
     state.libFilter === 'Toutes'
@@ -67,19 +69,39 @@ export function AudiosView() {
   const selected = state.lib.find((audio) => audio.id === state.libSel) ?? null
   const targets = state.patientOrder.filter((key) => state.libAssign[key])
 
-  // L'écoute suit la sélection : une URL signée, courte, par audio réel.
+  /* L'écoute suit la sélection : une URL signée, courte, par audio réel.
+     LA DÉPENDANCE EST LA FONCTION, PAS LE DOSSIER. `useCabinet` rend un objet
+     neuf à chaque rendu ; le fournisseur se rend à chaque changement de
+     l'état partagé — cocher une patiente à qui envoyer l'audio, poser un
+     message, filtrer un rayon. L'effet repartait donc en pleine écoute :
+     `setEcoute(null)` démontait le lecteur, la lecture se coupait, et une
+     nouvelle URL signée était demandée pour rien. `urlEcoute` est un
+     `useCallback([])` : sa référence, elle, ne bouge pas. */
+  const urlEcoute = cabinet?.urlEcoute
   useEffect(() => {
     setEcoute(null)
     setTitreSaisi(null)
-    if (!reel || !cabinet || !state.libSel) return
+    if (!reel || !urlEcoute || !state.libSel) {
+      setEcoutePrete(false)
+      return
+    }
     let vivant = true
-    void cabinet.urlEcoute(state.libSel).then((url) => {
-      if (vivant) setEcoute(url)
-    })
+    setEcoutePrete(false)
+    void urlEcoute(state.libSel)
+      .then((url) => {
+        if (!vivant) return
+        setEcoute(url)
+        setEcoutePrete(true)
+      })
+      .catch(() => {
+        // Rendre la main : « Préparation de l'écoute… » ne devait pas
+        // tourner indéfiniment sur un audio qu'on ne pourra pas ouvrir.
+        if (vivant) setEcoutePrete(true)
+      })
     return () => {
       vivant = false
     }
-  }, [reel, cabinet, state.libSel])
+  }, [reel, urlEcoute, state.libSel])
 
   /** Import : les fichiers rejoignent le catalogue, rangés dans la catégorie choisie. */
   async function upload(event: ChangeEvent<HTMLInputElement>) {
@@ -413,6 +435,11 @@ export function AudiosView() {
                 // L'écoute de contrôle : l'URL est signée et expire ; elle ne
                 // se partage pas.
                 <audio className={s.player} controls preload="none" src={ecoute} />
+              ) : ecoutePrete ? (
+                <div className={s.detailMeta}>
+                  L'écoute n'a pas pu être préparée. Le fichier est bien enregistré ; réessayez en
+                  resélectionnant l'audio.
+                </div>
               ) : (
                 <div className={s.detailMeta}>Préparation de l'écoute…</div>
               )

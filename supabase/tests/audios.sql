@@ -13,6 +13,7 @@
 
 do $$
 declare
+  v_plan text;
   v_org uuid; v_rev uuid; v_cab uuid; v_pat uuid; v_autre uuid; v_audio uuid;
   n integer; t text;
 begin
@@ -28,6 +29,12 @@ begin
   perform set_config('role','authenticated',true);
   perform set_config('request.jwt.claims', json_build_object('sub', v_rev, 'role','authenticated')::text, true);
   insert into public.cabinets (reseller_id, name, slug, tagline) values (v_org, 'Cabinet Test Audio', 'cabinet-test-audio', 'Espace thérapie') returning id into v_cab;
+  /* Depuis 0035, une fiche ne s'ouvre pas dans un cabinet sans contrat. Le
+     témoin en reçoit un actif : ce n'est pas ce qu'on éprouve ici. */
+  select code into v_plan from public.plans where max_patients is null limit 1;
+  if v_plan is null then select code into v_plan from public.plans order by position desc limit 1; end if;
+  insert into public.subscriptions (cabinet_id, plan_code, status) values (v_cab, v_plan, 'actif');
+
   insert into public.cabinet_invitations (cabinet_id, email, role, expires_at) values (v_cab, 'test12-praticienne@exemple.fr', 'owner', now() + interval '1 day');
 
   perform set_config('role','none',true);

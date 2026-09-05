@@ -120,12 +120,21 @@ export function Journal({
     if (!db || !texte.trim()) return
     setEnvoi(true)
     setNotice(null)
+    /* UNE PAGE NEUVE SE LIT EN HAUT.
+       Tant que rien n'a été déplacé, toutes les positions sont nulles et la
+       liste se lit du plus récent au plus ancien : la page du jour arrive
+       naturellement en tête. Mais au premier réordonnancement, `enregistrerOrdre`
+       numérote TOUTES les pages — et la suivante, insérée sans position, se
+       rangeait derrière elles, tout en bas, sous les pages d'il y a six mois.
+       Elle prend donc un rang devant la première. */
+    const rangs = pages.map((p) => p.position).filter((r): r is number => r !== null)
     const { error } = await db.from('journal_pages').insert({
       patient_id: patientId,
       cabinet_id: cabinetId,
       title: titre.trim() || jour(new Date().toISOString()),
       body: texte.trim(),
       shared: partage,
+      position: rangs.length ? Math.min(...rangs) - 1 : null,
     })
     setEnvoi(false)
     if (error) {

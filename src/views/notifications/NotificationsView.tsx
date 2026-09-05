@@ -1,4 +1,5 @@
-import { Avatar, Button, Card, Overline, TextArea, TextInput, Title } from '@/components/ui'
+import { useState } from 'react'
+import { Avatar, Button, Card, Notice, Overline, TextArea, TextInput, Title } from '@/components/ui'
 import { NOTIF_ADHERENCE_OPTIONS, NOTIF_TEMPLATES } from '@/data/notifications'
 import { plural } from '@/lib/format'
 import {
@@ -12,6 +13,7 @@ import { NOTIF_SITUATIONS, notifRows } from '@/state/selectors'
 import { useMaybeAuth } from '@/auth/session'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { useStore } from '@/state/store'
+import type { PushRecord } from '@/types/domain'
 import s from './NotificationsView.module.css'
 
 /** Heure d'envoi conservée dans le journal, au format `14:32`. */
@@ -25,6 +27,9 @@ function stampNow(): string {
  */
 export function NotificationsView() {
   const { state, set } = useStore()
+  /** L'envoi en cours, et ce que le serveur en a dit. */
+  const [envoi, setEnvoi] = useState(false)
+  const [retour, setRetour] = useState<{ ok: boolean; message: string } | null>(null)
 
   const rows = notifRows(state)
   const recipients = rows.filter((row) => row.on)
@@ -49,21 +54,28 @@ export function NotificationsView() {
 
   async function send() {
     if (!canSend) return
-    const entry = {
+    const moment = state.nQuand ? momentSaisi(state.nQuand) : momentDuRaccourci(state.nWhen)
+    const entry: PushRecord = {
       title: state.nTitle.trim() || 'Un mot du cabinet',
       message: previewMsg,
       when: state.nWhen,
       names: recipients.map((row) => row.name),
       stamp: stampNow(),
+      attend: null,
     }
     // Cabinet réel : la notification et ses destinataires sont enregistrés ;
     // le journal des envois est relu depuis la base.
     if (cabinet?.reel) {
-      const moment = state.nQuand ? momentSaisi(state.nQuand) : momentDuRaccourci(state.nWhen)
+      setEnvoi(true)
       const r = await cabinet.envoyerNotification(
         { title: entry.title, body: entry.message, when: entry.when, quand: moment },
         recipients.map((row) => row.key),
       )
+      setEnvoi(false)
+      /* L'écran ne disait RIEN, ni en succès ni en échec : le bouton se
+         relâchait, le formulaire restait plein, et on recliquait pour voir —
+         en envoyant deux fois quand ça marchait. */
+      setRetour({ ok: r.ok, message: r.message })
       if (r.ok) set({ nTitle: '', nMsg: '' })
       return
     }
@@ -296,9 +308,24 @@ export function NotificationsView() {
               </div>
             </div>
 
+            {retour ? (
+              <Notice tone={retour.ok ? 'ok' : 'warn'} style={{ margin: '0 0 12px' }}>
+                {retour.message}
+              </Notice>
+            ) : null}
+
             <div className={s.sendRow}>
-              <Button variant="primary" className={s.send} disabled={!canSend} onClick={() => void send()}>
-                {canSend ? `Écrire à ${plural(recipients.length, 'patient', 'patients')}` : 'Envoyer'}
+              <Button
+                variant="primary"
+                className={s.send}
+                disabled={!canSend || envoi}
+                onClick={() => void send()}
+              >
+                {envoi
+                  ? 'Envoi…'
+                  : canSend
+                    ? `Écrire à ${plural(recipients.length, 'patient', 'patients')}`
+                    : 'Envoyer'}
               </Button>
               <span className={s.sendHint}>
                 {state.pushes.length
@@ -311,7 +338,7 @@ export function NotificationsView() {
           {state.pushes.length > 0 && (
             <Card padded={false} className={s.log}>
               <div className={s.logHead}>
-                <Title>Envoyés</Title>
+                <Title>Derniers mots</Title>
               </div>
               <div className={s.logSub}>
                 Chaque mot attend dans son espace : elle le lit en haut de sa journée, à sa
@@ -326,6 +353,9 @@ export function NotificationsView() {
                     </div>
                     <div className={s.logMsg}>{push.message}</div>
                     <div className={s.logTo}>
+                      {/* « Envoyé » de tout, y compris de ce qui attendait le soir :
+                          depuis 0036, l'espace patient ne le voit pas avant l'heure. */}
+                      {push.attend ? `Part le ${push.attend} · ` : ''}
                       {plural(push.names.length, 'destinataire', 'destinataires')} ·{' '}
                       {push.names.join(', ')}
                     </div>

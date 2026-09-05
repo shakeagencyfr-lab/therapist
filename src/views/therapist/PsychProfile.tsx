@@ -127,6 +127,13 @@ export function PsychProfile() {
         dynamique: result.dynamique || profile?.dynamique,
         alliance: result.alliance || profile?.alliance,
         care: (result.care ?? []).filter((c) => typeof c === 'string'),
+        /* L'HISTORIQUE SUIT. `profileOf` préfère cette version fraîche à
+           celle du dossier, et l'IA ne rend pas l'historique : les courbes de
+           tendance des axes disparaissaient donc au moment même où une
+           version de plus venait de les enrichir — et pour toute la session,
+           `profNew` n'étant jamais vidé. On recopie ce que le dossier sait ;
+           le nouveau point s'y ajoutera au rechargement, une fois écrit. */
+        historique: profile?.historique,
       }
       set((prev) => ({
         profGen: '',
@@ -153,6 +160,16 @@ export function PsychProfile() {
               [key]: "Profil actualisé à l'écran, mais pas conservé : réessayez pour l'enregistrer.",
             },
           }))
+        } else {
+          /* Écrit : le dossier fait foi. On relit et on retire la version
+             d'écran, sans quoi elle masquerait pour le reste de la session ce
+             que la base contient — le nouveau point de la courbe compris. */
+          await cabinet.recharger()
+          set((prev) => {
+            const profNew = { ...prev.profNew }
+            delete profNew[key]
+            return { profNew }
+          })
         }
       }
     } catch {
