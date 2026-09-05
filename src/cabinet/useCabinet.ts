@@ -386,6 +386,17 @@ export interface Envoi {
   modules: PatientModule[]
   /** Audios de la bibliothèque du cabinet, par identifiant en base. */
   audioIds: string[]
+  /**
+   * Le brouillon TEL QU'IL EST À L'ÉCRAN au moment de l'envoi.
+   *
+   * `enregistrerBrouillon` écrit la sortie brute de l'IA dès la génération, et
+   * rien ne réécrivait après : les corrections de la thérapeute sur la
+   * synthèse de séance et sur le message au patient — les deux textes qu'elle
+   * relit vraiment — restaient dans l'état React et mouraient avec l'onglet.
+   * Le dossier gardait la version de l'IA, et c'est elle que la génération
+   * d'hypnose relisait ensuite comme « les mots de la séance ».
+   */
+  draft: SessionDraft | null
 }
 
 /** Ce qui se règle depuis la fiche, une fois le patient reçue. */
@@ -488,6 +499,8 @@ export interface CabinetData {
    * la complète, l'envoi la clôt et verse au dossier ce qui a été retenu. */
   ouvrirSeance: (patientId: PatientId) => Promise<Resultat & { id?: string }>
   enregistrerBrouillon: (sessionId: string, input: Brouillon) => Promise<Resultat>
+  /** Réécrit le seul brouillon, à la sortie d'un champ relu. */
+  majBrouillon: (sessionId: string, draft: SessionDraft) => Promise<Resultat>
   /** Rend aussi les modules créés : leurs consignes s'écrivent juste après. */
   envoyerSeance: (
     sessionId: string,
@@ -1424,6 +1437,27 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     [cabinetId],
   )
 
+  /**
+   * Le brouillon relu, écrit sans attendre l'envoi.
+   *
+   * `enregistrerBrouillon` pose la sortie brute de l'IA dès la génération.
+   * Ensuite, la thérapeute corrige la synthèse et le message — les deux
+   * textes qu'elle relit vraiment — et rien ne réécrivait : ses corrections
+   * vivaient dans l'état React jusqu'à l'envoi, et disparaissaient avec
+   * l'onglet fermé, le téléphone qui sonne, la séance suivante qui commence.
+   * Cet enregistrement-là part à la sortie du champ.
+   */
+  const majBrouillon = useCallback(
+    async (sessionId: string, draft: SessionDraft): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const { error } = await db.from('therapy_sessions').update({ draft }).eq('id', sessionId)
+      if (error) return { ok: false, message: "Vos corrections n'ont pas pu être enregistrées." }
+      return { ok: true, message: '' }
+    },
+    [cabinetId],
+  )
+
   const enregistrerBrouillon = useCallback(
     async (sessionId: string, input: Brouillon): Promise<Resultat> => {
       const db = supabase()
@@ -1516,6 +1550,9 @@ export function useCabinet(cabinetId: string | null): CabinetData {
           status: 'envoye',
           transcript: null,
           transcript_deleted_at: new Date().toISOString(),
+          /* La version relue l'emporte sur celle de l'IA : c'est elle que la
+             thérapeute vient de valider, et elle seule qui a sa main. */
+          ...(input.draft ? { draft: input.draft } : {}),
         })
         .eq('id', sessionId)
       if (e2) return { ok: false, message: "La séance n'a pas pu être clôturée." }
@@ -1792,6 +1829,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     envoyerNotification,
     ouvrirSeance,
     enregistrerBrouillon,
+    majBrouillon,
     envoyerSeance,
     majConsigne,
     enregistrerProfil,
