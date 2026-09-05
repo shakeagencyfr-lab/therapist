@@ -10,15 +10,33 @@
 /**
  * Points lus au patient avant d'enregistrer. Le consentement est bloquant.
  *
- * Ils se lisent à voix haute devant la personne : le troisième la nomme, il
+ * Ils se lisent à voix haute devant la personne : l'un d'eux la nomme, il
  * prend donc son prénom plutôt qu'un exemple.
+ *
+ * TROIS D'ENTRE EUX ÉTAIENT FAUX, et c'est le pire endroit du produit pour
+ * l'être — on les prononce avant d'enregistrer une séance d'hypnothérapie.
+ *
+ * 1. « … depuis son espace » : aucun écran de l'espace patient ne permettait
+ *    de révoquer quoi que ce soit. La révocation passe par la thérapeute, et
+ *    c'est ce que la phrase dit maintenant.
+ * 2. « Aucun transfert hors Union européenne » : la transcription part chez
+ *    Anthropic pour être analysée. C'est le cœur du produit ; le taire dans
+ *    le consentement revenait à obtenir un accord sur autre chose.
+ * 3. « hébergeur agréé données de santé » : le dossier est bien en France
+ *    (région Paris), mais l'agrément HDS est un contrat que le produit ne
+ *    peut pas affirmer à la place de qui l'a signé. On dit le vérifiable.
+ *
+ * CES PHRASES ENGAGENT LE CABINET. Elles décrivent ce que le code fait
+ * aujourd'hui ; leur formulation juridique reste à valider par qui exploite
+ * le produit.
  */
 export function consentPoints(prenom: string): string[] {
   return [
     "La séance est transcrite en texte. L'enregistrement sonore est détruit dès la transcription terminée, il n'est stocké nulle part.",
-    "La note produite est un brouillon. Elle n'entre au dossier qu'après relecture et validation de la thérapeute.",
-    `${prenom} peut demander la suppression de la transcription à tout moment, sans justification, depuis son espace.`,
-    'Les données sont hébergées en France chez un hébergeur agréé données de santé. Aucun transfert hors Union européenne.',
+    "La transcription est envoyée à un service d'analyse (Anthropic), dont les serveurs sont hors de l'Union européenne. Elle y transite le temps d'écrire la note, et rien du dossier ne l'accompagne.",
+    "La note produite est un brouillon : elle n'entre au dossier qu'après relecture et validation de la thérapeute. La transcription brute est supprimée à ce moment-là.",
+    `${prenom} peut demander l'arrêt de l'enregistrement, ou la suppression de ce qui a déjà été pris, à tout moment et sans justification, en le disant à sa thérapeute.`,
+    'Le dossier est hébergé en France, en région parisienne, et seules les personnes du cabinet y ont accès.',
   ]
 }
 

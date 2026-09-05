@@ -63,7 +63,13 @@ export function ConsentStep() {
         <Button variant="primary" className={s.sign} onClick={() => void signer()} disabled={envoi}>
           {envoi ? 'Enregistrement…' : `${prenom} a donné son accord, signer`}
         </Button>
-        <span className={s.hint}>Révocable à tout moment depuis l'espace patient.</span>
+        {/* « depuis l'espace patient » : cet écran n'existe pas, et n'a jamais
+            existé. La révocation passe par la thérapeute — c'est elle qui est
+            dans la pièce. */}
+        <span className={s.hint}>
+          Révocable à tout moment : il suffit de le dire, l'enregistrement s'arrête et ce qui a
+          été pris est supprimé.
+        </span>
       </div>
     </Card>
   )

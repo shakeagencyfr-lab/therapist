@@ -20,7 +20,7 @@ export const PRINCIPLES: Principle[] = [
   },
   {
     title: 'La voix de sa thérapeute',
-    body: 'Les audios sont enregistrés pour lui, nommés par elle, et restent disponibles hors connexion.',
+    body: 'Les audios sont enregistrés pour lui, nommés par elle, et restent disponibles dans son espace, aussi longtemps que le suivi dure.',
   },
   {
     title: "Il choisit ce qu'il partage",

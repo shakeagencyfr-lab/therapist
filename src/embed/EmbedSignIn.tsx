@@ -2,7 +2,7 @@ import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
 import { messageEnvoiLien } from '@/lib/messageAuth'
 import { supabase } from '@/lib/supabase'
 import { captchaConfigure, useCaptcha } from '@/auth/Captcha'
-import { lireVitrine, slugDuChemin, type Vitrine } from '@/lib/vitrine'
+import { lireVitrine, slugEmbed, type Vitrine } from '@/lib/vitrine'
 import s from './EmbedSignIn.module.css'
 
 /** Où mène le lien reçu : l'espace du patient, sur son téléphone. */
@@ -21,7 +21,7 @@ const DESTINATION = '/mon'
  * courriel : le patient le lira sur son téléphone, pas dans le cadre.
  */
 export function EmbedSignIn() {
-  const slug = typeof window === 'undefined' ? null : slugDuChemin(window.location.pathname)
+  const slug = typeof window === 'undefined' ? null : slugEmbed(window.location.pathname)
   const [vitrine, setVitrine] = useState<Vitrine | null>(null)
   const [chargement, setChargement] = useState(true)
   const [email, setEmail] = useState('')

@@ -293,10 +293,19 @@ function Courriels() {
       <Title large as="h2">
         Vos courriels
       </Title>
+      {/* CE QUE CE RÉGLAGE COUVRE, ET CE QU'IL NE COUVRE PAS. Il promettait
+          « les liens de connexion de vos patients » ; il n'en porte qu'un :
+          celui de l'INVITATION, le seul que nous fabriquions nous-mêmes. Le
+          lien qu'un patient demande ensuite depuis la porte d'entrée ouvre un
+          compte qui existe déjà — nous ne le fabriquons pas, délibérément
+          (server/invitations.ts), et il part donc du service de la
+          plateforme. */}
       <p className={s.hint}>
-        Les liens de connexion de vos patients partent aujourd'hui du service de la plateforme.
-        Branchez votre propre serveur d'envoi et ils partiront de votre adresse — c'est la dernière
-        chose qui trahit le fournisseur.
+        L'invitation que vous envoyez à un patient part de votre adresse dès que votre serveur
+        d'envoi est branché : c'est le premier courriel qu'il reçoit de vous, et la dernière chose
+        qui trahissait le fournisseur. Les liens qu'il demandera ensuite lui-même, depuis la porte
+        d'entrée, continuent de partir de nos serveurs — ceux-là ouvrent un compte qui existe déjà,
+        et nous ne les fabriquons pas.
       </p>
 
       {erreur ? <Notice tone="warn">{erreur}</Notice> : null}

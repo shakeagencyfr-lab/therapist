@@ -1498,9 +1498,25 @@ export function useCabinet(cabinetId: string | null): CabinetData {
           )
       }
 
+      /* LA TRANSCRIPTION BRUTE PART AVEC LA CLÔTURE.
+         La barre d'envoi le promet depuis toujours — « La transcription brute
+         est supprimée » — et rien ne la supprimait : le verbatim d'une séance
+         d'hypnothérapie restait en base indéfiniment, sous les yeux de qui a
+         accès au cabinet, alors que la personne à qui il appartient a signé un
+         consentement qui dit le contraire. Les deux colonnes de 0002
+         attendaient depuis le premier jour.
+
+         Ce qui reste au dossier, c'est ce que la thérapeute a retenu : la
+         synthèse, les mots de la séance, les modules. Le verbatim, lui, n'a
+         servi qu'à les écrire. */
       const { error: e2 } = await db
         .from('therapy_sessions')
-        .update({ sent_at: new Date().toISOString(), status: 'envoye' })
+        .update({
+          sent_at: new Date().toISOString(),
+          status: 'envoye',
+          transcript: null,
+          transcript_deleted_at: new Date().toISOString(),
+        })
         .eq('id', sessionId)
       if (e2) return { ok: false, message: "La séance n'a pas pu être clôturée." }
 

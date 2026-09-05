@@ -21,14 +21,14 @@ export function PatientAudios() {
     <Card padded={false} flush>
       <div className={s.head}>
         <Title>Audios personnalisés</Title>
-        <p className={s.sub}>Enregistrés après séance, écoutables hors connexion</p>
+        <p className={s.sub}>Enregistrés après séance, écoutables depuis son espace</p>
       </div>
 
       {audios.length === 0 ? (
         <div className={s.emptyWrap}>
           <EmptyState>
             Aucun audio pour l'instant. Les enregistrements réalisés après séance
-            arrivent ici, écoutables hors connexion.
+            arrivent ici, écoutables depuis son espace.
           </EmptyState>
         </div>
       ) : (

@@ -387,7 +387,10 @@ export function PatientSpace() {
           <section className={s.section}>
             <div className={s.sectionHead}>
               <span className={s.sectionTitle}>Vos audios</span>
-              <span className={s.count}>Écoutables hors connexion</span>
+              {/* « Hors connexion » : rien dans le produit ne le permet — ni
+                  service worker, ni manifeste, ni téléchargement, et l'URL
+                  d'écoute est signée pour une heure et fabriquée au clic. */}
+              <span className={s.count}>Réécoutables autant de fois qu’il le faut</span>
             </div>
             {lectureErreur ? <p className={s.frameNote}>{lectureErreur}</p> : null}
             {audios.map((a) => {

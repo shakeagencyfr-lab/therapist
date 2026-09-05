@@ -2,6 +2,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import {
   CHEMINS_RESERVES,
   estDomainePersonnalise,
+  lienSortant,
+  slugEmbed,
   marqueSure,
   slugDuChemin,
   versSiteVitrine,
@@ -130,7 +132,7 @@ describe('versSiteVitrine', () => {
     presentation: 'Deux mots.',
     adresse: '12 rue des Halles',
     telephone: '02 40 00 00 00',
-    site_web: 'https://exemple.fr',
+    site_web: 'https://exemple.fr/',
     horaires: [{ jour: 'Lundi', heures: '9h – 18h' }],
     photos: [{ url: `${STOCKAGE}/storage/v1/object/public/sites/a.jpg`, alt: '', attribution: '' }],
     services: [{ titre: 'Sommeil', texte: '' }],
@@ -184,5 +186,61 @@ describe('versSiteVitrine', () => {
     expect(site.photos).toEqual([])
     expect(site.avis).toEqual([])
     expect(site.google_note).toBeNull()
+  })
+})
+
+/**
+ * Le lien sortant de la vitrine.
+ *
+ * `site_web` repartait de la base droit dans un `href`. Le serveur le nettoie
+ * à l'écriture, mais la page publique ne passe pas par le serveur : elle lit
+ * `site_vitrine()` directement. Un `href` en `javascript:` s'exécuterait au
+ * clic, sur la page d'un cabinet, dans le navigateur d'un patient.
+ */
+describe('lienSortant', () => {
+  it('garde une adresse web ordinaire', () => {
+    expect(lienSortant('https://cabinet-fontaine.fr/')).toBe('https://cabinet-fontaine.fr/')
+    expect(lienSortant('http://www.exemple.fr/rdv')).toBe('http://www.exemple.fr/rdv')
+  })
+
+  it('écarte tout ce qui n’est pas http ou https', () => {
+    for (const brut of [
+      'javascript:alert(1)',
+      'JavaScript:alert(1)',
+      '  javascript:alert(1)  ',
+      'data:text/html,<script>alert(1)</script>',
+      'vbscript:msgbox(1)',
+      'file:///etc/passwd',
+      'cabinet-fontaine.fr',
+      '',
+      null,
+      undefined,
+      42,
+    ]) {
+      expect({ [String(brut)]: lienSortant(brut) }).toEqual({ [String(brut)]: null })
+    }
+  })
+})
+
+/**
+ * Le cabinet d'un widget.
+ *
+ * `slugDuChemin` ne connaît que la racine, et `e` est un chemin réservé : le
+ * widget recevait donc null pour sa propre adresse et s'affichait « Votre
+ * espace », initiales KL, aux couleurs de Klaro — sur le site d'une
+ * thérapeute qui l'a collé POUR sa marque.
+ */
+describe('slugEmbed', () => {
+  it('reconnaît /e/<identifiant>, avec ou sans barre finale', () => {
+    expect(slugEmbed('/e/cabinet-fontaine')).toBe('cabinet-fontaine')
+    expect(slugEmbed('/e/cabinet-fontaine/')).toBe('cabinet-fontaine')
+    expect(slugEmbed('/e/Cabinet-Fontaine')).toBe('cabinet-fontaine')
+    expect(slugEmbed('  /e/cabinet-fontaine  ')).toBe('cabinet-fontaine')
+  })
+
+  it('ne reconnaît rien d’autre', () => {
+    for (const chemin of ['/e/', '/e', '/cabinet-fontaine', '/c/cabinet-fontaine', '/e/a/b', '/']) {
+      expect({ [chemin]: slugEmbed(chemin) }).toEqual({ [chemin]: null })
+    }
   })
 })

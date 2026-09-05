@@ -507,7 +507,7 @@ export function AudiosView() {
                     : 'Envoyer'}
               </Button>
               <span className={s.dispatchHint}>
-                L'audio apparaît dans leur bibliothèque, écoutable hors connexion.
+                L'audio apparaît dans leur bibliothèque, écoutable depuis leur espace.
               </span>
             </div>
           </Card>
