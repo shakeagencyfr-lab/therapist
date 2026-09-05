@@ -131,6 +131,13 @@ interface SettingsRow {
   affirmations_auto: boolean
 }
 
+/** Une réponse du patient au quiz d'un exercice. */
+interface QuizRow {
+  module_id: string
+  question_index: number
+  answer_index: number
+}
+
 interface PushRow {
   id: string
   title: string
@@ -526,7 +533,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     setErreur('')
     setChargement(true)
 
-    const [fiches, closes, modules, audios, echelles, journal, profils, categories, progs, rdv, bibliotheque, ateliers, affs, reglages, pushes, hypnoses, mouvements, brouillons] = await Promise.all([
+    const [fiches, closes, modules, audios, echelles, journal, profils, categories, progs, rdv, bibliotheque, ateliers, affs, reglages, pushes, hypnoses, mouvements, brouillons, quiz] = await Promise.all([
       db.from('patients').select('*').is('archived_at', null).order('created_at'),
       db
         .from('patients')
@@ -564,6 +571,11 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         .select('patient_id, draft, created_at')
         .not('draft', 'is', null)
         .order('created_at', { ascending: false }),
+      /* Les réponses au quiz de compréhension. La table existait, la
+         politique l'autorisait, le patient n'avait aucun écran pour y
+         répondre — et le badge « Quiz 3 / 4 » de la fiche se nourrissait des
+         clics de la thérapeute dans l'aperçu de démonstration. */
+      db.from('module_quiz_answers').select('module_id, question_index, answer_index'),
     ])
 
     /* CE QUI N'A PAS ÉTÉ LU N'EST PAS VIDE.
@@ -600,6 +612,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       ['les hypnoses', hypnoses],
       ['les mouvements des hypnoses', mouvements],
       ['les brouillons de séance', brouillons],
+      ['les réponses aux quiz', quiz],
     ]
 
     if (VITALES.some(([, r]) => r.error)) {
@@ -708,6 +721,12 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     const affAuto: Record<PatientId, boolean> = {}
     for (const r of (reglages.data ?? []) as SettingsRow[]) affAuto[r.patient_id] = r.affirmations_auto
 
+    /** Les réponses du patient, par module et par question. */
+    const quizReponses: Record<string, number> = {}
+    for (const r of (quiz.data ?? []) as QuizRow[]) {
+      quizReponses[`${r.module_id}:${r.question_index}`] = r.answer_index
+    }
+
     // Le journal des envois.
     const envois = ((pushes.data ?? []) as unknown as PushRow[]).map<PushRecord>((n) => ({
       title: n.title,
@@ -731,6 +750,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       customs,
       affs: affirmations,
       affAuto,
+      quizReponses,
       pushes: envois,
       patients: assemblees,
       patientOrder: ordre,

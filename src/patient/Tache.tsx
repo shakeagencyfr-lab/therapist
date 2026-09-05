@@ -5,6 +5,9 @@ import { useDictee } from './useDictee'
 import { BoutonDictee } from './BoutonDictee'
 import s from './Tache.module.css'
 
+/** A, B, C… devant chaque option : on désigne une réponse à voix haute. */
+const LETTRES = ['A', 'B', 'C', 'D', 'E', 'F']
+
 /**
  * Une tâche, ouverte.
  *
@@ -23,16 +26,22 @@ import s from './Tache.module.css'
 export function Tache({
   module,
   accent,
+  reponses,
   onFermer,
   onBasculer,
   onNote,
+  onRepondre,
 }: {
   module: PatientModuleRow
   accent?: string
+  /** Ses réponses déjà données, par `moduleId:question`. */
+  reponses: Record<string, number>
   onFermer: () => void
   onBasculer: (fait: boolean) => Promise<void>
   /** Rend vrai si le mot a bien été enregistré. */
   onNote: (texte: string) => Promise<boolean>
+  /** Enregistre une réponse au quiz. Rend faux si elle n'est pas partie. */
+  onRepondre: (question: number, choix: number) => Promise<boolean>
 }) {
   const fait = Boolean(module.done_at)
   const [note, setNote] = useState(module.patient_note ?? '')
@@ -47,6 +56,13 @@ export function Tache({
   const consigne = module.consigne ?? null
   const etapes = consigne?.steps?.filter((e) => e.trim()) ?? []
   const repere = [consigne?.duree, consigne?.quand].filter(Boolean).join(' · ')
+  /* LE QUIZ EXISTAIT PARTOUT SAUF ICI. L'IA l'écrit — deux questions imposées
+     par le schéma, des jetons payés à chaque génération —, `custom_modules` et
+     `patient_modules` le conservent, la table des réponses et sa politique
+     l'attendaient. Le seul écran qui l'affichait était l'aperçu de
+     démonstration de l'espace cabinet, où c'est la thérapeute qui répondait à
+     la place de son patient. */
+  const quiz = consigne?.quiz?.filter((q) => q && q.question && q.options?.length) ?? []
 
   async function enregistrer() {
     if (enCours) return
@@ -100,6 +116,49 @@ export function Tache({
             Votre thérapeute a ajouté cet exercice sans consigne écrite : elle vous l'a expliqué en
             séance. Si vous ne vous rappelez plus, dites-le-lui dans un mot depuis le journal.
           </p>
+        </section>
+      ) : null}
+
+      {quiz.length ? (
+        <section className={s.bloc}>
+          <h2 className={s.blocTitre}>Avez-vous bien saisi ?</h2>
+          <p className={s.aide}>
+            Deux questions, sans note et sans chronomètre. Elles servent à repérer ce qui reste
+            flou — votre thérapeute voit seulement si vous y avez répondu.
+          </p>
+          {quiz.map((q, qi) => {
+            const donnee = reponses[`${module.id}:${qi}`]
+            const repondu = donnee !== undefined
+            return (
+              <div key={qi} className={s.question}>
+                <p className={s.questionTexte}>{q.question}</p>
+                <div className={s.options}>
+                  {q.options.map((option, oi) => {
+                    const choisie = donnee === oi
+                    const bonne = repondu && oi === q.correct
+                    const ratee = choisie && !bonne
+                    return (
+                      <button
+                        type="button"
+                        key={oi}
+                        className={
+                          bonne ? `${s.option} ${s.optionJuste}` : ratee ? `${s.option} ${s.optionRatee}` : s.option
+                        }
+                        aria-pressed={choisie}
+                        onClick={() => void onRepondre(qi, oi)}
+                      >
+                        <span className={s.optionLettre} aria-hidden>
+                          {bonne ? '✓' : ratee ? '✕' : (LETTRES[oi] ?? '•')}
+                        </span>
+                        <span className={s.optionTexte}>{option}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+                {repondu && q.feedback ? <p className={s.retourQuiz}>{q.feedback}</p> : null}
+              </div>
+            )
+          })}
         </section>
       ) : null}
 

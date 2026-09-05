@@ -12,6 +12,14 @@ import s from './WeekModules.module.css'
 /**
  * Score du quiz du module, ajouté à la méta dès qu'une réponse est donnée
  * côté patient.
+ *
+ * PAR LE PATIENT, ET NON PAR L'APERÇU. Le badge lisait `state.quizAns`,
+ * c'est-à-dire les clics faits dans la maquette téléphone de l'espace
+ * cabinet — le seul endroit du produit où un quiz était affiché. « Quiz
+ * 3 / 4 » sur la fiche disait donc ce que la thérapeute avait cliqué
+ * elle-même, jamais ce que le patient avait compris. Les vraies réponses
+ * vivent en base (`module_quiz_answers`) ; `quizAns` ne sert plus qu'au
+ * portefeuille de démonstration, où il n'y a personne à qui les attribuer.
  */
 function quizBadge(state: AppState, key: PatientId, index: number, module: PatientModule): string {
   const consigne = consigneFor(module, state.customs)
@@ -20,7 +28,9 @@ function quizBadge(state: AppState, key: PatientId, index: number, module: Patie
   let answered = 0
   let right = 0
   quiz.forEach((q, qi) => {
-    const given = state.quizAns[`${key}:${index}:${qi}`]
+    const given = module.id
+      ? state.quizReponses[`${module.id}:${qi}`]
+      : state.quizAns[`${key}:${index}:${qi}`]
     if (given !== undefined) {
       answered += 1
       if (given === q.correct) right += 1

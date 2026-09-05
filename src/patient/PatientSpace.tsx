@@ -66,6 +66,8 @@ export function PatientSpace() {
     bookingMode,
     bookingWidgetUrl,
     shopEnabled,
+    reponsesQuiz,
+    repondreQuiz,
     chargement,
     erreur,
     recharger,
@@ -265,9 +267,11 @@ export function PatientSpace() {
           <Tache
             module={tache}
             accent={patient.branding?.accent}
+            reponses={reponsesQuiz}
             onFermer={() => setTacheOuverte('')}
             onBasculer={(fait) => basculer(tache.id, fait)}
             onNote={(texte) => noterTache(tache.id, texte)}
+            onRepondre={(question, choix) => repondreQuiz(tache.id, question, choix)}
           />
         ) : null}
 
