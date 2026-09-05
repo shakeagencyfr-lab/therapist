@@ -14,7 +14,7 @@ import { useRetour } from '@/lib/useRetour'
 import { supabase } from '@/lib/supabase'
 import { demanderInvitation } from '@/services/invitations'
 import { useStore } from '@/state/store'
-import { durationToSeconds } from '@/lib/format'
+import { durationToSeconds, plural } from '@/lib/format'
 import type { CabinetBranding } from '@/types/reseller'
 import type {
   Consigne,
@@ -136,6 +136,7 @@ interface PushRow {
   title: string
   body: string
   scheduled_for: string
+  scheduled_at: string | null
   created_at: string
   recipients: Array<{ patient: { display_name: string } | null }>
 }
@@ -536,7 +537,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       db.from('patient_settings').select('patient_id, affirmations_auto'),
       db
         .from('push_notifications')
-        .select('id, title, body, scheduled_for, created_at, recipients:push_recipients (patient:patients (display_name))')
+        .select('id, title, body, scheduled_for, scheduled_at, created_at, recipients:push_recipients (patient:patients (display_name))')
         .order('created_at', { ascending: false })
         .limit(30),
       db
@@ -662,6 +663,15 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       when: n.scheduled_for,
       names: n.recipients.map((r) => r.patient?.display_name ?? '').filter(Boolean),
       stamp: new Date(n.created_at).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
+      /* Programmée et pas encore due : depuis 0036, l'espace patient ne la
+         voit pas avant l'heure. Le journal doit donc le dire aussi, sans quoi
+         la thérapeute lirait « envoyé » d'un mot qui attend encore. */
+      attend:
+        n.scheduled_at && new Date(n.scheduled_at) > new Date()
+          ? new Date(n.scheduled_at).toLocaleString('fr-FR', {
+              day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+            })
+          : null,
     }))
 
     const ordre = lignes.map((l) => l.id)
@@ -1293,13 +1303,27 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         })
         .select('id')
         .single<{ id: string }>()
-      if (e1 || !data) return { ok: false, message: "La notification n'a pas pu être enregistrée." }
+      if (e1 || !data) return { ok: false, message: "La notification n'a pas pu être enregistrée. Réessayez." }
       const { error: e2 } = await db
         .from('push_recipients')
         .insert(patientIds.map((patient_id) => ({ push_id: data.id, patient_id, cabinet_id: cabinetId })))
-      if (e2) return { ok: false, message: "Les destinataires n'ont pas pu être enregistrés." }
+      if (e2) {
+        /* La notification existe et n'a aucun destinataire : elle n'atteindra
+           personne. On efface la ligne orpheline plutôt que de la laisser
+           encombrer le journal des envois d'un mot que nul n'a reçu. */
+        await db.from('push_notifications').delete().eq('id', data.id)
+        return { ok: false, message: "Les destinataires n'ont pas pu être enregistrés. Rien n'est parti." }
+      }
       await recharger()
-      return { ok: true, message: '' }
+      /* Le message vide était la moitié du défaut : l'écran ne disait rien du
+         tout, ni en succès ni en échec, et l'on recliquait pour voir. */
+      const combien = plural(patientIds.length, 'patient', 'patients')
+      return {
+        ok: true,
+        message: input.quand && input.quand > new Date()
+          ? `Programmée pour ${input.when} — ${combien}. Elle apparaîtra dans leur espace à ce moment-là, pas avant.`
+          : `Envoyée à ${combien}.`,
+      }
     },
     [cabinetId, recharger],
   )

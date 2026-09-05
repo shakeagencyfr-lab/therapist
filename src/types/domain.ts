@@ -217,6 +217,13 @@ export interface PushRecord {
   names: string[]
   /** Date d'envoi affichée dans le journal des envois. */
   stamp: string
+  /**
+   * L'heure à laquelle elle part, quand elle n'est pas encore partie.
+   *
+   * Le journal disait « envoyé » de tout, y compris de ce qui attendait le
+   * soir : la thérapeute croyait son mot arrivé et n'y revenait pas.
+   */
+  attend: string | null
 }
 
 /* ------------------------------------------------------------------ *

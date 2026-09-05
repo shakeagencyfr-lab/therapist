@@ -11,7 +11,7 @@ declare
   v_rev uuid; v_cab_att uuid; v_cab_vise uuid;
   v_uid uuid := gen_random_uuid();
   v_fiche_att uuid; v_fiche_vise uuid;
-  v_n int; v_textes text[];
+  v_n int; v_textes text[]; v_plan text;
 begin
   select id into v_rev from public.resellers limit 1;
   if v_rev is null then raise exception 'RIEN À ÉPROUVER : aucun revendeur en base'; end if;
@@ -20,6 +20,14 @@ begin
   values (v_rev, 'Cabinet attaquant', 'cab-att-aff-t', 'x') returning id into v_cab_att;
   insert into public.cabinets (reseller_id, name, slug, tagline)
   values (v_rev, 'Cabinet visé', 'cab-vise-aff-t', 'x') returning id into v_cab_vise;
+
+  /* Depuis 0035, une fiche ne s'ouvre pas dans un cabinet sans contrat : les
+     deux témoins en reçoivent un, sans quoi l'épreuve buterait sur le plafond
+     avant d'avoir commencé. */
+  select code into v_plan from public.plans where max_patients is null limit 1;
+  if v_plan is null then select code into v_plan from public.plans order by position desc limit 1; end if;
+  insert into public.subscriptions (cabinet_id, plan_code, status) values (v_cab_att, v_plan, 'actif');
+  insert into public.subscriptions (cabinet_id, plan_code, status) values (v_cab_vise, v_plan, 'actif');
 
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
                           email_confirmed_at, created_at, updated_at)

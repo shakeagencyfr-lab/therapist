@@ -9,6 +9,7 @@
 -- pris pour cobaye aurait conclu à un échec là où il n'y en a pas.
 do $$
 declare
+  v_plan text;
   v_rev uuid; v_cab_att uuid; v_cab_vise uuid;
   v_uid uuid := gen_random_uuid();
   v_fiche uuid; v_range uuid; v_n int; v_module uuid;
@@ -21,6 +22,12 @@ begin
 
   insert into public.cabinets (reseller_id, name, slug, tagline)
   values (v_rev, 'Cabinet attaquant', 'cab-attaquant-t', 'x') returning id into v_cab_att;
+  /* Depuis 0035, une fiche ne s'ouvre pas dans un cabinet sans contrat. Le
+     témoin en reçoit un actif : ce n'est pas ce qu'on éprouve ici. */
+  select code into v_plan from public.plans where max_patients is null limit 1;
+  if v_plan is null then select code into v_plan from public.plans order by position desc limit 1; end if;
+  insert into public.subscriptions (cabinet_id, plan_code, status) values (v_cab_att, v_plan, 'actif');
+
 
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
                           email_confirmed_at, created_at, updated_at)
