@@ -494,11 +494,45 @@ export function useReseller(): ResellerData {
       if (!db || !reel) {
         return { ok: false, message: 'Connectez-vous pour publier une marque.' }
       }
+      /* L'IDENTIFIANT SE VÉRIFIE AVANT L'ÉCRITURE, comme à l'ouverture d'un
+         cabinet. Sans cela, la base rendait un 23514 que ce module traduisait
+         en « La marque n'a pas pu être publiée. Réessayez. » — la même phrase
+         à chaque essai, sans jamais nommer la cause. On réessayait en boucle
+         sur un mot réservé ou un identifiant trop court. */
+      const slug = fiche.slug?.trim()
+      if (slug !== undefined) {
+        if (slug.length < 3) {
+          return {
+            ok: false,
+            message: "L'identifiant fait moins de trois caractères. C'est une adresse à la racine du domaine : il en faut au moins trois.",
+          }
+        }
+        if (CHEMINS_RESERVES.has(slug)) {
+          return {
+            ok: false,
+            message: `L'identifiant « ${slug} » est réservé par la plateforme : il servirait une page de Klaro plutôt que le cabinet. Choisissez-en un autre.`,
+          }
+        }
+      }
+
       const { error } = await db.from('cabinets').update(fiche).eq('id', cabinetId)
       await recharger()
-      return error
-        ? { ok: false, message: "La marque n'a pas pu être publiée. Réessayez." }
-        : { ok: true, message: "La marque est publiée. Elle s'applique à l'espace de la thérapeute et à l'application de ses patients." }
+      if (!error) {
+        return { ok: true, message: "La marque est publiée. Elle s'applique à l'espace de la thérapeute et à l'application de ses patients." }
+      }
+      /* 23505 : un autre cabinet porte déjà cet identifiant. 23514 : la forme
+         est refusée — ce qui, les deux gardes ci-dessus passés, ne peut plus
+         venir que d'un caractère que `slugify` a laissé filer. */
+      const doublon = error.code === '23505'
+      const refuse = error.code === '23514'
+      return {
+        ok: false,
+        message: doublon
+          ? `L'identifiant « ${slug ?? ''} » est déjà pris par un autre cabinet. Choisissez-en un autre.`
+          : refuse
+            ? `L'identifiant « ${slug ?? ''} » ne peut pas servir d'adresse : lettres non accentuées, chiffres et tirets, trois caractères au moins, et pas un mot réservé par la plateforme.`
+            : "La marque n'a pas pu être publiée. Réessayez dans un instant.",
+      }
     },
     [recharger, reel],
   )

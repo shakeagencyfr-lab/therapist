@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { BandeauContrat } from '@/components/layout/BandeauContrat'
+import { BandeauDossier } from '@/components/layout/BandeauDossier'
 import { useMaybeAuth } from '@/auth/session'
 import { useAppState } from '@/state/store'
 import { TherapistView } from '@/views/therapist/TherapistView'
@@ -52,6 +53,7 @@ export function App() {
     <div style={couleurs}>
       <AppHeader />
       <BandeauContrat />
+      <BandeauDossier />
       {mode === 'therapist' && <TherapistView />}
       {mode === 'patient' && <PatientView />}
       {mode === 'session' && <SessionView />}

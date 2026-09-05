@@ -39,6 +39,26 @@ export function toggleModulePatch(key: PatientId, index: number, fallback: boole
   })
 }
 
+/**
+ * Rendre la case au dossier.
+ *
+ * La valeur locale l'emporte sur celle de la base — c'est ce qui fait tenir
+ * la case pendant l'aller-retour du réseau. Mais elle ne s'effaçait jamais :
+ * une fois la thérapeute ayant coché un exercice, l'écran gardait SON avis
+ * pour toute la session, et ce que le patient faisait ensuite — le cocher,
+ * le décocher — n'apparaissait plus. Le correctif est provisoire par nature :
+ * il se retire dès que la base a répondu, dans un sens comme dans l'autre.
+ */
+export function releaseModulePatch(key: PatientId, index: number) {
+  const id = `${key}:${index}`
+  return (prev: AppState): Partial<AppState> => {
+    if (prev.done[id] === undefined) return {}
+    const done = { ...prev.done }
+    delete done[id]
+    return { done }
+  }
+}
+
 /** Nombre de modules réalisés sur le total, pour un patient. */
 export function moduleProgress(state: AppState, key: PatientId): { done: number; total: number } {
   const mods = allModules(state, key)

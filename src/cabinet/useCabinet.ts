@@ -427,6 +427,13 @@ export interface CabinetData {
   archivees: FicheClose[]
   chargement: boolean
   erreur: string
+  /**
+   * Ce qui n'a pas pu être lu, quand le dossier s'affiche quand même.
+   *
+   * Vide : tout est là. Sinon, la phrase nomme les parties manquantes — un
+   * écran qui montre l'absence d'une chose non lue ment sans le savoir.
+   */
+  incomplet: string
   recharger: () => Promise<void>
   creerPatiente: (input: NouvellePatiente) => Promise<Resultat>
   /** Clôt un suivi : la fiche sort des actives, le dossier reste. */
@@ -501,6 +508,9 @@ export function useCabinet(cabinetId: string | null): CabinetData {
   const { state, set } = useStore()
   const [chargement, setChargement] = useState(Boolean(cabinetId))
   const [erreur, setErreur] = useState('')
+  /* Le dossier tient, mais il lui manque quelque chose — et l'écran doit le
+     dire plutôt que de présenter un trou comme une absence. */
+  const [incomplet, setIncomplet] = useState('')
   /* Les suivis clos ne rejoignent pas l'état des fiches : ils n'ont ni
      parcours, ni journal, ni profil à afficher. Une liste de noms suffit à
      les retrouver, et c'est tout ce qu'on charge. */
@@ -556,12 +566,54 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         .order('created_at', { ascending: false }),
     ])
 
-    const premiere = [fiches, modules, audios, echelles, journal, profils, categories, bibliotheque].find((r) => r.error)
-    if (premiere?.error) {
+    /* CE QUI N'A PAS ÉTÉ LU N'EST PAS VIDE.
+       Le garde ne regardait que huit des dix-huit requêtes. Les dix autres
+       pouvaient échouer sans un mot, et l'écran présentait alors leur absence
+       comme un fait : « Rien n'est visible côté patient » quand les
+       affirmations n'avaient pas été lues, aucune hypnose sur une fiche qui en
+       porte trois, la case du lundi décochée, la liste des programmes vide.
+       Une thérapeute ne peut pas distinguer « il n'y en a pas » de « je n'ai
+       pas pu le lire », et republierait par-dessus.
+
+       Deux gravités, parce qu'elles n'appellent pas le même geste. Sans les
+       fiches, leurs modules ou leur journal, il n'y a pas de dossier : on
+       refuse d'en montrer un. Sans les affirmations ou les hypnoses, le
+       dossier tient — mais il est troué, et on le dit en nommant les trous. */
+    const VITALES: Array<[string, { error: unknown }]> = [
+      ['les fiches', fiches],
+      ['les exercices', modules],
+      ['les audios', audios],
+      ["l'auto-évaluation", echelles],
+      ['le journal', journal],
+      ['les profils', profils],
+    ]
+    const SECONDAIRES: Array<[string, { error: unknown }]> = [
+      ['les suivis clos', closes],
+      ['les rayons de la bibliothèque', categories],
+      ['la bibliothèque', bibliotheque],
+      ['les programmes', progs],
+      ['la prise de rendez-vous', rdv],
+      ["l'atelier", ateliers],
+      ['les affirmations', affs],
+      ['les réglages des fiches', reglages],
+      ['les notifications', pushes],
+      ['les hypnoses', hypnoses],
+      ['les mouvements des hypnoses', mouvements],
+      ['les brouillons de séance', brouillons],
+    ]
+
+    if (VITALES.some(([, r]) => r.error)) {
       setErreur("Le dossier du cabinet n'a pas pu être chargé. Réessayez dans un instant.")
+      setIncomplet('')
       setChargement(false)
       return
     }
+    const manquants = SECONDAIRES.filter(([, r]) => r.error).map(([quoi]) => quoi)
+    setIncomplet(
+      manquants.length
+        ? `Une partie du dossier n'a pas pu être lue : ${manquants.join(', ')}. Ce qui manque à l'écran n'est pas vide — il n'a pas été chargé. Revenez sur l'onglet dans un instant pour le relire.`
+        : '',
+    )
 
     setArchivees(
       ((closes.data ?? []) as Array<{ id: string; display_name: string; initials: string; archived_at: string }>).map(
@@ -1679,6 +1731,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     archivees,
     chargement,
     erreur,
+    incomplet,
     recharger,
     creerPatiente,
     archiverPatiente,
