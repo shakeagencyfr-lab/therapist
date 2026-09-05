@@ -13,6 +13,11 @@ export function TaskDetail() {
   const module = index !== null ? allModules(state, key)[index] : undefined
   if (index === null || !module) return null
 
+  /* Voir PatientHome : sur un dossier réel, cet écran est un APERÇU. Répondre
+     au quiz d'ici écrivait `quizAns`, que la fiche relit en « Quiz 3 / 4 »
+     comme un résultat du patient ; cocher « C'est fait » marquait l'exercice
+     fait en son nom. */
+  const maquette = !state.patientsReels
   const consigne = consigneFor(module, state.customs)
   const done = isModuleDone(state, key, index, module.done)
   const noteKey = `${key}:${index}`
@@ -111,6 +116,8 @@ export function TaskDetail() {
                                 : s.option
                           }
                           aria-pressed={picked}
+                          disabled={!maquette}
+                          data-apercu={maquette ? undefined : 'inerte'}
                           onClick={() =>
                             set((prev) => ({ quizAns: { ...prev.quizAns, [id]: oi } }))
                           }
@@ -164,6 +171,8 @@ export function TaskDetail() {
           type="button"
           className={done ? `${s.doneBtn} ${s.doneBtnOn}` : s.doneBtn}
           aria-pressed={done}
+          disabled={!maquette}
+          data-apercu={maquette ? undefined : 'inerte'}
           onClick={() => set(toggleModulePatch(key, index, module.done))}
         >
           {done ? '✓ Fait' : "C'est fait"}

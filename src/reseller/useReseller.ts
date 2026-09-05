@@ -89,6 +89,14 @@ export interface NouveauCabinet {
 export interface Resultat {
   ok: boolean
   message: string
+  /**
+   * Réussi, mais pas entièrement.
+   *
+   * Le cabinet est ouvert, l'invitation est posée — et son courriel n'est pas
+   * parti. `ok` reste vrai : reprendre le geste rejouerait une écriture déjà
+   * faite. Mais l'écran ne doit pas peindre en vert une phrase qui dit non.
+   */
+  partiel?: boolean
 }
 
 /** Ce que le revendeur peut changer sur une offre. */
@@ -373,6 +381,7 @@ export function useReseller(): ResellerData {
 
       // L'invitation est posée ; reste à prévenir la praticienne.
       let envoi = ''
+      let parti = true
       if (input.email.trim() && !eInv) {
         const r = await demanderInvitation({
           email: input.email.trim(),
@@ -380,6 +389,7 @@ export function useReseller(): ResellerData {
           kind: 'praticienne',
         })
         envoi = r.message
+        parti = r.ok
       }
 
       await recharger()
@@ -395,9 +405,10 @@ export function useReseller(): ResellerData {
       }
       return {
         ok: true,
-        message:
-          envoi ||
-          `${cabinet.name} est ouvert en essai. ${input.praticienne.trim() || 'La praticienne'} se connectera avec ${input.email.trim()}.`,
+        partiel: !parti,
+        message: envoi
+          ? `${cabinet.name} est ouvert en essai. ${envoi}`
+          : `${cabinet.name} est ouvert en essai. ${input.praticienne.trim() || 'La praticienne'} se connectera avec ${input.email.trim()}.`,
       }
     },
     [recharger, reel],
@@ -423,8 +434,12 @@ export function useReseller(): ResellerData {
         kind: 'praticienne',
       })
       await recharger()
+      /* L'invitation est enregistrée quoi qu'il arrive : `ok` reste vrai, sans
+         quoi le revendeur la reposerait sur une ligne qui existe déjà. Ce que
+         `partiel` porte, c'est que le courriel, lui, n'est pas parti. */
       return {
         ok: true,
+        partiel: !envoi.ok,
         message: envoi.message || `Invitation prête pour ${email.trim()}. Elle se connectera avec cette adresse.`,
       }
     },

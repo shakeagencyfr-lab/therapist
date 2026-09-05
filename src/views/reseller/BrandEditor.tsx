@@ -129,7 +129,7 @@ function Editeur({ row }: { row: PortfolioRow }) {
       branding: draft.branding,
     })
     setPublication(false)
-    if (res.ok) set({ rNotice: res.message })
+    if (res.ok) set({ rNotice: res.message, rNoticeTon: res.partiel ? 'warn' : 'ok' })
     else setEchec(res.message)
   }
 
@@ -269,7 +269,7 @@ function Editeur({ row }: { row: PortfolioRow }) {
         </div>
 
         {state.rNotice ? (
-          <Notice tone="ok" style={{ marginBottom: 14 }}>
+          <Notice tone={state.rNoticeTon} style={{ marginBottom: 14 }}>
             {state.rNotice}
           </Notice>
         ) : null}

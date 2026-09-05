@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   JETONS_GABARIT,
@@ -44,5 +47,24 @@ describe("estimation du coût d'analyse", () => {
       const e = estimationBrouillon('a'.repeat(n))
       expect(e.euros).toBeLessThanOrEqual(e.eurosMax + 1e-12)
     }
+  })
+})
+
+/**
+ * Le plafond annoncé est CELUI DU SERVEUR, pas un souvenir.
+ *
+ * `eurosMax` est présenté à la thérapeute comme le maximum qu'elle engage.
+ * Le chiffre était resté à 3 000 quand le serveur en accordait 4 000 : le
+ * maximum promis valait un quart de moins que la dépense possible. Rien ne
+ * reliait les deux — d'où cette relecture, sur le modèle de celle qui garde
+ * le gabarit du prompt (server/prompts.test.ts).
+ */
+describe('plafond de sortie', () => {
+  it("vaut le maxTokens du brouillon de séance, dans server/ai.ts", () => {
+    const ai = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../../server/ai.ts'), 'utf8')
+    const appel = ai.slice(ai.indexOf("route: 'session-draft'"))
+    const plafond = /maxTokens: (\d+)/.exec(appel)
+    expect(plafond).not.toBeNull()
+    expect(Number(plafond![1])).toBe(PLAFOND_SORTIE)
   })
 })

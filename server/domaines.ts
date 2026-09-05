@@ -192,6 +192,41 @@ function admin(): SupabaseClient {
   return client
 }
 
+/**
+ * Détacher un domaine de l'hébergeur.
+ *
+ * Sans faire échouer l'appel : ce qu'on veut, c'est qu'il n'y soit plus, et
+ * un domaine déjà absent remplit cette condition. L'échec part au journal,
+ * parce qu'un domaine resté rattaché est exactement ce que ce module doit
+ * éviter.
+ */
+async function detacher(domaine: string): Promise<void> {
+  if (!hebergeurPilote()) return
+  const retrait = await appelVercel(`/v9/projects/${VERCEL_PROJET}/domains/${encodeURIComponent(domaine)}`, 'DELETE')
+  if (!retrait.ok && retrait.status !== 404) {
+    console.error(`[domaine] détachement ${domaine} — ${retrait.status} ${messageVercel(retrait.corps)}`)
+  }
+}
+
+/**
+ * L'hébergeur reconnaît-il ce domaine comme LE NÔTRE, vérifié ?
+ *
+ * Le nom rendu par l'hébergeur n'est pas une preuve. `/verify` répond avec la
+ * fiche du domaine, dont le champ `name` vaut le domaine demandé pour tout
+ * domaine rattaché au projet — y compris un domaine qu'un autre cabinet a
+ * rattaché et laissé là. Le prendre pour une vérification revenait à écrire
+ * « Domaine vérifié. Votre espace répond à cette adresse. » sur un domaine
+ * qui, la vérification étant encore en attente, ne répondait pas — et à
+ * ouvrir `cabinet_par_domaine()` sur une adresse dont rien ne prouvait
+ * qu'elle appartenait au cabinet qui la posait.
+ *
+ * Seul `verified` dit que l'hébergeur a fini de vérifier. Le DNS, lui, est
+ * l'affaire de `misconfigured`, lu à côté.
+ */
+export function domaineReconnu(verif: { ok: boolean; corps: Record<string, unknown> }): boolean {
+  return verif.ok && verif.corps.verified === true
+}
+
 /** L'état du domaine du cabinet de l'appelante. */
 export async function etatDomaine(token: string | null): Promise<EtatDomaine> {
   const appelant = await identifier(token)
@@ -262,10 +297,27 @@ export async function poserDomaine(token: string | null, raw: unknown): Promise<
   const body = (raw && typeof raw === 'object' ? raw : {}) as { domaine?: string }
   const domaine = nettoyerDomaine(String(body.domaine ?? ''))
 
+  /* Le domaine qu'on remplace, s'il y en a un. La ligne est UNIQUE par
+     cabinet : en poser un second écrasait le premier en base, et le laissait
+     rattaché chez l'hébergeur. Il y continuait de répondre sans plus aucune
+     ligne pour dire à qui il était — et le premier cabinet qui le reposait se
+     le voyait attribuer, l'hébergeur répondant « déjà rattaché ». */
+  const { data: avant } = await appelant.client
+    .from('cabinet_domains')
+    .select('domaine')
+    .eq('cabinet_id', cabinetId)
+    .maybeSingle<{ domaine: string }>()
+  const ancien = avant?.domaine ?? null
+
   let dnsAPoser = dnsAttendus(domaine)
   const etat = hebergeurPilote()
     ? 'Domaine enregistré. Posez les enregistrements ci-dessous chez votre registrar, puis lancez la vérification.'
     : "Posez les enregistrements ci-dessous chez votre registrar, puis lancez la vérification. L'hébergeur n'étant pas piloté depuis ce serveur, prévenez aussi votre revendeur pour qu'il rattache le domaine."
+
+  /* Vrai quand c'est NOUS qui venons de le rattacher. S'il faut renoncer plus
+     bas, c'est à nous de le détacher : le laisser là ferait précisément
+     l'orphelin que le reste de cette fonction s'emploie à ne pas créer. */
+  let rattacheParNous = false
 
   if (hebergeurPilote()) {
     const ajout = await appelVercel(`/v10/projects/${VERCEL_PROJET}/domains`, 'POST', { name: domaine })
@@ -276,16 +328,27 @@ export async function poserDomaine(token: string | null, raw: unknown): Promise<
       }
       throw new HttpError(502, `L'hébergeur a refusé ce domaine${message ? ` : ${message}` : '.'}`)
     }
+    rattacheParNous = ajout.ok
     const fiche = await appelVercel(`/v9/projects/${VERCEL_PROJET}/domains/${encodeURIComponent(domaine)}`, 'GET')
     dnsAPoser = dnsDeVercel(domaine, fiche.corps.verification)
   }
 
-  await enregistrer(
-    cabinetId,
-    appelant.userId,
-    { domaine, verifie: false, dns: dnsAPoser, etat, verifie_le: null },
-    'domaine.pose',
-  )
+  try {
+    await enregistrer(
+      cabinetId,
+      appelant.userId,
+      { domaine, verifie: false, dns: dnsAPoser, etat, verifie_le: null },
+      'domaine.pose',
+    )
+  } catch (err) {
+    // 409, panne : le domaine n'est à personne en base, il ne doit être à
+    // personne chez l'hébergeur non plus.
+    if (rattacheParNous) await detacher(domaine)
+    throw err
+  }
+
+  // La ligne est écrite : le précédent n'a plus de raison de répondre.
+  if (ancien && ancien !== domaine) await detacher(ancien)
   return etatDomaine(token)
 }
 
@@ -324,8 +387,7 @@ export async function verifierDomaine(token: string | null): Promise<EtatDomaine
       'GET',
     )
     const malConfigure = config.corps.misconfigured === true
-    const reconnu = verif.ok && (verif.corps.verified === true || verif.corps.name === domaine)
-    verifie = reconnu && !malConfigure
+    verifie = domaineReconnu(verif) && !malConfigure
     if (!verifie) {
       const fiche = await appelVercel(`/v9/projects/${VERCEL_PROJET}/domains/${encodeURIComponent(domaine)}`, 'GET')
       dnsAPoser = dnsDeVercel(domaine, fiche.corps.verification)
@@ -406,11 +468,7 @@ export async function retirerDomaine(token: string | null): Promise<EtatDomaine>
     .maybeSingle<DomaineRow>()
   if (!data?.domaine) return etatDomaine(token)
 
-  if (hebergeurPilote()) {
-    // Un domaine déjà absent chez l'hébergeur n'est pas un échec : ce qu'on
-    // veut, c'est qu'il n'y soit plus.
-    await appelVercel(`/v9/projects/${VERCEL_PROJET}/domains/${encodeURIComponent(data.domaine)}`, 'DELETE')
-  }
+  await detacher(data.domaine)
 
   const db = admin()
   const { error } = await db.from('cabinet_domains').delete().eq('cabinet_id', cabinetId)

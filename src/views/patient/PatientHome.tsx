@@ -101,6 +101,24 @@ export function PatientHome() {
   // personne à montrer. PatientView affiche l'explication à sa place.
   const first = p ? p.name.split(' ')[0] : ''
 
+  /**
+   * APERÇU, PAS ESPACE.
+   *
+   * Cette maquette s'ouvre depuis la fiche d'un patient RÉEL — bouton « Son
+   * application » — et écrivait dans les mêmes tranches d'état que lui : une
+   * note signée « Partagé par le patient » dans le Journal partagé, un point
+   * ajouté à sa courbe d'auto-évaluation, une case d'exercice cochée en son
+   * nom, ses affirmations remplacées. Rien n'allait en base, mais tout
+   * s'affichait sur la fiche comme un geste de la personne — et
+   * `buildPatientContext` versait la fausse note au contexte de l'IA, dont
+   * les textes, eux, sont conservés au dossier.
+   *
+   * Sur un dossier réel, les gestes DU PATIENT sont donc inertes ici. Sur le
+   * portefeuille de démonstration, ils restent vivants : c'est là qu'ils
+   * servent à montrer le produit, et il n'y a personne à qui les attribuer.
+   */
+  const maquette = !state.patientsReels
+
   /* Lecteur ------------------------------------------------------------ */
   const audios = (p?.audios ?? []).concat(state.extraAudios[key] ?? [])
   const currentIndex = Math.min(state.pAudio, audios.length - 1)
@@ -135,6 +153,11 @@ export function PatientHome() {
   async function renewAffirmations() {
     // Une seule génération à la fois, tous patients confondus.
     if (state.affGen) return
+    /* Sur un dossier réel, ce bouton appelait l'IA — facturée au cabinet —
+       remplaçait les affirmations à l'écran et annonçait « Publiées chez le
+       patient. » sans rien écrire en base. Le patient, lui, voyait toujours
+       les précédentes. */
+    if (!maquette) return
     set({ affGen: key, affSaved: '' })
     try {
       const result = await generateAffirmations({ context: buildPatientContext(state, key) })
@@ -186,7 +209,7 @@ export function PatientHome() {
 
   function shareNote() {
     const text = state.note.trim()
-    if (!text) return
+    if (!text || !maquette) return
     set((prev) => ({
       note: '',
       noteSent: true,
@@ -249,6 +272,9 @@ export function PatientHome() {
             type="button"
             className={affBusy ? `${s.affLink} ${s.affLinkBusy}` : s.affLink}
             onClick={renewAffirmations}
+            disabled={!maquette}
+            data-apercu={maquette ? undefined : 'inerte'}
+            title={maquette ? undefined : "Aperçu : ce bouton n'écrit rien dans le dossier."}
           >
             {affBusy
               ? 'Écriture en cours…'
@@ -322,15 +348,19 @@ export function PatientHome() {
               <div
                 key={`${t.module.title}-${t.index}`}
                 className={on ? `${s.taskRow} ${s.taskRowOn}` : s.taskRow}
+                data-apercu={maquette ? undefined : 'inerte'}
               >
                 <RoundCheck
                   on={on}
+                  disabled={!maquette}
                   label={
-                    on
-                      ? `Marquer « ${t.module.title} » comme non fait`
-                      : `Marquer « ${t.module.title} » comme fait`
+                    maquette
+                      ? on
+                        ? `Marquer « ${t.module.title} » comme non fait`
+                        : `Marquer « ${t.module.title} » comme fait`
+                      : `« ${t.module.title} » — c'est au patient de cocher, pas à l'aperçu`
                   }
-                  onClick={() => set(toggleModulePatch(key, t.index, t.module.done))}
+                  onClick={maquette ? () => set(toggleModulePatch(key, t.index, t.module.done)) : undefined}
                 />
                 <button
                   type="button"
@@ -362,7 +392,9 @@ export function PatientHome() {
         <div className={s.panel}>
           <div className={s.panelTitle}>Un mot pour sa thérapeute</div>
           <div className={s.panelSub}>
-            Ce que vous écrivez ici arrive dans son dossier avant la séance.
+            {maquette
+              ? 'Ce que vous écrivez ici arrive dans son dossier avant la séance.'
+              : "Ce que le patient écrit ici arrive dans son dossier avant la séance. Depuis l'aperçu, rien n'y entre : une phrase de votre main y serait lue comme la sienne."}
           </div>
           <textarea
             className={s.noteArea}
@@ -371,11 +403,14 @@ export function PatientHome() {
             placeholder="Ce qui s'est passé, ce qui a déclenché…"
             onChange={(e) => set({ note: e.target.value, noteSent: false })}
             aria-label="Un mot pour sa thérapeute"
+            readOnly={!maquette}
           />
           <button
             type="button"
             className={state.note.trim() ? `${s.noteBtn} ${s.noteBtnOn}` : s.noteBtn}
             onClick={shareNote}
+            disabled={!maquette}
+            data-apercu={maquette ? undefined : 'inerte'}
           >
             {state.noteSent && !state.note ? '✓ Transmis' : 'Partager avec sa thérapeute'}
           </button>
@@ -393,10 +428,16 @@ export function PatientHome() {
                 key={n}
                 className={n === state.scale ? `${s.scaleDot} ${s.scaleDotOn}` : s.scaleDot}
                 aria-pressed={n === state.scale}
+                data-apercu={maquette ? undefined : 'inerte'}
                 onClick={() =>
                   set((prev) => ({
                     scale: n,
-                    scaleLog: { ...prev.scaleLog, [key]: (prev.scaleLog[key] ?? []).concat([n]) },
+                    /* La courbe du dossier ne reçoit rien d'ici : le point y
+                       serait indiscernable d'une note du soir réellement
+                       saisie, et `scaleSeries` la trace sur la même ligne. */
+                    scaleLog: maquette
+                      ? { ...prev.scaleLog, [key]: (prev.scaleLog[key] ?? []).concat([n]) }
+                      : prev.scaleLog,
                   }))
                 }
               >
@@ -405,6 +446,11 @@ export function PatientHome() {
             ))}
           </div>
           <div className={s.scaleFeedback}>{feedback}</div>
+          {!maquette && (
+            <div className={s.panelSub}>
+              Aperçu : la note reste ici, sa courbe ne bouge pas.
+            </div>
+          )}
         </div>
       </div>
 

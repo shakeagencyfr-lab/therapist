@@ -146,6 +146,7 @@ export function CabinetPortfolio() {
         rNewEmail: '',
         rNewTherapist: '',
         rNotice: resultat.message,
+        rNoticeTon: resultat.partiel ? 'warn' : 'ok',
       })
       return
     }
@@ -163,7 +164,7 @@ export function CabinetPortfolio() {
     setInvitEnCours('')
     if (resultat.ok) {
       setInvitEmail((prev) => ({ ...prev, [cabinetId]: '' }))
-      set({ rNotice: resultat.message })
+      set({ rNotice: resultat.message, rNoticeTon: resultat.partiel ? 'warn' : 'ok' })
       return
     }
     setInvitEchec({ id: cabinetId, message: resultat.message })
@@ -206,7 +207,7 @@ export function CabinetPortfolio() {
       ) : null}
 
       {state.rNotice ? (
-        <Notice tone="ok" style={{ marginBottom: 18 }}>
+        <Notice tone={state.rNoticeTon} style={{ marginBottom: 18 }}>
           {state.rNotice}
         </Notice>
       ) : null}

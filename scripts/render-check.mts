@@ -83,6 +83,34 @@ for (const mode of MODES) {
   if (html) console.log(`✓ vide/${mode.padEnd(12)} ${String(html.length).padStart(6)} octets`)
 }
 
+/* 1 ter bis. L'APERÇU N'ÉCRIT PAS DANS LE DOSSIER.
+   La maquette téléphone s'ouvre depuis la fiche d'un patient réel et
+   partageait ses tranches d'état : une note signée « Partagé par le patient »
+   dans le Journal partagé, un point sur sa courbe du soir, une case cochée en
+   son nom, un quiz relu en « Quiz 3 / 4 ». Rien n'allait en base — tout
+   s'affichait sur la fiche comme un geste de la personne, et partait au
+   contexte de l'IA, dont les textes sont conservés.
+   Sur le portefeuille de démonstration les gestes restent vivants : il n'y a
+   personne à qui les attribuer, et c'est là qu'ils montrent le produit. */
+const INERTE = /data-apercu="inerte"/g
+const apercuReel = rendu('patient/apercu-reel', { space: 'cabinet', mode: 'patient', patientsReels: true })
+const apercuDemo = rendu('patient/apercu-demo', { space: 'cabinet', mode: 'patient', patientsReels: false })
+if (apercuReel && apercuDemo) {
+  const inertes = (apercuReel.match(INERTE) ?? []).length
+  const vivants = (apercuDemo.match(INERTE) ?? []).length
+  const manque = [
+    inertes < 12 && `seulement ${inertes} gestes rendus inertes sur un dossier réel`,
+    vivants > 0 && `${vivants} gestes bridés sur le portefeuille de démonstration`,
+    !apercuReel.includes('restent inertes ici') && "l'aperçu ne dit pas pourquoi ses gestes ne répondent pas",
+  ].filter(Boolean)
+  if (manque.length) {
+    console.error(`✗ patient/apercu : ${manque.join(', ')}`)
+    echecs++
+  } else {
+    console.log(`✓ patient/apercu    ${String(apercuReel.length).padStart(6)} octets · ${inertes} gestes inertes, aucun en démonstration`)
+  }
+}
+
 // 1 quater. La séance ne s'ouvre jamais sur une fiche que personne n'a
 // choisie. C'était le défaut : l'écran de consentement portait le nom d'une
 // patient d'exemple, quel que soit le cabinet.

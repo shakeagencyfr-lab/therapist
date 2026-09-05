@@ -344,7 +344,7 @@ export function PlansView() {
     nettoyer()
     const resultat = await changerOffre(row.cabinet.id, plan)
     setEnCours('')
-    if (resultat.ok) set({ rNotice: resultat.message })
+    if (resultat.ok) set({ rNotice: resultat.message, rNoticeTon: 'ok' })
     else setEchec(resultat.message)
   }
 
@@ -352,14 +352,14 @@ export function PlansView() {
     nettoyer()
     const resultat = await enregistrerOffre(code, champs)
     if (resultat.ok) {
-      if (resultat.message) set({ rNotice: resultat.message })
+      if (resultat.message) set({ rNotice: resultat.message, rNoticeTon: 'ok' })
     } else setEchec(resultat.message)
   }
 
   async function saveException(cabinetId: string, champs: Exceptions) {
     nettoyer()
     const resultat = await reglerExceptions(cabinetId, champs)
-    if (resultat.ok) set({ rNotice: resultat.message })
+    if (resultat.ok) set({ rNotice: resultat.message, rNoticeTon: 'ok' })
     else setEchec(resultat.message)
   }
 
@@ -397,7 +397,7 @@ export function PlansView() {
       ) : null}
 
       {state.rNotice ? (
-        <Notice tone="ok" style={{ marginBottom: 18 }}>
+        <Notice tone={state.rNoticeTon} style={{ marginBottom: 18 }}>
           {state.rNotice}
         </Notice>
       ) : null}

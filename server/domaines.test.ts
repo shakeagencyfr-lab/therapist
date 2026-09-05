@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dnsAttendus, nettoyerDomaine } from './domaines'
+import { dnsAttendus, domaineReconnu, nettoyerDomaine } from './domaines'
 import { HttpError } from './errors'
 
 describe('nettoyerDomaine', () => {
@@ -39,5 +39,27 @@ describe('dnsAttendus', () => {
     expect(dnsAttendus('espace.cabinet-ollivier.fr')).toEqual([
       { type: 'CNAME', nom: 'espace', valeur: 'cname.vercel-dns.com' },
     ])
+  })
+})
+
+/**
+ * Ce qui vaut preuve, et ce qui n'en est pas une.
+ *
+ * `/verify` répond avec la fiche du domaine : son champ `name` vaut le
+ * domaine demandé pour TOUT domaine rattaché au projet, y compris celui
+ * qu'un autre cabinet y a laissé. Le lire comme une vérification écrivait
+ * « Domaine vérifié » sur une adresse encore en attente — et ouvrait
+ * `cabinet_par_domaine()` à qui reposait un domaine resté rattaché.
+ */
+describe('domaineReconnu', () => {
+  it('demande une vérification faite, pas un nom qui se répète', () => {
+    expect(domaineReconnu({ ok: true, corps: { name: 'espace.cabinet.fr', verified: true } })).toBe(true)
+    expect(domaineReconnu({ ok: true, corps: { name: 'espace.cabinet.fr', verified: false } })).toBe(false)
+    expect(domaineReconnu({ ok: true, corps: { name: 'espace.cabinet.fr' } })).toBe(false)
+  })
+
+  it('ne reconnaît rien quand l’hébergeur a refusé de répondre', () => {
+    expect(domaineReconnu({ ok: false, corps: { verified: true } })).toBe(false)
+    expect(domaineReconnu({ ok: false, corps: {} })).toBe(false)
   })
 })

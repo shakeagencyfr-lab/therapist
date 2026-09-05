@@ -14,6 +14,11 @@ import s from './PatientView.module.css'
 export function PatientView() {
   const { state, set } = useStore()
   const fiche = state.patients[state.sel]
+  /* Sur un dossier réel, cet écran ne fait que MONTRER : les gestes qui
+     appartiennent au patient y sont inertes, sans quoi ils entreraient dans
+     son dossier en son nom (voir PatientHome). Le dire ici évite de laisser
+     croire à une panne. */
+  const maquette = !state.patientsReels
   const modules = allModules(state, state.sel)
   const open = state.openTask
   /* Le détail de tâche n'existe que si l'index pointe encore sur un module. */
@@ -28,6 +33,13 @@ export function PatientView() {
           ← Retour à la fiche{fiche ? ` de ${fiche.name.split(' ')[0]}` : ''}
         </button>
         <h1 className={s.h1}>Ce que le patient voit entre deux séances</h1>
+        {!maquette && (
+          <p className={s.apercu}>
+            Aperçu. Cocher un exercice, noter le soir, écrire au journal, vous envoyer un mot :
+            ces gestes-là appartiennent au patient et restent inertes ici. Ils entreraient sinon
+            dans son dossier sous son nom.
+          </p>
+        )}
         <p className={s.lead}>
           Une seule chose à faire par jour, envoyée par notification. Pas de fil d'actualité, pas de
           score, pas de comparaison avec d'autres patients. L'écran se vide quand la journée est
