@@ -146,38 +146,35 @@ function mockMode(): boolean {
 }
 
 /**
- * D'où vient la clé d'un appel.
+ * D'où vient la clé d'un appel : DU CABINET, et de nulle part ailleurs.
  *
- * Deux provenances, dans cet ordre :
+ * C'est le modèle vendu — l'abonnement paie l'outil, la clé paie l'analyse —
+ * et c'était aussi, jusqu'ici, une simple préférence : faute de clé propre,
+ * l'appel retombait sur celle de la plateforme. Autrement dit, n'importe quel
+ * cabinet pouvait dépenser notre clé sans plafond, sans le savoir et sans
+ * qu'aucun écran ne le dise. Une analyse de séance coûte quelques centimes ;
+ * une bibliothèque d'hypnoses en coûte mille fois plus, et la facture
+ * arrivait chez nous.
  *
- *   CABINET     la thérapeute a posé sa clé (onglet Intégrations) et paie
- *               directement Anthropic. C'est le modèle vendu : l'abonnement
- *               paie l'outil, la clé paie l'analyse.
- *   PLATEFORME  celle du serveur, en dernier recours — développement,
- *               démonstration, ou dépannage d'un cabinet.
- *
- * La résolution se fait une fois par requête, avant tout appel : aucune clé
- * nulle part, c'est un 503 qui le dit, jamais un texte inventé.
+ * Le repli est donc retiré. Sans clé au cabinet, il n'y a pas d'analyse — et
+ * un 503 le dit avant tout travail, en nommant l'endroit où la poser.
  */
 export interface Cle {
   apiKey: string
-  source: 'cabinet' | 'plateforme'
+  source: 'cabinet'
 }
 
 async function resoudreCle(cabinetId: string | null): Promise<Cle | null> {
-  if (cabinetId) {
-    const propre = await cleAnthropicDuCabinet(cabinetId)
-    if (propre) return { apiKey: propre, source: 'cabinet' }
-  }
-  const plateforme = (process.env.ANTHROPIC_API_KEY ?? process.env.ANTHROPIC_AUTH_TOKEN ?? '').trim()
-  return plateforme ? { apiKey: plateforme, source: 'plateforme' } : null
+  if (!cabinetId) return null
+  const propre = await cleAnthropicDuCabinet(cabinetId)
+  return propre ? { apiKey: propre, source: 'cabinet' } : null
 }
 
 function client(cle: Cle | null): Anthropic {
   if (!cle) {
     throw new HttpError(
       503,
-      "L'analyse n'est pas configurée : aucune clé Anthropic, ni pour ce cabinet (onglet Intégrations), ni sur le serveur. Aucune note n'a été produite.",
+      "Ce cabinet n'a pas encore sa clé Anthropic : posez-la dans l'onglet Intégrations, et l'analyse repartira. Rien n'a été produit.",
     )
   }
   return new Anthropic({ apiKey: cle.apiKey })
@@ -620,15 +617,33 @@ export async function handleAi(route: AiRoute, raw: unknown, token: string | nul
     )
   }
 
-  // Hors maquette, il faut une clé — celle du cabinet, sinon celle de la
-  // plateforme. Sans aucune, le refus est dit avant tout travail.
-  const cle = mock ? null : await resoudreCle(appelant?.cabinetId ?? null)
+  // Hors maquette, il faut la clé DU CABINET. Sans elle, le refus est dit
+  // avant tout travail — il n'y a plus de repli qui ferait payer la plateforme.
+  return analyserPourCabinet(route, body, appelant?.cabinetId ?? null)
+}
+
+/**
+ * Le même travail, POUR UN CABINET, sans personne pour le demander.
+ *
+ * C'est ce dont a besoin une tâche planifiée — les affirmations du lundi — :
+ * elle n'a pas de jeton d'appelant à présenter, seulement un cabinet et un
+ * dossier. Elle ne contourne rien pour autant : la clé reste celle du
+ * cabinet, la consommation est inscrite à son compte, et le refus faute de
+ * clé est le même qu'à l'écran.
+ */
+export async function analyserPourCabinet(
+  route: AiRoute,
+  body: Record<string, unknown>,
+  cabinetId: string | null,
+): Promise<AiResult> {
+  const mock = mockMode()
+  const cle = mock ? null : await resoudreCle(cabinetId)
   if (!mock) client(cle)
 
   const produit = await produire(route, body, cle)
 
-  if (appelant?.cabinetId && produit.usage) {
-    await compter(route, appelant.cabinetId, produit.usage)
+  if (cabinetId && produit.usage) {
+    await compter(route, cabinetId, produit.usage)
   }
 
   return { mock, data: produit.data }

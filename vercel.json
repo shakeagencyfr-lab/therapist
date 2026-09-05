@@ -5,6 +5,12 @@
       "maxDuration": 60
     }
   },
+  "crons": [
+    {
+      "path": "/api/cron/affirmations",
+      "schedule": "0 6 * * 1"
+    }
+  ],
   "rewrites": [
     {
       "source": "/mon",

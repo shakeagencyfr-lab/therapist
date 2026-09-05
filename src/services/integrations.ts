@@ -22,7 +22,6 @@ export interface EtatIntegrations {
   bookingWidgetUrl: string | null
   shopEnabled: boolean
   chiffrement: boolean
-  cleplateforme: boolean
   maquette: boolean
 }
 

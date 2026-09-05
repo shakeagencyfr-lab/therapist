@@ -154,10 +154,9 @@ function CleAnthropic({ etat, enCours, onAgir }: BlocProps) {
       <p className={s.blocText}>
         La rédaction des notes, des modules, des affirmations et du profil passe par le service
         d'analyse d'Anthropic. Avec votre propre clé, ces appels sont facturés sur votre compte
-        Anthropic.{' '}
-        {etat.cleplateforme
-          ? 'Sans clé, ils utilisent celle de la plateforme.'
-          : "Sans clé, aucune analyse n'est possible pour l'instant."}
+        Anthropic. Sans clé, aucune analyse n'est écrite : ni note de séance, ni module, ni
+        affirmation, ni profil. Il n'y a pas de repli sur une clé de la plateforme — la dépense
+        appartient au cabinet qui la déclenche.
       </p>
 
       {posee ? (

@@ -10,6 +10,7 @@ import type { Request, Response } from 'express'
 import { AI_ROUTES, currentMode, describeError, handleAi, type AiRoute } from './ai.js'
 import { jetonDe } from './auth.js'
 import { envoyerInvitation } from './invitations.js'
+import { cronAutorise, publierLesAffirmationsDeLaSemaine } from './affirmationsHebdo.js'
 import { supprimerCompte } from './compte.js'
 import { appliquerIntegration, etatIntegrations } from './integrations.js'
 import { agirVolet, lireVolet } from './cabinet.js'
@@ -120,6 +121,26 @@ app.post('/api/compte', async (req: Request, res: Response): Promise<void> => {
   } catch (err) {
     const { status, message } = describeError(err)
     console.error(`[compte] ${geste ?? '?'} — ${status} · ${message}`)
+    res.status(status).json({ message })
+  }
+})
+
+/* La même tâche qu'en production, joignable ici pour l'éprouver : elle exige
+   le même secret, et sans lui elle refuse tout le monde. */
+app.get('/api/cron/affirmations', async (req: Request, res: Response): Promise<void> => {
+  if (!cronAutorise(req.headers.authorization ?? null)) {
+    res.status(401).json({ message: 'Cette adresse est réservée au planificateur.' })
+    return
+  }
+  try {
+    const bilan = await publierLesAffirmationsDeLaSemaine()
+    console.log(
+      `[affirmations] lundi — ${bilan.publiees} publiées, ${bilan.sautees} sautées, ${bilan.restantes} laissées au prochain passage, ${bilan.echecs} en échec sur ${bilan.candidates} fiches`,
+    )
+    res.json(bilan)
+  } catch (err) {
+    const { status, message } = describeError(err)
+    console.error(`[affirmations] lundi — ${status} · ${message}`)
     res.status(status).json({ message })
   }
 })

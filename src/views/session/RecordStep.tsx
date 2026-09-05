@@ -39,11 +39,10 @@ export function RecordStep() {
   const cabinet = useMaybeCabinet()
   const transcriber = useRef<Transcriber | null>(null)
 
-  /* QUI PAIE L'APPEL. L'écran l'affirmait en dur : « facturé sur le compte
-     Anthropic de votre cabinet ». C'est faux pour tout cabinet qui n'a pas
-     posé sa clé — resoudreCle() retombe alors sur celle de la plateforme, et
-     c'est nous qui payons. Le produit dit d'ailleurs la vérité dans Réglages ;
-     seul l'écran où la dépense s'engage disait le contraire. */
+  /* QUI PAIE L'APPEL — et, depuis que le repli sur la clé de la plateforme
+     est retiré, s'il y a un appel du tout. Sans clé au cabinet, l'analyse
+     répond 503 : autant le dire ici, où le geste s'engage, plutôt que de
+     laisser dicter une séance entière avant de refuser. */
   const [saCle, setSaCle] = useState<boolean | null>(null)
   useEffect(() => {
     let vivant = true
@@ -189,7 +188,7 @@ export function RecordStep() {
       ? ''
       : saCle
         ? " L'appel est facturé sur le compte Anthropic de votre cabinet."
-        : " L'appel est pris en charge par la plateforme : vous n'avez pas posé votre propre clé Anthropic."
+        : " Votre cabinet n'a pas encore de clé Anthropic : posez-la dans Réglages › Intégrations, sans quoi l'analyse ne pourra pas être écrite."
 
 
   const recLabel = state.recording
