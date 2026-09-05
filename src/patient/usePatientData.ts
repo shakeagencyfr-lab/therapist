@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRetour } from '@/lib/useRetour'
 import { supabase } from '@/lib/supabase'
-import type { ModuleKind } from '@/types/domain'
+import type { ModuleKind, QuizQuestion } from '@/types/domain'
 
 export interface PatientModuleRow {
   id: string
@@ -31,6 +31,13 @@ export interface PatientModuleRow {
     quand?: string
     steps?: string[]
     why?: string
+    /**
+     * Le quiz de compréhension, quand l'exercice en porte un.
+     *
+     * La colonne le conservait déjà : le champ manquait ICI, et son absence
+     * suffisait à ce qu'aucun écran patient ne puisse l'ouvrir.
+     */
+    quiz?: QuizQuestion[]
   } | null
 }
 
@@ -94,6 +101,17 @@ export interface PatientData {
   bookingWidgetUrl: string | null
   /** La boutique est ouverte par la thérapeute. */
   shopEnabled: boolean
+  /**
+   * Ses réponses au quiz de compréhension, par `moduleId:question`.
+   *
+   * Le quiz était écrit par l'IA, payé, rangé dans la consigne — et jamais
+   * montré : le seul écran du produit qui l'affichait était l'aperçu de
+   * démonstration de l'espace cabinet. Les réponses, elles, ne quittaient pas
+   * la mémoire du navigateur.
+   */
+  reponsesQuiz: Record<string, number>
+  /** Répondre à une question. Rend faux si la réponse n'a pas été écrite. */
+  repondreQuiz: (moduleId: string, question: number, choix: number) => Promise<boolean>
   chargement: boolean
   erreur: string
   recharger: () => Promise<void>
@@ -124,6 +142,7 @@ export function usePatientData(patientId: string | null): PatientData {
   const [bookingMode, setBookingMode] = useState<'bouton' | 'widget'>('bouton')
   const [bookingWidgetUrl, setBookingWidgetUrl] = useState<string | null>(null)
   const [shopEnabled, setShopEnabled] = useState(false)
+  const [reponsesQuiz, setReponsesQuiz] = useState<Record<string, number>>({})
   const [chargement, setChargement] = useState(true)
   const [erreur, setErreur] = useState('')
 
@@ -135,7 +154,7 @@ export function usePatientData(patientId: string | null): PatientData {
     }
     setErreur('')
 
-    const [mods, affs, auds, fiche, echelle, reglages, pages, courriers] = await Promise.all([
+    const [mods, affs, auds, fiche, echelle, reglages, pages, courriers, quiz] = await Promise.all([
       db.from('patient_modules').select('id, title, meta, kind, position, done_at, patient_note, consigne').eq('patient_id', patientId).order('position'),
       db.from('affirmations').select('text, position').eq('patient_id', patientId).not('published_at', 'is', null).order('position'),
       db.from('patient_audios').select('id, listens, audio:audio_library (title, duration_seconds, meta, storage_path)').eq('patient_id', patientId),
@@ -160,6 +179,9 @@ export function usePatientData(patientId: string | null): PatientData {
         .select('push_id, read_at, push:push_notifications (title, body, created_at)')
         .eq('patient_id', patientId)
         .limit(20),
+      /* Ses réponses au quiz. Un échec ici ne barre pas la journée : les
+         questions se reposent, elles ne se perdent pas. */
+      db.rpc('patient_reponses_quiz'),
     ])
 
     const premiere = [mods.error, affs.error, auds.error, fiche.error, echelle.error].find(Boolean)
@@ -208,8 +230,57 @@ export function usePatientData(patientId: string | null): PatientData {
        jour de Paris, CORRIGEAIT la ligne : le 7 disparaissait, sans que
        personne ne l'ait voulu, sur la courbe que la thérapeute lit en séance. */
     setScaleToday(derniere && jourDeParis(derniere.recorded_at) === jourDeParis() ? derniere.value : null)
+
+    const reponses: Record<string, number> = {}
+    for (const q of (quiz.data ?? []) as Array<{ module_id: string; question_index: number; answer_index: number }>) {
+      reponses[`${q.module_id}:${q.question_index}`] = q.answer_index
+    }
+    setReponsesQuiz(reponses)
     setChargement(false)
   }, [patientId])
+
+  /**
+   * Répondre à une question du quiz.
+   *
+   * L'écran suit tout de suite — une réponse doit se voir au doigt posé — et
+   * l'écriture derrière. Si elle échoue, on retire la réponse plutôt que de
+   * laisser croire qu'elle est partie : c'est ce que sa thérapeute lira sur
+   * la fiche, et une bonne réponse fantôme y vaudrait un contresens.
+   *
+   * `upsert` sur (module, question) : se reprendre est permis, et la dernière
+   * réponse est la sienne. Le cabinet de la ligne est posé par le déclencheur
+   * de 0033 — il n'est jamais envoyé d'ici.
+   */
+  const repondreQuiz = useCallback(
+    async (moduleId: string, question: number, choix: number): Promise<boolean> => {
+      const db = supabase()
+      if (!db) return false
+      const clef = `${moduleId}:${question}`
+      let avant: number | undefined
+      setReponsesQuiz((prev) => {
+        avant = prev[clef]
+        return { ...prev, [clef]: choix }
+      })
+      const { error } = await db
+        .from('module_quiz_answers')
+        .upsert(
+          { module_id: moduleId, question_index: question, answer_index: choix },
+          { onConflict: 'module_id,question_index' },
+        )
+      if (error) {
+        console.warn('[patient] réponse au quiz non enregistrée', error.message)
+        setReponsesQuiz((prev) => {
+          const suite = { ...prev }
+          if (avant === undefined) delete suite[clef]
+          else suite[clef] = avant
+          return suite
+        })
+        return false
+      }
+      return true
+    },
+    [],
+  )
 
   /**
    * Marquer un mot comme lu.
@@ -256,6 +327,8 @@ export function usePatientData(patientId: string | null): PatientData {
     bookingMode,
     bookingWidgetUrl,
     shopEnabled,
+    reponsesQuiz,
+    repondreQuiz,
     chargement,
     erreur,
     recharger,

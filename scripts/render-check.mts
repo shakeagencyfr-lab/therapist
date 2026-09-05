@@ -518,23 +518,48 @@ const TACHE_AVEC = {
     quand: 'Au réveil',
     steps: ['Posez les pieds au sol.', 'Comptez trois respirations.'],
     why: 'Pour rompre la première hésitation.',
+    quiz: [
+      {
+        question: 'À quel moment cet exercice se fait-il ?',
+        options: ['Au réveil', 'Avant de dormir'],
+        correct: 0,
+        feedback: 'Au réveil, avant que la journée ait commencé.',
+      },
+    ],
   },
 }
 const TACHE_SANS = { ...TACHE_AVEC, id: '2', consigne: null }
 
 try {
   const rien = async () => {}
-  const avec = renderToString(
-    h(Tache as never, { module: TACHE_AVEC, onFermer: () => {}, onBasculer: rien, onNote: rien } as never),
-  )
-  const sans = renderToString(
-    h(Tache as never, { module: TACHE_SANS, onFermer: () => {}, onBasculer: rien, onNote: rien } as never),
-  )
+  const tache = (module: unknown, reponses: Record<string, number> = {}) =>
+    renderToString(
+      h(Tache as never, {
+        module,
+        reponses,
+        onFermer: () => {},
+        onBasculer: rien,
+        onNote: rien,
+        onRepondre: rien,
+      } as never),
+    )
+  const avec = tache(TACHE_AVEC)
+  const sans = tache(TACHE_SANS)
+  /* Le quiz était écrit par l'IA, payé, rangé dans la consigne — et le seul
+     écran qui l'affichait était l'aperçu de démonstration de l'espace
+     cabinet. On éprouve donc les deux moments : la question posée, et le
+     retour qui n'apparaît qu'une fois qu'on y a répondu. */
+  const repondu = tache(TACHE_AVEC, { '1:0': 1 })
   const manque = [
     !avec.includes('Posez les pieds au sol.') && 'les étapes ne paraissent pas',
     !avec.includes('Pour rompre la première hésitation.') && 'le « pourquoi » ne paraît pas',
     sans.includes('Comment faire') && 'un module sans étapes en annonce quand même',
     !sans.includes('sans consigne écrite') && "l'absence de consigne n'est pas dite",
+    !avec.includes('À quel moment cet exercice se fait-il ?') && 'le quiz ne paraît pas',
+    !avec.includes('Avant de dormir') && 'les options du quiz ne paraissent pas',
+    avec.includes('Au réveil, avant que la journée') && 'le retour du quiz paraît avant la réponse',
+    !repondu.includes('Au réveil, avant que la journée') && 'le retour du quiz ne paraît pas après la réponse',
+    sans.includes('Avez-vous bien saisi') && 'un exercice sans quiz en annonce un',
   ].filter(Boolean)
   const icones = ['jour', 'journal', 'rdv', 'boutique', 'moi'].filter(
     (nom) => !renderToString(h(IconeOnglet as never, { nom } as never)).includes('<svg'),
@@ -543,7 +568,7 @@ try {
     console.error(`✗ patient/tache : ${[...manque, ...icones.map((i) => `icône ${i} vide`)].join(', ')}`)
     echecs++
   } else {
-    console.log(`✓ patient/tache     ${String(avec.length).padStart(6)} octets · consigne lue, absence dite, 5 icônes`)
+    console.log(`✓ patient/tache     ${String(avec.length).padStart(6)} octets · consigne lue, quiz posé et rendu, 5 icônes`)
   }
 } catch (err) {
   console.error(`✗ patient/tache : ${(err as Error).message}`)

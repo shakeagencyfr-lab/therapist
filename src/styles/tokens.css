@@ -23,14 +23,25 @@
   --c-border-accent: #e3d5bc;
   --c-border-mute: #cfc8bb;
 
-  /* Texte */
+  /* Texte
+     LES GRIS SE LISENT, OU NE SONT PAS DU TEXTE.
+     `--c-text-muted` valait #8a857b : 3,61 pour 1 sur le fond des cartes,
+     3,37 sur celui des champs. Sous le seuil de 4,5 exigé pour du texte
+     courant — et c'est la couleur de la moitié de l'espace patient : les
+     méta d'exercice, le compte des pages du journal, les libellés de
+     l'échelle du soir, les états vides. Une personne qui lit son téléphone
+     dehors, ou dont la vue baisse, ne les distingue pas du fond.
+     `--c-text-faint`, à 1,79, ne se voyait tout simplement pas ; il porte
+     pourtant les indications des champs (« Deux mots suffisent… »).
+     Les deux passent le seuil sur les trois fonds du produit, et gardent leur
+     hiérarchie les uns par rapport aux autres. */
   --c-text: #1b1a17;
   --c-text-2: #3a372f;
   --c-text-3: #57544c;
   --c-text-4: #6e6a62;
-  --c-text-muted: #8a857b;
+  --c-text-muted: #726d61;
   --c-text-disabled: #a6a096;
-  --c-text-faint: #c0b9a9;
+  --c-text-faint: #757060;
 
   /* Accent de marque (paramétrable) */
   --c-accent: #a17a45;

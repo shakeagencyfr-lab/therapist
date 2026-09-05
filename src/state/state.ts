@@ -200,6 +200,15 @@ export interface AppState {
   taskNote: Record<string, string>
   /** Réponses de quiz, clé `${patientId}:${moduleIndex}:${questionIndex}`. */
   quizAns: Record<string, number>
+  /**
+   * Les réponses RÉELLES au quiz, lues en base — clé `moduleId:question`.
+   *
+   * `quizAns` ne contient que ce qui a été cliqué dans l'aperçu de
+   * démonstration : le badge « Quiz 3 / 4 » de la fiche s'alimentait donc des
+   * clics de la thérapeute, jamais de ceux du patient — qui n'avait d'ailleurs
+   * aucun quiz à l'écran.
+   */
+  quizReponses: Record<string, number>
   /** Valeur courante de l'échelle du soir. */
   scale: number
   /** Valeurs d'échelle saisies dans la session, par patient. */
@@ -341,6 +350,7 @@ export const initialState: AppState = {
   openTask: null,
   taskNote: {},
   quizAns: {},
+  quizReponses: {},
   scale: 3,
   scaleLog: {},
   note: '',

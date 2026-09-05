@@ -208,7 +208,14 @@
 }
 
 /* Cases à cocher ---------------------------------------------------- */
+/* LA CIBLE DÉPASSE LE DESSIN.
+   Une case de vingt-deux pixels collée à un bouton qui ouvre l'exercice :
+   viser à côté ouvre l'écran au lieu de cocher, et l'on croit avoir coché.
+   Le carré reste dessiné à sa taille — c'est un détail visuel qui tient la
+   ligne — mais la zone sensible fait quarante-quatre pixels, prise dans
+   l'écart qui la sépare du bouton voisin. */
 .check {
+  position: relative;
   flex: none;
   display: grid;
   place-items: center;
@@ -217,6 +224,18 @@
   cursor: pointer;
   color: var(--c-surface);
   padding: 0;
+}
+.check::after {
+  content: '';
+  position: absolute;
+  inset: -11px;
+  border-radius: var(--r-pill);
+}
+.check:disabled {
+  cursor: default;
+}
+.check:disabled::after {
+  content: none;
 }
 .round {
   width: 22px;
@@ -338,6 +357,27 @@
   color: var(--c-text);
   outline: none;
   line-height: 1.5;
+}
+
+/* SAFARI iOS ZOOME SOUS SEIZE PIXELS.
+   Il agrandit la page au moment où le doigt touche le champ, et n'en revient
+   pas tout seul : la porte d'entrée du produit — celle où l'on tape son
+   adresse pour recevoir son lien — se retrouvait décadrée dès la première
+   frappe. Seize pixels sur les écrans tactiles, treize ailleurs : la densité
+   du bureau reste intacte. */
+@media (pointer: coarse) {
+  .input,
+  .textarea {
+    font-size: 16px;
+  }
+}
+
+/* Le contour de mise au point ne s'efface pas : au clavier, c'est la seule
+   chose qui dit où l'on est. */
+.input:focus-visible,
+.textarea:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
 }
 .input::placeholder,
 .textarea::placeholder {

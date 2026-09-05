@@ -156,3 +156,95 @@
   line-height: 1.5;
   color: var(--c-warn-text-2);
 }
+
+/* Le quiz de compréhension --------------------------------------------------
+   Il vivait depuis le début dans la consigne, écrit et payé, sans écran pour
+   l'ouvrir. Les options font toute la largeur et 44 px de haut : on y répond
+   au pouce, dans le métro, sans viser. */
+.question {
+  margin-top: 16px;
+}
+
+.question:first-of-type {
+  margin-top: 10px;
+}
+
+.questionTexte {
+  margin: 0 0 10px;
+  font-size: 15px;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 13px;
+  border: 1px solid var(--c-border);
+  border-radius: 13px;
+  background: var(--c-surface);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.45;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
+.option:hover {
+  border-color: var(--c-border-strong, var(--c-border));
+}
+
+.optionLettre {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--c-surface-2);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.optionTexte {
+  flex: 1;
+}
+
+/* La bonne réponse se montre dès qu'on a répondu : ce quiz sert à comprendre,
+   pas à noter. */
+.optionJuste {
+  border-color: var(--c-ok-border, #9ec5a8);
+  background: var(--c-ok-bg, #f1f8f2);
+}
+
+.optionJuste .optionLettre {
+  background: var(--c-ok-border, #9ec5a8);
+  color: #fff;
+}
+
+.optionRatee {
+  border-color: var(--c-warn-border, #e3c48f);
+  background: var(--c-warn-bg, #fdf6ea);
+}
+
+.optionRatee .optionLettre {
+  background: var(--c-warn-border, #e3c48f);
+  color: #fff;
+}
+
+.retourQuiz {
+  margin: 8px 0 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--c-text-3);
+}

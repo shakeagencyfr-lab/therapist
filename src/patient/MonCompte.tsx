@@ -116,9 +116,15 @@ export function MonCompte({ patient }: { patient: PatientIdentity }) {
 
       <section className={s.carte}>
         <h2 className={s.titre}>Fermer mon espace</h2>
+        {/* « définitivement » : c'était faux. Le compte est bien supprimé et
+            le journal effacé, mais la fiche du cabinet est DÉTACHÉE, pas
+            supprimée — la loi lui demande de la garder — et elle porte encore
+            l'adresse. Se reconnecter avec la même la rattache d'elle-même
+            (claim_access). Ce qui est définitif, c'est le journal. */}
         <p className={s.texte}>
-          Votre compte est supprimé et votre journal avec lui. Votre espace se referme
-          définitivement.
+          Votre compte est supprimé et votre journal effacé — celui-là ne revient pas. Votre espace
+          se referme : vous n'y aurez plus accès tant que vous ne vous reconnecterez pas avec la
+          même adresse.
         </p>
         {/* Dit avant, pas après : c'est la seule chose que ce bouton ne fait
             pas, et celle qu'on croit qu'il fait. */}

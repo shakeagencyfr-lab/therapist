@@ -226,6 +226,27 @@ export function Journal({
     poignee.addEventListener('pointercancel', lache)
   }
 
+  /**
+   * Déplacer une page AU CLAVIER.
+   *
+   * La poignée n'écoutait que `pointerdown` : au clavier, au lecteur d'écran,
+   * ou simplement sur un iPad avec un clavier externe, elle recevait le focus
+   * — c'est un bouton — et ne faisait rien. Rien du tout, sans un mot. Les
+   * flèches haut et bas la déplacent d'un rang ; le focus la suit, React
+   * gardant le nœud par la clé de la page.
+   */
+  function deplacerAuClavier(event: React.KeyboardEvent, rang: number) {
+    if (!deplacable) return
+    const sens = event.key === 'ArrowUp' ? -1 : event.key === 'ArrowDown' ? 1 : 0
+    if (!sens) return
+    const vise = rang + sens
+    if (vise < 0 || vise >= retenues.length) return
+    event.preventDefault()
+    const suite = deplacer(retenues, rang, vise)
+    setOrdre(suite)
+    void enregistrerOrdre(suite)
+  }
+
   return (
     <section className={s.section}>
       <div className={s.head}>
@@ -386,7 +407,8 @@ export function Journal({
                       type="button"
                       className={s.poignee}
                       onPointerDown={(e) => prendre(e, i, page)}
-                      aria-label={`Déplacer « ${page.title} »`}
+                      onKeyDown={(e) => deplacerAuClavier(e, i)}
+                      aria-label={`Déplacer « ${page.title} » — page ${i + 1} sur ${retenues.length}. Flèches haut et bas pour la déplacer.`}
                     >
                       <svg viewBox="0 0 16 16" aria-hidden focusable="false">
                         <path d="M2.5 5h11M2.5 8h11M2.5 11h11" />

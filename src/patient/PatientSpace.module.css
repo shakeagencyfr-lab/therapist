@@ -86,11 +86,27 @@
   gap: 5px;
   margin-top: 12px;
 }
+/* Les pastilles sont devenues des commandes : elles choisissent l'affirmation
+   et arrêtent le défilement. Le trait reste fin — c'est la zone sensible qui
+   s'élargit, par-dessus, jusqu'à quarante-quatre pixels. */
 .dot {
+  position: relative;
   width: 18px;
   height: 3px;
+  padding: 0;
+  border: none;
   border-radius: 999px;
   background: rgba(240, 245, 242, 0.25);
+  cursor: pointer;
+}
+
+.dot::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -20px;
+  bottom: -20px;
 }
 .dotOn {
   background: var(--c-accent);
@@ -221,15 +237,21 @@
   color: var(--c-text-muted);
 }
 
+/* ONZE CIBLES SUR UNE LIGNE DE TÉLÉPHONE, C'EST ONZE ERREURS.
+   `flex: 1` sur onze boutons dans 360 px de large en donnait vingt-cinq à
+   chacun ; `aspect-ratio: 1` était même écrasé par `min-height`, si bien que
+   la cible faisait 25 × 40. On note son soir en marchant, d'une main : deux
+   rangées de cibles de quarante-quatre pixels valent mieux qu'une rangée
+   qu'il faut viser. La grille s'adapte — une seule ligne dès qu'il y a la
+   place. */
 .scale {
-  display: flex;
-  gap: 5px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(44px, 1fr));
+  gap: 6px;
 }
 .step {
-  flex: 1;
   min-width: 0;
-  min-height: 40px;
-  aspect-ratio: 1;
+  min-height: 44px;
   border-radius: 8px;
   cursor: pointer;
   font-size: 11.5px;

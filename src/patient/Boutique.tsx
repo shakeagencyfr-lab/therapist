@@ -162,11 +162,21 @@ export function Boutique({
                 </span>
                 {p.description ? <span className={s.produitDesc}>{p.description}</span> : null}
               </span>
+              {/* Le bouton ne portait qu'un prix : « 24,00 € », annoncé tel
+                  quel par un lecteur d'écran, sans dire ni ce qu'il fait ni de
+                  quel produit il parle — et il y en a autant que d'articles.
+                  Le libellé visible reste le prix ; le nom accessible dit le
+                  geste et l'article. */}
               <button
                 type="button"
                 className={s.acheter}
                 style={accent ? { background: accent } : undefined}
                 disabled={Boolean(enCours)}
+                aria-label={
+                  enCours === p.id
+                    ? `Achat de « ${p.title} » en cours`
+                    : `Acheter « ${p.title} » — ${prix(p.price_cents, p.currency)}`
+                }
                 onClick={() => void acheter(p.id)}
               >
                 {enCours === p.id ? '…' : prix(p.price_cents, p.currency)}

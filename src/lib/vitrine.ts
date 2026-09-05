@@ -160,6 +160,21 @@ export interface SiteVitrine {
  * `site_vitrine()`, et une ligne écrite avant ce filtre serait rendue telle
  * quelle. La barrière est au point d'usage, là où elle compte.
  */
+/**
+ * Le cabinet d'un widget : `/e/son-identifiant`.
+ *
+ * `slugDuChemin` ne connaît que la racine et l'ancien `/c/` — et `e` figure
+ * dans les chemins réservés, précisément pour qu'aucun cabinet ne s'appelle
+ * ainsi. Le widget lui passait donc son adresse et recevait null : il
+ * s'affichait « Votre espace », initiales « KL », aux couleurs de Klaro, sur
+ * le site d'une thérapeute qui l'a collé POUR sa marque. Le seul écran de la
+ * marque blanche qu'un tiers encadre était le seul à ne pas la porter.
+ */
+export function slugEmbed(chemin: string): string | null {
+  const m = /^\/e\/([a-z0-9][a-z0-9-]{0,62})\/?$/i.exec(chemin.trim())
+  return m ? (m[1] as string).toLowerCase() : null
+}
+
 export function imageDeNous(url: string): boolean {
   const env = import.meta.env ?? {}
   const base = String(env.VITE_SUPABASE_URL ?? '').trim().replace(/\/+$/, '')
@@ -191,6 +206,30 @@ export function marqueSure(brut: unknown): CabinetBranding {
   return b
 }
 
+/**
+ * Un lien sortant qu'on accepte de rendre cliquable.
+ *
+ * `site_web` arrive de la base et repartait tel quel dans un `href`. Le
+ * serveur le nettoie à l'écriture — mais la page publique ne passe pas par le
+ * serveur : elle lit `site_vitrine()` directement, et rendrait donc tel quel
+ * ce qu'une ligne écrite avant ce nettoyage, ou par un autre chemin,
+ * contiendrait. Un `href` commençant par `javascript:` s'exécute au clic, sur
+ * la page d'un cabinet, dans le navigateur d'un patient.
+ *
+ * On ne garde que http et https, et le filtre est AU POINT D'USAGE — c'est le
+ * seul endroit que rien ne contourne.
+ */
+export function lienSortant(brut: unknown): string | null {
+  const propre = String(brut ?? '').trim()
+  if (!propre) return null
+  try {
+    const url = new URL(propre)
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : null
+  } catch {
+    return null
+  }
+}
+
 export function versSiteVitrine(brut: unknown, slug: string): SiteVitrine | null {
   const v = (brut ?? {}) as Partial<SiteVitrine>
   if (!v.name) return null
@@ -210,7 +249,7 @@ export function versSiteVitrine(brut: unknown, slug: string): SiteVitrine | null
     presentation: v.presentation ?? null,
     adresse: v.adresse ?? null,
     telephone: v.telephone ?? null,
-    site_web: v.site_web ?? null,
+    site_web: lienSortant(v.site_web),
     horaires: v.horaires ?? [],
     photos: (v.photos ?? []).filter((p) => imageDeNous(p.url)),
     services: v.services ?? [],
