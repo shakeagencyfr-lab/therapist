@@ -12,6 +12,7 @@
  */
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { lireDroits, type Droits } from '@/services/cabinet'
+import { useRetour } from '@/lib/useRetour'
 
 export interface DroitsData {
   droits: Droits | null
@@ -46,6 +47,16 @@ export function DroitsProvider({ actif, children }: { actif: boolean; children: 
     void recharger()
   }, [recharger])
 
+  /* CE QUI CHANGE PENDANT QU'ON REGARDE. Les droits n'étaient lus qu'une
+     fois, au montage : le revendeur relevait le plafond, la thérapeute
+     rappelait pour dire que « ça ne marche toujours pas », et il fallait
+     recharger la page pour que le bouton se rouvre. L'essai qui expire, la
+     boutique qu'on ouvre, l'offre qu'on change : rien de tout cela
+     n'atteignait un onglet resté ouvert. Les deux autres fournisseurs se
+     relisent au retour d'onglet depuis longtemps ; celui-ci ne le faisait
+     pas. */
+  useRetour(() => void recharger())
+
   return <Ctx.Provider value={{ droits, chargement, recharger }}>{children}</Ctx.Provider>
 }
 
@@ -63,6 +74,17 @@ export function useDroits(): DroitsData | null {
  */
 export function ouvert(data: DroitsData | null, levier: 'shop' | 'marqueBlanche' | 'site'): boolean {
   return data?.droits ? data.droits[levier] : true
+}
+
+/**
+ * Le contrat du cabinet court-il ?
+ *
+ * Même prudence qu'`ouvert` : sans droits chargés on répond oui. Un écran de
+ * cabinet barré d'un bandeau d'impayé le temps d'un appel réseau ferait plus
+ * de dégâts qu'une seconde d'indulgence.
+ */
+export function enRegle(data: DroitsData | null): boolean {
+  return data?.droits ? data.droits.enRegle : true
 }
 
 /** Places restantes sur le plafond de fiches actives. null = sans limite. */

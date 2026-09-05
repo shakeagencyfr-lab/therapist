@@ -6,7 +6,7 @@ import { useResellerData } from '@/reseller/context'
 import { levierOuvert, maxPatientsOf, mrrCents, overrideDe } from '@/state/resellerSelectors'
 import { useStore } from '@/state/store'
 import { LEVIERS } from '@/types/reseller'
-import type { Exceptions, ReglageOffre } from '@/reseller/useReseller'
+import type { Exceptions, ReglageOffre, StatutContrat } from '@/reseller/useReseller'
 import type { Levier, Plan, PlanCode, PortfolioRow } from '@/types/reseller'
 import s from './PlansView.module.css'
 
@@ -241,12 +241,23 @@ const ETATS: Array<{ value: EtatLevier; label: string }> = [
   { value: 'ferme', label: 'Fermé' },
 ]
 
+/** Les cinq états d'un contrat, dans l'ordre où un revendeur les parcourt. */
+const CONTRATS: Array<{ code: StatutContrat; label: string }> = [
+  { code: 'essai', label: 'Essai' },
+  { code: 'actif', label: 'Actif' },
+  { code: 'impaye', label: 'Impayé' },
+  { code: 'suspendu', label: 'Suspendu' },
+  { code: 'resilie', label: 'Résilié' },
+]
+
 function LigneException({
   row,
   onSave,
+  onContrat,
 }: {
   row: PortfolioRow
   onSave: (champs: Exceptions) => Promise<void>
+  onContrat: (statut: StatutContrat) => Promise<void>
 }) {
   const [max, setMax] = useState(
     row.subscription.maxPatientsOverride === null ? '' : String(row.subscription.maxPatientsOverride),
@@ -263,8 +274,43 @@ function LigneException({
     setEnCours(false)
   }
 
+  async function poserContrat(statut: StatutContrat) {
+    if (enCours) return
+    setEnCours(true)
+    await onContrat(statut)
+    setEnCours(false)
+  }
+
   return (
     <div className={s.exception}>
+      {/* LE CONTRAT, ET CE QU'IL FERME. Ce réglage manquait : `status` était
+          posé une fois à l'ouverture et plus jamais, donc l'essai ne finissait
+          pas, l'impayé n'existait pas, et le revenu récurrent restait à zéro.
+          Depuis 0035 il décide vraiment — d'où le geste pour le rouvrir. */}
+      <div className={s.exceptionLevier}>
+        <FieldLabel>Contrat</FieldLabel>
+        <div className={s.exceptionEtats}>
+          {CONTRATS.map((c) => (
+            <Chip
+              key={c.code}
+              on={row.subscription.status === c.code}
+              onClick={() => void poserContrat(c.code)}
+              title={`Passer le contrat de ${row.cabinet.name} à « ${c.label.toLowerCase()} »`}
+            >
+              {c.label}
+            </Chip>
+          ))}
+        </div>
+        <p className={s.exceptionNote}>
+          {row.subscription.enRegle
+            ? "Le contrat court : l'offre s'applique."
+            : 'Hors contrat : analyse, boutique, marque blanche, site et ouverture de fiches suspendus. Les dossiers restent entiers.'}
+          {row.subscription.trialEnd && row.subscription.trialEnd !== '—'
+            ? ` Essai jusqu'au ${row.subscription.trialEnd}.`
+            : ''}
+        </p>
+      </div>
+
       <div className={s.exceptionMax}>
         <FieldLabel>Fiches actives pour ce cabinet</FieldLabel>
         <div className={s.champUnite}>
@@ -320,7 +366,7 @@ function LigneException({
 }
 
 export function PlansView() {
-  const { rows, offres, reel, chargement, erreur, changerOffre, enregistrerOffre, reglerExceptions } =
+  const { rows, offres, reel, chargement, erreur, changerOffre, enregistrerOffre, reglerExceptions, reglerContrat } =
     useResellerData()
   const { state, set } = useStore()
   /** Le cabinet dont l'offre est en cours de changement, s'il y en a un. */
@@ -359,6 +405,13 @@ export function PlansView() {
   async function saveException(cabinetId: string, champs: Exceptions) {
     nettoyer()
     const resultat = await reglerExceptions(cabinetId, champs)
+    if (resultat.ok) set({ rNotice: resultat.message, rNoticeTon: 'ok' })
+    else setEchec(resultat.message)
+  }
+
+  async function saveContrat(cabinetId: string, statut: StatutContrat) {
+    nettoyer()
+    const resultat = await reglerContrat(cabinetId, statut, null)
     if (resultat.ok) set({ rNotice: resultat.message, rNoticeTon: 'ok' })
     else setEchec(resultat.message)
   }
@@ -495,7 +548,11 @@ export function PlansView() {
               </div>
 
               {ouvert === row.cabinet.id ? (
-                <LigneException row={row} onSave={(champs) => saveException(row.cabinet.id, champs)} />
+                <LigneException
+                  row={row}
+                  onSave={(champs) => saveException(row.cabinet.id, champs)}
+                  onContrat={(statut) => saveContrat(row.cabinet.id, statut)}
+                />
               ) : null}
             </div>
           )

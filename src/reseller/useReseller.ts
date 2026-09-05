@@ -54,6 +54,8 @@ interface OverviewRow {
   plan_label: string | null
   status: string | null
   current_period_end: string | null
+  trial_ends_at: string | null
+  en_regle: boolean | null
 }
 
 /** La fiche éditable d'un cabinet, lue dans `cabinets`. */
@@ -139,6 +141,37 @@ export interface ResellerData {
   enregistrerOffre: (code: PlanCode, champs: ReglageOffre) => Promise<Resultat>
   /** Accorde ou retire une exception à un cabinet, sans toucher à l'offre. */
   reglerExceptions: (cabinetId: string, champs: Exceptions) => Promise<Resultat>
+  /** Pose le statut du contrat, et l'échéance qui va avec. */
+  reglerContrat: (cabinetId: string, statut: StatutContrat, echeance: string | null) => Promise<Resultat>
+}
+
+/** Les cinq états d'un contrat, tels que la base les connaît. */
+export type StatutContrat = 'essai' | 'actif' | 'impaye' | 'suspendu' | 'resilie'
+
+/** Ce qu'on en dit à l'écran. */
+export const LIBELLE_CONTRAT: Record<StatutContrat, string> = {
+  essai: 'essai',
+  actif: 'actif',
+  impaye: 'impayé',
+  suspendu: 'suspendu',
+  resilie: 'résilié',
+}
+
+/**
+ * L'offre d'un cabinet qui n'en a aucune.
+ *
+ * Ni un plan du catalogue ni un plan vide au hasard : ce qu'un cabinet sans
+ * ligne d'abonnement possède réellement, c'est-à-dire rien.
+ */
+const SANS_OFFRE: Plan = {
+  code: '' as PlanCode,
+  label: 'Sans offre',
+  priceCents: 0,
+  maxPatients: 0,
+  shop: false,
+  marqueBlanche: false,
+  site: false,
+  includes: [],
 }
 
 /** Le portefeuille de démonstration, quand il n'y a pas de session. */
@@ -157,11 +190,13 @@ function versPortfolio(
   offres: Plan[],
   exception: ExceptionRow | undefined,
 ): PortfolioRow {
-  /* Un cabinet sans ligne d'abonnement retombe sur la première offre du
-     catalogue — et l'offre affichée doit alors être CELLE-LÀ. Prendre le
-     libellé d'un côté et le code de l'autre allumait deux pastilles à la
-     fois sur la même ligne. */
-  const plan = offres.find((p) => p.code === o.plan_code) ?? offres[0]
+  /* UN CABINET SANS CONTRAT N'A PAS D'OFFRE. Il retombait sur la première du
+     catalogue : l'écran affichait « Essentiel · 25 fiches », allumait la
+     pastille Essentiel, listait ses leviers, et le comptait même parmi les
+     abonnés de cette offre dans le revenu récurrent. Or il n'avait aucun
+     plafond en base — `verifier_plafond_patientes` ne trouvait pas de ligne —
+     et donc aucun des droits affichés. On rend maintenant ce qu'il est. */
+  const plan = o.plan_code ? (offres.find((p) => p.code === o.plan_code) ?? offres[0]) : SANS_OFFRE
   return {
     cabinet: {
       id: o.cabinet_id,
@@ -188,9 +223,13 @@ function versPortfolio(
     },
     subscription: {
       cabinetId: o.cabinet_id,
-      plan: (o.plan_code ?? plan.code) as PlanCode,
+      plan: (o.plan_code ?? '') as PlanCode,
       status: (o.status ?? 'essai') as PortfolioRow['subscription']['status'],
       periodEnd: dateLongue(o.current_period_end),
+      trialEnd: dateLongue(o.trial_ends_at),
+      /* Le verdict vient de la base, jamais d'un calcul refait ici. Sans
+         contrat, il est faux — et c'est ce qui allume « Contrats en défaut ». */
+      enRegle: o.en_regle === true,
       maxPatientsOverride: exception?.max_patients_override ?? null,
       shopOverride: exception?.shop_override ?? null,
       marqueBlancheOverride: exception?.marque_blanche_override ?? null,
@@ -563,6 +602,45 @@ export function useReseller(): ResellerData {
     [recharger, reel],
   )
 
+  /**
+   * Le contrat d'un cabinet : son statut, et jusqu'à quand.
+   *
+   * Ce geste manquait, et son absence rendait le reste faux. `status` était
+   * écrit une seule fois — « essai » à l'ouverture — puis plus jamais : rien
+   * ne pouvait passer un cabinet en « actif », donc le revenu récurrent
+   * affichait 0 € pour l'éternité, et rien ne pouvait le passer en « impayé »,
+   * donc « Contrats en défaut » ne s'allumait jamais. Depuis 0035 ce statut
+   * ferme les leviers du cabinet : il fallait bien qu'on puisse le rouvrir.
+   */
+  const reglerContrat = useCallback(
+    async (cabinetId: string, statut: StatutContrat, echeance: string | null): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !reel) return { ok: false, message: 'Connectez-vous pour régler ce cabinet.' }
+      const ligne: Record<string, unknown> = { status: statut, updated_at: new Date().toISOString() }
+      if (echeance !== undefined) ligne.current_period_end = echeance
+      /* Repasser un cabinet en essai sans date le rendrait éternel : la règle
+         de base laisse courir un essai sans échéance, puisqu'une colonne vide
+         est une donnée qui manque et non un contrat rompu. On pose donc
+         quatorze jours, comme à l'ouverture. */
+      if (statut === 'essai' && !echeance) {
+        ligne.trial_ends_at = new Date(Date.now() + 14 * 86400_000).toISOString()
+      }
+
+      const { data, error } = await db
+        .from('subscriptions')
+        .update(ligne)
+        .eq('cabinet_id', cabinetId)
+        .select('cabinet_id')
+      await recharger()
+      if (error) return { ok: false, message: "Le contrat n'a pas pu être enregistré." }
+      if (!data?.length) {
+        return { ok: false, message: "Ce cabinet n'a pas encore d'offre. Posez-lui-en une d'abord." }
+      }
+      return { ok: true, message: `Contrat mis à jour : ${LIBELLE_CONTRAT[statut]}.` }
+    },
+    [recharger, reel],
+  )
+
   return {
     rows,
     offres,
@@ -572,6 +650,7 @@ export function useReseller(): ResellerData {
     chargement,
     erreur,
     recharger,
+    reglerContrat,
     ouvrirCabinet,
     inviterPraticienne,
     enregistrerMarque,

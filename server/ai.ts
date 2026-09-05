@@ -18,6 +18,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { HttpError } from './errors.js'
 import { baseConfiguree, clientAdmin, identifier, type Appelant } from './auth.js'
 import { cleAnthropicDuCabinet } from './integrations.js'
+import { abonnementEnRegle } from './droits.js'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import type { ZodType } from 'zod'
 
@@ -637,6 +638,18 @@ export async function analyserPourCabinet(
   cabinetId: string | null,
 ): Promise<AiResult> {
   const mock = mockMode()
+  /* LE CONTRAT AVANT LA CLÉ. Un cabinet dont l'essai est passé ou la facture
+     impayée garde ses dossiers, pas ses outils : l'analyse en fait partie.
+     Le refus se dit avant tout appel, donc avant toute dépense. */
+  if (!mock && cabinetId) {
+    const db = clientAdmin()
+    if (db && !(await abonnementEnRegle(cabinetId, db))) {
+      throw new HttpError(
+        403,
+        "Votre abonnement n'est plus en cours : l'analyse est suspendue. Vos dossiers restent accessibles, et votre revendeur peut réactiver l'offre.",
+      )
+    }
+  }
   const cle = mock ? null : await resoudreCle(cabinetId)
   if (!mock) client(cle)
 
