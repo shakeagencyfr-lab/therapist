@@ -198,11 +198,14 @@ export function RoundCheck({
   on,
   onClick,
   label,
+  disabled = false,
   style,
 }: {
   on: boolean
   onClick?: () => void
   label: string
+  /** Montrée, mais pas cochable : l'aperçu ne coche pas pour le patient. */
+  disabled?: boolean
   style?: CSSProperties
 }) {
   return (
@@ -211,6 +214,8 @@ export function RoundCheck({
       role="checkbox"
       aria-checked={on}
       aria-label={label}
+      aria-disabled={disabled || undefined}
+      disabled={disabled}
       className={cx(s.check, s.round, on && s.roundOn)}
       onClick={onClick}
       style={style}

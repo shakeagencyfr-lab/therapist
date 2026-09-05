@@ -14,9 +14,15 @@ export function PatientJournal() {
   const key = state.sel
   const pages = state.pages[key] ?? []
   const current = pages.find((g) => g.id === state.openPage) ?? null
+  /* Voir PatientHome : sur un dossier réel, cet écran est un APERÇU. Une page
+     écrite ici et marquée « partagée » s'affichait dans le Journal partagé de
+     la fiche, sous le titre « Ce que le patient a choisi de vous transmettre »
+     — et partait au contexte de l'IA avec le reste. */
+  const maquette = !state.patientsReels
 
   /** Écrit un correctif sur la page ouverte. */
   function patchPage(patch: Partial<JournalPage>) {
+    if (!maquette) return
     set((prev) => ({
       pages: {
         ...prev.pages,
@@ -28,6 +34,7 @@ export function PatientJournal() {
   }
 
   function newPage() {
+    if (!maquette) return
     const id = `p${Date.now()}`
     set((prev) => ({
       pages: {
@@ -63,6 +70,7 @@ export function PatientJournal() {
             placeholder="Titre de la page"
             onChange={(e) => patchPage({ title: e.target.value })}
             aria-label="Titre de la page"
+            readOnly={!maquette}
           />
           <div className={s.pageDate}>{current.date}</div>
         </div>
@@ -74,6 +82,7 @@ export function PatientJournal() {
             placeholder="Écrivez ce que vous voulez garder. Personne n'y a accès tant que vous ne le partagez pas."
             onChange={(e) => patchPage({ text: e.target.value })}
             aria-label="Contenu de la page"
+            readOnly={!maquette}
           />
         </div>
 
@@ -83,6 +92,8 @@ export function PatientJournal() {
             className={current.shared ? `${s.shareBtn} ${s.shareBtnOn}` : s.shareBtn}
             aria-pressed={current.shared}
             onClick={() => patchPage({ shared: !current.shared })}
+            disabled={!maquette}
+            data-apercu={maquette ? undefined : 'inerte'}
           >
             {current.shared ? 'Partagée avec sa thérapeute' : 'Partager cette page avec sa thérapeute'}
           </button>
@@ -95,7 +106,8 @@ export function PatientJournal() {
             <button
               type="button"
               className={s.delete}
-              onClick={() =>
+              onClick={() => {
+                if (!maquette) return
                 set((prev) => ({
                   pages: {
                     ...prev.pages,
@@ -104,7 +116,9 @@ export function PatientJournal() {
                   pView: 'journal',
                   openPage: null,
                 }))
-              }
+              }}
+              disabled={!maquette}
+              data-apercu={maquette ? undefined : 'inerte'}
             >
               Supprimer
             </button>
@@ -125,13 +139,14 @@ export function PatientJournal() {
       <div className={s.head}>
         <h2 className={s.title}>Mon journal</h2>
         <div className={s.sub}>
-          Vos pages restent ici, consultables à tout moment. Vous choisissez page par page ce que
-          Sa thérapeute peut lire.
+          {maquette
+            ? 'Vos pages restent ici, consultables à tout moment. Vous choisissez page par page ce que votre thérapeute peut lire.'
+            : "Le patient garde ses pages ici et choisit page par page ce que vous pouvez lire. Depuis l'aperçu, on ne peut ni en écrire ni en partager en son nom."}
         </div>
       </div>
 
       <div className={s.newRow}>
-        <button type="button" className={s.newBtn} onClick={newPage}>
+        <button type="button" className={s.newBtn} onClick={newPage} disabled={!maquette} data-apercu={maquette ? undefined : 'inerte'}>
           Nouvelle page
         </button>
       </div>
