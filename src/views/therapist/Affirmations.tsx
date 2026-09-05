@@ -54,6 +54,28 @@ export function Affirmations() {
     })
   }
 
+  /**
+   * Cocher « chaque lundi », et que ce soit vrai.
+   *
+   * La case basculait à l'écran, l'écriture partait avec `void`, et son échec
+   * n'allait nulle part : le texte d'aide passait à « L'IA les écrit d'après
+   * son dossier et les publie chaque lundi matin » sur un réglage que la base
+   * n'avait pas enregistré. Aucune affirmation n'arrivait le lundi, et rien
+   * ne disait pourquoi.
+   */
+  async function basculerAuto() {
+    const vise = !auto
+    set((prev) => ({ affAuto: { ...prev.affAuto, [key]: vise }, affSaved: '' }))
+    if (!cabinet?.reel) return
+    const r = await cabinet.reglerAffirmationsAuto(key, vise)
+    if (!r.ok) {
+      set((prev) => ({
+        affAuto: { ...prev.affAuto, [key]: !vise },
+        affSaved: r.message || "Le réglage n'a pas pu être enregistré. Réessayez.",
+      }))
+    }
+  }
+
   async function propose() {
     // Une seule génération à la fois, tous patients confondus.
     if (state.affGen) return
@@ -138,14 +160,7 @@ export function Affirmations() {
         role="checkbox"
         aria-checked={auto}
         className={s.auto}
-        onClick={() => {
-          // Le réglage du lundi se conserve en base sur un cabinet réel.
-          if (cabinet?.reel) void cabinet.reglerAffirmationsAuto(key, !auto)
-          set((prev) => ({
-            affAuto: { ...prev.affAuto, [key]: !prev.affAuto[key] },
-            affSaved: '',
-          }))
-        }}
+        onClick={() => void basculerAuto()}
       >
         <span className={auto ? `${s.box} ${s.boxOn}` : s.box} aria-hidden>
           {auto ? '✓' : ''}

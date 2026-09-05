@@ -95,7 +95,10 @@ export function PsychProfile() {
   const profile = profileOf(state, key)
   const precision = profilePrecision(state, key)
   const busy = state.profGen === key
-  const resume = state.profNote[key]
+  /* Le mot de la dernière actualisation. Celui de la session en cours l'emporte
+     — il vient d'être produit — mais celui du dossier ne se perd plus : la
+     colonne était écrite à chaque version et relue par personne. */
+  const resume = state.profNote[key] || profile?.resume
 
   async function refresh() {
     // Une seule actualisation à la fois, tous patients confondus.

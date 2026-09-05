@@ -80,10 +80,12 @@ export interface AppState {
   cabinetId: string | null
   patients: Record<PatientId, Patient>
   patientOrder: PatientId[]
+  /* `patientsChargement`, `patientsErreur` et `affNew` vivaient ici : trois
+     champs déclarés, initialisés, et lus par personne. Le chargement et
+     l'erreur du cabinet sont tenus par `useCabinet`, dans ses propres états —
+     ceux-ci étaient une seconde version, muette, de la même idée. */
   /** Vrai quand les fiches viennent de la base et non de la démonstration. */
   patientsReels: boolean
-  patientsChargement: boolean
-  patientsErreur: string
 
   /* Ajout d'un patient -------------------------------------------- *
    * Une fiche s'ouvre avec un nom et une adresse, rien de plus : le
@@ -232,7 +234,6 @@ export interface AppState {
   affs: Record<PatientId, string[]>
   /** Affirmations générées, en attente de publication. */
   affPending: Record<PatientId, string[]>
-  affNew: string
   /** Index de l'affirmation affichée côté patient. */
   affIdx: number
   /** Patient dont les affirmations sont en cours de génération. */
@@ -285,8 +286,6 @@ export const initialState: AppState = {
   patients: PATIENTS,
   patientOrder: PATIENT_ORDER,
   patientsReels: false,
-  patientsChargement: false,
-  patientsErreur: '',
 
   done: {},
   extra: {},
@@ -364,7 +363,6 @@ export const initialState: AppState = {
   affAuto: INITIAL_AFF_AUTO,
   affs: INITIAL_AFFIRMATIONS,
   affPending: {},
-  affNew: '',
   affIdx: 0,
   affGen: '',
   affSaved: '',

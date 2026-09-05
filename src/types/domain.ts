@@ -65,6 +65,15 @@ export interface PsychProfile {
   care: string[]
   /** Les versions précédentes, de la plus ancienne à la plus récente. */
   historique?: ProfileVersion[]
+  /**
+   * Ce que l'IA a dit avoir changé, à la dernière actualisation.
+   *
+   * La colonne était écrite à chaque version et relue par personne : la
+   * phrase s'affichait le temps de la session qui l'avait produite, puis
+   * disparaissait. C'est pourtant la seule trace de ce qui a bougé — et elle
+   * se lit surtout le lendemain, en rouvrant la fiche.
+   */
+  resume?: string
 }
 
 /** Un mouvement d'une séance d'hypnose. */

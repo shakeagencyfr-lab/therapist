@@ -136,8 +136,13 @@ export function WeekModules() {
       </div>
 
       <div className={s.foot}>
+        {/* « … basculent automatiquement à la semaine suivante » : il n'y a
+            aucune semaine dans ce produit. Un exercice reste au parcours tant
+            que personne ne l'en retire — ce qui est très bien, mais ce n'est
+            pas ce que la phrase promettait. */}
         <span className={s.rule}>
-          Les modules non réalisés basculent automatiquement à la semaine suivante.
+          Un exercice reste au parcours tant qu'il n'en est pas retiré : rien ne s'efface tout
+          seul d'une semaine sur l'autre.
         </span>
       </div>
     </Card>

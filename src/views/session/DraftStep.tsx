@@ -268,13 +268,17 @@ export function DraftStep() {
           <Title large as="h2">
             Synthèse de séance
           </Title>
+          {/* « Valider ce bloc » laissait croire à une étape obligatoire : rien
+              ne lit cet état, et l'envoi ne le consulte pas. C'est un repère
+              de relecture, sur une note qui se lit en plusieurs fois entre
+              deux patients — et c'est très bien, à condition de le nommer. */}
           <button
             type="button"
             className={cx(s.validate, state.syntheseOk && s.validateOn)}
             aria-pressed={state.syntheseOk}
             onClick={() => set((prev) => ({ syntheseOk: !prev.syntheseOk }))}
           >
-            {state.syntheseOk ? '✓ Validée' : 'Valider ce bloc'}
+            {state.syntheseOk ? '✓ Relue' : 'Marquer comme relue'}
           </button>
         </div>
         <textarea
