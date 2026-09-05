@@ -1242,24 +1242,17 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     async (patientId: PatientId, textes: string[]): Promise<Resultat> => {
       const db = supabase()
       if (!db || !cabinetId) return { ok: false, message: '' }
-      const propres = textes.map((t) => t.trim()).filter(Boolean)
-      // Remplacer : ce que le patient lit est exactement la liste publiée.
-      const { error: e1 } = await db.from('affirmations').delete().eq('patient_id', patientId)
-      if (e1) return { ok: false, message: "Les affirmations n'ont pas pu être remplacées." }
-      if (propres.length) {
-        const maintenant = new Date().toISOString()
-        const { error: e2 } = await db.from('affirmations').insert(
-          propres.map((text, position) => ({
-            cabinet_id: cabinetId,
-            patient_id: patientId,
-            text,
-            position,
-            source: 'manuel',
-            published_at: maintenant,
-          })),
-        )
-        if (e2) return { ok: false, message: "Les affirmations n'ont pas pu être publiées." }
-      }
+      /* REMPLACER EN UNE FOIS. C'était un DELETE puis un INSERT : entre les
+         deux, rien ne tenait. Une coupure, un onglet fermé, un refus sur la
+         seconde requête, et la patiente se retrouvait sans AUCUNE affirmation
+         pendant que l'écran annonçait « n'ont pas pu être publiées » — soit
+         l'inverse de ce qui venait d'arriver. Le RPC fait les deux dans la
+         même transaction (0033) ; il rogne et numérote côté base. */
+      const { error } = await db.rpc('cabinet_publier_affirmations', {
+        p_patient: patientId,
+        p_textes: textes,
+      })
+      if (error) return { ok: false, message: "Les affirmations n'ont pas pu être publiées. Celles en place n'ont pas bougé." }
       await recharger()
       return { ok: true, message: '' }
     },

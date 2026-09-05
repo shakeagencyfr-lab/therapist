@@ -46,8 +46,16 @@ const CARACTERES_PAR_JETON = 3.8
  */
 export const JETONS_GABARIT = 633
 
-/** Plafond de sortie du brouillon de séance (maxTokens, server/ai.ts). */
-export const PLAFOND_SORTIE = 3000
+/**
+ * Plafond de sortie du brouillon de séance (maxTokens, server/ai.ts).
+ *
+ * Il valait 3 000 quand le serveur en accordait déjà 4 000 : `eurosMax`, que
+ * l'écran présente comme un maximum, en annonçait donc un quart de moins que
+ * ce que l'appel pouvait réellement coûter. Un plafond faux vaut moins
+ * qu'aucun plafond, puisqu'on s'y fie. `coutIA.test.ts` relit désormais le
+ * chiffre dans server/ai.ts.
+ */
+export const PLAFOND_SORTIE = 4000
 
 /** Jetons d'un texte, arrondis au supérieur. */
 export function jetonsDe(texte: string): number {
@@ -86,10 +94,12 @@ function euros(entree: number, sortie: number): number {
  * thérapeute voyait donc environ la moitié du prix réel. Le plafond, lui,
  * était juste : `eurosMax` reste une vraie borne.
  *
- * Ce chiffre a de nouveau bougé depuis : le brouillon tourne maintenant à
- * l'effort « medium » (server/ai.ts) et produit moins. Recalibrer sur trois
- * ou quatre brouillons réels au nouveau réglage, plutôt que de deviner une
- * seconde fois — l'onglet « Revente IA » du revendeur donne la mesure.
+ * Le brouillon tourne à l'effort « high » (REGLAGES, server/ai.ts) : les
+ * jetons de raisonnement sont donc nombreux, et facturés au tarif de sortie.
+ * Ce commentaire a un temps annoncé « medium » — un réglage qui n'a jamais
+ * tenu — et invitait à recalibrer vers le bas sur cette foi. Recalibrer sur
+ * trois ou quatre brouillons réels plutôt que de deviner une seconde fois :
+ * l'onglet « Revente IA » du revendeur donne la mesure.
  */
 export function estimationBrouillon(transcript: string, notes = ''): Estimation {
   const matiere = jetonsDe(transcript) + jetonsDe(notes)
