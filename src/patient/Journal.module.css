@@ -1,8 +1,13 @@
 /* Le journal : de l'écriture, pas un formulaire. La colonne est étroite,
    l'interligne large, et la page privée par défaut. */
 
+/* LA CARTE SE RANGE COMME LES AUTRES.
+   Elle portait `margin: 0 16px 16px` alors qu'elle vit dans le même conteneur
+   que les cartes de la journée, lequel pose déjà ses seize pixels de marge
+   latérale et son écart vertical. Le journal était donc rentré de seize
+   pixels de chaque côté par rapport à tout le reste, et son bas se battait
+   avec l'écart du parent. */
 .section {
-  margin: 0 16px 16px;
   padding: 18px 18px 14px;
   border-radius: 18px;
   border: 1px solid var(--c-border-light);
@@ -55,6 +60,9 @@
   min-width: 0;
 }
 
+/* Seize pixels sur les écrans tactiles : sous ce seuil, Safari iOS agrandit
+   la page dès que le doigt touche le champ et n'en revient pas — on écrit son
+   journal dans une page décadrée. */
 .champTitre {
   font-size: 15px;
   font-weight: 500;
@@ -66,9 +74,27 @@
   resize: vertical;
 }
 
+@media (pointer: coarse) {
+  .champTitre,
+  .champTexte {
+    font-size: 16px;
+  }
+}
+
+/* LE CONTOUR DE MISE AU POINT NE S'EFFACE PAS.
+   `outline: none` remplaçait le seul repère du clavier par un changement de
+   bordure d'un ton sur l'autre — invisible sur le fond crème du champ, et
+   nul pour qui navigue à la tabulation ou au clavier externe d'un iPad. On
+   garde le changement de bordure, on rend le contour. */
+.champTitre:focus-visible,
+.champTexte:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+  border-color: var(--c-border-accent);
+}
+
 .champTitre:focus,
 .champTexte:focus {
-  outline: none;
   border-color: var(--c-border-accent);
 }
 
@@ -168,6 +194,7 @@
 .pageTitre {
   font-size: 15px;
   font-weight: 500;
+  overflow-wrap: anywhere;
 }
 
 .pageMeta {
@@ -175,11 +202,15 @@
   color: var(--c-text-muted);
 }
 
+/* `pre-wrap` respecte les retours à la ligne mais ne coupe pas un mot : une
+   adresse collée depuis un courriel poussait la carte hors de l'écran, et le
+   téléphone entier se mettait à défiler de côté. */
 .pageTexte {
   margin: 0 0 12px;
   font-size: 15px;
   line-height: 1.7;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .bascule {

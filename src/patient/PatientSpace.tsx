@@ -88,14 +88,27 @@ export function PatientSpace() {
   const [echelle, setEchelle] = useState<number | null>(null)
   const [envoi, setEnvoi] = useState('')
 
-  // L'affirmation tourne toutes les cinq secondes, et s'arrête
-  // définitivement au premier tap : on ne reprend pas la main sur quelqu'un
-  // qui vient de choisir de lire.
+  /* L'affirmation tourne toutes les cinq secondes, et s'arrête définitivement
+     au premier tap : on ne reprend pas la main sur quelqu'un qui vient de
+     choisir de lire. Elle ne tourne pas du tout pour qui a demandé moins
+     d'animation à son téléphone — un texte qui change tout seul est
+     exactement ce que ce réglage écarte. */
   useEffect(() => {
     if (affFige || affirmations.length < 2) return
+    if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
     const t = setInterval(() => setAffIdx((i) => (i + 1) % affirmations.length), 5000)
     return () => clearInterval(t)
   }, [affFige, affirmations.length])
+
+  /* REMONTER EN HAUT.
+     Changer d'onglet ou ouvrir un exercice remplace le contenu sans toucher au
+     défilement : on arrivait au milieu de l'écran suivant, souvent après sa
+     fin, sur un blanc. C'est le cas le plus visible depuis le bas d'un
+     journal un peu long. */
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  }, [onglet, tacheOuverte])
 
   if (!patient) return null
 
@@ -225,21 +238,27 @@ export function PatientSpace() {
         <h1 className={s.hello}>Bonjour {prenom(patient.display_name)}</h1>
         {affirmations.length > 0 ? (
           <>
-            <p
-              className={s.affirmation}
-              onClick={() => setAffFige(true)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={() => setAffFige(true)}
-            >
-              {affirmations[affIdx]}
-            </p>
-            <div className={s.dots} aria-hidden>
+            {/* UNE PHRASE N'EST PAS UN BOUTON. Elle en portait le rôle pour
+                une seule raison — figer le défilement — et un lecteur d'écran
+                l'annonçait donc « bouton », sans dire ce qu'il ferait. Son
+                `onKeyDown` répondait de surcroît à N'IMPORTE QUELLE touche,
+                Tab compris : passer au clavier arrêtait le défilement sans
+                que personne l'ait demandé. Ce sont les pastilles qui
+                deviennent des commandes, ce qu'elles avaient l'air d'être. */}
+            <p className={s.affirmation}>{affirmations[affIdx]}</p>
+            <div className={s.dots}>
               {affirmations.map((a, i) => (
-                <span
+                <button
                   key={a}
+                  type="button"
                   className={i === affIdx ? `${s.dot} ${s.dotOn}` : s.dot}
                   style={i === affIdx ? { background: patient.branding?.accent } : undefined}
+                  aria-label={`Affirmation ${i + 1} sur ${affirmations.length}`}
+                  aria-current={i === affIdx ? 'true' : undefined}
+                  onClick={() => {
+                    setAffIdx(i)
+                    setAffFige(true)
+                  }}
                 />
               ))}
             </div>
