@@ -30,6 +30,18 @@ export interface Droits {
   /** Le nom de l'offre, tel qu'il s'affiche. */
   offre: string
   offreCode: string
+  /**
+   * Le contrat court-il ?
+   *
+   * Faux : l'essai a expiré, la facture n'est pas payée, ou il n'y a jamais eu
+   * d'abonnement. Les leviers sont alors fermés et le plafond de fiches vaut
+   * le nombre en cours — les dossiers, eux, restent entiers.
+   */
+  enRegle: boolean
+  /** Le mot du contrat : essai, actif, impaye, suspendu, resilie. */
+  statut: string
+  /** La date qui vient : fin de période, ou fin d'essai. */
+  echeance: string | null
 }
 
 /** La forme que rend `cabinet_droits()`. */
@@ -41,6 +53,9 @@ interface DroitsRow {
   site: boolean | null
   offre: string | null
   offre_code: string | null
+  en_regle: boolean | null
+  statut: string | null
+  echeance: string | null
 }
 
 /** Ce que l'écran doit lire quand un levier est fermé. */
@@ -63,6 +78,9 @@ function versDroits(brut: unknown): Droits {
     site: Boolean(row.site),
     offre: row.offre ?? 'Sans offre',
     offreCode: row.offre_code ?? '',
+    enRegle: Boolean(row.en_regle),
+    statut: row.statut ?? '',
+    echeance: row.echeance ?? null,
   }
 }
 
@@ -115,6 +133,10 @@ export async function levierDuCabinet(
   levier: Levier,
   admin: SupabaseClient,
 ): Promise<boolean> {
+  /* Le contrat d'abord : hors contrat, aucun levier n'est ouvert, exception
+     négociée comprise. La règle vit en base (0035) et se lit ici comme
+     ailleurs — deux endroits qui la recalculent finiraient par diverger. */
+  if (!(await abonnementEnRegle(cabinetId, admin))) return false
   const colonne = levier === 'marqueBlanche' ? 'marque_blanche' : levier
   const { data: abo } = await admin
     .from('subscriptions')
@@ -130,6 +152,35 @@ export async function levierDuCabinet(
     .eq('code', String(abo.plan_code ?? ''))
     .maybeSingle<Record<string, unknown>>()
   return offre?.[colonne] === true
+}
+
+/**
+ * Le contrat de ce cabinet court-il, vu du serveur ?
+ *
+ * Même raisonnement que `levierDuCabinet` : la fonction de base part de
+ * `auth.uid()` pour savoir À QUI elle répond, et le serveur qui demande pour
+ * lui-même n'est personne. Il appelle donc la règle sans passer par le
+ * portier — la règle, elle, reste écrite une seule fois.
+ */
+export async function abonnementEnRegle(cabinetId: string, admin: SupabaseClient): Promise<boolean> {
+  const { data, error } = await admin.rpc('abonnement_en_regle', { p_cabinet: cabinetId })
+  if (error) {
+    /* Une panne de lecture ne doit pas fermer un cabinet qui paie : on laisse
+       passer et on le dit au journal. Le contraire couperait l'outil d'une
+       thérapeute en séance pour une erreur réseau d'une seconde. */
+    console.error(`[droits] contrat ${cabinetId} — ${error.message}`)
+    return true
+  }
+  return data === true
+}
+
+/** Ce que l'écran lit quand le contrat ne court plus. */
+export const REFUS_CONTRAT =
+  "Votre abonnement n'est plus en cours : cette fonction est suspendue. Vos dossiers restent accessibles, et votre revendeur peut réactiver l'offre."
+
+/** Refuse si le contrat ne court plus, avec le message que l'écran affichera. */
+export function exigerContrat(droits: Droits): void {
+  if (!droits.enRegle) throw new HttpError(403, REFUS_CONTRAT)
 }
 
 /** Refuse si le levier est fermé, avec le message que l'écran affichera. */

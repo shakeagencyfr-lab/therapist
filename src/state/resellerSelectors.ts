@@ -87,9 +87,16 @@ export function nearCap(rows: PortfolioRow[]): PortfolioRow[] {
   })
 }
 
-/** Cabinets dont le contrat demande une action. */
+/**
+ * Cabinets dont le contrat demande une action.
+ *
+ * Le filtre nommait deux statuts — impayé, suspendu — qu'absolument rien ne
+ * posait jamais : le compteur restait donc éteint quoi qu'il arrive. Il suit
+ * maintenant le verdict de la base, qui compte aussi l'essai expiré et le
+ * cabinet ouvert sans contrat : les deux cas réels du portefeuille.
+ */
 export function needsAttention(rows: PortfolioRow[]): PortfolioRow[] {
-  return rows.filter((r) => r.subscription.status === 'impaye' || r.subscription.status === 'suspendu')
+  return rows.filter((r) => !r.subscription.enRegle)
 }
 
 /** Somme des compteurs du portefeuille. */

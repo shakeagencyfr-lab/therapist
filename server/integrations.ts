@@ -46,8 +46,6 @@ export interface EtatIntegrations {
   shopEnabled: boolean
   /** Le serveur sait-il chiffrer ? Sinon, l'écran le dit avant la saisie. */
   chiffrement: boolean
-  /** La plateforme a-t-elle sa propre clé d'analyse, en repli ? */
-  cleplateforme: boolean
   /**
    * Le serveur tourne-t-il en mode maquette ?
    *
@@ -99,7 +97,6 @@ function versEtat(row: SettingsRow | null): EtatIntegrations {
     bookingWidgetUrl: row?.booking_widget_url ?? null,
     shopEnabled: row?.shop_enabled ?? false,
     chiffrement: chiffrementConfigure(),
-    cleplateforme: Boolean((process.env.ANTHROPIC_API_KEY ?? process.env.ANTHROPIC_AUTH_TOKEN ?? '').trim()),
     maquette: process.env.AI_MOCK === '1',
   }
 }

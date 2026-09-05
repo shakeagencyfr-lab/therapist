@@ -149,11 +149,11 @@ const SANS_EXCEPTION = {
 } as const
 
 export const SUBSCRIPTIONS: Record<CabinetId, Subscription> = {
-  ollivier: { cabinetId: 'ollivier', plan: 'cabinet', status: 'actif', periodEnd: '12 octobre', ...SANS_EXCEPTION },
-  benali: { cabinetId: 'benali', plan: 'essentiel', status: 'essai', periodEnd: '14 septembre', ...SANS_EXCEPTION },
-  fontaines: { cabinetId: 'fontaines', plan: 'reseau', status: 'actif', periodEnd: '1er octobre', ...SANS_EXCEPTION },
-  'rive-gauche': { cabinetId: 'rive-gauche', plan: 'cabinet', status: 'impaye', periodEnd: '28 août', ...SANS_EXCEPTION },
-  reyt: { cabinetId: 'reyt', plan: 'essentiel', status: 'actif', periodEnd: '6 octobre', ...SANS_EXCEPTION },
+  ollivier: { cabinetId: 'ollivier', plan: 'cabinet', status: 'actif', periodEnd: '12 octobre', trialEnd: '', enRegle: true, ...SANS_EXCEPTION },
+  benali: { cabinetId: 'benali', plan: 'essentiel', status: 'essai', periodEnd: '14 septembre', trialEnd: '', enRegle: true, ...SANS_EXCEPTION },
+  fontaines: { cabinetId: 'fontaines', plan: 'reseau', status: 'actif', periodEnd: '1er octobre', trialEnd: '', enRegle: true, ...SANS_EXCEPTION },
+  'rive-gauche': { cabinetId: 'rive-gauche', plan: 'cabinet', status: 'impaye', periodEnd: '28 août', trialEnd: '', enRegle: false, ...SANS_EXCEPTION },
+  reyt: { cabinetId: 'reyt', plan: 'essentiel', status: 'actif', periodEnd: '6 octobre', trialEnd: '', enRegle: true, ...SANS_EXCEPTION },
 }
 
 /** Libellés des statuts d'abonnement. */

@@ -100,6 +100,17 @@ export interface Subscription {
   status: SubscriptionStatus
   /** Fin de période, en toutes lettres. */
   periodEnd: string
+  /** Fin d'essai, en toutes lettres. Vide quand il n'y en a pas. */
+  trialEnd: string
+  /**
+   * Le contrat court-il ?
+   *
+   * Calculé en base (`abonnement_en_regle`, 0035) et non ici : c'est ce
+   * booléen qui ferme les leviers du cabinet, et deux endroits qui le
+   * calculeraient chacun de leur côté finiraient par ne plus s'accorder. Un
+   * essai expiré reste au statut « essai » et n'est plus en règle pour autant.
+   */
+  enRegle: boolean
   /**
    * Les exceptions négociées pour ce cabinet. Null = l'offre s'applique.
    *

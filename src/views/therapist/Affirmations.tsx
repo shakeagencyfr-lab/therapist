@@ -9,9 +9,19 @@ import s from './Affirmations.module.css'
 /**
  * Affirmations de la semaine.
  *
- * Deux modes : automatique — l'IA les écrit et les publie chaque lundi —
- * ou manuel — la thérapeute les écrit ou les fait proposer, les relit dans
- * `affPending`, puis les envoie dans `affs`, seule liste visible du patient.
+ * Deux modes, qui décident SEULEMENT de qui écrit le premier jet : l'IA
+ * d'après le dossier, ou la thérapeute. Dans les deux cas la correction passe
+ * par `affPending`, et un seul geste — « Envoyer au patient » — l'écrit dans
+ * `affs`, la seule liste que le patient voit.
+ *
+ * C'EST LE POINT DE CE FICHIER. En automatique, la liste était éditable et ne
+ * s'envoyait nulle part : le champ et la croix n'écrivaient que dans l'état
+ * React, les deux boutons qui atteignent la base étaient masqués, et le
+ * statut confirmait la suppression — « 4 affirmations en ligne » — à partir
+ * de la liste raccourcie à l'écran. Le patient continuait de lire la phrase
+ * effacée, et la correction disparaissait au premier `recharger()`, c'est-à-
+ * dire au retour sur l'onglet. Éditer devait donc écrire, ou ne pas être
+ * offert ; c'est écrire.
  */
 export function Affirmations() {
   const { state, set } = useStore()
@@ -27,21 +37,20 @@ export function Affirmations() {
   const auto = !!state.affAuto[key]
   const published = state.affs[key] ?? []
   const pending = state.affPending[key]
-  /* En mode manuel, on édite la proposition en attente tant qu'il y en a une. */
-  const work = auto ? published : (pending !== undefined ? pending : published)
+  /* On édite la proposition en attente tant qu'il y en a une — dans les deux
+     modes. `affs` ne se touche plus qu'à l'envoi. */
+  const work = pending !== undefined ? pending : published
   const busy = state.affGen === key
+  /** Des corrections attendent d'être envoyées. */
+  const enAttente =
+    pending !== undefined &&
+    (pending.length !== published.length || pending.some((x, i) => x !== published[i]))
 
   function writeAff(fn: (current: string[]) => string[]) {
     set((prev) => {
-      const cur = auto
-        ? (prev.affs[key] ?? [])
-        : prev.affPending[key] !== undefined
-          ? prev.affPending[key]
-          : (prev.affs[key] ?? [])
-      const next = fn(cur)
-      return auto
-        ? { affs: { ...prev.affs, [key]: next }, affSaved: '' }
-        : { affPending: { ...prev.affPending, [key]: next }, affSaved: '' }
+      const cur =
+        prev.affPending[key] !== undefined ? prev.affPending[key] : (prev.affs[key] ?? [])
+      return { affPending: { ...prev.affPending, [key]: fn(cur) }, affSaved: '' }
     })
   }
 
@@ -55,13 +64,21 @@ export function Affirmations() {
       // En automatique sur un cabinet réel, la série générée est publiée en base.
       if (auto && cabinet?.reel) {
         const r = await cabinet.publierAffirmations(key, list)
-        set({ affGen: '', affIdx: 0, affSaved: r.ok ? 'Publiées chez le patient.' : r.message })
+        /* La série publiée devient la liste éditée : sans cela, l'écran
+           montrerait la nouvelle série et garderait l'ancienne en attente. */
+        set((prev) => ({
+          affPending: r.ok ? { ...prev.affPending, [key]: list } : prev.affPending,
+          affGen: '',
+          affIdx: 0,
+          affSaved: r.ok ? 'Publiées chez le patient.' : r.message,
+        }))
         return
       }
       set((prev) =>
         auto
           ? {
               affs: { ...prev.affs, [key]: list },
+              affPending: { ...prev.affPending, [key]: list },
               affGen: '',
               affIdx: 0,
               affSaved: 'Publiées chez le patient.',
@@ -103,10 +120,8 @@ export function Affirmations() {
 
   const status =
     state.affSaved ||
-    (auto
-      ? published.length
-        ? `${published.length} affirmations en ligne, renouvelées lundi.`
-        : "Aucune affirmation pour l'instant. La première série arrive lundi."
+    (enAttente
+      ? `Corrections non envoyées. ${first} lit encore ${published.length ? `les ${published.length} phrases précédentes` : 'aucune phrase'}.`
       : published.length
         ? `${published.length} affirmations actuellement visibles par le patient.`
         : "Rien n'est visible côté patient pour l'instant.")
@@ -138,8 +153,11 @@ export function Affirmations() {
         <span className={s.autoText}>
           <span className={s.autoTitle}>Génération automatique chaque lundi</span>
           <span className={s.autoHint}>
+            {/* « … peut aussi les renouveler depuis l'application » : ce bouton
+                n'existait que dans l'aperçu de démonstration. Le patient LIT
+                ses affirmations, il ne les commande pas. */}
             {auto
-              ? `L'IA les écrit d'après son dossier. ${first} peut aussi les renouveler depuis l'application.`
+              ? "L'IA les écrit d'après son dossier et les publie chaque lundi matin. Vous pouvez les corriger à tout moment."
               : 'Vous les écrivez ou les faites proposer, puis vous les envoyez vous-même.'}
           </span>
           <span className={s.autoRule}>
@@ -176,24 +194,20 @@ export function Affirmations() {
         </div>
       ) : null}
 
-      {!auto ? (
-        <button type="button" className={s.add} onClick={() => writeAff((cur) => cur.concat(['']))}>
-          <span className={s.plus} aria-hidden>
-            +
-          </span>
-          <span>Ajouter une affirmation</span>
-        </button>
-      ) : null}
+      <button type="button" className={s.add} onClick={() => writeAff((cur) => cur.concat(['']))}>
+        <span className={s.plus} aria-hidden>
+          +
+        </span>
+        <span>Ajouter une affirmation</span>
+      </button>
 
       <div className={s.actions}>
         <button type="button" className={s.propose} disabled={busy} onClick={propose}>
           {busy ? 'Écriture…' : auto ? 'Regénérer maintenant' : 'Proposer avec l\'IA'}
         </button>
-        {!auto ? (
-          <button type="button" className={s.publish} onClick={() => void publish()}>
-            Envoyer au patient
-          </button>
-        ) : null}
+        <button type="button" className={s.publish} onClick={() => void publish()}>
+          Envoyer au patient
+        </button>
       </div>
 
       <p className={s.status}>{status}</p>

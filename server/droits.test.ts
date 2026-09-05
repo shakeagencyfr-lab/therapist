@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { exigerDroit, placesRestantes, type Droits } from './droits'
+import { exigerContrat, exigerDroit, placesRestantes, type Droits } from './droits'
 import { HttpError } from './errors'
 
 const OUVERT: Droits = {
@@ -13,6 +13,9 @@ const OUVERT: Droits = {
   site: true,
   offre: 'Cabinet',
   offreCode: 'cabinet',
+  enRegle: true,
+  statut: 'actif',
+  echeance: null,
 }
 
 describe('exigerDroit', () => {
@@ -20,6 +23,27 @@ describe('exigerDroit', () => {
     expect(() => exigerDroit(OUVERT, 'shop')).not.toThrow()
     expect(() => exigerDroit(OUVERT, 'marqueBlanche')).toThrow(HttpError)
     expect(() => exigerDroit(OUVERT, 'marqueBlanche')).toThrow(/revendeur peut l'ouvrir/)
+  })
+})
+
+/**
+ * Le contrat ferme les leviers, il ne ferme pas les dossiers.
+ *
+ * `status` et `trial_ends_at` existaient depuis la première migration et
+ * n'étaient lus par personne : un essai ne finissait pas, un impayé gardait
+ * tout. La règle vit en base (0035) ; ici on vérifie seulement que le refus
+ * est dit, et qu'il ne se confond pas avec un levier fermé par l'offre.
+ */
+describe('exigerContrat', () => {
+  it('laisse passer un contrat qui court, refuse celui qui ne court plus', () => {
+    expect(() => exigerContrat(OUVERT)).not.toThrow()
+    expect(() => exigerContrat({ ...OUVERT, enRegle: false })).toThrow(HttpError)
+    expect(() => exigerContrat({ ...OUVERT, enRegle: false })).toThrow(/dossiers restent accessibles/)
+  })
+
+  it('ne se confond pas avec un levier que l’offre ne comprend pas', () => {
+    expect(() => exigerDroit(OUVERT, 'marqueBlanche')).toThrow(/revendeur peut l'ouvrir/)
+    expect(() => exigerContrat({ ...OUVERT, enRegle: false })).toThrow(/abonnement n'est plus en cours/)
   })
 })
 

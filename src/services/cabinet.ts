@@ -19,6 +19,12 @@ export interface Droits {
   site: boolean
   offre: string
   offreCode: string
+  /** Le contrat court-il ? Faux : essai expiré, impayé, ou aucun contrat. */
+  enRegle: boolean
+  /** Le mot du contrat : essai, actif, impaye, suspendu, resilie. */
+  statut: string
+  /** La date qui vient : fin de période, ou fin d'essai. */
+  echeance: string | null
 }
 
 /* ---- Le domaine --------------------------------------------------------- */
