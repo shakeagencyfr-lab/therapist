@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import {
   CHEMINS_RESERVES,
   estDomainePersonnalise,
+  marqueSure,
   slugDuChemin,
   versSiteVitrine,
 } from './vitrine'
@@ -80,6 +81,38 @@ describe('estDomainePersonnalise', () => {
  * rien. L'épreuve porte donc sur CHAQUE champ, pas sur un échantillon.
  */
 const STOCKAGE = 'https://projet-temoin.supabase.co'
+
+/**
+ * Le LOGO du cabinet, filtré comme les photos.
+ *
+ * Le lot précédent a fermé les photos de la vitrine et laissé passer le logo,
+ * c'est-à-dire l'image la plus visible de la page — présente aussi sur la
+ * porte patient et dans le widget. `branding` s'écrit en jsonb brut depuis le
+ * navigateur, sans contrainte en base : le nettoyage n'a lieu qu'ici.
+ */
+describe('marqueSure', () => {
+  beforeAll(() => vi.stubEnv('VITE_SUPABASE_URL', STOCKAGE))
+  afterAll(() => vi.unstubAllEnvs())
+
+  it('garde un logo venu de notre stockage', () => {
+    const url = `${STOCKAGE}/storage/v1/object/public/logos/cf.png`
+    expect(marqueSure({ accent: '#A17A45', logoUrl: url })).toEqual({ accent: '#A17A45', logoUrl: url })
+  })
+
+  it('écarte un logo venu d’ailleurs, sans perdre le reste de la marque', () => {
+    expect(marqueSure({ accent: '#A17A45', logo: 'CF', logoUrl: 'https://tiers.test/cf.png' })).toEqual({
+      accent: '#A17A45',
+      logo: 'CF',
+      logoUrl: null,
+    })
+  })
+
+  it('n’invente pas de logo là où il n’y en a pas', () => {
+    expect(marqueSure({ accent: '#A17A45' })).toEqual({ accent: '#A17A45' })
+    expect(marqueSure(null)).toEqual({})
+    expect(marqueSure({ logoUrl: 42 })).toEqual({ logoUrl: null })
+  })
+})
 
 describe('versSiteVitrine', () => {
   beforeAll(() => vi.stubEnv('VITE_SUPABASE_URL', STOCKAGE))

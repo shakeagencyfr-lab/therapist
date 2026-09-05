@@ -18,6 +18,7 @@ import { JOURNAL_PAGES } from '@/data/journalPages'
 import { INITIAL_AFFIRMATIONS, INITIAL_AFF_AUTO } from '@/data/affirmations'
 import { PATIENTS, PATIENT_ORDER, PROGRAMMES_DEMO } from '@/data/patients'
 import { CABINETS, SUBSCRIPTIONS } from '@/data/reseller'
+import type { NoticeTone } from '@/components/ui'
 import type { Cabinet, CabinetId, PlanCode, Subscription } from '@/types/reseller'
 
 /**
@@ -93,6 +94,10 @@ export interface AppState {
   pNewEmail: string
   /** Confirmation du dernier geste sur le dossier. */
   pNotice: string
+  /* Un geste peut réussir à moitié : la fiche est créée, mais son courriel
+     n'est pas parti. Le bandeau était vert dans les deux cas, et la phrase
+     qui disait l'échec se lisait comme une réussite. */
+  pNoticeTon: NoticeTone
 
   /* Fiche client -------------------------------------------------- */
   /** Modules cochés, clé `${patientId}:${index}`. */
@@ -244,6 +249,8 @@ export interface AppState {
   rSel: CabinetId
   /** Message de confirmation du dernier geste. */
   rNotice: string
+  /** Et sa couleur : tout ce qui s'affiche là n'est pas une réussite. */
+  rNoticeTon: NoticeTone
   /** Formulaire d'ouverture d'un cabinet. */
   rNewOpen: boolean
   rNewName: string
@@ -263,6 +270,7 @@ export const initialState: AppState = {
   pNewName: '',
   pNewEmail: '',
   pNotice: '',
+  pNoticeTon: 'ok',
 
   cabinetId: null,
   patients: PATIENTS,
@@ -361,6 +369,7 @@ export const initialState: AppState = {
   rSubs: SUBSCRIPTIONS,
   rSel: 'ollivier',
   rNotice: '',
+  rNoticeTon: 'ok',
   rNewOpen: false,
   rNewName: '',
   rNewSlug: '',

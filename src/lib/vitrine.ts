@@ -167,6 +167,30 @@ export function imageDeNous(url: string): boolean {
   return url.startsWith(`${base}/storage/v1/object/public/`)
 }
 
+/**
+ * La marque, nettoyée de ce qui pointerait chez un tiers.
+ *
+ * Le lot précédent a fermé les PHOTOS de la vitrine et laissé passer le
+ * LOGO — c'est-à-dire l'image la plus visible de la page, présente aussi sur
+ * la porte patient et dans le widget. La règle n'en était pas une : elle
+ * couvrait tout sauf le cas principal.
+ *
+ * `branding` s'écrit en jsonb brut depuis le navigateur (enregistrerMarque
+ * écrit directement dans `cabinets`, sans passer par le serveur), et aucune
+ * contrainte ne le borne. Le nettoyage se fait donc à la LECTURE, au point
+ * d'usage — c'est là qu'il compte, et c'est le seul endroit que rien ne
+ * contourne.
+ */
+export function marqueSure(brut: unknown): CabinetBranding {
+  const b = { ...((brut ?? {}) as CabinetBranding) }
+  /* Une marque sans logo téléversé n'en reçoit pas un vide : ce module recopie
+     la ligne de la base sans rien y ajouter, et une clé inventée ici se
+     retrouverait telle quelle dans l'écran d'édition. */
+  if (!('logoUrl' in b)) return b
+  b.logoUrl = typeof b.logoUrl === 'string' && imageDeNous(b.logoUrl) ? b.logoUrl : null
+  return b
+}
+
 export function versSiteVitrine(brut: unknown, slug: string): SiteVitrine | null {
   const v = (brut ?? {}) as Partial<SiteVitrine>
   if (!v.name) return null
@@ -174,7 +198,7 @@ export function versSiteVitrine(brut: unknown, slug: string): SiteVitrine | null
     slug: v.slug ?? slug,
     name: v.name,
     tagline: v.tagline ?? '',
-    branding: v.branding as CabinetBranding,
+    branding: marqueSure(v.branding),
     modele: v.modele ?? 'sobre',
     /* Le thème vient de la base et repart tel quel : c'est la page qui le
        relit en liste blanche, au rendu. L'oublier ici rendait le réglage
@@ -230,7 +254,7 @@ export async function cabinetDuDomaine(host: string): Promise<(Vitrine & { slug:
   if (error || !data) return null
   const v = data as Partial<Vitrine & { slug: string }>
   return v.name && v.slug
-    ? { slug: v.slug, name: v.name, tagline: v.tagline ?? '', branding: v.branding as CabinetBranding }
+    ? { slug: v.slug, name: v.name, tagline: v.tagline ?? '', branding: marqueSure(v.branding) }
     : null
 }
 
@@ -241,5 +265,5 @@ export async function lireVitrine(slug: string): Promise<Vitrine | null> {
   const { data, error } = await db.rpc('cabinet_vitrine', { p_slug: slug })
   if (error || !data) return null
   const v = data as Partial<Vitrine>
-  return v.name ? { name: v.name, tagline: v.tagline ?? '', branding: v.branding as CabinetBranding } : null
+  return v.name ? { name: v.name, tagline: v.tagline ?? '', branding: marqueSure(v.branding) } : null
 }

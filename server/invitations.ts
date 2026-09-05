@@ -98,6 +98,14 @@ async function baseDuCabinet(
   return ouvert ? { base: `https://${data.domaine}`, sien: true } : { base: SITE, sien: false }
 }
 
+/** Ce que `lienDeConnexion` a fait, et pas seulement ce qu'il a rendu. */
+interface LienNeuf {
+  /** Le lien, quand il y en a un — et alors LE COMPTE VIENT D'ÊTRE CRÉÉ. */
+  lien: string | null
+  /** Rien à envoyer : la personne était déjà inscrite. Ce n'est pas une panne. */
+  existe: boolean
+}
+
 /**
  * Le lien de connexion d'un compte QUI N'EXISTE PAS ENCORE.
  *
@@ -119,7 +127,7 @@ async function lienDeConnexion(
   admin: SupabaseClient,
   email: string,
   redirectTo: string | undefined,
-): Promise<string | null> {
+): Promise<LienNeuf> {
   const { data, error } = await admin.auth.admin.generateLink({
     type: 'invite',
     email,
@@ -127,11 +135,46 @@ async function lienDeConnexion(
   })
   if (error) {
     // Compte existant : ce n'est pas une panne, c'est le cas qu'on refuse.
-    const dejaInscrit = /already|registered|exists/i.test(error.message) || error.status === 422
-    if (!dejaInscrit) console.error(`[invitation] lien — ${error.status ?? ''} ${error.message}`)
-    return null
+    const existe = dejaInscrit(error)
+    if (!existe) console.error(`[invitation] lien — ${error.status ?? ''} ${error.message}`)
+    return { lien: null, existe }
   }
-  return (data as { properties?: { action_link?: string } } | null)?.properties?.action_link ?? null
+  const lien = (data as { properties?: { action_link?: string } } | null)?.properties?.action_link ?? null
+  return { lien, existe: false }
+}
+
+/**
+ * Cette erreur dit-elle « ce compte existe déjà » ?
+ *
+ * La distinction porte tout le reste : un compte existant n'est pas une
+ * panne, et une panne n'est pas un compte existant. Les deux appels qui
+ * ouvrent un compte la posent, et ils doivent la poser de la même manière —
+ * elle vivait ici en deux exemplaires qui ne disaient pas tout à fait pareil.
+ */
+export function dejaInscrit(error: { message?: string | null; status?: number | null } | null): boolean {
+  if (!error) return false
+  return /already|registered|exists/i.test(error.message ?? '') || error.status === 422
+}
+
+/**
+ * Le courriel n'est pas parti du serveur du cabinet — et il ne partira pas.
+ *
+ * À ce moment-là le compte EST ouvert : `generateLink` l'a créé pour
+ * fabriquer le lien. Le service de la plateforme ne sait plus rien en faire —
+ * il n'invite qu'un compte neuf — et répondrait « déjà inscrite » sur celui
+ * que nous venons nous-mêmes d'ouvrir. Longtemps, c'est cette réponse-là qui
+ * remontait à l'écran : un bandeau vert, « elle a déjà un compte », alors que
+ * personne n'avait rien reçu et que la thérapeute croyait l'invitation
+ * partie. On dit donc les deux choses vraies : rien n'est parti, et le compte
+ * est là — elle y entre en saisissant son adresse.
+ */
+export function courrielNonParti(email: string): InviteResult {
+  return {
+    status: 502,
+    body: {
+      message: `Votre serveur d'envoi n'a pas répondu : le courriel n'est pas parti. Le compte de ${email} est bien ouvert — elle peut se connecter en entrant son adresse sur le site. Vérifiez vos réglages d'envoi dans Marque blanche, puis prévenez-la.`,
+    },
+  }
 }
 
 /** Le courriel d'invitation, en marque blanche. Rien d'un dossier n'y figure. */
@@ -274,13 +317,15 @@ export async function envoyerInvitation(
     kind === 'patient' ? espacePatient : slugCabinet ? `${base}/${slugCabinet}` : `${base}/`
 
   /* ---- D'abord son serveur d'envoi, si elle en a un --------------------
-     En marque blanche totale, le courriel doit partir de son adresse. Un
-     échec de son serveur ne perd pas l'invitation pour autant : on retombe
-     sur le service de la plateforme, en le disant dans le journal. */
+     En marque blanche totale, le courriel doit partir de son adresse. Le
+     lien, lui, ne se fabrique qu'une fois : le demander OUVRE le compte, et
+     ferme d'avance la porte du service de la plateforme. Un échec de son
+     serveur ne se rattrape donc pas — il se dit. */
   const smtp = await smtpDuCabinet(cabinetId)
-  /* Vrai quand son serveur a été essayé et n'a pas abouti : le courriel
-     partira quand même, mais depuis la plateforme — et elle doit le savoir,
-     sinon elle croira son domaine en service alors qu'il ne l'est pas. */
+  /* Vrai quand le lien n'a pas pu être fabriqué pour son serveur : le
+     courriel partira quand même, mais depuis la plateforme — et elle doit le
+     savoir, sinon elle croira son domaine en service alors qu'il ne l'est
+     pas. */
   let replie = false
   if (smtp) {
     const { data: fiche } = await admin
@@ -289,24 +334,37 @@ export async function envoyerInvitation(
       .eq('id', cabinetId)
       .maybeSingle<{ name: string }>()
     const nomCabinet = fiche?.name ?? 'Votre cabinet'
-    const lien = await lienDeConnexion(admin, email, base ? destination : undefined)
+    const { lien, existe } = await lienDeConnexion(admin, email, base ? destination : undefined)
     if (lien) {
+      /* Le compte est ouvert à partir d'ici. Il n'y a plus de repli : ou le
+         courriel part de chez elle, ou il ne part pas. */
+      let parti = false
       try {
         const courriel = corpsInvitation(kind, nomCabinet, lien)
-        await envoyerParCabinet(cabinetId, { to: email, fromName: nomCabinet, ...courriel })
-        return {
-          status: 200,
-          body: {
-            ok: true,
-            message: `Invitation envoyée à ${email} depuis ${smtp.from}. Le lien la connectera directement.`,
-          },
-        }
+        /* Le booléen n'était pas lu : `envoyerParCabinet` rend faux quand le
+           cabinet n'a plus de réglages d'envoi — effacés entre les deux
+           lectures — et l'écran annonçait alors un envoi depuis une adresse
+           d'où rien n'était parti. */
+        parti = await envoyerParCabinet(cabinetId, { to: email, fromName: nomCabinet, ...courriel })
+        if (!parti) console.error(`[invitation] smtp cabinet — réglages disparus avant l'envoi`)
       } catch (err) {
         // Journal technique seulement : ni mot de passe, ni dossier.
         console.error(`[invitation] smtp cabinet — ${(err as Error).message}`)
-        replie = true
+      }
+      if (!parti) return courrielNonParti(email)
+      return {
+        status: 200,
+        body: {
+          ok: true,
+          message: `Invitation envoyée à ${email} depuis ${smtp.from}. Le lien la connectera directement.`,
+        },
       }
     }
+    /* Pas de lien, donc pas de compte ouvert. Si la personne est déjà
+       inscrite, le service de la plateforme le dira comme avant ; sinon,
+       c'est notre fabrique qui a échoué et le courriel partira de chez nous,
+       pas de chez elle. */
+    replie = !existe
   }
 
   const { error } = await admin.auth.admin.inviteUserByEmail(email, {
@@ -316,8 +374,7 @@ export async function envoyerInvitation(
   if (error) {
     // Un compte existe déjà : il n'y a rien à envoyer, la personne se
     // connecte comme d'habitude. Ce n'est pas un échec.
-    const dejaInscrit = /already/i.test(error.message) || error.status === 422
-    if (dejaInscrit) {
+    if (dejaInscrit(error)) {
       return {
         status: 200,
         body: {
@@ -344,7 +401,7 @@ export async function envoyerInvitation(
     body: {
       ok: true,
       message: replie
-        ? `Invitation envoyée à ${email}, mais depuis nos serveurs : les vôtres n'ont pas répondu. Vérifiez vos réglages d'envoi dans Marque blanche.`
+        ? `Invitation envoyée à ${email}, mais depuis nos serveurs : son lien n'a pas pu être préparé pour les vôtres. Il la connectera directement.`
         : `Invitation envoyée à ${email}. Le lien la connectera directement.`,
     },
   }

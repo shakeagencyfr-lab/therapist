@@ -99,6 +99,18 @@ export interface PatientData {
   recharger: () => Promise<void>
 }
 
+/**
+ * La date d'un instant dans le fuseau où la base range les notes du soir.
+ *
+ * `fr-CA` parce que son format est précisément AAAA-MM-JJ : c'est le seul
+ * moyen d'obtenir une date comparable sans reconstruire l'arithmétique des
+ * fuseaux à la main — et donc de se retromper au prochain changement d'heure.
+ */
+export function jourDeParis(instant?: string): string {
+  const d = instant ? new Date(instant) : new Date()
+  return new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris' }).format(d)
+}
+
 export function usePatientData(patientId: string | null): PatientData {
   const [modules, setModules] = useState<PatientModuleRow[]>([])
   const [mots, setMots] = useState<MotRow[]>([])
@@ -184,8 +196,18 @@ export function usePatientData(patientId: string | null): PatientData {
     setShopEnabled(Boolean(r?.shop_enabled))
 
     const derniere = (echelle.data ?? [])[0] as { value: number; recorded_at: string } | undefined
-    const aujourdhui = new Date().toISOString().slice(0, 10)
-    setScaleToday(derniere && derniere.recorded_at.slice(0, 10) === aujourdhui ? derniere.value : null)
+    /* LE MÊME JOUR QUE LA BASE, PAS UN AUTRE.
+       `patient_note_echelle()` décide de créer ou de corriger la ligne du soir
+       en comparant des dates d'EUROPE/PARIS. Ici on comparait des dates UTC —
+       la base est en UTC, PostgREST sérialise donc en UTC. Les deux frontières
+       de journée ne tombent pas au même instant : minuit à Paris, deux heures
+       du matin en heure d'été côté UTC.
+       Entre les deux, l'écran parlait d'un autre jour que celui sur lequel la
+       base allait agir. Une patiente qui notait 7 à 00 h 30 voyait la question
+       revenir deux heures plus tard, répondait 4 — et le RPC, toujours au même
+       jour de Paris, CORRIGEAIT la ligne : le 7 disparaissait, sans que
+       personne ne l'ait voulu, sur la courbe que la thérapeute lit en séance. */
+    setScaleToday(derniere && jourDeParis(derniere.recorded_at) === jourDeParis() ? derniere.value : null)
     setChargement(false)
   }, [patientId])
 

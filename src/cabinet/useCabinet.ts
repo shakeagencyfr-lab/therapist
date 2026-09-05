@@ -203,6 +203,14 @@ export interface NouvellePatiente {
 export interface Resultat {
   ok: boolean
   message: string
+  /**
+   * Réussi, mais pas entièrement.
+   *
+   * La fiche est écrite et le courriel n'est pas parti : `ok` reste vrai —
+   * refaire le geste buterait sur un doublon — mais l'écran ne doit pas
+   * peindre en vert une phrase qui annonce un échec.
+   */
+  partiel?: boolean
 }
 
 /** Durée en secondes vers l'affichage `mm:ss` attendu par les écrans. */
@@ -740,18 +748,28 @@ export function useCabinet(cabinetId: string | null): CabinetData {
 
       // Sa fiche existe ; on lui envoie le lien qui ouvre son espace.
       let envoi = ''
+      /* Le serveur dit s'il a envoyé quelque chose ; on jetait sa réponse et
+         on ne gardait que sa phrase. « Votre serveur d'envoi n'a pas répondu »
+         s'affichait donc dans le bandeau vert des réussites. */
+      let parti = true
       if (email) {
         const r = await demanderInvitation({ email, cabinetId, kind: 'patient' })
         envoi = r.message
+        parti = r.ok
       }
 
       await recharger()
       if (!email) {
         return { ok: true, message: `${nom} est ajoutée. Ajoutez son adresse pour qu'elle puisse ouvrir son espace.` }
       }
+      /* La fiche est faite dans tous les cas : c'est la première chose à dire,
+         sans quoi la phrase du courriel se lit comme si rien n'avait eu lieu. */
       return {
         ok: true,
-        message: envoi || `${nom} est ajoutée. Elle entrera dans son espace avec ${email}, sans mot de passe.`,
+        partiel: !parti,
+        message: envoi
+          ? `${nom} est ajoutée. ${envoi}`
+          : `${nom} est ajoutée. Elle entrera dans son espace avec ${email}, sans mot de passe.`,
       }
     },
     [cabinetId, recharger],
@@ -1615,8 +1633,15 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         cabinet_id: cabinetId,
         patient_id: patientId,
         version: (precedent?.version ?? 0) + 1,
-        // La séance en cours compte : c'est d'elle que le profil est tiré.
-        sessions_count: (fiche?.sessions_done ?? 0) + 1,
+        /* LA SÉANCE EN COURS COMPTE — QUAND IL Y EN A UNE.
+           Ce « +1 » était inconditionnel. Il a un sens depuis l'écran de
+           séance, où la séance n'est pas encore comptée ; depuis la fiche, où
+           `sessionId` est nul, il inventait une séance qui n'a pas eu lieu.
+           La carte affichait alors deux comptes contradictoires côte à côte —
+           « Consolidé · 4 séances » face à « Établi après 5 séances » — et la
+           courbe des axes se décalait d'un cran à chaque actualisation.
+           C'est le même motif que 0031 a retiré de la clôture, resté ici. */
+        sessions_count: (fiche?.sessions_done ?? 0) + (sessionId ? 1 : 0),
         portrait: profil.portrait,
         axes: profil.axes,
         levers: profil.levers,

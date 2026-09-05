@@ -42,7 +42,15 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
     const r = await cabinet.creerPatiente({ nom: state.pNewName, email: state.pNewEmail })
     setEnvoi(false)
     if (r.ok) {
-      set({ pNewOpen: false, pNewName: '', pNewEmail: '', pNotice: r.message })
+      /* `partiel` : la fiche est faite, mais son courriel n'est pas parti.
+         Le bandeau le dit alors de sa couleur, pas seulement de sa phrase. */
+      set({
+        pNewOpen: false,
+        pNewName: '',
+        pNewEmail: '',
+        pNotice: r.message,
+        pNoticeTon: r.partiel ? 'warn' : 'ok',
+      })
       // Une fiche de plus : le compte des places suit, sans recharger la page.
       void droits?.recharger()
     } else {
@@ -58,7 +66,7 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
     const r = await cabinet.rouvrirPatiente(patientId)
     setReouverture('')
     if (r.ok) {
-      set({ sel: patientId, pNotice: r.message })
+      set({ sel: patientId, pNotice: r.message, pNoticeTon: r.partiel ? 'warn' : 'ok' })
       void droits?.recharger()
       return
     }
@@ -129,7 +137,7 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
         {cabinet?.reel ? (
           <div className={s.add}>
             {state.pNotice ? (
-              <Notice tone="ok" style={{ marginBottom: 12 }}>
+              <Notice tone={state.pNoticeTon} style={{ marginBottom: 12 }}>
                 {state.pNotice}
               </Notice>
             ) : null}
