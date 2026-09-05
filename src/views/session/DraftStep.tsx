@@ -104,6 +104,21 @@ export function DraftStep() {
 
   const consignes = useEcritureConsignes(cabinet?.majConsigne ?? (async () => ({ ok: false })))
 
+  /**
+   * Garder ce que la thérapeute vient de corriger.
+   *
+   * À la sortie du champ, pas à chaque frappe : le dossier n'a pas besoin de
+   * connaître chaque lettre, et une écriture par caractère sur une synthèse
+   * de neuf lignes ferait du bruit pour rien. Un échec ne s'affiche pas
+   * ici — le texte est encore à l'écran, l'envoi le réécrira, et
+   * interrompre une relecture pour une panne réseau d'une seconde coûterait
+   * plus qu'elle.
+   */
+  function garderLesCorrections() {
+    if (!cabinet?.reel || !state.sessionId || !state.draft) return
+    void cabinet.majBrouillon(state.sessionId, state.draft)
+  }
+
   function sendDraft() {
     // Garde de fond : le bouton est déjà barré, mais rien de fictif ne doit
     // pouvoir atteindre un dossier par un autre chemin.
@@ -137,7 +152,16 @@ export function DraftStep() {
     setEchecEnvoi('')
     const retenues = proposals.filter((_, i) => !state.proposalOff[i])
     void cabinet
-      .envoyerSeance(state.sessionId, key, { modules: retained, audioIds: sugOn.map((a) => a.id) })
+      .envoyerSeance(state.sessionId, key, {
+        modules: retained,
+        audioIds: sugOn.map((a) => a.id),
+        /* Le brouillon RELU part avec l'envoi. Les corrections apportées à la
+           synthèse et au message au patient ne quittaient jamais l'écran : la
+           colonne `draft` gardait le texte de l'IA, et c'est lui que la
+           fiche relisait — et que l'hypnose reprenait comme « les mots de la
+           séance ». */
+        draft: state.draft,
+      })
       .then((r) => {
         setEnvoi('repos')
         if (!r.ok) {
@@ -262,6 +286,7 @@ export function DraftStep() {
             const synthese = e.target.value
             set((prev) => (prev.draft ? { draft: { ...prev.draft, synthese }, syntheseOk: false } : {}))
           }}
+          onBlur={garderLesCorrections}
         />
       </section>
 
@@ -470,6 +495,7 @@ export function DraftStep() {
             const message = e.target.value
             set((prev) => (prev.draft ? { draft: { ...prev.draft, message }, msgOk: false } : {}))
           }}
+          onBlur={garderLesCorrections}
         />
       </section>
 
