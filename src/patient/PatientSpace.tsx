@@ -201,10 +201,13 @@ export function PatientSpace() {
 
   const valeurEchelle = echelle ?? scaleToday
 
-  /* Quatre destinations, jamais plus : au pouce, une barre à cinq entrées
-     devient une loterie. La journée est la première et celle qui s'ouvre ;
-     le journal quitte le bas de la page pour devenir un lieu, parce qu'on
-     n'écrit pas au bout d'un long défilement. */
+  /* TROIS DESTINATIONS FIXES, DEUX QUI DÉPENDENT DU CABINET. Le commentaire
+     disait « quatre, jamais plus » et la barre en produit cinq dès que
+     l'agenda ET la boutique sont ouverts — c'est le cas d'un cabinet complet,
+     donc le cas normal du produit vendu. Autant le dire : la journée, le
+     journal et « moi » sont toujours là ; les rendez-vous et la boutique
+     n'apparaissent que si la thérapeute les a ouverts. À cinq, la barre reste
+     tenable au pouce parce que chaque entrée fait toute sa hauteur. */
   const onglets: Array<{ value: Onglet; label: string; icone: Icone }> = [
     { value: 'jour', label: 'Ma journée', icone: 'jour' },
     { value: 'journal', label: 'Journal', icone: 'journal' },

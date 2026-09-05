@@ -1,12 +1,11 @@
 /**
- * Atelier de modules : amorces d'intention, types proposés et bibliothèque des
- * modules du cabinet.
+ * Atelier de modules : les amorces d'intention proposées sous le champ, et les
+ * quatre types qu'un module peut prendre.
  *
- * Données de démonstration reprises du prototype. Dans le produit réel elles
- * viennent de l'API : données de santé, chiffrées en transit et au repos, chez
- * un hébergeur certifié HDS.
+ * Ce sont des suggestions d'écran, pas des données : le module lui-même est
+ * écrit par l'IA à partir de l'intention, puis relu et corrigé.
  */
-import type { ModuleKind, PatientModule } from '@/types/domain'
+import type { ModuleKind } from '@/types/domain'
 
 /** Amorces proposées sous le champ d'intention (libellé du bouton). */
 export const ATELIER_SEEDS: string[] = [
@@ -26,35 +25,8 @@ export const ATELIER_SEED_BRIEFS: Record<string, string> = {
 export const ATELIER_TYPES: ModuleKind[] = ['Exercice', 'Journal', 'Écriture', 'Visualisation']
 
 /** Modules déjà écrits par le cabinet, réutilisables tels quels. */
-export const ATELIER_LIBRARY: PatientModule[] = [
-  {
-    title: 'Respiration en cohérence cardiaque',
-    meta: 'Matin et soir · 5 min',
-    kind: 'Exercice',
-    done: false,
-  },
-  {
-    title: "Écoute de l'induction « Retour au calme »",
-    meta: 'Au moment du besoin · 6 min',
-    kind: 'Audio',
-    done: false,
-  },
-  {
-    title: 'Noter les trois moments les plus calmes de la journée',
-    meta: 'Chaque soir',
-    kind: 'Journal',
-    done: false,
-  },
-  {
-    title: 'Auto-évaluation hebdomadaire',
-    meta: 'Chaque dimanche',
-    kind: 'Échelle',
-    done: false,
-  },
-  {
-    title: 'Lettre à soi-même dans six mois',
-    meta: 'Avant la prochaine séance',
-    kind: 'Écriture',
-    done: false,
-  },
-]
+
+/* `ATELIER_LIBRARY` vivait ici : trente lignes de modules d'exemple,
+   exportées et importées par personne depuis que l'atelier écrit ses modules
+   avec l'IA. Un jeu de données mortes finit par être relu comme un jeu de
+   données vivantes. */

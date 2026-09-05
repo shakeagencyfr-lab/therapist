@@ -74,7 +74,6 @@ interface ModuleRow {
 interface AudioRow {
   patient_id: string
   listens: number
-  last_listened_at: string | null
   audio: { title: string; duration_seconds: number } | null
 }
 
@@ -173,6 +172,7 @@ interface ProfileRow {
   dynamique: string | null
   alliance: string | null
   care: string[]
+  resume: string | null
 }
 
 interface BrouillonRow {
@@ -336,6 +336,7 @@ function assembler(
           dynamique: profil.dynamique ?? undefined,
           alliance: profil.alliance ?? undefined,
           care: profil.care ?? [],
+          resume: profil.resume ?? undefined,
           /* De la plus ancienne à la plus récente : une courbe se lit dans le
              sens du temps, et la base les rend dans l'autre. */
           historique: versions
@@ -554,10 +555,11 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         .not('archived_at', 'is', null)
         .order('archived_at', { ascending: false }),
       db.from('patient_modules').select('id, patient_id, title, meta, kind, position, done_at, patient_note, consigne'),
-      db.from('patient_audios').select('patient_id, listens, last_listened_at, audio:audio_library (title, duration_seconds)'),
+      // `last_listened_at` était chargé à chaque rechargement et lu nulle part.
+      db.from('patient_audios').select('patient_id, listens, audio:audio_library (title, duration_seconds)'),
       db.from('scale_entries').select('patient_id, value, recorded_at'),
       db.from('journal_pages').select('patient_id, title, body, trigger_label, written_at'),
-      db.from('psych_profiles').select('patient_id, version, sessions_count, portrait, axes, levers, dynamique, alliance, care').order('version', { ascending: false }),
+      db.from('psych_profiles').select('patient_id, version, sessions_count, portrait, axes, levers, dynamique, alliance, care, resume').order('version', { ascending: false }),
       db.from('audio_categories').select('id, label, position').order('position').order('label'),
       db.from('cabinet_programs').select('label, position').is('archived_at', null).order('position').order('label'),
       db.from('cabinet_settings').select('booking_url, booking_mode, booking_widget_url').eq('cabinet_id', cabinetId).maybeSingle(),

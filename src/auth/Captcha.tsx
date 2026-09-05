@@ -49,6 +49,13 @@ export interface Captcha {
 
 export function useCaptcha(): Captcha {
   const [jeton, setJeton] = useState<string | undefined>(undefined)
+  /* UN CAPTCHA QUI NE SE CHARGE PAS LAISSAIT LA PORTE FERMÉE, SANS UN MOT.
+     Le bouton « Recevoir mon lien » est grisé tant qu'il n'y a pas de jeton :
+     réseau d'entreprise qui bloque hcaptcha.com, bloqueur de traceurs, panne
+     du service — et l'écran ne montrait qu'un bouton mort et un cadre vide.
+     La patiente en conclut que le produit est cassé, ou que son adresse n'est
+     pas la bonne. On dit ce qui se passe et ce qu'elle peut faire. */
+  const [panne, setPanne] = useState(false)
   const ref = useRef<HCaptcha | null>(null)
 
   return {
@@ -63,10 +70,26 @@ export function useCaptcha(): Captcha {
           ref={ref}
           sitekey={CLE}
           languageOverride="fr"
-          onVerify={setJeton}
+          onVerify={(t) => {
+            setPanne(false)
+            setJeton(t)
+          }}
           onExpire={() => setJeton(undefined)}
-          onError={() => setJeton(undefined)}
+          onError={() => {
+            setJeton(undefined)
+            setPanne(true)
+          }}
         />
+        {panne ? (
+          <p
+            role="status"
+            style={{ marginTop: 8, fontSize: 12.5, lineHeight: 1.5, color: 'var(--c-warn-text-2)' }}
+          >
+            La vérification anti-robot n'a pas pu se charger. Elle est parfois bloquée par un
+            réseau d'entreprise ou une extension du navigateur : réessayez depuis votre téléphone,
+            en données mobiles, ou demandez le lien à votre thérapeute.
+          </p>
+        ) : null}
       </div>
     ) : null,
   }

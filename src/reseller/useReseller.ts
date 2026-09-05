@@ -10,6 +10,7 @@
  * fictif de src/data/reseller.ts : les écrans restent montrables sans compte.
  */
 import { useCallback, useEffect, useState } from 'react'
+import { useRetour } from '@/lib/useRetour'
 import { dateLongue } from '@/lib/format'
 import { supabase } from '@/lib/supabase'
 import { CHEMINS_RESERVES } from '@/lib/vitrine'
@@ -335,6 +336,13 @@ export function useReseller(): ResellerData {
     void recharger()
   }, [recharger])
 
+  /* Le portefeuille montrait l'état du monde à l'ouverture de l'onglet, et
+     rien d'autre : une praticienne acceptait son invitation pendant que le
+     revendeur regardait sa liste, et la ligne disait « Invitation envoyée »
+     jusqu'au rechargement de la page. Les deux autres fournisseurs se relisent
+     au retour d'onglet depuis longtemps. */
+  useRetour(() => void recharger())
+
   /**
    * Ouvrir un cabinet, c'est trois écritures : la fiche, son offre, et
    * l'invitation de la praticienne. Le revendeur ne devient jamais membre du
@@ -587,9 +595,21 @@ export function useReseller(): ResellerData {
       if (champs.site !== undefined) ligne.site = champs.site
       if (!Object.keys(ligne).length) return { ok: true, message: '' }
 
-      const { error } = await db.from('plans').update(ligne).eq('code', code)
+      /* ON REDEMANDE LA LIGNE TOUCHÉE. Un `update` que la politique de lecture
+         écarte ne touche rien et ne se plaint pas : PostgREST rend 204 sans
+         erreur. L'écran annonçait « Offre enregistrée. Elle vaut dès
+         maintenant pour tous les cabinets qui la portent » à un membre du
+         revendeur dont l'écriture avait été refusée — et le catalogue, relu
+         juste après, réaffichait les anciens prix sans un mot. */
+      const { data, error } = await db.from('plans').update(ligne).eq('code', code).select('code')
       await recharger()
       if (error) return { ok: false, message: "L'offre n'a pas pu être enregistrée." }
+      if (!data?.length) {
+        return {
+          ok: false,
+          message: "Cette offre n'a pas été modifiée : votre compte n'a pas le droit de régler le catalogue.",
+        }
+      }
       return {
         ok: true,
         message: 'Offre enregistrée. Elle vaut dès maintenant pour tous les cabinets qui la portent.',

@@ -345,7 +345,13 @@ export function Journal({
           trois boutons de filtre prennent plus de place qu'ils n'en font
           gagner. */}
       {pages.length > 4 ? (
-        <div className={s.filtres} role="tablist" aria-label="Trier mes pages">
+        /* CE NE SONT PAS DES ONGLETS. `role="tablist"` engage un contrat que
+           ce bloc ne tient pas : un lecteur d'écran annonce « onglet 1 sur
+           3 », attend un panneau relié par `aria-controls`, et propose la
+           navigation aux flèches — qui ne fait rien ici. Ce sont trois
+           boutons de filtre sur une seule liste ; `aria-pressed` les décrit
+           pour ce qu'ils sont. */
+        <div className={s.filtres} role="group" aria-label="Trier mes pages">
           {(
             [
               ['tout', 'Toutes'],
@@ -356,8 +362,7 @@ export function Journal({
             <button
               key={valeur}
               type="button"
-              role="tab"
-              aria-selected={filtre === valeur}
+              aria-pressed={filtre === valeur}
               className={filtre === valeur ? `${s.filtre} ${s.filtreOn}` : s.filtre}
               style={filtre === valeur && accent ? { color: accent, borderColor: accent } : undefined}
               onClick={() => setFiltre(valeur)}

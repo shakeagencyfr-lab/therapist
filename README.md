@@ -129,15 +129,16 @@ Deux surfaces, deux adresses :
 | Surface | Adresse | Pour |
 | --- | --- | --- |
 | Espace cabinet | `/` | la thérapeute, et le revendeur |
-| Vitrine d'un cabinet | `/c/<identifiant>` | la même porte, aux couleurs du cabinet |
+| Vitrine d'un cabinet | `/<identifiant>` | la même porte, aux couleurs du cabinet |
+| Espace patient d'un cabinet | `/<identifiant>/mon` | le patient, avec la marque de sa thérapeute |
 | Widget d'intégration | `/e/<identifiant>` | posé sur le site de la thérapeute |
 | Espace patient | `/mon` | le patient, sur son téléphone |
 
 Ce ne sont pas deux vues d'une même page : ce sont deux points d'entrée Vite
 distincts. Le téléchargement du patient ne contient pas une ligne du code de
-l'espace cabinet — vérifié sur le build, pas supposé.
+l'espace cabinet.
 
-`/c/<identifiant>` est l'adresse qu'une thérapeute donne : la page s'ouvre à son
+`/<identifiant>` est l'adresse qu'une thérapeute donne : la page s'ouvre à son
 nom et à ses couleurs **avant** la connexion. Personne n'étant connecté à ce
 moment-là, aucune politique RLS ne rendrait la ligne : une fonction dédiée,
 `cabinet_vitrine()`, rend le nom, le sur-titre et les couleurs, et rien d'autre
