@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Title, description, favicon, Open Graph and the brand colour theme are
+         all injected from src/brand.config.ts (see src/Layout.tsx) and baked
+         into each page's static HTML at build time. -->
+    <!-- Font preconnects. The actual font stylesheet is theme-specific and is
+         injected from src/Layout.tsx based on brand.config.ts → theme. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
