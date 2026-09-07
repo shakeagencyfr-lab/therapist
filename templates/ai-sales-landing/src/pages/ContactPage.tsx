@@ -3,13 +3,12 @@ import { motion } from "framer-motion";
 import { Nav, OrbField, Footer } from "../App";
 import { fadeUp, staggerContainer, VIEWPORT_ONCE } from "../lib/motion";
 import { FeatureEmoji } from "../lib/SubPagePrimitives";
-import brand from "../brand.config";
+import brand, { lhref } from "../brand.config";
+import { useUi } from "../lib/i18n";
 
 const SUPPORT_EMAIL = brand.supportEmail;
 const MAILTO = `mailto:${SUPPORT_EMAIL}`;
-const CANONICAL = `${brand.siteUrl}/contact/`;
-const TITLE = `Contact ${brand.brandName} — Talk to the AI on WhatsApp.`;
-const META = `The fastest way to reach ${brand.brandName} is through our own AI sales agent on WhatsApp. Or email us at ${SUPPORT_EMAIL}.`;
+const canonicalUrl = () => `${brand.siteUrl}${lhref("/contact")}/`;
 
 const ORG_JSONLD = {
   "@context": "https://schema.org",
@@ -21,10 +20,10 @@ const ORG_JSONLD = {
   email: SUPPORT_EMAIL,
 };
 
-const CONTACT_POINT_JSONLD = {
+const contactPointJsonLd = () => ({
   "@context": "https://schema.org",
   "@type": "ContactPage",
-  url: CANONICAL,
+  url: canonicalUrl(),
   mainEntity: {
     "@type": "Organization",
     name: brand.brandName,
@@ -41,7 +40,7 @@ const CONTACT_POINT_JSONLD = {
       },
     ],
   },
-};
+});
 
 function ChannelCard({
   emoji,
@@ -103,32 +102,36 @@ function ChannelCard({
 }
 
 export default function ContactPage() {
+  const ui = useUi();
+  const canonical = canonicalUrl();
+  const title = `${brand.brandName} — ${ui.contactTitle}`;
+  const meta = ui.contactMeta;
   return (
     <>
       <Head>
-        <title>{TITLE}</title>
-        <meta name="description" content={META} />
-        <link rel="canonical" href={CANONICAL} />
-        <meta property="og:title" content={TITLE} />
-        <meta property="og:description" content={META} />
+        <title>{title}</title>
+        <meta name="description" content={meta} />
+        <link rel="canonical" href={canonical} />
+        <meta property="og:title" content={title} />
+        <meta property="og:description" content={meta} />
         <meta property="og:type" content="website" />
-        <meta property="og:url" content={CANONICAL} />
+        <meta property="og:url" content={canonical} />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={TITLE} />
+        <meta name="twitter:title" content={title} />
         <meta
           property="og:image"
           content={`${brand.siteUrl}${brand.ogImage}`}
         />
         <meta property="og:image:width" content="1280" />
         <meta property="og:image:height" content="720" />
-        <meta name="twitter:description" content={META} />
+        <meta name="twitter:description" content={meta} />
         <meta
           name="twitter:image"
           content={`${brand.siteUrl}${brand.ogImage}`}
         />
         <script type="application/ld+json">{JSON.stringify(ORG_JSONLD)}</script>
         <script type="application/ld+json">
-          {JSON.stringify(CONTACT_POINT_JSONLD)}
+          {JSON.stringify(contactPointJsonLd())}
         </script>
       </Head>
 

@@ -5,12 +5,12 @@ import LegalPageShell, {
   LegalUl,
   LegalCallout,
 } from "../lib/LegalPageShell";
-import brand from "../brand.config";
+import brand, { lhref } from "../brand.config";
 
-const LAST_UPDATED = brand.legalEffectiveDate;
-const META_TITLE = `Terms of Service · ${brand.brandName}`;
-const META_DESCRIPTION = `The Terms of Service that govern your use of ${brand.brandName}. Effective ${brand.legalEffectiveDate}.`;
-const CANONICAL = `${brand.siteUrl}/terms/`;
+const lastUpdated = () => brand.legalEffectiveDate;
+const metaTitle = () => `Terms of Service · ${brand.brandName}`;
+const metaDescription = () => `The Terms of Service that govern your use of ${brand.brandName}. Effective ${brand.legalEffectiveDate}.`;
+const canonicalUrl = () => `${brand.siteUrl}${lhref("/terms")}/`;
 
 const TOC = [
   { id: "acceptance", label: "Acceptance of Terms" },
@@ -36,10 +36,10 @@ export default function TermsPage() {
   return (
     <LegalPageShell
       title="Terms of Service"
-      lastUpdated={LAST_UPDATED}
-      metaTitle={META_TITLE}
-      metaDescription={META_DESCRIPTION}
-      canonical={CANONICAL}
+      lastUpdated={lastUpdated()}
+      metaTitle={metaTitle()}
+      metaDescription={metaDescription()}
+      canonical={canonicalUrl()}
       toc={TOC}
       intro={
         <>

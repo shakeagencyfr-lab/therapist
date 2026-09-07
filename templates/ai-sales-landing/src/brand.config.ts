@@ -17,6 +17,7 @@
 
 import type { ThemeName, ThemeColors } from "./themes";
 import type { HomeLayoutName } from "./homeLayouts";
+import { enContent } from "./content/en";
 
 export interface BrandConfig {
   /* ---- Visual variant ----------------------------------------------------
@@ -276,83 +277,82 @@ export type Cell = true | false | "partial";
 /* =============================================================================
  *  YOUR CONFIG  —  edit everything below this line
  * ========================================================================== */
-export const brand: BrandConfig = {
-  /* Pick your look:
-   * "original" | "nebula" | "bloom" | "ember" | "tidal" | "mono" */
+const frBrand: BrandConfig = {
+  /* Le look : "original" | "nebula" | "bloom" | "ember" | "tidal" | "mono" */
   theme: "original",
 
-  /* Pick your home-page layout: "classic" | "split" | "vsl" */
+  /* La mise en page d'accueil :
+   * "classic" | "story" | "split" | "demo" | "vsl" | "compact" */
   homeLayout: "classic",
 
+  /* ---- Identité (commune aux deux langues) ---- */
   brandName: "YourBrand",
-  tagline: "The AI sales agent that books calls and closes deals in your DMs.",
+  tagline:
+    "L'agent commercial IA qui répond, qualifie et prend les rendez-vous dans vos messages privés.",
   domain: "yourbrand.com",
   siteUrl: "https://yourbrand.com",
   appUrl: "https://app.yourbrand.com",
   supportEmail: "hello@yourbrand.com",
   helpUrl: "https://help.yourbrand.com",
-  whatsAppLink: "https://wa.me/10000000000?text=Hi",
+  whatsAppLink: "https://wa.me/10000000000?text=Bonjour",
 
-  legalEntity: "[Your Company Name Ltd / B.V.]",
-  legalJurisdiction: "[your country]",
-  legalEffectiveDate: "1 January 2026",
+  /* ---- Mentions légales — À REMPLACER, puis à faire relire par un juriste ---- */
+  legalEntity: "[Votre société SAS / SARL]",
+  legalJurisdiction: "[votre pays]",
+  legalEffectiveDate: "1er janvier 2026",
 
   infrastructure: {
-    hostingRegion: "the European Union",
+    hostingRegion: "l'Union européenne",
     hostingSummary:
-      "The service and your data are hosted on secure dedicated servers and cloud infrastructure located in the European Union (Germany, and the EU region of our cloud provider). Data is encrypted in transit using TLS, and sensitive credentials and integration tokens are encrypted at rest.",
-    // Sub-processors that may handle personal data to deliver the service. Channel
-    // providers only apply to the channels you actually enable.
+      "Le service et vos données sont hébergés sur des serveurs dédiés sécurisés et une infrastructure cloud situés dans l'Union européenne (Allemagne, et la région européenne de notre fournisseur cloud). Les données sont chiffrées en transit via TLS, et les identifiants sensibles ainsi que les jetons d'intégration sont chiffrés au repos.",
     subProcessors: [
       {
-        name: "AI providers (e.g. Anthropic, OpenAI, Google)",
+        name: "Fournisseurs d'IA (par ex. Anthropic, OpenAI, Google)",
         purpose:
-          "Generating AI replies and understanding images, voice notes and video",
-        location: "EU / United States",
+          "Génération des réponses IA et compréhension des images, messages vocaux et vidéos",
+        location: "UE / États-Unis",
       },
       {
-        name: "Messaging providers (e.g. Twilio, Meta Platforms)",
+        name: "Fournisseurs de messagerie (par ex. Twilio, Meta Platforms)",
         purpose:
-          "Sending and receiving messages on the channels you connect (WhatsApp, SMS, Instagram, Messenger)",
-        location: "EU / United States",
+          "Envoi et réception des messages sur les canaux que vous connectez (WhatsApp, SMS, Instagram, Messenger)",
+        location: "UE / États-Unis",
       },
       {
-        name: "Cloud & server hosting (e.g. Hetzner, Google Cloud — EU regions)",
-        purpose: "Application hosting, databases and encrypted backups",
-        location: "European Union",
-      },
-      {
-        name: "Payment processor (e.g. Stripe)",
-        purpose: "Subscription billing and fraud prevention",
-        location: "EU / United States",
-      },
-      {
-        name: "Email & analytics tools",
+        name: "Hébergement cloud et serveurs (par ex. Hetzner, Google Cloud — régions UE)",
         purpose:
-          "Transactional and marketing email, and product-usage analytics",
-        location: "EU / United States",
+          "Hébergement de l'application, bases de données et sauvegardes chiffrées",
+        location: "Union européenne",
+      },
+      {
+        name: "Prestataire de paiement (par ex. Stripe)",
+        purpose: "Facturation des abonnements et prévention de la fraude",
+        location: "UE / États-Unis",
+      },
+      {
+        name: "Outils d'e-mail et d'analyse",
+        purpose:
+          "E-mails transactionnels et marketing, et analyse de l'usage du produit",
+        location: "UE / États-Unis",
       },
     ],
     transfersNote:
-      "Our infrastructure is primarily located in the European Union. Where a sub-processor (such as an AI, messaging or payment provider) processes data outside the EU, we rely on the European Commission's Standard Contractual Clauses or another lawful transfer mechanism.",
+      "Notre infrastructure est principalement située dans l'Union européenne. Lorsqu'un sous-traitant (fournisseur d'IA, de messagerie ou de paiement) traite des données hors de l'UE, nous nous appuyons sur les clauses contractuelles types de la Commission européenne ou sur un autre mécanisme de transfert licite.",
     retention: {
       conversations:
-        "Contacts and conversation content are retained for the life of your account and deleted from active systems within 90 days of account closure, unless a longer period is required by law.",
+        "Les contacts et le contenu des conversations sont conservés pendant toute la durée de vie de votre compte et supprimés des systèmes actifs dans les 90 jours suivant sa clôture, sauf si une durée plus longue est requise par la loi.",
       backups:
-        "Encrypted backups are retained on a rolling basis for up to 30 days.",
-      logs: "Server logs and security events are retained for up to 90 days.",
+        "Les sauvegardes chiffrées sont conservées de manière glissante pendant 30 jours maximum.",
+      logs: "Les journaux serveur et les événements de sécurité sont conservés pendant 90 jours maximum.",
     },
   },
 
+  /* ---- Assets (chemins sous /public, communs aux deux langues) ---- */
   logo: "/brand/logo.svg",
   logoAlt: "YourBrand",
   favicon: "/brand/favicon.svg",
   ogImage: "/brand/og.svg",
 
-  /* null = the theme's own colours (recommended while previewing variants).
-   * Replace with your six brand-colour stops to reskin any theme, e.g.
-   * { c50: "#ecfdf5", c100: "#d1fae5", c500: "#25D366",
-   *   c600: "#1ab854", c700: "#147a3a", c900: "#082f17" } */
   /* Vert de marque Shake, relevé sur shakeagency.io (teinte 167°).
    * c500/c600 = dégradé des boutons ; c700 = couleur de texte (62 usages),
    * assombrie pour rester lisible sur le fond clair du thème (5,1:1). */
@@ -367,19 +367,19 @@ export const brand: BrandConfig = {
 
   nav: {
     links: [
-      { href: "/#features", label: "Features" },
-      { href: "/#how-it-works", label: "How it works" },
-      { href: "/#pricing", label: "Pricing" },
+      { href: "/#features", label: "Fonctionnalités" },
+      { href: "/#how-it-works", label: "Comment ça marche" },
+      { href: "/#pricing", label: "Tarifs" },
       { href: "/#faq", label: "FAQ" },
-      // Your owner's manual (how to rebrand, theme, deploy). Remove this line
-      // before going live if you'd rather keep the guide unlisted.
-      { href: "/guide", label: "Guide" },
+      // Votre manuel (rebrander, changer de thème, déployer). Retirez cette
+      // ligne avant la mise en ligne pour ne plus l'afficher dans le menu.
+      { href: "/guide/", label: "Guide" },
     ],
-    // "Themes" menu with live previews of every look. Set false for launch.
+    // Menu « Design » avec aperçu de chaque look. À passer à false pour le lancement.
     themePicker: true,
-    ctaLabel: "Start free",
-    ctaHref: "/pricing",
-    loginLabel: "Log in",
+    ctaLabel: "Essai gratuit",
+    ctaHref: "/pricing/",
+    loginLabel: "Connexion",
     loginHref: "https://app.yourbrand.com",
   },
 
@@ -387,373 +387,378 @@ export const brand: BrandConfig = {
     { key: "whatsapp", label: "WhatsApp" },
     { key: "instagram", label: "Instagram" },
     { key: "messenger", label: "Messenger" },
-    { key: "webchat", label: "Web Chat" },
+    { key: "webchat", label: "Chat du site" },
     { key: "sms", label: "SMS" },
     { key: "imessage", label: "iMessage", soon: true },
     { key: "telegram", label: "Telegram", soon: true },
   ],
 
   hero: {
-    badge: "Replies in seconds. Books the call. Closes the deal.",
-    titleA: "Your AI sales agent that",
-    titleHighlight: "closes deals",
-    titleB: "in the DMs.",
+    badge: "Répond en quelques secondes. Prend le rendez-vous. Conclut.",
+    titleA: "L'agent commercial IA qui",
+    titleHighlight: "conclut vos ventes",
+    titleB: "dans vos messages privés.",
     subhead:
-      "YourBrand answers every message in seconds, qualifies the lead, handles objections, books the call and follows up — on WhatsApp, Instagram, Messenger, web chat and SMS. Around the clock, in your brand's voice.",
-    primaryCta: { label: "Start your free trial", href: "/pricing" },
-    secondaryCta: { label: "See it in action", href: "/#how-it-works" },
-    // Your VSL's YouTube ID — only shown by the "vsl" layout.
+      "YourBrand répond à chaque message en quelques secondes, qualifie le prospect, lève les objections, fixe le rendez-vous et relance — sur WhatsApp, Instagram, Messenger, le chat de votre site et par SMS. Jour et nuit, avec le ton de votre marque.",
+    primaryCta: { label: "Démarrer l'essai gratuit", href: "/pricing/" },
+    secondaryCta: { label: "Voir une démonstration", href: "/#how-it-works" },
+    // L'identifiant YouTube de votre vidéo — utilisé par la mise en page "vsl".
     videoId: null,
     kpis: [
-      { value: "24/7", label: "never miss a DM again" },
-      { value: "<30s", label: "average reply time", highlight: true },
-      { value: "5", label: "channels, one inbox" },
-      { value: "15 min", label: "to go live" },
+      { value: "24h/24", label: "plus aucun message manqué" },
+      { value: "<30 s", label: "temps de réponse moyen", highlight: true },
+      { value: "5", label: "canaux, une seule boîte" },
+      { value: "15 min", label: "pour être en ligne" },
     ],
   },
 
   comparison: {
-    eyebrow: "Why it's different",
-    heading: "An AI sales agent, not a chatbot.",
+    eyebrow: "Ce qui change",
+    heading: "Un agent commercial IA, pas un chatbot.",
     youLabel: "YourBrand",
-    themLabel: "Regular chatbot",
+    themLabel: "Chatbot classique",
     rows: [
-      ["Closes deals in chat", true, false],
-      ["Handles objections", true, false],
-      ["Books appointments inside the conversation", true, false],
-      ["Understands images, voice notes and video", true, false],
-      ["Remembers past conversations", true, false],
-      ["Gets smarter automatically", true, false],
-      ["Replies in your brand voice", true, "partial"],
-      ["Every channel in one inbox", true, false],
+      ["Conclut des ventes dans la conversation", true, false],
+      ["Lève les objections", true, false],
+      ["Prend les rendez-vous sans quitter le fil", true, false],
+      ["Comprend images, messages vocaux et vidéos", true, false],
+      ["Se souvient des échanges précédents", true, false],
+      ["Progresse automatiquement", true, false],
+      ["Répond avec le ton de votre marque", true, "partial"],
+      ["Tous les canaux dans une seule boîte", true, false],
     ],
   },
 
   howItWorks: {
-    eyebrow: "Live in 15 minutes",
-    heading: "Three steps to a 24/7 salesperson.",
+    eyebrow: "En ligne en 15 minutes",
+    heading: "Trois étapes vers un commercial disponible 24h/24.",
     steps: [
       {
-        title: "Connect your channels",
-        body: "Link WhatsApp, Instagram, Messenger, your website chat and SMS. Every conversation lands in one inbox.",
+        title: "Connectez vos canaux",
+        body: "Reliez WhatsApp, Instagram, Messenger, le chat de votre site et vos SMS. Toutes les conversations arrivent au même endroit.",
       },
       {
-        title: "Train it on your business",
-        body: "Paste your website or upload your FAQs. The AI learns your offer, pricing and tone in minutes — no scripting.",
+        title: "Formez-le à votre activité",
+        body: "Collez l'adresse de votre site ou déposez votre FAQ. L'IA apprend votre offre, vos tarifs et votre ton en quelques minutes — sans scénario à écrire.",
       },
       {
-        title: "It starts selling",
-        body: "It replies in seconds, qualifies every lead, answers questions, books the call and follows up so nothing slips.",
+        title: "Il se met à vendre",
+        body: "Il répond en quelques secondes, qualifie chaque prospect, répond aux questions, fixe le rendez-vous et relance pour que rien ne se perde.",
       },
     ],
   },
 
   features: {
-    eyebrow: "What it does",
-    heading: "Everything a great salesperson does. Instantly.",
+    eyebrow: "Ce qu'il fait",
+    heading: "Tout ce que fait un bon commercial. Immédiatement.",
     items: [
       {
         emoji: "speech-balloon.png",
-        title: "It sells",
-        body: "Qualifies, handles objections and moves the conversation toward a booking or a sale — not just canned FAQ answers.",
+        title: "Il vend",
+        body: "Il qualifie, lève les objections et fait avancer la conversation vers un rendez-vous ou une vente — pas de simples réponses toutes faites.",
       },
       {
         emoji: "calendar.png",
-        title: "Books appointments",
-        body: "Offers times, confirms and adds the appointment to your calendar, right inside the chat.",
+        title: "Il prend les rendez-vous",
+        body: "Il propose des créneaux, confirme et inscrit le rendez-vous dans votre agenda, directement dans la conversation.",
       },
       {
         emoji: "eyes.png",
-        title: "Understands everything",
-        body: "Reads images, listens to voice notes and watches video, so customers can message however they like.",
+        title: "Il comprend tout",
+        body: "Il lit les images, écoute les messages vocaux et regarde les vidéos : vos clients écrivent comme ils en ont l'habitude.",
       },
       {
         emoji: "brain.png",
-        title: "It remembers",
-        body: "Recalls every past conversation with a customer, so each reply feels personal and picks up where you left off.",
+        title: "Il se souvient",
+        body: "Il retrouve chaque échange passé avec un client, si bien que chaque réponse reste personnelle et reprend là où vous en étiez.",
       },
       {
         emoji: "chart-increasing.png",
-        title: "Gets smarter",
-        body: "Learns from every conversation and tightens its answers over time — automatically.",
+        title: "Il s'améliore",
+        body: "Il apprend de chaque conversation et affine ses réponses avec le temps — tout seul.",
       },
       {
         emoji: "megaphone.png",
-        title: "Runs campaigns",
-        body: "Reach out, re-engage cold leads and follow up at scale, then hand warm replies straight back to the AI.",
+        title: "Il mène vos campagnes",
+        body: "Il contacte, réactive les prospects froids et relance à grande échelle, puis rend la main à l'IA dès qu'une réponse arrive.",
       },
       {
         emoji: "link.png",
-        title: "Connects to everything",
-        body: "Plugs into your CRM, calendar and tools through webhooks and integrations.",
+        title: "Il se connecte à vos outils",
+        body: "Il se relie à votre CRM, votre agenda et vos outils via des webhooks et des intégrations.",
       },
       {
         emoji: "globe.png",
-        title: "Speaks your voice",
-        body: "Replies in your tone and in your customer's language, on every channel.",
+        title: "Il parle votre langue",
+        body: "Il répond avec votre ton et dans la langue de votre client, sur tous les canaux.",
       },
     ],
   },
 
   problem: {
-    eyebrow: "The problem",
-    heading: "Every slow reply is a lost deal.",
-    sub: "Your leads are already in their DMs — the only question is whether anyone answers while they still care.",
+    eyebrow: "Le problème",
+    heading: "Chaque réponse tardive est une vente perdue.",
+    sub: "Vos prospects sont déjà dans vos messages privés — reste à savoir si quelqu'un répond pendant qu'ils sont encore intéressés.",
     items: [
       {
         emoji: "hourglass-not-done.png",
-        title: "Minutes decide it",
-        body: "A DM answered in seconds keeps the buying mood alive. One answered tomorrow lands in a conversation that has already gone cold.",
+        title: "Tout se joue en quelques minutes",
+        body: "Un message auquel on répond en quelques secondes entretient l'envie d'acheter. Celui auquel on répond le lendemain tombe dans une conversation déjà refroidie.",
       },
       {
         emoji: "money-with-wings.png",
-        title: "Missed DMs are missed revenue",
-        body: "Every unanswered message is a customer who was ready to talk — and who is probably already messaging your competitor.",
+        title: "Un message manqué, un client perdu",
+        body: "Chaque message sans réponse est un client qui était prêt à discuter — et qui écrit probablement déjà à votre concurrent.",
       },
       {
         emoji: "snowflake.png",
-        title: "You can't be on 24/7",
-        body: "Evenings, weekends and holidays are exactly when people browse and message — and exactly when nobody is there to answer.",
+        title: "Vous ne pouvez pas être là 24h/24",
+        body: "Les soirées, les week-ends et les jours fériés sont précisément les moments où l'on navigue et où l'on écrit — et précisément ceux où personne ne répond.",
       },
     ],
   },
 
   conversation: {
-    eyebrow: "Watch it work",
-    heading: "First message to closed deal — hands off.",
-    sub: "This is the shape of a real conversation: qualify the lead, answer the questions, handle the objection, book the slot, confirm. Zero human input.",
+    eyebrow: "Voyez-le à l'œuvre",
+    heading: "Du premier message à la vente conclue, sans intervention.",
+    sub: "Voilà à quoi ressemble une vraie conversation : qualifier le prospect, répondre aux questions, lever l'objection, réserver le créneau, confirmer. Aucune intervention humaine.",
     bullets: [
-      "Replies in seconds, in your brand's tone",
-      "Handles objections and books the appointment in-chat",
-      "Hands off to a human the moment you want in",
+      "Répond en quelques secondes, avec le ton de votre marque",
+      "Lève les objections et fixe le rendez-vous sans quitter la conversation",
+      "Vous passe la main dès que vous voulez reprendre",
     ],
   },
 
   guarantee: {
-    eyebrow: "Zero-risk start",
-    heading: "Try it without betting the business.",
+    eyebrow: "Démarrage sans risque",
+    heading: "Essayez sans rien engager.",
     points: [
       {
         emoji: "rocket.png",
-        title: "Start free",
-        body: "Set it up, connect a channel and watch it handle real conversations before you pay anything.",
+        title: "Commencez gratuitement",
+        body: "Installez-le, connectez un canal et regardez-le traiter de vraies conversations avant de payer quoi que ce soit.",
       },
       {
         emoji: "alarm-clock.png",
-        title: "Live in 15 minutes",
-        body: "No developers and no scripting — paste your website and the AI learns your offer, pricing and tone.",
+        title: "En ligne en 15 minutes",
+        body: "Ni développeur ni scénario à écrire — collez l'adresse de votre site et l'IA apprend votre offre, vos tarifs et votre ton.",
       },
       {
         emoji: "handshake.png",
-        title: "You stay in control",
-        body: "Jump into any conversation, correct the AI or switch it off per chat. It's your inbox — the AI just works it.",
+        title: "Vous gardez la main",
+        body: "Intervenez dans n'importe quelle conversation, corrigez l'IA ou désactivez-la au cas par cas. C'est votre boîte de réception, l'IA ne fait que la traiter.",
       },
       {
         emoji: "key.png",
-        title: "Your data stays yours",
-        body: "Export your contacts and conversations whenever you like. No lock-in.",
+        title: "Vos données restent les vôtres",
+        body: "Exportez vos contacts et vos conversations quand vous le souhaitez. Sans enfermement.",
       },
     ],
   },
 
   trust: {
-    eyebrow: "Security & privacy",
-    heading: "Your customers' data, handled properly.",
+    eyebrow: "Sécurité et confidentialité",
+    heading: "Les données de vos clients, traitées comme il se doit.",
     items: [
       {
         emoji: "globe.png",
-        title: "EU hosting",
-        body: "The service and your customer data run on secure servers located in the European Union.",
+        title: "Hébergement européen",
+        body: "Le service et les données de vos clients tournent sur des serveurs sécurisés situés dans l'Union européenne.",
       },
       {
         emoji: "key.png",
-        title: "Encrypted",
-        body: "Data is encrypted in transit; credentials and integration tokens are encrypted at rest.",
+        title: "Chiffrement",
+        body: "Les données sont chiffrées en transit ; les identifiants et les jetons d'intégration le sont au repos.",
       },
       {
         emoji: "balance-scale.png",
-        title: "GDPR-ready",
-        body: "Clear retention rules, EU standard contractual clauses for transfers and a transparent sub-processor list.",
+        title: "Conforme au RGPD",
+        body: "Des durées de conservation claires, les clauses contractuelles types de l'UE pour les transferts et une liste de sous-traitants transparente.",
       },
       {
         emoji: "shield.png",
-        title: "You're in control",
-        body: "Delete or export a contact's data whenever a customer asks — the tooling is built in.",
+        title: "Vous décidez",
+        body: "Supprimez ou exportez les données d'un contact dès qu'un client le demande — les outils sont intégrés.",
       },
     ],
   },
 
   useCases: {
-    eyebrow: "Who it's for",
-    heading: "Built for businesses that live in the DMs.",
+    eyebrow: "Pour qui",
+    heading: "Conçu pour les activités qui vivent dans la messagerie.",
     items: [
       {
         emoji: "lotion-bottle.png",
-        title: "Beauty & wellness",
-        body: "Salons, spas and studios: answer treatment questions, book the slot and take the deposit — while you're with a client.",
+        title: "Beauté et bien-être",
+        body: "Salons, spas et studios : répondez aux questions sur les soins, réservez le créneau et encaissez l'acompte — pendant que vous êtes avec un client.",
       },
       {
         emoji: "tooth.png",
-        title: "Clinics & practices",
-        body: "Qualify new patients, answer pricing questions and fill the calendar without the front desk touching a message.",
+        title: "Cabinets et cliniques",
+        body: "Qualifiez les nouveaux patients, répondez aux questions de tarifs et remplissez l'agenda sans que l'accueil touche un seul message.",
       },
       {
         emoji: "graduation-cap.png",
-        title: "Coaches & consultants",
-        body: "Turn 'how does it work?' DMs into booked discovery calls with follow-ups that never let a lead go cold.",
+        title: "Coachs et consultants",
+        body: "Transformez les « comment ça marche ? » en appels de découverte réservés, avec des relances qui ne laissent aucun prospect refroidir.",
       },
       {
         emoji: "house.png",
-        title: "Real estate",
-        body: "Respond to every listing enquiry in seconds, qualify the buyer and book the viewing before the competition replies.",
+        title: "Immobilier",
+        body: "Répondez à chaque demande en quelques secondes, qualifiez l'acheteur et fixez la visite avant que la concurrence n'ait répondu.",
       },
       {
         emoji: "shopping-cart.png",
         title: "E-commerce",
-        body: "Answer product questions, recover carts and recommend the right item — in the channels your customers already use.",
+        body: "Répondez aux questions produit, récupérez les paniers abandonnés et recommandez le bon article — sur les canaux que vos clients utilisent déjà.",
       },
       {
         emoji: "briefcase.png",
-        title: "Agencies & services",
-        body: "Qualify inbound leads, book strategy calls and keep prospects warm across every client conversation.",
+        title: "Agences et prestataires",
+        body: "Qualifiez les demandes entrantes, fixez les rendez-vous stratégiques et gardez vos prospects au chaud sur toutes les conversations clients.",
       },
     ],
   },
 
   integrations: {
-    eyebrow: "Plays well with others",
-    heading: "Every channel in one inbox — plus your tools.",
-    sub: "Conversations flow in from every connected channel, and the AI works with the tools you already run your business on.",
+    eyebrow: "Il s'intègre à votre organisation",
+    heading: "Tous vos canaux dans une seule boîte — et vos outils avec.",
+    sub: "Les conversations arrivent de tous les canaux connectés, et l'IA travaille avec les outils sur lesquels vous faites déjà tourner votre activité.",
     tools: [
-      "Google Calendar",
-      "Webhooks & API",
-      "Your CRM",
-      "Payment links",
-      "Custom functions",
+      "Google Agenda",
+      "Webhooks et API",
+      "Votre CRM",
+      "Liens de paiement",
+      "Fonctions sur mesure",
     ],
   },
 
   testimonials: {
-    eyebrow: "Loved by teams",
-    heading: "What customers say.",
-    // ⚠️ SHIPS EMPTY ON PURPOSE. Add only testimonials you have permission to
-    // use. While this array is empty, the section is hidden automatically.
+    eyebrow: "Ils nous font confiance",
+    heading: "Ce que disent nos clients.",
+    // ⚠️ VOLONTAIREMENT VIDE. N'ajoutez que des témoignages que vous êtes
+    // autorisé à publier. Tant que ce tableau est vide, la section est masquée.
     items: [],
   },
 
   pricing: {
-    eyebrow: "Pricing",
-    heading: "Simple pricing that scales with you.",
+    eyebrow: "Tarifs",
+    heading: "Des tarifs simples, qui suivent votre croissance.",
     subheading:
-      "Start free. Upgrade when the AI is closing more than it costs.",
-    note: "All plans include every channel and a 14-day free trial. Cancel anytime.",
+      "Commencez gratuitement. Passez à l'offre supérieure quand l'IA rapporte plus qu'elle ne coûte.",
+    note: "Toutes les offres incluent l'ensemble des canaux et 14 jours d'essai gratuit. Résiliable à tout moment.",
     tiers: [
       {
-        name: "Starter",
-        price: "$27",
-        cadence: "/mo",
-        blurb: "For solo founders and small teams getting started.",
+        name: "Découverte",
+        price: "27 €",
+        cadence: "/mois",
+        blurb: "Pour les indépendants et les petites équipes qui se lancent.",
         features: [
-          "1 channel",
-          "AI replies 24/7",
-          "Lead capture & tagging",
-          "Email support",
+          "1 canal",
+          "Réponses IA 24h/24",
+          "Capture et étiquetage des prospects",
+          "Assistance par e-mail",
         ],
-        cta: { label: "Start free", href: "/pricing" },
+        cta: { label: "Essai gratuit", href: "/pricing/" },
       },
       {
-        name: "Growth",
-        price: "$97",
-        cadence: "/mo",
-        blurb: "For growing businesses across multiple channels.",
+        name: "Croissance",
+        price: "97 €",
+        cadence: "/mois",
+        blurb: "Pour les entreprises présentes sur plusieurs canaux.",
         features: [
-          "All channels",
-          "Appointment booking",
-          "Campaigns & follow-ups",
-          "Integrations",
-          "Priority support",
+          "Tous les canaux",
+          "Prise de rendez-vous",
+          "Campagnes et relances",
+          "Intégrations",
+          "Assistance prioritaire",
         ],
-        cta: { label: "Start free", href: "/pricing" },
+        cta: { label: "Essai gratuit", href: "/pricing/" },
         featured: true,
       },
       {
         name: "Pro",
-        price: "$297",
-        cadence: "/mo",
-        blurb: "For teams that want power and bring-your-own-AI-key.",
+        price: "297 €",
+        cadence: "/mois",
+        blurb:
+          "Pour les équipes qui veulent la puissance et leur propre clé d'IA.",
         features: [
-          "Everything in Growth",
-          "Higher usage limits",
-          "Bring your own AI key",
-          "Advanced automations",
-          "Dedicated support",
+          "Tout ce que contient Croissance",
+          "Volumes plus élevés",
+          "Votre propre clé d'IA",
+          "Automatisations avancées",
+          "Accompagnement dédié",
         ],
-        cta: { label: "Talk to us", href: "/contact" },
+        cta: { label: "Parlons-en", href: "/contact/" },
       },
     ],
   },
 
   faq: {
-    heading: "Questions, answered.",
+    heading: "Vos questions, nos réponses.",
     items: [
       [
-        "Which channels does it cover?",
-        "WhatsApp (Business API and WhatsApp Web), Instagram DMs, Facebook Messenger, website chat and SMS — all in one inbox. iMessage and Telegram are coming soon.",
+        "Quels canaux sont couverts ?",
+        "WhatsApp (API Business et WhatsApp Web), les messages privés Instagram, Facebook Messenger, le chat de votre site et les SMS — le tout dans une seule boîte de réception. iMessage et Telegram arrivent bientôt.",
       ],
       [
-        "How long does it take to set up?",
-        "About 15 minutes. Connect your channels, paste your website or FAQs, and the AI is ready to start replying.",
+        "Combien de temps prend l'installation ?",
+        "Une quinzaine de minutes. Vous connectez vos canaux, collez l'adresse de votre site ou votre FAQ, et l'IA est prête à répondre.",
       ],
       [
-        "Will it sound like a robot?",
-        "No. It replies in your brand voice, in your customer's language, and you can set its tone. Most customers can't tell.",
+        "Est-ce que ça fait robotique ?",
+        "Non. Il répond avec le ton de votre marque, dans la langue de votre client, et vous réglez son style. La plupart des clients n'y voient que du feu.",
       ],
       [
-        "What happens when it can't answer something?",
-        "It hands the conversation to you with full context, so nothing falls through the cracks.",
+        "Que se passe-t-il s'il ne sait pas répondre ?",
+        "Il vous passe la conversation avec tout le contexte, pour que rien ne passe entre les mailles.",
       ],
       [
-        "Does it work in my language?",
-        "Yes. It understands and replies in dozens of languages automatically, matching whatever your customer writes in.",
+        "Fonctionne-t-il dans ma langue ?",
+        "Oui. Il comprend et répond automatiquement dans des dizaines de langues, en s'adaptant à celle de votre client.",
       ],
       [
-        "Is my data safe?",
-        "Your conversations are yours. See our Privacy Policy for how data is stored and processed.",
+        "Mes données sont-elles en sécurité ?",
+        "Vos conversations vous appartiennent. Consultez notre politique de confidentialité pour le détail du stockage et du traitement.",
       ],
     ],
   },
 
   finalCta: {
-    headline: "Stop losing deals in your DMs.",
+    headline: "Ne perdez plus de ventes dans vos messages privés.",
     subhead:
-      "Turn on your AI sales agent and let it qualify, book and close — 24/7, on every channel, in 15 minutes.",
-    ctaLabel: "Start your free trial",
-    ctaHref: "/pricing",
-    trustLine: ["14-day free trial", "No card required", "Set up in 15 min"],
+      "Activez votre agent commercial IA et laissez-le qualifier, réserver et conclure — 24h/24, sur tous vos canaux, en 15 minutes.",
+    ctaLabel: "Démarrer l'essai gratuit",
+    ctaHref: "/pricing/",
+    trustLine: [
+      "14 jours d'essai gratuit",
+      "Sans carte bancaire",
+      "Installé en 15 min",
+    ],
   },
 
   footer: {
     tagline:
-      "The AI sales agent that books calls and closes deals on WhatsApp, Instagram, Messenger, web chat and SMS.",
+      "L'agent commercial IA qui prend les rendez-vous et conclut les ventes sur WhatsApp, Instagram, Messenger, le chat de votre site et par SMS.",
     columns: [
       {
-        title: "Product",
+        title: "Produit",
         links: [
-          { href: "/#features", label: "Features" },
-          { href: "/#how-it-works", label: "How it works" },
-          { href: "/#pricing", label: "Pricing" },
+          { href: "/#features", label: "Fonctionnalités" },
+          { href: "/#how-it-works", label: "Comment ça marche" },
+          { href: "/#pricing", label: "Tarifs" },
           { href: "/#faq", label: "FAQ" },
         ],
       },
       {
-        title: "Company",
-        links: [{ href: "/contact", label: "Contact" }],
+        title: "Société",
+        links: [{ href: "/contact/", label: "Contact" }],
       },
       {
-        title: "Legal",
+        title: "Légal",
         links: [
-          { href: "/terms", label: "Terms" },
-          { href: "/privacy-policy", label: "Privacy Policy" },
+          { href: "/terms/", label: "Conditions générales" },
+          { href: "/privacy-policy/", label: "Politique de confidentialité" },
         ],
       },
     ],
@@ -762,8 +767,64 @@ export const brand: BrandConfig = {
       { label: "Instagram", href: "#" },
       { label: "LinkedIn", href: "#" },
     ],
-    copyright: "© 2026 YourBrand. All rights reserved.",
+    copyright: "© 2026 YourBrand. Tous droits réservés.",
   },
 };
+
+/* =============================================================================
+ *  Résolution de la langue
+ * =============================================================================
+ *  Chaque langue est pré-rendue dans sa propre page HTML, donc une seule langue
+ *  est active par rendu : le français à la racine, l'anglais sous /en.
+ *  `setActiveLang` est appelé par src/Layout.tsx AVANT que ses enfants ne se
+ *  rendent (React rend toujours le parent en premier), et la valeur ne change
+ *  plus ensuite pour cette page. Le proxy ci-dessous permet donc à tous les
+ *  `brand.x` du code de rester inchangés tout en renvoyant la bonne langue.
+ * ========================================================================== */
+
+export type Lang = "fr" | "en";
+
+let activeLang: Lang = "fr";
+
+export function setActiveLang(lang: Lang): void {
+  activeLang = lang;
+}
+
+export function getActiveLang(): Lang {
+  return activeLang;
+}
+
+/**
+ * Préfixe un lien interne par /en en anglais, et garantit la barre oblique
+ * finale. Le build produit des dossiers (`dirStyle: "nested"`, voir
+ * vite.config.ts) : "/pricing/" sans barre finale fait retomber la plupart des
+ * serveurs sur la coquille de l'accueil. Ancres et liens externes inchangés.
+ */
+export function lhref(href: string): string {
+  if (!href.startsWith("/")) return href;
+  const hashAt = href.indexOf("#");
+  const path = hashAt === -1 ? href : href.slice(0, hashAt);
+  const hash = hashAt === -1 ? "" : href.slice(hashAt + 1);
+  const prefixed =
+    activeLang === "en" ? "/en" + (path === "/" ? "/" : path) : path;
+  const withSlash = prefixed.endsWith("/") ? prefixed : prefixed + "/";
+  return hash ? withSlash + "#" + hash : withSlash;
+}
+
+/** Le chemin équivalent dans l'autre langue (pour le sélecteur et les alternates). */
+export function swapLangPath(pathname: string, to: Lang): string {
+  const bare = pathname.replace(/^\/en(?=\/|$)/, "") || "/";
+  const target = to === "fr" ? bare : bare === "/" ? "/en/" : "/en" + bare;
+  return target.endsWith("/") ? target : target + "/";
+}
+
+export const brand: BrandConfig = new Proxy(frBrand, {
+  get(target, prop: string) {
+    if (activeLang === "en" && prop in enContent) {
+      return (enContent as Record<string, unknown>)[prop];
+    }
+    return (target as unknown as Record<string, unknown>)[prop];
+  },
+}) as BrandConfig;
 
 export default brand;

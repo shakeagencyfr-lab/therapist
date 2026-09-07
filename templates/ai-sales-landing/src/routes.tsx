@@ -8,53 +8,55 @@ import TermsPage from "./pages/TermsPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import NotFoundPage from "./pages/NotFoundPage";
 
+/**
+ * Les mêmes pages, deux fois : le français à la racine (langue principale),
+ * l'anglais sous /en. Chaque langue est pré-rendue dans son propre fichier
+ * HTML, ce qui permet un sélecteur de langue en simple lien — sans JavaScript
+ * — et des URL distinctes que les moteurs de recherche peuvent indexer.
+ */
+const pages = [
+  { path: "pricing", element: <PricingPage />, entry: "src/pages/PricingPage.tsx" },
+  // Manuel du propriétaire — noindex, retirable du menu via brand.config.
+  { path: "guide", element: <GuidePage />, entry: "src/pages/GuidePage.tsx" },
+  { path: "contact", element: <ContactPage />, entry: "src/pages/ContactPage.tsx" },
+  { path: "terms", element: <TermsPage />, entry: "src/pages/TermsPage.tsx" },
+  {
+    path: "privacy-policy",
+    element: <PrivacyPolicyPage />,
+    entry: "src/pages/PrivacyPolicyPage.tsx",
+  },
+  // Pré-rendue puis recopiée vers dist/404.html par le script de build.
+  { path: "404", element: <NotFoundPage />, entry: "src/pages/NotFoundPage.tsx" },
+];
+
 export const routes: RouteRecord[] = [
   {
     path: "/",
-    element: <Layout />,
+    element: <Layout lang="fr" />,
     entry: "src/Layout.tsx",
     children: [
       { index: true, element: <App />, entry: "src/App.tsx" },
-      {
-        path: "pricing",
-        element: <PricingPage />,
-        entry: "src/pages/PricingPage.tsx",
-      },
-      {
-        // Owner's manual — deliberately NOT linked from nav/footer + noindex.
-        path: "guide",
-        element: <GuidePage />,
-        entry: "src/pages/GuidePage.tsx",
-      },
-      {
-        path: "contact",
-        element: <ContactPage />,
-        entry: "src/pages/ContactPage.tsx",
-      },
-      {
-        path: "terms",
-        element: <TermsPage />,
-        entry: "src/pages/TermsPage.tsx",
-      },
-      {
-        path: "privacy-policy",
-        element: <PrivacyPolicyPage />,
-        entry: "src/pages/PrivacyPolicyPage.tsx",
-      },
-      {
-        // Pre-rendered, then copied to dist/404.html by the build script —
-        // Cloudflare Pages (and most static hosts) serve that file for any
-        // unknown URL automatically.
-        path: "404",
-        element: <NotFoundPage />,
-        entry: "src/pages/NotFoundPage.tsx",
-      },
-      {
-        // Client-side catch-all (bad links during in-app navigation).
-        path: "*",
-        element: <NotFoundPage />,
-        entry: "src/pages/NotFoundPage.tsx",
-      },
+      ...pages,
+    ],
+  },
+  {
+    path: "/en",
+    element: <Layout lang="en" />,
+    entry: "src/Layout.tsx",
+    children: [
+      { index: true, element: <App />, entry: "src/App.tsx" },
+      ...pages,
+      // Rattrapage côté client pour les liens cassés en navigation interne.
+      { path: "*", element: <NotFoundPage />, entry: "src/pages/NotFoundPage.tsx" },
+    ],
+  },
+  {
+    // Rattrapage global — doit rester après la branche /en.
+    path: "*",
+    element: <Layout lang="fr" />,
+    entry: "src/Layout.tsx",
+    children: [
+      { path: "*", element: <NotFoundPage />, entry: "src/pages/NotFoundPage.tsx" },
     ],
   },
 ];

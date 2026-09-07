@@ -7,13 +7,15 @@ import { Head } from "vite-react-ssg";
 import { motion } from "framer-motion";
 import { Nav, OrbField, Footer } from "../App";
 import { fadeUp, staggerContainer } from "../lib/motion";
-import brand from "../brand.config";
+import brand, { lhref } from "../brand.config";
+import { useUi } from "../lib/i18n";
 
 export default function NotFoundPage() {
+  const ui = useUi();
   return (
     <>
       <Head>
-        <title>{`Page not found — ${brand.brandName}`}</title>
+        <title>{`${ui.notFoundTitle} — ${brand.brandName}`}</title>
         <meta name="robots" content="noindex" />
       </Head>
 
@@ -38,30 +40,29 @@ export default function NotFoundPage() {
             variants={fadeUp}
             className="font-clash text-2xl sm:text-4xl font-semibold text-[#213856] mb-4 [text-wrap:balance]"
           >
-            This page wandered off.
+            {ui.notFoundTitle}
           </motion.h1>
           <motion.p
             variants={fadeUp}
             className="text-slate-600 text-base sm:text-lg leading-relaxed mb-8"
           >
-            The link is broken or the page has moved. The AI answers every
-            message — the website, evidently, not every URL.
+            {ui.notFoundBody}
           </motion.p>
           <motion.div
             variants={fadeUp}
             className="flex flex-col sm:flex-row items-center justify-center gap-3"
           >
             <a
-              href="/"
+              href={lhref("/")}
               className="btn-primary w-full sm:w-auto text-base font-semibold px-6 py-3.5 rounded-2xl inline-flex items-center justify-center gap-2"
             >
-              Back to the home page
+              {ui.notFoundHome}
             </a>
             <a
-              href="/contact"
+              href={lhref("/contact")}
               className="btn-ghost w-full sm:w-auto text-base font-semibold px-6 py-3.5 rounded-2xl inline-flex items-center justify-center"
             >
-              Contact us
+              {ui.notFoundContact}
             </a>
           </motion.div>
         </motion.div>

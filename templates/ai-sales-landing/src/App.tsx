@@ -20,7 +20,15 @@ import {
   staggerContainer,
   VIEWPORT_ONCE,
 } from "./lib/motion";
-import brand, { type Cell, type ChannelKey } from "./brand.config";
+import brand, {
+  getActiveLang,
+  lhref,
+  swapLangPath,
+  type Cell,
+  type ChannelKey,
+} from "./brand.config";
+import { LANGS } from "./lib/i18n";
+import { useUi } from "./lib/i18n";
 import { themes, type ThemeName } from "./themes";
 import {
   homeLayouts,
@@ -242,6 +250,7 @@ function CheckSmall() {
 }
 
 function ThemesMenu() {
+  const ui = useUi();
   const [open, setOpen] = useState(false);
   const design = useEffectiveDesign();
   const current = design.theme;
@@ -258,7 +267,7 @@ function ThemesMenu() {
         onClick={() => setOpen((v) => !v)}
         className="relative px-2.5 py-2 rounded-xl whitespace-nowrap transition-all duration-200 will-change-transform hover:-translate-y-px hover:bg-champ-500/10 hover:text-champ-700 inline-flex items-center gap-1.5"
       >
-        Design
+        {ui.design}
         <svg
           width="10"
           height="10"
@@ -299,7 +308,7 @@ function ThemesMenu() {
               </a>
             ))}
             <div className="px-3 pt-2 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-t border-slate-100 mt-1">
-              Home layout
+              {ui.homeLayout}
             </div>
             {LAYOUT_NAMES.map((n) => (
               <a
@@ -319,7 +328,7 @@ function ThemesMenu() {
               </a>
             ))}
             <div className="px-3 pt-1.5 pb-1 text-[10.5px] leading-snug text-slate-400">
-              Previews only — set it for real in brand.config.ts
+              {ui.previewNote}
             </div>
           </div>
         </div>
@@ -329,15 +338,59 @@ function ThemesMenu() {
 }
 
 // ===== Nav (extracted, reused on home + sub-pages) =====
+
+/* -----------------------------------------------------------------------------
+ * Sélecteur de langue.
+ * Deux liens vers la même page dans l'autre langue — pas de JavaScript, donc il
+ * survit à l'export HTML statique et reste lisible par les moteurs de recherche.
+ * -------------------------------------------------------------------------- */
+function LangSwitcher({ className = "" }: { className?: string }) {
+  const { pathname } = useLocation();
+  const current = getActiveLang();
+  const ui = useUi();
+  return (
+    <div
+      className={`inline-flex items-center rounded-xl p-0.5 glass-pill ${className}`}
+      role="group"
+      aria-label={ui.langLabel}
+    >
+      {LANGS.map(({ code, label, hreflang }) => {
+        const active = code === current;
+        return (
+          <a
+            key={code}
+            href={swapLangPath(pathname, code)}
+            hrefLang={hreflang}
+            lang={hreflang}
+            aria-current={active ? "true" : undefined}
+            className={`px-2 py-1 text-[11.5px] font-bold rounded-[10px] transition-colors ${
+              active
+                ? "bg-champ-500/15 text-champ-700"
+                : "text-slate-500 hover:text-champ-700"
+            }`}
+          >
+            {label}
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
 export function Nav({
-  links = brand.nav.links,
-  ctaHref = brand.nav.ctaHref,
-  ctaLabel = brand.nav.ctaLabel,
+  links: linksProp,
+  ctaHref: ctaHrefProp,
+  ctaLabel: ctaLabelProp,
 }: {
   links?: Array<{ href: string; label: string }>;
   ctaHref?: string;
   ctaLabel?: string;
 } = {}) {
+  // Résolu au rendu, pas à l'import : le contenu dépend de la langue active.
+  const links = linksProp ?? brand.nav.links;
+  const ctaHref = ctaHrefProp ?? brand.nav.ctaHref;
+  const ctaLabel = ctaLabelProp ?? brand.nav.ctaLabel;
+  const ui = useUi();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { pathname } = useLocation();
   const isActive = (href: string) => {
@@ -353,7 +406,7 @@ export function Nav({
     <header className="fixed top-4 left-0 right-0 z-50 flex justify-center px-4">
       <div className="w-full max-w-6xl">
         <nav className="glass rounded-2xl px-4 py-2.5 flex items-center gap-3">
-          <a href="/" className="flex items-center gap-2 pr-2 shrink-0">
+          <a href={lhref("/")} className="flex items-center gap-2 pr-2 shrink-0">
             <img
               src={brand.logo}
               alt={brand.logoAlt}
@@ -381,6 +434,7 @@ export function Nav({
             {brand.nav.themePicker && <ThemesMenu />}
           </div>
           <div className="flex flex-1 lg:flex-none items-center justify-end gap-2 shrink-0">
+            <LangSwitcher className="hidden sm:inline-flex" />
             <a
               href={brand.nav.loginHref}
               target="_blank"
@@ -397,7 +451,7 @@ export function Nav({
             </a>
             <button
               type="button"
-              aria-label={mobileOpen ? "Close menu" : "Open menu"}
+              aria-label={mobileOpen ? ui.closeMenu : ui.openMenu}
               aria-expanded={mobileOpen}
               aria-controls="mobile-nav-panel"
               onClick={() => setMobileOpen((v) => !v)}
@@ -462,7 +516,7 @@ export function Nav({
             {brand.nav.themePicker && (
               <>
                 <div className="px-3 pt-2 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-t border-slate-200/70 mt-1">
-                  Themes — tap to preview
+                  {ui.themesTapToPreview}
                 </div>
                 <div className="flex flex-wrap gap-1.5 px-2 pb-1">
                   {THEME_NAMES.map((n) => (
@@ -482,7 +536,7 @@ export function Nav({
                   ))}
                 </div>
                 <div className="px-3 pt-2 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Layouts — tap to preview
+                  {ui.layoutsTapToPreview}
                 </div>
                 <div className="flex flex-wrap gap-1.5 px-2 pb-1">
                   {LAYOUT_NAMES.map((n) => (
@@ -506,6 +560,12 @@ export function Nav({
             >
               {brand.nav.loginLabel}
             </a>
+            <div className="sm:hidden flex items-center gap-2 px-3 pt-3 border-t border-slate-200/70 mt-1">
+              <span className="text-[11.5px] font-semibold text-slate-500">
+                {ui.langLabel}
+              </span>
+              <LangSwitcher />
+            </div>
             <a
               href={ctaHref}
               onClick={() => setMobileOpen(false)}
@@ -522,9 +582,11 @@ export function Nav({
 
 // ===== FAQ section (extracted, accepts an FAQ list override) =====
 export function FAQSection({
-  items = brand.faq.items,
+  items: itemsProp,
   heading,
 }: { items?: Array<[string, string]>; heading?: string } = {}) {
+  // Résolu au rendu : le contenu dépend de la langue active.
+  const items = itemsProp ?? brand.faq.items;
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   return (
     <section id="faq" className="relative py-20 sm:py-28">
@@ -728,6 +790,7 @@ function HeroCtas({ center = true }: { center?: boolean }) {
 }
 
 function HeroChannelPills({ center = true }: { center?: boolean }) {
+  const ui = useUi();
   return (
     <motion.div
       variants={staggerContainer(0.06, 0.2)}
@@ -744,7 +807,7 @@ function HeroChannelPills({ center = true }: { center?: boolean }) {
             <Icon /> {c.label}
             {c.soon && (
               <span className="text-[9px] font-bold uppercase tracking-wider text-champ-700 bg-champ-100 px-1.5 py-0.5 rounded-full -mr-1">
-                Soon
+                {ui.soon}
               </span>
             )}
           </motion.span>
@@ -776,6 +839,7 @@ function HeroKpis({ delay = 0.5 }: { delay?: number }) {
  *  a dark brand-tinted stage with a play button, so the VSL layout looks
  *  like a video page out of the box. */
 function VideoPlaceholder() {
+  const ui = useUi();
   return (
     <div
       className="relative aspect-video grid place-items-center overflow-hidden"
@@ -805,7 +869,7 @@ function VideoPlaceholder() {
           </svg>
         </span>
         <span className="glass-pill px-4 py-1.5 rounded-full text-[12.5px] font-semibold text-slate-700">
-          Watch the 2-minute demo
+          {ui.watchDemo}
         </span>
       </div>
     </div>
@@ -1129,6 +1193,7 @@ function Kpi({
 }
 
 function HeroShowcase() {
+  const ui = useUi();
   const [activeId, setActiveId] = useState<string>(THREADS[0]!.id);
   const active: Thread = THREADS.find((t) => t.id === activeId) ?? THREADS[0]!;
 
@@ -1185,7 +1250,7 @@ function HeroShowcase() {
           <aside className="hidden lg:flex lg:col-span-3 flex-col gap-2 p-3 rounded-2xl bg-white/40 border border-slate-200/60">
             <div className="flex items-center justify-between px-2 pt-1">
               <span className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">
-                Inbox
+                {ui.inbox}
               </span>
               <span className="text-[10px] text-slate-400">
                 {THREADS.length} active
@@ -1232,7 +1297,7 @@ function HeroShowcase() {
                 </div>
               </div>
               <button className="hidden sm:inline-flex text-xs text-slate-500 px-2 py-1 rounded-lg hover:bg-slate-100 shrink-0">
-                Hand off
+                {ui.handOff}
               </button>
             </div>
 
@@ -1242,7 +1307,7 @@ function HeroShowcase() {
           {/* Lead panel */}
           <aside className="lg:col-span-3 p-4 rounded-2xl bg-white/60 border border-slate-200/70">
             <div className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-3">
-              Lead
+              {ui.lead}
             </div>
             <div className="text-base font-semibold mb-1 text-[#213856] flex items-center gap-2 flex-wrap">
               {active.lead.displayName}
@@ -1282,7 +1347,7 @@ function HeroShowcase() {
                 >
                   <path d="M12 2 9.1 8.5 2 9.3l5 4.9L5.8 22 12 18.3 18.2 22 17 14.2l5-4.9-7.1-.8z" />
                 </svg>
-                AI Insight
+                {ui.aiInsight}
               </div>
               <div className="text-[11px] text-slate-600 leading-snug">
                 {active.lead.insight}
@@ -1524,6 +1589,7 @@ const TONE: Record<ActivityEvent["tone"], { dot: string; ring: string }> = {
 };
 
 function LiveActivity() {
+  const ui = useUi();
   const [items, setItems] = useState<ActivityEvent[]>(() =>
     ACTIVITY_POOL.slice(0, 4).map((e, i) => ({ ...e, id: i })),
   );
@@ -1546,7 +1612,7 @@ function LiveActivity() {
     <div className="panel-accent mt-3 p-3 rounded-xl bg-gradient-to-br from-champ-50 to-champ-100/60 border border-champ-500/20 overflow-hidden">
       <div className="flex items-center justify-between mb-2">
         <div className="text-[11px] uppercase tracking-wider text-champ-700 font-bold">
-          Live
+          {ui.live}
         </div>
         <div className="flex items-center gap-1 text-[10px] text-champ-700">
           <span className="relative inline-flex w-1.5 h-1.5">
@@ -1894,6 +1960,7 @@ function TrustSection() {
 /** Copy + checklist beside an animated deal-closing conversation. Reuses the
  *  same thread data + stream renderer as the hero inbox showcase. */
 function ConversationSection() {
+  const ui = useUi();
   const { eyebrow, heading, sub, bullets } = brand.conversation;
   const thread = THREADS[1] ?? THREADS[0]!;
   return (
@@ -1960,13 +2027,13 @@ function ConversationSection() {
             <div className="flex items-center gap-2.5 pb-3 border-b border-slate-200/70 mb-1">
               <Avatar redacted size="sm" />
               <div className="text-[13px] font-semibold text-[#213856]">
-                Lead
+                {ui.lead}
                 <span className="ml-2 text-[9px] font-bold uppercase tracking-wider text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
                   redacted
                 </span>
               </div>
               <div className="ml-auto text-[11px] text-slate-400">
-                AI handling · zero human input
+                {ui.aiHandling}
               </div>
             </div>
             <ConversationStream events={thread.events} />
@@ -2208,6 +2275,7 @@ function Testimonials() {
 }
 
 function Pricing() {
+  const ui = useUi();
   const { eyebrow, heading, subheading, note, tiers } = brand.pricing;
   return (
     <section id="pricing" className="relative py-20 sm:py-28">
@@ -2268,7 +2336,7 @@ function Pricing() {
                   </span>
                   {t.featured && (
                     <span className="accent-glow text-[10px] uppercase tracking-wider font-bold bg-champ-500 text-white px-2 py-0.5 rounded-full shadow-sm shadow-champ-500/40">
-                      Most popular
+                      {ui.mostPopular}
                     </span>
                   )}
                 </div>
@@ -2318,7 +2386,7 @@ type FinalCtaProps = {
 };
 
 function FinalCta({
-  eyebrow = "Get Started",
+  eyebrow: eyebrowProp,
   headline,
   subhead,
   primaryHref = brand.finalCta.ctaHref,
@@ -2328,6 +2396,8 @@ function FinalCta({
   secondaryLabel,
   trustLine,
 }: FinalCtaProps = {}) {
+  const ui = useUi();
+  const eyebrow = eyebrowProp ?? ui.getStarted;
   const defaultHeadline = brand.finalCta.headline;
   const defaultSubhead = brand.finalCta.subhead;
   const defaultTrust = (
@@ -2435,6 +2505,7 @@ function FinalCta({
 }
 
 function Footer() {
+  const ui = useUi();
   return (
     <footer className="relative text-slate-600 pb-10 pt-4">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
@@ -2469,8 +2540,8 @@ function Footer() {
               />
             ))}
             <FooterCol
-              title="Support"
-              links={[["Help Centre", brand.helpUrl]]}
+              title={ui.support}
+              links={[[ui.helpCentre, brand.helpUrl]]}
             />
           </div>
 
@@ -2479,7 +2550,7 @@ function Footer() {
             <div className="flex items-center gap-4">
               <span className="inline-flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-champ-500 animate-pulse" />{" "}
-                All systems operational
+                {ui.allSystemsOperational}
               </span>
             </div>
           </div>

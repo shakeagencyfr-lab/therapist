@@ -3,15 +3,12 @@ import { motion } from "framer-motion";
 import { Nav, OrbField, Pricing, FAQSection, FinalCta, Footer } from "../App";
 import { fadeUp, popIn, staggerContainer, VIEWPORT_ONCE } from "../lib/motion";
 import { SectionHeader, FeatureEmoji } from "../lib/SubPagePrimitives";
-import brand from "../brand.config";
+import brand, { lhref } from "../brand.config";
+import { useUi } from "../lib/i18n";
 
-const CANONICAL = `${brand.siteUrl}/pricing/`;
-const TITLE = `${brand.brandName} Pricing — Plans that scale with you.`;
-const META =
-  "Simple, transparent pricing for your AI sales agent. Start free, upgrade when it is closing more than it costs, and cancel anytime.";
+// Résolus au rendu — le canonical et les métadonnées dépendent de la langue.
+const canonicalUrl = () => `${brand.siteUrl}${lhref("/pricing")}/`;
 
-// Pull the detailed FAQ from the brand config — one file to edit.
-const PRICING_FAQS: Array<[string, string]> = brand.faq.items;
 
 // Neutral, end-customer-facing "what's included" highlights. Edit these in code
 // or swap for your own copy.
@@ -53,71 +50,75 @@ const SCALE_LIST: Array<{ t: string; b: string }> = [
   },
 ];
 
-const ORG_JSONLD = {
+const orgJsonLd = () => ({
   "@context": "https://schema.org",
   "@type": "Organization",
   name: brand.brandName,
   url: `${brand.siteUrl}/`,
   logo: `${brand.siteUrl}${brand.logo}`,
   description: brand.tagline,
-};
+});
 
-const SOFTWARE_JSONLD = {
+const softwareJsonLd = (meta: string) => ({
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   name: brand.brandName,
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web",
-  description: META,
-  url: CANONICAL,
+  description: meta,
+  url: canonicalUrl(),
   offers: brand.pricing.tiers.map((tier) => ({
     "@type": "Offer",
     name: tier.name,
     price: tier.price.replace(/[^0-9.]/g, "") || undefined,
-    priceCurrency: "USD",
-    url: CANONICAL,
+    priceCurrency: "EUR",
+    url: canonicalUrl(),
   })),
-};
+});
 
-const FAQ_JSONLD = {
+const faqJsonLd = () => ({
   "@context": "https://schema.org",
   "@type": "FAQPage",
-  mainEntity: PRICING_FAQS.map(([q, a]) => ({
+  mainEntity: brand.faq.items.map(([q, a]) => ({
     "@type": "Question",
     name: q,
     acceptedAnswer: { "@type": "Answer", text: a },
   })),
-};
+});
 
 export default function PricingPage() {
+  const ui = useUi();
+  const canonical = canonicalUrl();
+  const title = `${brand.brandName} — ${ui.pricingTitle}`;
+  const meta = ui.pricingMeta;
   return (
     <>
       <Head>
-        <title>{TITLE}</title>
-        <meta name="description" content={META} />
-        <link rel="canonical" href={CANONICAL} />
-        <meta property="og:title" content={TITLE} />
-        <meta property="og:description" content={META} />
+        <title>{title}</title>
+        <meta name="description" content={meta} />
+        <link rel="canonical" href={canonical} />
+        <meta property="og:title" content={title} />
+        <meta property="og:description" content={meta} />
         <meta property="og:type" content="website" />
-        <meta property="og:url" content={CANONICAL} />
+        <meta property="og:url" content={canonical} />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={TITLE} />
+        <meta name="twitter:title" content={title} />
         <meta
           property="og:image"
           content={`${brand.siteUrl}${brand.ogImage}`}
         />
         <meta property="og:image:width" content="1280" />
         <meta property="og:image:height" content="720" />
-        <meta name="twitter:description" content={META} />
+        <meta name="twitter:description" content={meta} />
         <meta
           name="twitter:image"
           content={`${brand.siteUrl}${brand.ogImage}`}
         />
-        <script type="application/ld+json">{JSON.stringify(ORG_JSONLD)}</script>
+        <script type="application/ld+json">{JSON.stringify(orgJsonLd())}</script>
         <script type="application/ld+json">
-          {JSON.stringify(SOFTWARE_JSONLD)}
+          {JSON.stringify(softwareJsonLd(meta))}
         </script>
-        <script type="application/ld+json">{JSON.stringify(FAQ_JSONLD)}</script>
+        <script type="application/ld+json">{JSON.stringify(faqJsonLd())}</script>
       </Head>
 
       <Nav ctaLabel={brand.nav.ctaLabel} ctaHref={brand.nav.ctaHref} />
@@ -285,7 +286,7 @@ export default function PricingPage() {
         </section>
 
         {/* ============== PRICING FAQ ============== */}
-        <FAQSection items={PRICING_FAQS} heading={brand.faq.heading} />
+        <FAQSection items={brand.faq.items} heading={brand.faq.heading} />
 
         {/* ============== FINAL CTA ============== */}
         <FinalCta

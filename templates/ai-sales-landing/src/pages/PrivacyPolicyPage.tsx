@@ -6,12 +6,12 @@ import LegalPageShell, {
   LegalCallout,
   LegalTable,
 } from "../lib/LegalPageShell";
-import brand from "../brand.config";
+import brand, { lhref } from "../brand.config";
 
-const LAST_UPDATED = brand.legalEffectiveDate;
-const META_TITLE = `Privacy Policy · ${brand.brandName}`;
-const META_DESCRIPTION = `How ${brand.brandName} collects, uses, shares and protects personal data. Effective ${brand.legalEffectiveDate}.`;
-const CANONICAL = `${brand.siteUrl}/privacy-policy/`;
+const lastUpdated = () => brand.legalEffectiveDate;
+const metaTitle = () => `Privacy Policy · ${brand.brandName}`;
+const metaDescription = () => `How ${brand.brandName} collects, uses, shares and protects personal data. Effective ${brand.legalEffectiveDate}.`;
+const canonicalUrl = () => `${brand.siteUrl}${lhref("/privacy-policy")}/`;
 
 const TOC = [
   { id: "intro", label: "Introduction & Scope" },
@@ -34,10 +34,10 @@ export default function PrivacyPolicyPage() {
   return (
     <LegalPageShell
       title="Privacy Policy"
-      lastUpdated={LAST_UPDATED}
-      metaTitle={META_TITLE}
-      metaDescription={META_DESCRIPTION}
-      canonical={CANONICAL}
+      lastUpdated={lastUpdated()}
+      metaTitle={metaTitle()}
+      metaDescription={metaDescription()}
+      canonical={canonicalUrl()}
       toc={TOC}
       intro={
         <>

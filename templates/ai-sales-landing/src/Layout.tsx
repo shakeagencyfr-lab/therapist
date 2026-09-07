@@ -2,13 +2,16 @@ import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { Head } from "vite-react-ssg";
 import { WhatsAppFab } from "./lib/WhatsAppCTA";
-import brand from "./brand.config";
+import brand, { setActiveLang, swapLangPath, type Lang } from "./brand.config";
 import { brandThemeCss, themeCssFor, activeTheme } from "./lib/brandTheme";
 import { themes, type ThemeName } from "./themes";
 import { homeLayouts, type HomeLayoutName } from "./homeLayouts";
 import { previewTheme, previewLayout, exitPreview } from "./lib/previewMode";
 
-export default function Layout() {
+export default function Layout({ lang = "fr" }: { lang?: Lang } = {}) {
+  // Fixé AVANT le rendu des enfants : React rend toujours le parent en premier,
+  // et une seule langue existe par page pré-rendue.
+  setActiveLang(lang);
   const { pathname, hash, search } = useLocation();
   useEffect(() => {
     // If the URL has a hash (e.g. /#pricing), let the browser handle the anchor scroll.
@@ -59,6 +62,9 @@ export default function Layout() {
     .filter(Boolean)
     .join(" · ");
 
+  const canonicalPath = pathname.replace(/\/+$/, "") || "/";
+  // Les sous-pages posent leur propre canonical ; ne pas le dupliquer ici.
+  const isHome = canonicalPath === "/" || canonicalPath === "/en";
   const title = `${brand.brandName} — ${brand.tagline}`;
   const ogImageUrl = brand.ogImage.startsWith("http")
     ? brand.ogImage
@@ -70,6 +76,28 @@ export default function Layout() {
           Kept OUTSIDE <Head> because the head manager strips <style> children. */}
       <style id="brand-theme" dangerouslySetInnerHTML={{ __html: themeCss }} />
       <Head>
+        {/* Langue du document + équivalents dans l'autre langue. Le sélecteur
+            de langue est un lien vers ces mêmes URL, donc il fonctionne sans
+            JavaScript. */}
+        <html lang={lang} />
+        {isHome && (
+          <link rel="canonical" href={brand.siteUrl + canonicalPath} />
+        )}
+        <link
+          rel="alternate"
+          hrefLang="fr"
+          href={brand.siteUrl + swapLangPath(pathname, "fr")}
+        />
+        <link
+          rel="alternate"
+          hrefLang="en"
+          href={brand.siteUrl + swapLangPath(pathname, "en")}
+        />
+        <link
+          rel="alternate"
+          hrefLang="x-default"
+          href={brand.siteUrl + swapLangPath(pathname, "fr")}
+        />
         {/* Fonts for the active theme (see src/themes.ts). The preconnects
             live in index.html; this link swaps per theme at build time. */}
         <link rel="stylesheet" href={activeTheme.fonts.googleHref} />
@@ -82,7 +110,8 @@ export default function Layout() {
         <meta property="og:title" content={title} />
         <meta property="og:description" content={brand.tagline} />
         <meta property="og:type" content="website" />
-        <meta property="og:url" content={`${brand.siteUrl}/`} />
+        <meta property="og:url" content={brand.siteUrl + canonicalPath} />
+        <meta property="og:locale" content={lang === "fr" ? "fr_FR" : "en_US"} />
         <meta property="og:image" content={ogImageUrl} />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={title} />
