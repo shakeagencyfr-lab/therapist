@@ -353,7 +353,17 @@ export const brand: BrandConfig = {
    * Replace with your six brand-colour stops to reskin any theme, e.g.
    * { c50: "#ecfdf5", c100: "#d1fae5", c500: "#25D366",
    *   c600: "#1ab854", c700: "#147a3a", c900: "#082f17" } */
-  colors: null,
+  /* Vert de marque Shake, relevé sur shakeagency.io (teinte 167°).
+   * c500/c600 = dégradé des boutons ; c700 = couleur de texte (62 usages),
+   * assombrie pour rester lisible sur le fond clair du thème (5,1:1). */
+  colors: {
+    c50: "#edfcf9",
+    c100: "#caf6ed",
+    c500: "#00D5A7",
+    c600: "#00AD88",
+    c700: "#007A60",
+    c900: "#063229",
+  },
 
   nav: {
     links: [
