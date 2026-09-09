@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Head } from "vite-react-ssg";
 import { Nav, OrbField, Footer } from "../App";
 import brand from "../brand.config";
+import { useUi } from "./i18n";
 
 const OG_IMAGE_URL = `${brand.siteUrl}${brand.ogImage}`;
 
@@ -28,6 +29,7 @@ export default function LegalPageShell({
   toc,
   children,
 }: LegalPageShellProps) {
+  const ui = useUi();
   const [activeId, setActiveId] = useState<string>(toc[0]?.id ?? "");
 
   useEffect(() => {
@@ -90,13 +92,13 @@ export default function LegalPageShell({
         <section className="relative pt-32 sm:pt-40 pb-10 sm:pb-14">
           <div className="relative max-w-5xl mx-auto px-5 sm:px-6">
             <div className="text-xs uppercase tracking-[0.22em] text-champ-700 font-bold mb-4">
-              Legal
+              {ui.legalKicker}
             </div>
             <h1 className="font-grotesk text-3xl sm:text-5xl lg:text-[3.25rem] font-bold text-[#213856] leading-[1.05] tracking-tight mb-5 [text-wrap:balance]">
               {title}
             </h1>
             <p className="text-sm text-slate-500 mb-6">
-              Last updated:{" "}
+              {ui.legalLastUpdated}{" "}
               <span className="text-slate-700 font-medium">{lastUpdated}</span>{" "}
               &middot; Effective Date:{" "}
               <span className="text-slate-700 font-medium">{lastUpdated}</span>
@@ -116,7 +118,7 @@ export default function LegalPageShell({
               {/* TOC (mobile) */}
               <details className="lg:hidden glass rounded-2xl p-4">
                 <summary className="cursor-pointer font-clash text-base font-semibold text-[#213856] select-none">
-                  Table of contents
+                  {ui.legalToc}
                 </summary>
                 <nav className="mt-4 space-y-1.5 text-sm">
                   {toc.map((t, i) => (
@@ -139,7 +141,7 @@ export default function LegalPageShell({
                 <div className="sticky top-28">
                   <div className="glass rounded-2xl p-5">
                     <div className="text-xs uppercase tracking-[0.18em] text-champ-700 font-bold mb-4">
-                      On this page
+                      {ui.legalOnThisPage}
                     </div>
                     <nav className="space-y-1 text-sm max-h-[70vh] overflow-y-auto pr-1">
                       {toc.map((t, i) => {
@@ -180,24 +182,24 @@ export default function LegalPageShell({
                 <div className="glass rounded-2xl p-6 sm:p-7 mt-16 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div>
                     <div className="font-clash text-lg font-semibold text-[#213856]">
-                      Questions about this document?
+                      {ui.legalQuestions}
                     </div>
                     <p className="text-sm text-slate-600 mt-1">
-                      Reach our team at{" "}
+                      {ui.legalReachUs}{" "}
                       <a
                         href={`mailto:${brand.supportEmail}`}
                         className="text-champ-700 font-medium underline-offset-2 hover:underline"
                       >
                         {brand.supportEmail}
                       </a>{" "}
-                      and we will respond within two business days.
+                      {ui.legalWithinTwoDays}
                     </p>
                   </div>
                   <a
                     href={`mailto:${brand.supportEmail}`}
                     className="btn-primary text-sm font-semibold px-4 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 shrink-0"
                   >
-                    Email us
+                    {ui.legalEmailUs}
                   </a>
                 </div>
               </article>

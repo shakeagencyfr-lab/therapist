@@ -81,6 +81,15 @@ export interface UiStrings {
   contactExpectEyebrow: string;
   contactExpectHeading: string;
   contactExpectItems: (email: string) => Array<{ h: string; b: string }>;
+  contactCompanyEyebrow: string;
+  contactWhoHeading: string;
+  contactLegalName: string;
+  contactJurisdiction: string;
+  contactEmailLabel: string;
+  contactDoneReading: string;
+  contactDoneHighlight: string;
+  contactDoneBody: string;
+  contactOpenDemo: string;
 
   /* Démonstrations animées (étapes « Comment ça marche ») */
   demoDetected: string[];
@@ -90,6 +99,20 @@ export interface UiStrings {
   demoStatus: string;
   demoActiveInbox: string;
   demoFlow: Array<{ lead: string; reply: string }>;
+
+  /* Bouton WhatsApp flottant */
+  waChatLabel: string;
+  waAriaLabel: string;
+
+  /* Gabarit des pages légales */
+  legalKicker: string;
+  legalLastUpdated: string;
+  legalToc: string;
+  legalOnThisPage: string;
+  legalQuestions: string;
+  legalReachUs: string;
+  legalWithinTwoDays: string;
+  legalEmailUs: string;
 
   /* Page 404 */
   notFoundTitle: string;
@@ -203,6 +226,16 @@ export const UI: Record<"fr" | "en", UiStrings> = {
     contactDocsCta: "Ouvrir le centre d'aide",
     contactExpectEyebrow: "À quoi vous attendre",
     contactExpectHeading: "Une réponse en quelques secondes. Des humains derrière.",
+    contactCompanyEyebrow: "Société",
+    contactWhoHeading: "Qui vous répond",
+    contactLegalName: "Raison sociale",
+    contactJurisdiction: "Juridiction",
+    contactEmailLabel: "E-mail",
+    contactDoneReading: "Fini de lire ?",
+    contactDoneHighlight: "Parlez à l'IA.",
+    contactDoneBody:
+      "Cinq minutes sur WhatsApp avec notre agent valent mieux que cinq minutes sur cette page. Vous verrez exactement ce que verront vos clients.",
+    contactOpenDemo: "Ouvrir la démonstration WhatsApp",
     contactExpectItems: (email) => [
       {
         h: "Réponse immédiate de l'IA",
@@ -255,6 +288,18 @@ export const UI: Record<"fr" | "en", UiStrings> = {
           "Je comprends. La plupart de nos clients sont rentables dès la 3e semaine. Je vous envoie l'étude de cas ?",
       },
     ],
+
+    waChatLabel: "Discuter avec l'IA",
+    waAriaLabel: "Discuter avec l'IA sur WhatsApp",
+
+    legalKicker: "Mentions légales",
+    legalLastUpdated: "Dernière mise à jour :",
+    legalToc: "Sommaire",
+    legalOnThisPage: "Sur cette page",
+    legalQuestions: "Une question sur ce document ?",
+    legalReachUs: "Écrivez à notre équipe à",
+    legalWithinTwoDays: "et nous vous répondrons sous deux jours ouvrés.",
+    legalEmailUs: "Nous écrire",
 
     notFoundTitle: "Cette page s'est égarée.",
     notFoundBody:
@@ -366,6 +411,16 @@ export const UI: Record<"fr" | "en", UiStrings> = {
     contactDocsCta: "Open Help Centre",
     contactExpectEyebrow: "What to expect",
     contactExpectHeading: "Replies in Seconds. Humans in the Loop.",
+    contactCompanyEyebrow: "Company",
+    contactWhoHeading: "Who You Are Reaching",
+    contactLegalName: "Legal name",
+    contactJurisdiction: "Jurisdiction",
+    contactEmailLabel: "Email",
+    contactDoneReading: "Done reading?",
+    contactDoneHighlight: "Talk to the AI.",
+    contactDoneBody:
+      "Five minutes in WhatsApp with our agent beats five minutes on this page. You will see exactly what your customers will see.",
+    contactOpenDemo: "Open the WhatsApp demo",
     contactExpectItems: (email) => [
       {
         h: "Instant AI response",
@@ -418,6 +473,18 @@ export const UI: Record<"fr" | "en", UiStrings> = {
           "Totally hear you. Most clients break even by week 3. Want the case study?",
       },
     ],
+
+    waChatLabel: "Chat with the AI",
+    waAriaLabel: "Chat with the AI on WhatsApp",
+
+    legalKicker: "Legal",
+    legalLastUpdated: "Last updated:",
+    legalToc: "Table of contents",
+    legalOnThisPage: "On this page",
+    legalQuestions: "Questions about this document?",
+    legalReachUs: "Reach our team at",
+    legalWithinTwoDays: "and we will respond within two business days.",
+    legalEmailUs: "Email us",
 
     notFoundTitle: "This page wandered off.",
     notFoundBody:

@@ -299,13 +299,13 @@ export default function ContactPage() {
                 variants={fadeUp}
                 className="text-xs uppercase tracking-[0.2em] text-champ-700 font-bold mb-3"
               >
-                Company
+                {ui.contactCompanyEyebrow}
               </motion.div>
               <motion.h2
                 variants={fadeUp}
                 className="font-clash text-2xl sm:text-3xl font-semibold leading-tight text-[#213856] mb-6"
               >
-                Who You Are Reaching
+                {ui.contactWhoHeading}
               </motion.h2>
               <motion.div
                 variants={fadeUp}
@@ -314,7 +314,7 @@ export default function ContactPage() {
                 <dl className="grid sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
                   <div>
                     <dt className="text-slate-400 font-semibold uppercase tracking-wider text-[10px] mb-1">
-                      Legal name
+                      {ui.contactLegalName}
                     </dt>
                     <dd className="text-[#213856] font-semibold">
                       {brand.legalEntity}
@@ -322,7 +322,7 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <dt className="text-slate-400 font-semibold uppercase tracking-wider text-[10px] mb-1">
-                      Jurisdiction
+                      {ui.contactJurisdiction}
                     </dt>
                     <dd className="text-[#213856] font-semibold">
                       {brand.legalJurisdiction}
@@ -330,7 +330,7 @@ export default function ContactPage() {
                   </div>
                   <div className="sm:col-span-2">
                     <dt className="text-slate-400 font-semibold uppercase tracking-wider text-[10px] mb-1">
-                      Email
+                      {ui.contactEmailLabel}
                     </dt>
                     <dd className="text-[#213856] font-semibold">
                       <a
@@ -366,12 +366,11 @@ export default function ContactPage() {
               />
               <div className="relative">
                 <h2 className="font-clash text-2xl sm:text-3xl font-semibold leading-tight text-[#213856] mb-3 [text-wrap:balance]">
-                  Done reading?{" "}
-                  <span className="grad-text">Talk to the AI.</span>
+                  {ui.contactDoneReading}{" "}
+                  <span className="grad-text">{ui.contactDoneHighlight}</span>
                 </h2>
                 <p className="text-slate-600 mb-6 max-w-xl mx-auto">
-                  Five minutes in WhatsApp with our agent beats five minutes on
-                  this page. You will see exactly what your customers will see.
+                  {ui.contactDoneBody}
                 </p>
                 <a
                   href={brand.whatsAppLink}
@@ -379,7 +378,7 @@ export default function ContactPage() {
                   rel="noopener"
                   className="btn-primary inline-flex items-center justify-center gap-2 text-base font-semibold px-6 py-3.5 rounded-2xl"
                 >
-                  Open the WhatsApp demo
+                  {ui.contactOpenDemo}
                 </a>
               </div>
             </motion.div>

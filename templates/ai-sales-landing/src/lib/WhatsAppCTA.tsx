@@ -1,6 +1,7 @@
 // One conversion mechanic, site-wide: a floating WhatsApp (or any contact)
 // button. The destination is set once in brand.config.ts → whatsAppLink.
 import brand from "../brand.config";
+import { useUi } from "./i18n";
 
 const WA_LINK = brand.whatsAppLink;
 
@@ -19,7 +20,7 @@ function WhatsAppGlyph({ size = 18 }: { size?: number }) {
 }
 
 export function WhatsAppCTA({
-  label = "Chat with us",
+  label: labelProp,
   variant = "primary",
   className = "",
 }: {
@@ -27,6 +28,8 @@ export function WhatsAppCTA({
   variant?: "primary" | "ghost";
   className?: string;
 }) {
+  const ui = useUi();
+  const label = labelProp ?? ui.waChatLabel;
   const base =
     "inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl text-base font-semibold transition-all";
   const styles =
@@ -48,17 +51,18 @@ export function WhatsAppCTA({
 }
 
 export function WhatsAppFab() {
+  const ui = useUi();
   return (
     <a
       href={WA_LINK}
       target="_blank"
       rel="noopener"
-      aria-label="Chat with the AI"
+      aria-label={ui.waAriaLabel}
       className="accent-glow fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-50 inline-flex items-center justify-center gap-2 rounded-full bg-champ-500 text-white shadow-lg shadow-champ-500/40 w-14 h-14 sm:w-auto sm:h-auto sm:px-5 sm:py-3 hover:scale-105 transition-transform"
     >
       <WhatsAppGlyph size={24} />
       <span className="hidden sm:inline font-semibold text-sm whitespace-nowrap">
-        Chat with the AI
+        {ui.waChatLabel}
       </span>
     </a>
   );
