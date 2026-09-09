@@ -33,6 +33,7 @@ export interface UiStrings {
   handOff: string;
   aiInsight: string;
   live: string;
+  activeCount: string;
   aiHandling: string;
 
   /* Menu Design (aperçu des thèmes) */
@@ -109,6 +110,7 @@ export const UI: Record<"fr" | "en", UiStrings> = {
     handOff: "Passer la main",
     aiInsight: "Analyse IA",
     live: "En direct",
+    activeCount: "actives",
     aiHandling: "Traité par l'IA · aucune intervention humaine",
 
     design: "Design",
@@ -238,6 +240,7 @@ export const UI: Record<"fr" | "en", UiStrings> = {
     handOff: "Hand off",
     aiInsight: "AI Insight",
     live: "Live",
+    activeCount: "active",
     aiHandling: "AI handling · zero human input",
 
     design: "Design",

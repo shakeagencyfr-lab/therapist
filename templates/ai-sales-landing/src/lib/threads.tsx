@@ -1,77 +1,16 @@
-// Thread = one conversation in the inbox. Each carries everything needed to
-// render the inbox row, chat header, conversation stream, and lead panel.
+// Conversations de démonstration — version ANGLAISE.
+// La version française vit dans src/content/threads.fr.tsx.
+// Types et pictogrammes : src/lib/threadKit.tsx
 //
-// These are illustrative, fictional demo conversations. Brand names, people and
-// amounts are invented to show how the AI sales agent qualifies, books and
-// closes for everyday businesses. Names and numbers are shown redacted, the way
-// they'd appear in a real shared inbox.
+// Conversations fictives et illustratives. Les noms, marques et montants
+// sont inventés ; ils sont affichés masqués, comme dans une vraie boîte
+// partagée.
 
-import type { ReactNode } from "react";
-
-export type ConvoEvent =
-  | {
-      type: "msg";
-      direction: "in" | "out";
-      text: string;
-      grouped?: boolean;
-      leading?: ReactNode;
-    }
-  | { type: "date"; label: string }
-  | { type: "system"; tone: "ai" | "lead" | "win" | "warn"; label: string }
-  | { type: "gap"; label: string }
-  | { type: "win"; headline: string; sub?: string };
-
-export type LeadRowSpec = { label: string; value: string };
-
-export type Thread = {
-  id: string;
-  inbox: {
-    initials?: string;
-    redacted?: boolean;
-    name: string;
-    preview: string;
-  };
-  header: {
-    name: string;
-    redactedBadge?: boolean;
-    channelTag: string;
-    statusText: string;
-  };
-  lead: {
-    displayName: string;
-    redactedBadge?: boolean;
-    sub: string;
-    statusLabel: string;
-    statusValue: string;
-    rows: LeadRowSpec[];
-    insight: string;
-  };
-  events: ConvoEvent[];
-};
-
-const PaymentIcon = () => (
-  <svg
-    width="13"
-    height="13"
-    viewBox="0 0 24 24"
-    fill="#25D366"
-    style={{ display: "inline" }}
-  >
-    <path d="M12 0a12 12 0 1 0 0 24 12 12 0 0 0 0-24zm-1.4 17.4-5-5 1.4-1.4 3.6 3.6 7.2-7.2 1.4 1.4z" />
-  </svg>
-);
-
-export const StarIcon = () => (
-  <svg
-    width="13"
-    height="13"
-    viewBox="0 0 24 24"
-    fill="#f59e0b"
-    style={{ display: "inline" }}
-  >
-    <path d="M12 2 9.1 8.5 2 9.3l5 4.9L5.8 22 12 18.3 18.2 22 17 14.2l5-4.9-7.1-.8z" />
-  </svg>
-);
+import { getActiveLang } from "../brand.config";
+import { frThreads } from "../content/threads.fr";
+import { PaymentIcon, type Thread } from "./threadKit";
+export type { ConvoEvent, Thread, LeadRowSpec } from "./threadKit";
+export { StarIcon } from "./threadKit";
 
 // ───────────────────────────────────────────────────────────────────────────
 // Thread 1 - Med-spa booking. Inbound on Instagram, AI qualifies the treatment,
@@ -669,9 +608,14 @@ const homeServiceThread: Thread = {
   ],
 };
 
-export const THREADS: Thread[] = [
+const enThreads: Thread[] = [
   spaThread,
   coachThread,
   shopThread,
   homeServiceThread,
 ];
+
+/** Les conversations de démonstration dans la langue active. */
+export function getThreads(): Thread[] {
+  return getActiveLang() === "en" ? enThreads : frThreads;
+}

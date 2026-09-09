@@ -7,7 +7,7 @@ import MessageBubble, {
   ChatGapBadge,
   WinToast,
 } from "./lib/MessageBubble";
-import { THREADS, type ConvoEvent, type Thread } from "./lib/threads";
+import { getThreads, type ConvoEvent, type Thread } from "./lib/threads";
 import {
   TypingScanDemo,
   ChannelToggleDemo,
@@ -1194,8 +1194,10 @@ function Kpi({
 
 function HeroShowcase() {
   const ui = useUi();
-  const [activeId, setActiveId] = useState<string>(THREADS[0]!.id);
-  const active: Thread = THREADS.find((t) => t.id === activeId) ?? THREADS[0]!;
+  // Résolu au rendu : les conversations dépendent de la langue active.
+  const threads = getThreads();
+  const [activeId, setActiveId] = useState<string>(threads[0]!.id);
+  const active: Thread = threads.find((t) => t.id === activeId) ?? threads[0]!;
 
   return (
     <div className="relative max-w-5xl mx-auto">
@@ -1222,7 +1224,7 @@ function HeroShowcase() {
 
         {/* Mobile thread switcher - sidebar is hidden under lg, this gives mobile users a way to swap chats */}
         <div className="lg:hidden mt-3 -mx-1 px-1 pb-2 flex gap-2 overflow-x-auto chat-scroll snap-x snap-mandatory">
-          {THREADS.map((t) => {
+          {threads.map((t) => {
             const isActive = t.id === activeId;
             return (
               <button
@@ -1253,10 +1255,10 @@ function HeroShowcase() {
                 {ui.inbox}
               </span>
               <span className="text-[10px] text-slate-400">
-                {THREADS.length} active
+                {threads.length} {ui.activeCount}
               </span>
             </div>
-            {THREADS.map((t) => (
+            {threads.map((t) => (
               <InboxRow
                 key={t.id}
                 initials={t.inbox.initials}
@@ -1962,7 +1964,8 @@ function TrustSection() {
 function ConversationSection() {
   const ui = useUi();
   const { eyebrow, heading, sub, bullets } = brand.conversation;
-  const thread = THREADS[1] ?? THREADS[0]!;
+  const threads = getThreads();
+  const thread = threads[1] ?? threads[0]!;
   return (
     <section id="conversation" className="relative py-20 sm:py-28">
       <div className="max-w-6xl mx-auto px-6 relative">
