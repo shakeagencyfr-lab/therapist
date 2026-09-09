@@ -151,23 +151,20 @@ export default function ContactPage() {
               variants={fadeUp}
               className="text-xs uppercase tracking-[0.2em] text-champ-700 font-bold mb-4"
             >
-              Talk to us
+              {ui.contactEyebrow}
             </motion.div>
             <motion.h1
               variants={fadeUp}
               className="font-grotesk text-3xl sm:text-5xl lg:text-[3.25rem] font-bold text-[#213856] leading-[1.05] tracking-tight mb-6 [text-wrap:balance]"
             >
-              The Fastest Way to Reach Us Is{" "}
-              <span className="grad-text">Through Our Own AI.</span>
+              {ui.contactH1A}{" "}
+              <span className="grad-text">{ui.contactH1Highlight}</span>
             </motion.h1>
             <motion.p
               variants={fadeUp}
               className="text-base sm:text-lg text-slate-600 max-w-3xl mx-auto leading-relaxed mb-8"
             >
-              The same AI sales agent we offer you handles every inbound
-              conversation here. Message it on WhatsApp and you will get an
-              answer in seconds. Want a human instead? Email us. Either way, you
-              will hear back.
+              {ui.contactIntro}
             </motion.p>
             <motion.div
               variants={fadeUp}
@@ -179,13 +176,13 @@ export default function ContactPage() {
                 rel="noopener"
                 className="btn-primary pulse-glow w-full sm:w-auto text-base font-semibold px-6 py-3.5 rounded-2xl inline-flex items-center justify-center gap-2"
               >
-                Talk to the AI on WhatsApp
+                {ui.contactWhatsAppCta}
               </a>
               <a
                 href={MAILTO}
                 className="btn-ghost w-full sm:w-auto text-base font-semibold px-6 py-3.5 rounded-2xl inline-flex items-center justify-center gap-2"
               >
-                Email {SUPPORT_EMAIL}
+                {ui.contactEmailCta(SUPPORT_EMAIL)}
               </a>
             </motion.div>
           </motion.div>
@@ -205,13 +202,13 @@ export default function ContactPage() {
                 variants={fadeUp}
                 className="text-xs uppercase tracking-[0.2em] text-champ-700 font-bold mb-3"
               >
-                Pick your channel
+                {ui.contactPickChannel}
               </motion.div>
               <motion.h2
                 variants={fadeUp}
                 className="font-clash text-3xl sm:text-4xl font-semibold leading-tight text-[#213856]"
               >
-                Three Ways to Get In Touch
+                {ui.contactThreeWays}
               </motion.h2>
             </motion.div>
             <motion.div
@@ -223,25 +220,25 @@ export default function ContactPage() {
             >
               <ChannelCard
                 emoji="speech-balloon.png"
-                title="Talk to the AI on WhatsApp"
-                body="The fastest path. Our own AI sales agent answers in seconds, handles your questions, books a call and hands you off to a human when it matters."
-                ctaLabel="Message on WhatsApp"
+                title={ui.contactWaTitle}
+                body={ui.contactWaBody}
+                ctaLabel={ui.contactWaCta}
                 ctaHref={brand.whatsAppLink}
                 accent
                 external
               />
               <ChannelCard
                 emoji="envelope.png"
-                title="Email the team"
-                body={`Prefer email? Send anything to ${SUPPORT_EMAIL} — sales, support, billing, press, all the same address. We reply within one business day.`}
+                title={ui.contactEmailTitle}
+                body={ui.contactEmailBody(SUPPORT_EMAIL)}
                 ctaLabel={SUPPORT_EMAIL}
                 ctaHref={MAILTO}
               />
               <ChannelCard
                 emoji="books.png"
-                title="Read the docs first"
-                body="The Help Centre has full walkthroughs for setup, channels, AI training and more. It answers most questions in a couple of minutes."
-                ctaLabel="Open Help Centre"
+                title={ui.contactDocsTitle}
+                body={ui.contactDocsBody}
+                ctaLabel={ui.contactDocsCta}
                 ctaHref={brand.helpUrl}
                 external
               />
@@ -262,36 +259,19 @@ export default function ContactPage() {
                 variants={fadeUp}
                 className="text-xs uppercase tracking-[0.2em] text-champ-700 font-bold mb-3"
               >
-                What to expect
+                {ui.contactExpectEyebrow}
               </motion.div>
               <motion.h2
                 variants={fadeUp}
                 className="font-clash text-2xl sm:text-3xl font-semibold leading-tight text-[#213856] mb-6"
               >
-                Replies in Seconds. Humans in the Loop.
+                {ui.contactExpectHeading}
               </motion.h2>
               <motion.div
                 variants={fadeUp}
                 className="grid sm:grid-cols-2 gap-3"
               >
-                {[
-                  {
-                    h: "Instant AI response",
-                    b: "Our AI sales agent picks up immediately and handles most questions without a human ever touching the conversation.",
-                  },
-                  {
-                    h: "Human handoff when needed",
-                    b: "Anything complex or sensitive gets passed to a person, who takes over within hours during business days.",
-                  },
-                  {
-                    h: "One business day on email",
-                    b: `${SUPPORT_EMAIL} is monitored by the team. We aim for under 24h on every reply.`,
-                  },
-                  {
-                    h: "Help when you need it",
-                    b: "Browse the Help Centre any time for step-by-step guides, or reach out and we will point you in the right direction.",
-                  },
-                ].map((item) => (
+                {ui.contactExpectItems(SUPPORT_EMAIL).map((item) => (
                   <div key={item.h} className="glass rounded-2xl p-4 sm:p-5">
                     <h3 className="font-clash text-base font-semibold text-[#213856] mb-1">
                       {item.h}

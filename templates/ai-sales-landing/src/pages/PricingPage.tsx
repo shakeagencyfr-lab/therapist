@@ -10,46 +10,6 @@ import { useUi } from "../lib/i18n";
 const canonicalUrl = () => `${brand.siteUrl}${lhref("/pricing")}/`;
 
 
-// Neutral, end-customer-facing "what's included" highlights. Edit these in code
-// or swap for your own copy.
-const INCLUDED_LIST: Array<{ t: string; b: string }> = [
-  {
-    t: "Every channel, one inbox",
-    b: "Connect WhatsApp, Instagram, Messenger, web chat and SMS. Every conversation lands in a single place.",
-  },
-  {
-    t: "Replies around the clock",
-    b: "Your AI sales agent answers in seconds, day or night, in your brand voice and your customer's language.",
-  },
-  {
-    t: "Books and follows up",
-    b: "It qualifies leads, handles questions, books appointments and follows up so nothing slips through the cracks.",
-  },
-  {
-    t: "Free trial on every plan",
-    b: "Connect a channel and run the AI on real conversations before billing starts. No card required to begin.",
-  },
-];
-
-const SCALE_LIST: Array<{ t: string; b: string }> = [
-  {
-    t: "Start small",
-    b: "Begin on a single channel and let the AI prove itself on real conversations first.",
-  },
-  {
-    t: "Add channels as you grow",
-    b: "Turn on more channels and features whenever you are ready — no migration, no re-training.",
-  },
-  {
-    t: "Upgrade when it pays for itself",
-    b: "Move up a plan once the AI is booking and closing more than the subscription costs.",
-  },
-  {
-    t: "No contracts",
-    b: "Every plan is billed monthly. Downgrade or cancel from your dashboard anytime.",
-  },
-];
-
 const orgJsonLd = () => ({
   "@context": "https://schema.org",
   "@type": "Organization",
@@ -160,11 +120,11 @@ export default function PricingPage() {
         <section className="relative py-16 sm:py-20 bg-slate-50/40">
           <div className="max-w-5xl mx-auto px-6">
             <SectionHeader
-              eyebrow="What you get"
+              eyebrow={ui.pricingWhatYouGet}
               emoji="brain.png"
-              title="Everything you need"
+              title={ui.pricingEverything}
               titleAccent="in every plan"
-              sub="No hidden tiers, no surprises. Every plan includes a free trial and the channels your customers already use."
+              sub={ui.pricingSub}
               align="center"
               maxWidth="max-w-3xl"
             />
@@ -179,11 +139,11 @@ export default function PricingPage() {
                 <div className="flex items-center gap-3 mb-4">
                   <FeatureEmoji src="high-voltage.png" size="sm" />
                   <div className="text-xs uppercase tracking-wider text-champ-700 font-bold">
-                    Included
+                    {ui.pricingIncludedBadge}
                   </div>
                 </div>
                 <h3 className="font-clash text-xl font-semibold text-[#213856] mb-5">
-                  A working AI sales agent, out of the box.
+                  {ui.pricingOutOfBox}
                 </h3>
                 <motion.ul
                   initial="hidden"
@@ -192,7 +152,7 @@ export default function PricingPage() {
                   variants={staggerContainer(0.04)}
                   className="space-y-3"
                 >
-                  {INCLUDED_LIST.map((item) => (
+                  {ui.pricingIncluded.map((item) => (
                     <motion.li
                       key={item.t}
                       variants={popIn}
@@ -235,11 +195,11 @@ export default function PricingPage() {
                 <div className="flex items-center gap-3 mb-4">
                   <FeatureEmoji src="link.png" size="sm" />
                   <div className="text-xs uppercase tracking-wider text-champ-700 font-bold">
-                    Pricing that scales with you
+                    {ui.pricingScalesEyebrow}
                   </div>
                 </div>
                 <h3 className="font-clash text-xl font-semibold text-[#213856] mb-5">
-                  Pay for what you need, when you need it.
+                  {ui.pricingPayForWhat}
                 </h3>
                 <motion.ul
                   initial="hidden"
@@ -248,7 +208,7 @@ export default function PricingPage() {
                   variants={staggerContainer(0.04)}
                   className="space-y-3"
                 >
-                  {SCALE_LIST.map((item) => (
+                  {ui.pricingScale.map((item) => (
                     <motion.li
                       key={item.t}
                       variants={popIn}
