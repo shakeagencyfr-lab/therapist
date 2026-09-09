@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite-react-ssg build && node -e \"require('fs').copyFileSync('dist/404/index.html','dist/404.html')\"",
+    "build": "tsc && vite-react-ssg build && node -e \"const fs=require('fs');fs.copyFileSync('dist/404/index.html','dist/404.html');fs.copyFileSync('dist/en/404/index.html','dist/en/404.html');\"",
     "preview": "vite preview"
   },
   "dependencies": {

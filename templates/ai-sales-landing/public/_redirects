@@ -1,3 +1,8 @@
-# Add host-level redirects here, one per line (Netlify/Cloudflare Pages syntax).
-# Example:
+# Règles de redirection au niveau de l'hébergeur (syntaxe Netlify / Cloudflare Pages).
+#
+# Les URL inconnues sous /en doivent servir la page 404 ANGLAISE ; sans cette
+# règle, Cloudflare Pages sert dist/404.html, qui est la version française.
+/en/*    /en/404.html    404
+
+# Ajoutez vos propres redirections ici, une par ligne. Exemple :
 # /demo   https://app.yourbrand.com/start   302
