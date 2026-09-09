@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence, useInView } from "framer-motion";
 import { SPRING_SMOOTH, SPRING_SNAP } from "./motion";
+import { useUi } from "./i18n";
 
 // Tiny inline icons (avoids pulling in a full icon set just for the demos).
 const ICheck = ({ s = 12 }: { s?: number }) => (
@@ -61,9 +62,9 @@ const STEP1_URLS = [
   "https://atelier-21.studio",
   "https://goldcrest-realty.com",
 ];
-const STEP1_DETECTED = ["Products", "Pricing", "FAQ", "Tone of voice"];
 
 export function TypingScanDemo() {
+  const ui = useUi();
   const { ref, inView } = useEnterOnce();
   const [typed, setTyped] = useState("");
   const [phase, setPhase] = useState<
@@ -92,7 +93,7 @@ export function TypingScanDemo() {
       await sleep(900);
       if (cancelled) return;
       setPhase("found");
-      for (let i = 1; i <= STEP1_DETECTED.length; i++) {
+      for (let i = 1; i <= ui.demoDetected.length; i++) {
         await sleep(220);
         if (cancelled) return;
         setFoundCount(i);
@@ -145,12 +146,12 @@ export function TypingScanDemo() {
           }}
         >
           <ISparkle s={11} />
-          {phase === "generating" ? "Generating…" : "Generate"}
+          {phase === "generating" ? ui.demoGenerating : ui.demoGenerate}
         </button>
       </div>
 
       <div className="grid grid-cols-2 gap-1.5 min-h-[44px]">
-        {STEP1_DETECTED.map((label, i) => {
+        {ui.demoDetected.map((label, i) => {
           const shown = i < foundCount;
           return (
             <motion.div
@@ -205,7 +206,7 @@ const CH_LIST: Ch[] = [
     ),
   },
   {
-    name: "Web chat",
+    name: "webchat",
     bg: "linear-gradient(135deg,#6366f1,#8b5cf6)",
     icon: (
       <svg
@@ -234,6 +235,7 @@ const CH_LIST: Ch[] = [
 ];
 
 export function ChannelToggleDemo() {
+  const ui = useUi();
   const { ref, inView } = useEnterOnce();
   const [onCount, setOnCount] = useState(0);
 
@@ -261,6 +263,7 @@ export function ChannelToggleDemo() {
   return (
     <div ref={ref} className="space-y-1.5">
       {CH_LIST.map((c, i) => {
+        const chName = c.name === "webchat" ? ui.demoWebChat : c.name;
         const on = i < onCount;
         return (
           <div
@@ -279,7 +282,7 @@ export function ChannelToggleDemo() {
                 {c.icon}
               </span>
               <span className="text-[12px] font-medium text-[#213856]">
-                {c.name}
+                {chName}
               </span>
             </div>
             <motion.span
@@ -301,35 +304,9 @@ export function ChannelToggleDemo() {
 // ════════════════════════════════════════════════════════════════════════════
 // Step 03 - live inbox: status pulse + cycling lead → typing → AI reply.
 // ════════════════════════════════════════════════════════════════════════════
-const STEP3_FLOW = [
-  {
-    lead: "Hi, I'd like to learn more",
-    reply: "Happy to help! Which service interests you?",
-  },
-  {
-    lead: "How much for the package?",
-    reply: "Happy to break it down — want me to send the full pricing?",
-  },
-  {
-    lead: "Can I book a call this week?",
-    reply: "Sure. I have Thursday 14:00 free. Lock it in?",
-  },
-  {
-    lead: "Do you ship to NL?",
-    reply: "Yes, free over $50. Want our bestsellers?",
-  },
-  {
-    lead: "Is there a refund policy?",
-    reply: "30-day full refund, no questions. Want me to send the link?",
-  },
-  {
-    lead: "Honestly, it's a bit pricey…",
-    reply:
-      "Totally hear you. Most clients break even by week 3. Want the case study?",
-  },
-];
 
 export function LiveInboxDemo() {
+  const ui = useUi();
   const { ref, inView } = useEnterOnce();
   const [idx, setIdx] = useState(0);
   const [stage, setStage] = useState<"inbound" | "typing" | "reply">("inbound");
@@ -348,7 +325,7 @@ export function LiveInboxDemo() {
         setStage("reply");
         await sleep(2300);
         if (cancelled) return;
-        setIdx((v) => (v + 1) % STEP3_FLOW.length);
+        setIdx((v) => (v + 1) % ui.demoFlow.length);
       }
     };
     run();
@@ -357,7 +334,7 @@ export function LiveInboxDemo() {
     };
   }, [inView]);
 
-  const ex = STEP3_FLOW[idx]!;
+  const ex = ui.demoFlow[idx]!;
   return (
     <div ref={ref} className="space-y-2">
       <div
@@ -368,14 +345,14 @@ export function LiveInboxDemo() {
         }}
       >
         <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
-          Status
+          {ui.demoStatus}
         </span>
         <span className="flex items-center gap-1.5 text-[11px] font-semibold text-champ-700">
           <span className="relative inline-flex w-1.5 h-1.5">
             <span className="absolute inset-0 rounded-full bg-champ-500 animate-ping opacity-60" />
             <span className="relative w-1.5 h-1.5 rounded-full bg-champ-500" />
           </span>
-          Active · live inbox
+          {ui.demoActiveInbox}
         </span>
       </div>
 
@@ -460,7 +437,7 @@ export function LiveInboxDemo() {
       </div>
 
       <div className="flex items-center justify-center gap-1 pt-0.5">
-        {STEP3_FLOW.map((_, i) => (
+        {ui.demoFlow.map((_, i) => (
           <span
             key={i}
             className="w-1 h-1 rounded-full transition-colors"

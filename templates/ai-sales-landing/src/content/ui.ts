@@ -82,6 +82,15 @@ export interface UiStrings {
   contactExpectHeading: string;
   contactExpectItems: (email: string) => Array<{ h: string; b: string }>;
 
+  /* Démonstrations animées (étapes « Comment ça marche ») */
+  demoDetected: string[];
+  demoGenerate: string;
+  demoGenerating: string;
+  demoWebChat: string;
+  demoStatus: string;
+  demoActiveInbox: string;
+  demoFlow: Array<{ lead: string; reply: string }>;
+
   /* Page 404 */
   notFoundTitle: string;
   notFoundBody: string;
@@ -213,6 +222,40 @@ export const UI: Record<"fr" | "en", UiStrings> = {
       },
     ],
 
+    demoDetected: ["Offres", "Tarifs", "FAQ", "Ton de voix"],
+    demoGenerate: "Générer",
+    demoGenerating: "Génération…",
+    demoWebChat: "Chat du site",
+    demoStatus: "Statut",
+    demoActiveInbox: "Actif · boîte en direct",
+    demoFlow: [
+      {
+        lead: "Bonjour, j'aimerais en savoir plus",
+        reply: "Avec plaisir ! Quelle prestation vous intéresse ?",
+      },
+      {
+        lead: "C'est combien la formule complète ?",
+        reply: "Je vous détaille ça — je vous envoie la grille tarifaire ?",
+      },
+      {
+        lead: "Je peux avoir un rendez-vous cette semaine ?",
+        reply: "Bien sûr. J'ai jeudi 14h00 de libre. Je vous le bloque ?",
+      },
+      {
+        lead: "Vous livrez en Belgique ?",
+        reply: "Oui, offert dès 50 €. Je vous montre nos best-sellers ?",
+      },
+      {
+        lead: "Il y a une garantie de remboursement ?",
+        reply: "Remboursement intégral sous 30 jours, sans justification. Je vous envoie le lien ?",
+      },
+      {
+        lead: "Franchement, c'est un peu cher…",
+        reply:
+          "Je comprends. La plupart de nos clients sont rentables dès la 3e semaine. Je vous envoie l'étude de cas ?",
+      },
+    ],
+
     notFoundTitle: "Cette page s'est égarée.",
     notFoundBody:
       "Le lien est cassé ou la page a été déplacée. L'IA, elle, répond à chaque message — jour et nuit.",
@@ -339,6 +382,40 @@ export const UI: Record<"fr" | "en", UiStrings> = {
       {
         h: "Help when you need it",
         b: "Browse the Help Centre any time for step-by-step guides, or reach out and we will point you in the right direction.",
+      },
+    ],
+
+    demoDetected: ["Products", "Pricing", "FAQ", "Tone of voice"],
+    demoGenerate: "Generate",
+    demoGenerating: "Generating…",
+    demoWebChat: "Web chat",
+    demoStatus: "Status",
+    demoActiveInbox: "Active · live inbox",
+    demoFlow: [
+      {
+        lead: "Hi, I'd like to learn more",
+        reply: "Happy to help! Which service interests you?",
+      },
+      {
+        lead: "How much for the package?",
+        reply: "Happy to break it down — want me to send the full pricing?",
+      },
+      {
+        lead: "Can I book a call this week?",
+        reply: "Sure. I have Thursday 14:00 free. Lock it in?",
+      },
+      {
+        lead: "Do you ship to NL?",
+        reply: "Yes, free over €50. Want our bestsellers?",
+      },
+      {
+        lead: "Is there a refund policy?",
+        reply: "30-day full refund, no questions. Want me to send the link?",
+      },
+      {
+        lead: "Honestly, it's a bit pricey…",
+        reply:
+          "Totally hear you. Most clients break even by week 3. Want the case study?",
       },
     ],
 
