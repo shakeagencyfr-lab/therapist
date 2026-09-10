@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite-react-ssg build && node -e \"const fs=require('fs');fs.copyFileSync('dist/404/index.html','dist/404.html');fs.copyFileSync('dist/en/404/index.html','dist/en/404.html');\"",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:embed": "vite build --config vite.embed.config.ts && node scripts/build-embed-block.mjs"
   },
   "dependencies": {
     "framer-motion": "^11.15.0",
@@ -22,6 +23,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
+    "sharp": "^0.35.4",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2",
     "vite": "^6.0.0"

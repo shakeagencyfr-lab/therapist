@@ -767,7 +767,14 @@ const SECTION_COMPONENTS: Record<SectionKey, React.ComponentType> = {
   finalCta: FinalCta,
 };
 
-export default function App() {
+/**
+ * La page d'accueil.
+ *
+ * `chrome` à false retire l'en-tête et le pied de page : c'est ce que demande
+ * l'intégration en bloc HTML dans un site tiers, qui apporte déjà les siens.
+ * Le site, lui, ne passe jamais la prop et garde son habillage.
+ */
+export default function App({ chrome = true }: { chrome?: boolean } = {}) {
   const { search } = useLocation();
   // The configured layout renders into the static HTML; a ?layout= preview
   // (or one remembered for this session) swaps it after hydration.
@@ -781,7 +788,7 @@ export default function App() {
 
   return (
     <>
-      <Nav />
+      {chrome && <Nav />}
       <div className="orb-stage relative">
         <OrbField />
         <Hero variant={layout.hero} />
@@ -789,7 +796,7 @@ export default function App() {
           const Section = SECTION_COMPONENTS[key];
           return <Section key={key} />;
         })}
-        <Footer />
+        {chrome && <Footer />}
       </div>
     </>
   );
