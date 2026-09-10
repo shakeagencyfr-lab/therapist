@@ -1,111 +1,8 @@
-/* =============================================================================
- *  en.ts — the ENGLISH copy (secondary language, served under /en)
- * =============================================================================
- *
- *  Only the translatable fields live here. Identity, URLs, colours, assets,
- *  theme and layout are shared with the French config (src/brand.config.ts)
- *  and must NOT be repeated.
- *
- *  Editing rule: whenever you change a text in brand.config.ts, change its
- *  counterpart here — otherwise the English page keeps the old wording.
- * ========================================================================== */
+/* Booster IA Pro — contenu de la landing, version ANGLAISE. */
+import type { ProductContent } from "./types";
 
-import type { BrandConfig } from "../brand.config";
-
-/** The subset of the brand config that differs between languages. */
-export type LocalizedContent = Pick<
-  BrandConfig,
-  | "tagline"
-  | "logoAlt"
-  | "legalJurisdiction"
-  | "legalEffectiveDate"
-  | "infrastructure"
-  | "nav"
-  | "channels"
-  | "hero"
-  | "comparison"
-  | "howItWorks"
-  | "features"
-  | "problem"
-  | "conversation"
-  | "guarantee"
-  | "trust"
-  | "useCases"
-  | "integrations"
-  | "testimonials"
-  | "pricing"
-  | "faq"
-  | "finalCta"
-  | "footer"
->;
-
-export const enContent: LocalizedContent = {
+export const iaEn: ProductContent = {
   tagline: "The AI sales agent that books calls and closes deals in your DMs.",
-  logoAlt: "YourBrand",
-
-  legalJurisdiction: "[your country]",
-  legalEffectiveDate: "1 January 2026",
-
-  infrastructure: {
-    hostingRegion: "the European Union",
-    hostingSummary:
-      "The service and your data are hosted on secure dedicated servers and cloud infrastructure located in the European Union (Germany, and the EU region of our cloud provider). Data is encrypted in transit using TLS, and sensitive credentials and integration tokens are encrypted at rest.",
-    subProcessors: [
-      {
-        name: "AI providers (e.g. Anthropic, OpenAI, Google)",
-        purpose:
-          "Generating AI replies and understanding images, voice notes and video",
-        location: "EU / United States",
-      },
-      {
-        name: "Messaging providers (e.g. Twilio, Meta Platforms)",
-        purpose:
-          "Sending and receiving messages on the channels you connect (WhatsApp, SMS, Instagram, Messenger)",
-        location: "EU / United States",
-      },
-      {
-        name: "Cloud & server hosting (e.g. Hetzner, Google Cloud — EU regions)",
-        purpose: "Application hosting, databases and encrypted backups",
-        location: "European Union",
-      },
-      {
-        name: "Payment processor (e.g. Stripe)",
-        purpose: "Subscription billing and fraud prevention",
-        location: "EU / United States",
-      },
-      {
-        name: "Email & analytics tools",
-        purpose:
-          "Transactional and marketing email, and product-usage analytics",
-        location: "EU / United States",
-      },
-    ],
-    transfersNote:
-      "Our infrastructure is primarily located in the European Union. Where a sub-processor (such as an AI, messaging or payment provider) processes data outside the EU, we rely on the European Commission's Standard Contractual Clauses or another lawful transfer mechanism.",
-    retention: {
-      conversations:
-        "Contacts and conversation content are retained for the life of your account and deleted from active systems within 90 days of account closure, unless a longer period is required by law.",
-      backups:
-        "Encrypted backups are retained on a rolling basis for up to 30 days.",
-      logs: "Server logs and security events are retained for up to 90 days.",
-    },
-  },
-
-  nav: {
-    links: [
-      { href: "/en/#features", label: "Features" },
-      { href: "/en/#how-it-works", label: "How it works" },
-      { href: "/en/#pricing", label: "Pricing" },
-      { href: "/en/#faq", label: "FAQ" },
-      { href: "/en/guide/", label: "Guide" },
-    ],
-    themePicker: true,
-    ctaLabel: "Start free",
-    ctaHref: "/en/pricing/",
-    loginLabel: "Log in",
-    loginHref: "https://app.yourbrand.com",
-  },
-
   channels: [
     { key: "whatsapp", label: "WhatsApp" },
     { key: "instagram", label: "Instagram" },
@@ -115,7 +12,6 @@ export const enContent: LocalizedContent = {
     { key: "imessage", label: "iMessage", soon: true },
     { key: "telegram", label: "Telegram", soon: true },
   ],
-
   hero: {
     badge: "Replies in seconds. Books the call. Closes the deal.",
     titleA: "Your AI sales agent that",
@@ -133,7 +29,6 @@ export const enContent: LocalizedContent = {
       { value: "15 min", label: "to go live" },
     ],
   },
-
   comparison: {
     eyebrow: "Why it's different",
     heading: "An AI sales agent, not a chatbot.",
@@ -150,7 +45,6 @@ export const enContent: LocalizedContent = {
       ["Every channel in one inbox", true, false],
     ],
   },
-
   howItWorks: {
     eyebrow: "Live in 15 minutes",
     heading: "Three steps to a 24/7 salesperson.",
@@ -169,7 +63,6 @@ export const enContent: LocalizedContent = {
       },
     ],
   },
-
   features: {
     eyebrow: "What it does",
     heading: "Everything a great salesperson does. Instantly.",
@@ -216,7 +109,6 @@ export const enContent: LocalizedContent = {
       },
     ],
   },
-
   problem: {
     eyebrow: "The problem",
     heading: "Every slow reply is a lost deal.",
@@ -239,7 +131,6 @@ export const enContent: LocalizedContent = {
       },
     ],
   },
-
   conversation: {
     eyebrow: "Watch it work",
     heading: "First message to closed deal — hands off.",
@@ -250,7 +141,6 @@ export const enContent: LocalizedContent = {
       "Hands off to a human the moment you want in",
     ],
   },
-
   guarantee: {
     eyebrow: "Zero-risk start",
     heading: "Try it without betting the business.",
@@ -277,7 +167,6 @@ export const enContent: LocalizedContent = {
       },
     ],
   },
-
   trust: {
     eyebrow: "Security & privacy",
     heading: "Your customers' data, handled properly.",
@@ -304,7 +193,6 @@ export const enContent: LocalizedContent = {
       },
     ],
   },
-
   useCases: {
     eyebrow: "Who it's for",
     heading: "Built for businesses that live in the DMs.",
@@ -341,7 +229,6 @@ export const enContent: LocalizedContent = {
       },
     ],
   },
-
   integrations: {
     eyebrow: "Plays well with others",
     heading: "Every channel in one inbox — plus your tools.",
@@ -354,13 +241,11 @@ export const enContent: LocalizedContent = {
       "Custom functions",
     ],
   },
-
   testimonials: {
     eyebrow: "Loved by teams",
     heading: "What customers say.",
     items: [],
   },
-
   pricing: {
     eyebrow: "Pricing",
     heading: "Simple pricing that scales with you.",
@@ -412,7 +297,6 @@ export const enContent: LocalizedContent = {
       },
     ],
   },
-
   faq: {
     heading: "Questions, answered.",
     items: [
@@ -442,7 +326,6 @@ export const enContent: LocalizedContent = {
       ],
     ],
   },
-
   finalCta: {
     headline: "Stop losing deals in your DMs.",
     subhead:
@@ -451,39 +334,6 @@ export const enContent: LocalizedContent = {
     ctaHref: "/en/pricing/",
     trustLine: ["14-day free trial", "No card required", "Set up in 15 min"],
   },
-
-  footer: {
-    tagline:
-      "The AI sales agent that books calls and closes deals on WhatsApp, Instagram, Messenger, web chat and SMS.",
-    columns: [
-      {
-        title: "Product",
-        links: [
-          { href: "/en/#features", label: "Features" },
-          { href: "/en/#how-it-works", label: "How it works" },
-          { href: "/en/#pricing", label: "Pricing" },
-          { href: "/en/#faq", label: "FAQ" },
-        ],
-      },
-      {
-        title: "Company",
-        links: [{ href: "/en/contact/", label: "Contact" }],
-      },
-      {
-        title: "Legal",
-        links: [
-          { href: "/en/terms/", label: "Terms" },
-          { href: "/en/privacy-policy/", label: "Privacy Policy" },
-        ],
-      },
-    ],
-    social: [
-      { label: "Twitter", href: "#" },
-      { label: "Instagram", href: "#" },
-      { label: "LinkedIn", href: "#" },
-    ],
-    copyright: "© 2026 YourBrand. All rights reserved.",
-  },
 };
 
-export default enContent;
+export default iaEn;

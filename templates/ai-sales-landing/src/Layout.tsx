@@ -2,16 +2,26 @@ import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { Head } from "vite-react-ssg";
 import { WhatsAppFab } from "./lib/WhatsAppCTA";
-import brand, { setActiveLang, swapLangPath, type Lang } from "./brand.config";
+import brand, {
+  setActiveLang,
+  setActiveProduct,
+  swapLangPath,
+  type Lang,
+} from "./brand.config";
+import { DEFAULT_PRODUCT, type ProductKey } from "./products";
 import { brandThemeCss, themeCssFor, activeTheme } from "./lib/brandTheme";
 import { themes, type ThemeName } from "./themes";
 import { homeLayouts, type HomeLayoutName } from "./homeLayouts";
 import { previewTheme, previewLayout, exitPreview } from "./lib/previewMode";
 
-export default function Layout({ lang = "fr" }: { lang?: Lang } = {}) {
-  // Fixé AVANT le rendu des enfants : React rend toujours le parent en premier,
-  // et une seule langue existe par page pré-rendue.
+export default function Layout({
+  lang = "fr",
+  product = DEFAULT_PRODUCT,
+}: { lang?: Lang; product?: ProductKey } = {}) {
+  // Fixés AVANT le rendu des enfants : React rend toujours le parent en
+  // premier, et une page pré-rendue ne sert qu'une langue et qu'une offre.
   setActiveLang(lang);
+  setActiveProduct(product);
   const { pathname, hash, search } = useLocation();
   useEffect(() => {
     // If the URL has a hash (e.g. /#pricing), let the browser handle the anchor scroll.

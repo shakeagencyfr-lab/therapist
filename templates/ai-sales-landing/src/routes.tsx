@@ -7,18 +7,22 @@ import ContactPage from "./pages/ContactPage";
 import TermsPage from "./pages/TermsPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import NotFoundPage from "./pages/NotFoundPage";
+import { products, PRODUCT_ORDER, DEFAULT_PRODUCT, type ProductKey } from "./products";
+import type { Lang } from "./brand.config";
 
 /**
- * Les mêmes pages, deux fois : le français à la racine (langue principale),
- * l'anglais sous /en. Chaque langue est pré-rendue dans son propre fichier
- * HTML, ce qui permet un sélecteur de langue en simple lien — sans JavaScript
- * — et des URL distinctes que les moteurs de recherche peuvent indexer.
+ * Deux axes se croisent ici : la langue (français à la racine, anglais sous
+ * /en) et l'offre (trois landings). Chaque combinaison est pré-rendue dans son
+ * propre fichier HTML, ce qui permet un sélecteur de langue et un sélecteur
+ * d'offre en simples liens — sans JavaScript — et des URL indexables.
  *
- * Chaque route porte un `id` explicite préfixé par la langue : React Router
- * exige des identifiants uniques dans tout l'arbre, et sans cela les deux
- * sous-arbres entreraient en collision.
+ * Chaque route porte un `id` explicite : React Router exige des identifiants
+ * uniques dans tout l'arbre, et les deux sous-arbres de langue entreraient
+ * sinon en collision.
  */
-function pagesFor(lang: "fr" | "en"): RouteRecord[] {
+
+/** Les pages communes aux trois offres : tarifs, contact, mentions légales. */
+function pagesCommunes(lang: Lang): RouteRecord[] {
   return [
     {
       id: `${lang}-pricing`,
@@ -26,7 +30,7 @@ function pagesFor(lang: "fr" | "en"): RouteRecord[] {
       element: <PricingPage />,
       entry: "src/pages/PricingPage.tsx",
     },
-    // Manuel du propriétaire — noindex, retirable du menu via brand.config.
+    // Manuel du propriétaire — noindex, retirable du menu via site.fr.ts.
     {
       id: `${lang}-guide`,
       path: "guide",
@@ -68,26 +72,52 @@ function pagesFor(lang: "fr" | "en"): RouteRecord[] {
   ];
 }
 
+/** Les landings des offres autres que celle servie à la racine. */
+function landingsSecondaires(lang: Lang): RouteRecord[] {
+  return PRODUCT_ORDER.filter((k) => k !== DEFAULT_PRODUCT).map((key) => ({
+    id: `${lang}-${key}`,
+    path: products[key].slug,
+    element: <Layout lang={lang} product={key as ProductKey} />,
+    entry: "src/Layout.tsx",
+    children: [
+      {
+        id: `${lang}-${key}-home`,
+        index: true,
+        element: <App />,
+        entry: "src/App.tsx",
+      },
+    ],
+  }));
+}
+
+/** L'arbre d'une langue : les landings secondaires, puis la racine. */
+function arbre(lang: Lang, base: string): RouteRecord[] {
+  const secondaires = landingsSecondaires(lang).map((r) => ({
+    ...r,
+    path: `${base === "/" ? "" : base}/${r.path}`.replace(/^\/\//, "/"),
+  }));
+  return [
+    ...secondaires,
+    {
+      id: `${lang}-root`,
+      path: base,
+      element: <Layout lang={lang} product={DEFAULT_PRODUCT} />,
+      entry: "src/Layout.tsx",
+      children: [
+        {
+          id: `${lang}-home`,
+          index: true,
+          element: <App />,
+          entry: "src/App.tsx",
+        },
+        ...pagesCommunes(lang),
+      ],
+    },
+  ];
+}
+
 export const routes: RouteRecord[] = [
-  {
-    id: "en-root",
-    path: "/en",
-    element: <Layout lang="en" />,
-    entry: "src/Layout.tsx",
-    children: [
-      { id: "en-home", index: true, element: <App />, entry: "src/App.tsx" },
-      ...pagesFor("en"),
-    ],
-  },
-  {
-    // Doit rester après /en, sans quoi le rattrapage français l'absorberait.
-    id: "fr-root",
-    path: "/",
-    element: <Layout lang="fr" />,
-    entry: "src/Layout.tsx",
-    children: [
-      { id: "fr-home", index: true, element: <App />, entry: "src/App.tsx" },
-      ...pagesFor("fr"),
-    ],
-  },
+  // L'anglais d'abord : sans quoi le rattrapage français absorberait /en.
+  ...arbre("en", "/en"),
+  ...arbre("fr", "/"),
 ];

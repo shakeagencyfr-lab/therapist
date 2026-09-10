@@ -22,12 +22,18 @@ import {
 } from "./lib/motion";
 import brand, {
   getActiveLang,
+  getActiveProduct,
   lhref,
   swapLangPath,
   type Cell,
   type ChannelKey,
 } from "./brand.config";
 import { LANGS } from "./lib/i18n";
+import {
+  products,
+  PRODUCT_ORDER,
+  productPath,
+} from "./products";
 import { useUi } from "./lib/i18n";
 import { themes, type ThemeName } from "./themes";
 import {
@@ -377,6 +383,45 @@ function LangSwitcher({ className = "" }: { className?: string }) {
   );
 }
 
+
+/* -----------------------------------------------------------------------------
+ * Sélecteur d'offre.
+ * Trois liens vers les trois landings, la courante mise en avant. Chaque
+ * pastille porte l'accent de son offre — c'est le seul endroit du site où les
+ * trois couleurs se côtoient, et c'est ce qui rend la famille lisible.
+ * -------------------------------------------------------------------------- */
+function OffresSwitcher({ onNavigate }: { onNavigate?: () => void } = {}) {
+  const courante = getActiveProduct();
+  return (
+    <nav className="flex items-center gap-1" aria-label="Nos offres">
+      {PRODUCT_ORDER.map((key) => {
+        const p = products[key];
+        const active = key === courante;
+        return (
+          <a
+            key={key}
+            href={lhref(productPath(key))}
+            onClick={onNavigate}
+            aria-current={active ? "page" : undefined}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[12.5px] font-semibold whitespace-nowrap transition-colors ${
+              active
+                ? "bg-slate-900/5 text-slate-900"
+                : "text-slate-500 hover:text-slate-900 hover:bg-slate-900/5"
+            }`}
+          >
+            <span
+              aria-hidden="true"
+              className="w-1.5 h-1.5 rounded-full shrink-0"
+              style={{ background: p.colors.c500 }}
+            />
+            {p.label}
+          </a>
+        );
+      })}
+    </nav>
+  );
+}
+
 export function Nav({
   links: linksProp,
   ctaHref: ctaHrefProp,
@@ -413,6 +458,9 @@ export function Nav({
               className="h-5 sm:h-7 shrink-0"
             />
           </a>
+          <div className="hidden xl:flex shrink-0 pr-1 border-r border-slate-200/70 mr-1">
+            <OffresSwitcher />
+          </div>
           <div className="hidden lg:flex flex-1 items-center justify-center gap-1.5 text-sm text-slate-700 min-w-0">
             {links.map((l) => {
               const active = isActive(l.href);
@@ -560,6 +608,9 @@ export function Nav({
             >
               {brand.nav.loginLabel}
             </a>
+            <div className="xl:hidden flex flex-wrap gap-1 px-1 pb-3 mb-1 border-b border-slate-200/70">
+              <OffresSwitcher onNavigate={() => setMobileOpen(false)} />
+            </div>
             <div className="sm:hidden flex items-center gap-2 px-3 pt-3 border-t border-slate-200/70 mt-1">
               <span className="text-[11.5px] font-semibold text-slate-500">
                 {ui.langLabel}
