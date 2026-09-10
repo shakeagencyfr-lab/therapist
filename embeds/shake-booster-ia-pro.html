@@ -1,0 +1,859 @@
+<title>Booster IA Pro</title>
+
+<!--
+  Bloc à intégrer dans la page « Booster IA Pro » de shakeagency.io.
+
+  • Autonome : aucune police, image ou script externe. Tout est en ligne.
+  • Sans effet de bord : toutes les règles sont préfixées .shk-bip, les
+    variables sont posées sur le conteneur et non sur :root. Rien ne fuit
+    vers le reste de la page.
+  • Thème sombre assumé, calé sur les couleurs relevées sur le site.
+  • Collez tout ce qui suit dans un bloc de code / HTML de Simvoly.
+-->
+
+<section class="shk-bip" aria-labelledby="shk-bip-titre">
+  <style>
+    .shk-bip {
+      /* Couleurs relevées sur shakeagency.io */
+      --bip-fond: #13131f;
+      --bip-surface: #151829;
+      --bip-surface-2: #1b1f33;
+      --bip-trait: #262b45;
+      --bip-trait-doux: #1e2338;
+      --bip-vert: #00d5a7;
+      --bip-neon: #01ff87;
+      --bip-vert-sourd: #1a5455;
+      --bip-titre: #ffffff;
+      --bip-texte: #8a90aa;
+      --bip-attenue: #6d7383;
+
+      /* Échelle typographique */
+      --bip-display: clamp(1.65rem, 4.4vw, 2.55rem);
+      --bip-h3: clamp(1.15rem, 2.6vw, 1.45rem);
+      --bip-corps: clamp(0.95rem, 1.2vw, 1rem);
+
+      box-sizing: border-box;
+      background: var(--bip-fond);
+      color: var(--bip-texte);
+      /* Hérite de la police de la page qui accueille le bloc. */
+      font-family: inherit;
+      font-size: var(--bip-corps);
+      line-height: 1.65;
+      padding-block: clamp(2.75rem, 7vw, 4.5rem);
+      padding-left: max(16px, 4vw);
+      padding-right: max(16px, 4vw);
+      -webkit-font-smoothing: antialiased;
+    }
+    .shk-bip *,
+    .shk-bip *::before,
+    .shk-bip *::after {
+      box-sizing: inherit;
+    }
+    .shk-bip :focus-visible {
+      outline: 2px solid var(--bip-vert);
+      outline-offset: 3px;
+      border-radius: 6px;
+    }
+
+    .shk-bip__piste {
+      max-width: 62rem;
+      margin-inline: auto;
+      display: flex;
+      flex-direction: column;
+      gap: clamp(2.75rem, 6vw, 4.25rem);
+    }
+
+    /* ---------- éléments récurrents ---------- */
+    .shk-bip__oeil {
+      margin: 0;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.17em;
+      text-transform: uppercase;
+      color: var(--bip-vert);
+    }
+    .shk-bip h2,
+    .shk-bip h3 {
+      margin: 0;
+      color: var(--bip-titre);
+      font-weight: 800;
+      letter-spacing: -0.018em;
+      line-height: 1.15;
+      text-wrap: balance;
+    }
+    .shk-bip h2 {
+      font-size: var(--bip-display);
+    }
+    .shk-bip h3 {
+      font-size: var(--bip-h3);
+    }
+    .shk-bip p {
+      margin: 0;
+    }
+    .shk-bip__intro {
+      max-width: 46ch;
+    }
+
+    /* ---------- accroche ---------- */
+    .shk-bip__accroche {
+      display: flex;
+      flex-direction: column;
+      gap: 1.1rem;
+    }
+    .shk-bip__accroche .shk-bip__intro {
+      font-size: clamp(1rem, 1.6vw, 1.12rem);
+    }
+    .shk-bip__vert {
+      color: var(--bip-vert);
+    }
+
+    .shk-bip__canaux {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.35rem;
+      padding: 0;
+      list-style: none;
+    }
+    .shk-bip__canal {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.42rem 0.8rem;
+      border: 1px solid var(--bip-trait);
+      border-radius: 999px;
+      background: var(--bip-surface);
+      color: var(--bip-titre);
+      font-size: 0.82rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .shk-bip__canal svg {
+      width: 15px;
+      height: 15px;
+      flex: none;
+      color: var(--bip-vert);
+    }
+
+    /* ---------- la conversation ---------- */
+    .shk-bip__demo {
+      display: flex;
+      flex-direction: column;
+      gap: 1.4rem;
+    }
+    .shk-bip__demo-tete {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+    .shk-bip__mention {
+      font-size: 0.78rem;
+      color: var(--bip-attenue);
+    }
+
+    .shk-bip__fil {
+      position: relative;
+      border: 1px solid var(--bip-trait-doux);
+      border-radius: 18px;
+      background: var(--bip-surface);
+      overflow: hidden;
+    }
+    /* Le liseré néon du haut, repris de vos cartes d'offres. */
+    .shk-bip__fil::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 2px;
+      background: linear-gradient(
+        90deg,
+        var(--bip-neon),
+        var(--bip-vert) 55%,
+        transparent
+      );
+    }
+
+    .shk-bip__fil-tete {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.85rem 1.1rem;
+      border-bottom: 1px solid var(--bip-trait-doux);
+      font-size: 0.8rem;
+      color: var(--bip-attenue);
+    }
+    .shk-bip__pastille {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--bip-vert);
+      flex: none;
+      box-shadow: 0 0 0 4px rgb(0 213 167 / 0.16);
+    }
+    .shk-bip__fil-tete strong {
+      color: var(--bip-titre);
+      font-weight: 600;
+    }
+    .shk-bip__nuit {
+      margin-left: auto;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .shk-bip__echanges {
+      margin: 0;
+      padding: 1.15rem 1.1rem 1.4rem;
+      list-style: none;
+      display: grid;
+      /* rail horaire | fil | annotations */
+      grid-template-columns: 3.4rem minmax(0, 1fr);
+      gap: 0.55rem 0.85rem;
+    }
+    .shk-bip__echange {
+      display: contents;
+    }
+    .shk-bip__heure {
+      grid-column: 1;
+      font-size: 0.72rem;
+      font-variant-numeric: tabular-nums;
+      color: var(--bip-attenue);
+      padding-top: 0.55rem;
+      white-space: nowrap;
+    }
+    .shk-bip__bulle {
+      grid-column: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+    .shk-bip__texte {
+      max-width: 34rem;
+      padding: 0.6rem 0.85rem;
+      border-radius: 14px;
+      font-size: 0.92rem;
+      line-height: 1.55;
+    }
+    .shk-bip__bulle--client .shk-bip__texte {
+      background: var(--bip-surface-2);
+      color: #d6dae8;
+      border-top-left-radius: 5px;
+    }
+    .shk-bip__bulle--ia {
+      align-items: flex-end;
+    }
+    .shk-bip__bulle--ia .shk-bip__texte {
+      background: linear-gradient(180deg, #00c69c, #009b7c);
+      color: #04231c;
+      font-weight: 500;
+      border-top-right-radius: 5px;
+    }
+    .shk-bip__note {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--bip-vert);
+    }
+    .shk-bip__bulle--ia .shk-bip__note {
+      text-align: right;
+    }
+
+    .shk-bip__bilan {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.4rem 1.6rem;
+      margin: 0 1.1rem 1.2rem;
+      padding-top: 1rem;
+      border-top: 1px dashed var(--bip-vert-sourd);
+      font-size: 0.85rem;
+    }
+    .shk-bip__bilan b {
+      color: var(--bip-titre);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ---------- ce qu'il fait ---------- */
+    .shk-bip__bloc {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    .shk-bip__grille {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+      gap: 1.6rem 2.2rem;
+    }
+    .shk-bip__capacite {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--bip-trait-doux);
+    }
+    .shk-bip__capacite-tete {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      color: var(--bip-titre);
+      font-weight: 700;
+      font-size: 0.98rem;
+    }
+    .shk-bip__capacite-tete svg {
+      width: 17px;
+      height: 17px;
+      flex: none;
+      color: var(--bip-vert);
+    }
+    .shk-bip__capacite p {
+      font-size: 0.9rem;
+    }
+
+    /* ---------- comparaison ---------- */
+    .shk-bip__compare {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    .shk-bip__compare caption {
+      text-align: left;
+      padding-bottom: 0.9rem;
+      color: var(--bip-attenue);
+      font-size: 0.85rem;
+    }
+    .shk-bip__compare th,
+    .shk-bip__compare td {
+      padding: 0.72rem 0.6rem;
+      border-bottom: 1px solid var(--bip-trait-doux);
+      text-align: left;
+      vertical-align: middle;
+    }
+    .shk-bip__compare thead th {
+      color: var(--bip-titre);
+      font-weight: 700;
+      font-size: 0.82rem;
+      border-bottom-color: var(--bip-trait);
+    }
+    .shk-bip__compare tbody th {
+      font-weight: 500;
+      color: var(--bip-texte);
+    }
+    .shk-bip__compare th.shk-bip__col,
+    .shk-bip__compare td.shk-bip__col {
+      width: 6.5rem;
+      text-align: center;
+    }
+    .shk-bip__compare thead th.shk-bip__col--nous {
+      color: var(--bip-vert);
+    }
+    .shk-bip__compare td.shk-bip__col {
+      font-size: 1.05rem;
+      line-height: 1;
+    }
+    .shk-bip__oui {
+      color: var(--bip-vert);
+    }
+    .shk-bip__non {
+      color: #4d5268;
+    }
+
+    /* ---------- mise en route ---------- */
+    .shk-bip__etapes {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+      gap: 1.5rem;
+      counter-reset: shk-etape;
+    }
+    .shk-bip__etape {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      counter-increment: shk-etape;
+    }
+    .shk-bip__etape::before {
+      content: counter(shk-etape, decimal-leading-zero);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      color: var(--bip-vert);
+      font-variant-numeric: tabular-nums;
+    }
+    .shk-bip__etape strong {
+      color: var(--bip-titre);
+      font-size: 1rem;
+    }
+    .shk-bip__etape p {
+      font-size: 0.9rem;
+    }
+
+    /* ---------- offre ---------- */
+    .shk-bip__offre {
+      position: relative;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.5rem;
+      padding: clamp(1.4rem, 3.5vw, 2rem);
+      border: 1px solid var(--bip-vert-sourd);
+      border-radius: 18px;
+      background: var(--bip-surface);
+      overflow: hidden;
+    }
+    .shk-bip__offre::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--bip-neon), var(--bip-vert) 60%, transparent);
+    }
+    .shk-bip__prix {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .shk-bip__prix-ligne {
+      display: flex;
+      align-items: baseline;
+      gap: 0.45rem;
+      color: var(--bip-titre);
+    }
+    .shk-bip__montant {
+      font-size: clamp(1.9rem, 5vw, 2.5rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+    .shk-bip__cadence {
+      font-size: 0.9rem;
+      color: var(--bip-attenue);
+      font-weight: 500;
+    }
+    .shk-bip__setup {
+      font-size: 0.85rem;
+      color: var(--bip-attenue);
+    }
+    .shk-bip__actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+    }
+    .shk-bip__cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.78rem 1.35rem;
+      border-radius: 12px;
+      font-size: 0.94rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: transform 140ms ease, filter 140ms ease;
+    }
+    .shk-bip__cta svg {
+      width: 17px;
+      height: 17px;
+      flex: none;
+    }
+    .shk-bip__cta--plein {
+      background: linear-gradient(180deg, var(--bip-vert), #00a583);
+      color: #04231c;
+    }
+    .shk-bip__cta--vide {
+      border: 1px solid var(--bip-trait);
+      color: var(--bip-titre);
+    }
+    .shk-bip__cta:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.06);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .shk-bip__cta {
+        transition: none;
+      }
+      .shk-bip__cta:hover {
+        transform: none;
+      }
+    }
+
+    /* ---------- téléphone ---------- */
+    @media (max-width: 30rem) {
+      .shk-bip__echanges {
+        grid-template-columns: 2.9rem minmax(0, 1fr);
+        gap: 0.5rem 0.6rem;
+        padding-inline: 0.75rem;
+      }
+      .shk-bip__texte {
+        font-size: 0.88rem;
+      }
+      /* Colonnes plus étroites pour laisser respirer les libellés. */
+      .shk-bip__compare th.shk-bip__col,
+      .shk-bip__compare td.shk-bip__col {
+        width: 4.2rem;
+      }
+      .shk-bip__compare th,
+      .shk-bip__compare td {
+        padding-inline: 0.35rem;
+      }
+      .shk-bip__compare thead th {
+        font-size: 0.76rem;
+      }
+      .shk-bip__offre {
+        justify-content: flex-start;
+      }
+      .shk-bip__actions {
+        width: 100%;
+      }
+      .shk-bip__cta {
+        flex: 1 1 100%;
+        justify-content: center;
+      }
+    }
+  </style>
+
+  <div class="shk-bip__piste">
+    <!-- ================= accroche ================= -->
+    <header class="shk-bip__accroche">
+      <p class="shk-bip__oeil">Booster IA Pro</p>
+      <h2 id="shk-bip-titre">
+        Vos clients écrivent à 23 h.<br />
+        <span class="shk-bip__vert">Quelqu'un doit répondre.</span>
+      </h2>
+      <p class="shk-bip__intro">
+        Un agent conversationnel qui prend vos messages en charge sur votre
+        site, WhatsApp, Instagram et Messenger. Il répond, qualifie, oriente
+        et prend les rendez-vous — 24 h/24, avec le ton de votre marque.
+      </p>
+      <ul class="shk-bip__canaux">
+        <li class="shk-bip__canal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.6 8.6 0 0 1-3.8-.9L3 20.5l1.6-4.9A8.4 8.4 0 1 1 21 11.5Z" stroke-linejoin="round" />
+          </svg>
+          WhatsApp
+        </li>
+        <li class="shk-bip__canal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <rect x="3" y="3" width="18" height="18" rx="5" />
+            <circle cx="12" cy="12" r="4" />
+            <circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none" />
+          </svg>
+          Instagram
+        </li>
+        <li class="shk-bip__canal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M12 3c5 0 9 3.8 9 8.5S17 20 12 20a10 10 0 0 1-2.6-.35L4.5 21.5l.1-4A8.2 8.2 0 0 1 3 11.5C3 6.8 7 3 12 3Z" stroke-linejoin="round" />
+            <path d="m7.5 14 3-3.2 2.2 2.2 3.8-3.4" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          Messenger
+        </li>
+        <li class="shk-bip__canal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <rect x="2.5" y="4" width="19" height="13" rx="2.5" />
+            <path d="M2.5 8.5h19M8 20.5h8" stroke-linecap="round" />
+          </svg>
+          Chat du site
+        </li>
+      </ul>
+    </header>
+
+    <!-- ================= la conversation ================= -->
+    <section class="shk-bip__demo" aria-labelledby="shk-bip-demo">
+      <div class="shk-bip__demo-tete">
+        <p class="shk-bip__oeil">Ce que ça donne</p>
+        <h3 id="shk-bip-demo">Un samedi matin rempli pendant que vous dormiez.</h3>
+        <p class="shk-bip__mention">
+          Exemple de conversation. Les horaires montrent le délai réel entre
+          chaque message.
+        </p>
+      </div>
+
+      <div class="shk-bip__fil">
+        <div class="shk-bip__fil-tete">
+          <span class="shk-bip__pastille" aria-hidden="true"></span>
+          <strong>Instagram</strong>
+          <span>· nouvelle demande</span>
+          <span class="shk-bip__nuit">Vendredi, 23 h 41</span>
+        </div>
+
+        <ol class="shk-bip__echanges">
+          <li class="shk-bip__echange">
+            <span class="shk-bip__heure" aria-hidden="true">23:41</span>
+            <div class="shk-bip__bulle shk-bip__bulle--client">
+            <p class="shk-bip__texte">
+              Bonsoir, vous faites encore des poses en résine ? Et c'est quel
+              prix ?
+            </p>
+            </div>
+          </li>
+
+          <li class="shk-bip__echange">
+            <span class="shk-bip__heure" aria-hidden="true">23:41</span>
+            <div class="shk-bip__bulle shk-bip__bulle--ia">
+            <p class="shk-bip__texte">
+              Bonsoir ! Oui — la pose complète en résine est à 55 €, comptez
+              1 h 30. Vous cherchez plutôt pour cette semaine ou plus tard ?
+            </p>
+            <span class="shk-bip__note">répond au tarif · 14 s</span>
+            </div>
+          </li>
+
+          <li class="shk-bip__echange">
+            <span class="shk-bip__heure" aria-hidden="true">23:42</span>
+            <div class="shk-bip__bulle shk-bip__bulle--client">
+            <p class="shk-bip__texte">Cette semaine si possible</p>
+            </div>
+          </li>
+
+          <li class="shk-bip__echange">
+            <span class="shk-bip__heure" aria-hidden="true">23:42</span>
+            <div class="shk-bip__bulle shk-bip__bulle--ia">
+            <p class="shk-bip__texte">
+              Il me reste jeudi 14 h 00 et samedi 10 h 30. Lequel vous
+              arrange ?
+            </p>
+            <span class="shk-bip__note">propose des créneaux</span>
+            </div>
+          </li>
+
+          <li class="shk-bip__echange">
+            <span class="shk-bip__heure" aria-hidden="true">23:43</span>
+            <div class="shk-bip__bulle shk-bip__bulle--client">
+            <p class="shk-bip__texte">Samedi c'est parfait</p>
+            </div>
+          </li>
+
+          <li class="shk-bip__echange">
+            <span class="shk-bip__heure" aria-hidden="true">23:44</span>
+            <div class="shk-bip__bulle shk-bip__bulle--ia">
+            <p class="shk-bip__texte">
+              C'est noté. Un acompte de 15 € confirme le créneau et se déduit
+              de la prestation — voici le lien sécurisé.
+            </p>
+            <span class="shk-bip__note">encaisse l'acompte</span>
+            </div>
+          </li>
+
+          <li class="shk-bip__echange">
+            <span class="shk-bip__heure" aria-hidden="true">23:46</span>
+            <div class="shk-bip__bulle shk-bip__bulle--client">
+            <p class="shk-bip__texte">C'est payé ✅</p>
+            </div>
+          </li>
+
+          <li class="shk-bip__echange">
+            <span class="shk-bip__heure" aria-hidden="true">23:46</span>
+            <div class="shk-bip__bulle shk-bip__bulle--ia">
+            <p class="shk-bip__texte">
+              Parfait, rendez-vous confirmé samedi 10 h 30. Je vous envoie un
+              rappel la veille. Bonne soirée !
+            </p>
+            <span class="shk-bip__note">rendez-vous créé</span>
+            </div>
+          </li>
+        </ol>
+
+        <p class="shk-bip__bilan">
+          <span>Durée totale <b>5 minutes</b></span>
+          <span>Intervention humaine <b>0 message</b></span>
+          <span>Vous, pendant ce temps <b>vous dormiez</b></span>
+        </p>
+      </div>
+    </section>
+
+    <!-- ================= ce qu'il fait ================= -->
+    <section class="shk-bip__bloc" aria-labelledby="shk-bip-fait">
+      <div class="shk-bip__demo-tete">
+        <p class="shk-bip__oeil">Ce qu'il fait</p>
+        <h3 id="shk-bip-fait">Le travail d'un bon standard, sans les horaires.</h3>
+      </div>
+
+      <div class="shk-bip__grille">
+        <article class="shk-bip__capacite">
+          <p class="shk-bip__capacite-tete">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 7v5l3.2 2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Il répond tout de suite
+          </p>
+          <p>
+            Jour, nuit, week-end et jours fériés. Le message est traité au
+            moment où l'envie d'acheter est encore là.
+          </p>
+        </article>
+
+        <article class="shk-bip__capacite">
+          <p class="shk-bip__capacite-tete">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <rect x="3" y="5" width="18" height="16" rx="2.5" />
+              <path d="M3 10h18M8 3v4M16 3v4" stroke-linecap="round" />
+            </svg>
+            Il prend les rendez-vous
+          </p>
+          <p>
+            Il propose des créneaux, confirme et inscrit le rendez-vous dans
+            votre agenda, sans quitter la conversation.
+          </p>
+        </article>
+
+        <article class="shk-bip__capacite">
+          <p class="shk-bip__capacite-tete">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M12 5.5c-4 0-7.5 2.9-9 6.5 1.5 3.6 5 6.5 9 6.5s7.5-2.9 9-6.5c-1.5-3.6-5-6.5-9-6.5Z" stroke-linejoin="round" />
+              <circle cx="12" cy="12" r="2.6" />
+            </svg>
+            Il comprend tout
+          </p>
+          <p>
+            Photos, messages vocaux, captures d'écran : vos clients écrivent
+            comme ils en ont l'habitude, il suit.
+          </p>
+        </article>
+
+        <article class="shk-bip__capacite">
+          <p class="shk-bip__capacite-tete">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M4 19V9M10 19V5M16 19v-6M22 19H2" stroke-linecap="round" />
+            </svg>
+            Il trie et il qualifie
+          </p>
+          <p>
+            Les demandes sérieuses remontent, les questions courantes se
+            règlent seules. Vous voyez ce qui compte.
+          </p>
+        </article>
+
+        <article class="shk-bip__capacite">
+          <p class="shk-bip__capacite-tete">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M4 7h11l5 5-5 5H4" stroke-linejoin="round" />
+              <path d="M4 12h8" stroke-linecap="round" />
+            </svg>
+            Il vous passe la main
+          </p>
+          <p>
+            Dès qu'une demande sort de son périmètre, il transfère la
+            conversation avec tout le contexte.
+          </p>
+        </article>
+
+        <article class="shk-bip__capacite">
+          <p class="shk-bip__capacite-tete">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M12 3v3M12 18v3M4.2 7.5l2.6 1.5M17.2 15l2.6 1.5M4.2 16.5l2.6-1.5M17.2 9l2.6-1.5" stroke-linecap="round" />
+              <circle cx="12" cy="12" r="3.2" />
+            </svg>
+            Il parle comme vous
+          </p>
+          <p>
+            Il apprend vos prestations, vos tarifs et votre ton. Et il répond
+            dans la langue de votre client.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ================= comparaison ================= -->
+    <section class="shk-bip__bloc" aria-labelledby="shk-bip-vs">
+      <div class="shk-bip__demo-tete">
+        <p class="shk-bip__oeil">La différence</p>
+        <h3 id="shk-bip-vs">Ce n'est pas un chatbot.</h3>
+      </div>
+
+      <table class="shk-bip__compare">
+        <caption>
+          Un chatbot suit un scénario. Un agent conduit une conversation.
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">&nbsp;</th>
+            <th scope="col" class="shk-bip__col shk-bip__col--nous">Booster IA Pro</th>
+            <th scope="col" class="shk-bip__col">Chatbot</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Prend un rendez-vous dans la conversation</th>
+            <td class="shk-bip__col"><span class="shk-bip__oui" aria-label="oui">✓</span></td>
+            <td class="shk-bip__col"><span class="shk-bip__non" aria-label="non">—</span></td>
+          </tr>
+          <tr>
+            <th scope="row">Répond à une question qu'on n'a pas prévue</th>
+            <td class="shk-bip__col"><span class="shk-bip__oui" aria-label="oui">✓</span></td>
+            <td class="shk-bip__col"><span class="shk-bip__non" aria-label="non">—</span></td>
+          </tr>
+          <tr>
+            <th scope="row">Comprend une photo ou un message vocal</th>
+            <td class="shk-bip__col"><span class="shk-bip__oui" aria-label="oui">✓</span></td>
+            <td class="shk-bip__col"><span class="shk-bip__non" aria-label="non">—</span></td>
+          </tr>
+          <tr>
+            <th scope="row">Se souvient des échanges précédents</th>
+            <td class="shk-bip__col"><span class="shk-bip__oui" aria-label="oui">✓</span></td>
+            <td class="shk-bip__col"><span class="shk-bip__non" aria-label="non">—</span></td>
+          </tr>
+          <tr>
+            <th scope="row">Tous vos canaux dans une seule boîte</th>
+            <td class="shk-bip__col"><span class="shk-bip__oui" aria-label="oui">✓</span></td>
+            <td class="shk-bip__col"><span class="shk-bip__non" aria-label="non">—</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ================= mise en route ================= -->
+    <section class="shk-bip__bloc" aria-labelledby="shk-bip-route">
+      <div class="shk-bip__demo-tete">
+        <p class="shk-bip__oeil">Mise en route</p>
+        <h3 id="shk-bip-route">Trois étapes, et on s'occupe de tout.</h3>
+      </div>
+
+      <ol class="shk-bip__etapes">
+        <li class="shk-bip__etape">
+          <strong>On branche vos canaux</strong>
+          <p>
+            WhatsApp, Instagram, Messenger et le chat de votre site. Vous
+            n'avez rien à installer.
+          </p>
+        </li>
+        <li class="shk-bip__etape">
+          <strong>On l'entraîne sur votre activité</strong>
+          <p>
+            Vos prestations, vos tarifs, vos disponibilités, vos réponses
+            habituelles. C'est là que se joue la qualité.
+          </p>
+        </li>
+        <li class="shk-bip__etape">
+          <strong>Il prend les messages</strong>
+          <p>
+            Vous gardez la main : vous pouvez intervenir dans n'importe quelle
+            conversation, ou le couper au cas par cas.
+          </p>
+        </li>
+      </ol>
+    </section>
+
+    <!-- ================= offre ================= -->
+    <section class="shk-bip__offre" aria-labelledby="shk-bip-offre">
+      <div class="shk-bip__prix">
+        <h3 id="shk-bip-offre" class="shk-bip__oeil">Booster IA Pro</h3>
+        <p class="shk-bip__prix-ligne">
+          <span class="shk-bip__montant">99 €</span>
+          <span class="shk-bip__cadence">HT / mois</span>
+        </p>
+        <p class="shk-bip__setup">+ 150 € d'installation et de paramétrage</p>
+      </div>
+
+      <div class="shk-bip__actions">
+        <a class="shk-bip__cta shk-bip__cta--plein" href="#">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.6 8.6 0 0 1-3.8-.9L3 20.5l1.6-4.9A8.4 8.4 0 1 1 21 11.5Z" stroke-linejoin="round" />
+          </svg>
+          Tester l'agent sur WhatsApp
+        </a>
+        <a class="shk-bip__cta shk-bip__cta--vide" href="#">Parler à un humain</a>
+      </div>
+    </section>
+  </div>
+</section>
