@@ -270,3 +270,31 @@
   outline: none;
   border-color: var(--c-border-accent);
 }
+
+/* L'aperçu du widget de réservation ------------------------------------------
+   Un widget d'agenda tiers ne se règle pas à l'aveugle : selon l'adresse que
+   son code d'intégration porte, le cadre montre le formulaire de réservation
+   ou le site entier de l'agenda. La différence ne se lit pas dans le code
+   collé — elle se voit. */
+.apercuRdv {
+  margin-top: 14px;
+}
+
+.apercuTete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+/* La hauteur est celle que BookRDV donne à son propre cadre (768 px), bornée
+   pour ne pas pousser le reste du réglage hors de l'écran. */
+.apercuCadre {
+  display: block;
+  width: 100%;
+  height: min(520px, 60vh);
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+  background: var(--c-surface-2);
+}

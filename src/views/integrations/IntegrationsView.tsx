@@ -7,6 +7,7 @@ import {
   type ActionIntegration,
   type EtatIntegrations,
 } from '@/services/integrations'
+import { adresseSansPage } from '@/lib/reservation'
 import { MotDePasse } from './MotDePasse'
 import s from './IntegrationsView.module.css'
 
@@ -317,6 +318,11 @@ function RendezVous({ etat, enCours, onAgir }: BlocProps) {
 
   const pret = mode === 'bouton' ? Boolean(url.trim()) : Boolean(code.trim())
 
+  /** L'adresse réellement encadrée chez le patient — celle de l'aperçu. */
+  const apercu = etat.bookingWidgetUrl ?? etat.bookingUrl ?? null
+  /** Le domaine nu : le cadre montrera le site, pas le formulaire. */
+  const racineSeule = adresseSansPage(apercu)
+
   return (
     <Card className={s.bloc}>
       <div className={s.blocHead}>
@@ -355,6 +361,43 @@ function RendezVous({ etat, enCours, onAgir }: BlocProps) {
           >
             {enCours === 'rdv-retirer' ? 'Retrait…' : 'Retirer'}
           </Button>
+        </div>
+      ) : null}
+
+      {/* CE QUE VOS PATIENTS VERRONT, ICI ET MAINTENANT.
+          Le widget d'un agenda tiers ne se règle pas à l'aveugle : selon
+          l'adresse que son code d'intégration porte, le cadre montre le
+          formulaire de réservation… ou le site entier de l'agenda, page
+          d'accueil et bouton « Prendre rendez-vous » compris. La différence
+          ne se lit pas dans le code collé — elle se voit. Sans cet aperçu,
+          c'est un patient qui la découvre, des semaines plus tard. */}
+      {posee && etat.bookingMode === 'widget' && apercu ? (
+        <div className={s.apercuRdv}>
+          <div className={s.apercuTete}>
+            <span className={s.label}>Ce que vos patients voient</span>
+            <a className={s.link} href={apercu} target="_blank" rel="noreferrer">
+              Ouvrir en grand ↗
+            </a>
+          </div>
+          {racineSeule ? (
+            <Notice tone="warn" style={{ marginBottom: 10 }}>
+              L'adresse tirée de votre code d'intégration ne pointe sur aucune page précise de
+              votre agenda, seulement sur son domaine : le cadre risque d'afficher tout votre site
+              de réservation au lieu du formulaire. Ouvrez votre page de réservation, cliquez
+              « Prendre rendez-vous », et collez ici l'adresse de la page où vous arrivez.
+            </Notice>
+          ) : null}
+          {/* Cet aperçu est pour la thérapeute, dans SON espace : le cadre
+              charge l'agenda, mais `no-referrer` lui cache d'où il est
+              ouvert. Chez le patient, le même cadre est monté au dépliement
+              seulement (patient/RendezVous.tsx). */}
+          <iframe
+            className={s.apercuCadre}
+            src={apercu}
+            title="Aperçu du widget de réservation"
+            loading="lazy"
+            referrerPolicy="no-referrer"
+          />
         </div>
       ) : null}
 
@@ -422,7 +465,10 @@ function RendezVous({ etat, enCours, onAgir }: BlocProps) {
             <span className={s.hint}>
               Dans BookRDV : « Intégrer sur mon site », puis collez le bloc en entier. Nous n'en
               gardons que l'adresse de réservation — le script de votre agenda n'est jamais exécuté
-              dans l'espace de vos patients, qui contient leur dossier.
+              dans l'espace de vos patients, qui contient leur dossier.{' '}
+              <strong>Si l'aperçu montre tout votre site</strong> au lieu du formulaire, ouvrez
+              votre page de réservation, cliquez « Prendre rendez-vous », et collez ici l'adresse
+              de la page où vous arrivez : ce champ accepte aussi une adresse seule.
             </span>
           </label>
         )}
