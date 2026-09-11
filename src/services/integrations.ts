@@ -32,6 +32,7 @@ export type ActionIntegration =
   | { action: 'stripe-retirer' }
   | { action: 'rdv'; mode: 'bouton'; url: string }
   | { action: 'rdv'; mode: 'widget'; embed: string }
+  | { action: 'rdv-retrouver' }
   | { action: 'rdv-retirer' }
   | { action: 'boutique'; enabled: boolean }
 

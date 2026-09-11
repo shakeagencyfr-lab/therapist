@@ -298,3 +298,30 @@
   border-radius: 12px;
   background: var(--c-surface-2);
 }
+
+/* Un geste posé au milieu d'une phrase : il se lit comme un lien, il agit
+   comme un bouton. La forme suit le rôle — on n'ouvre pas une page, on
+   demande à l'agenda où vit son formulaire. */
+.lienBouton {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--c-accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.lienBouton:hover:not(:disabled) {
+  text-decoration: none;
+}
+.lienBouton:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* Le résultat d'un geste, rendu là où il a été fait. */
+.echecLigne {
+  display: block;
+  margin-top: 8px;
+  font-weight: 600;
+}

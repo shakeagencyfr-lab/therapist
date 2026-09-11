@@ -50,7 +50,16 @@ export function IntegrationsView() {
     else setChargement(false)
   }, [cabinet?.reel, charger])
 
-  async function agir(action: ActionIntegration, confirmation: string) {
+  /**
+   * Applique un geste, et rend ce qui a manqué — rien quand tout s'est bien
+   * passé, la phrase d'échec sinon.
+   *
+   * Ce retour n'est pas une coquetterie. Sans lui, les blocs ne distinguaient
+   * pas la réussite de l'échec : leurs `.then()` vidaient le formulaire et
+   * revenaient à l'état d'après-succès même quand le serveur avait refusé, et
+   * l'écran montrait alors le résultat d'un geste qui n'avait pas eu lieu.
+   */
+  async function agir(action: ActionIntegration, confirmation: string): Promise<string | null> {
     setEnCours(action.action)
     setErreur('')
     setNotice('')
@@ -62,8 +71,11 @@ export function IntegrationsView() {
       // réglages disaient « widget intégré » et l'aperçu montrait un bouton.
       await cabinet?.recharger()
       setNotice(confirmation)
+      return null
     } catch (err) {
-      setErreur((err as Error).message)
+      const message = (err as Error).message
+      setErreur(message)
+      return message
     } finally {
       setEnCours('')
     }
@@ -134,7 +146,8 @@ export function IntegrationsView() {
 interface BlocProps {
   etat: EtatIntegrations
   enCours: string
-  onAgir: (action: ActionIntegration, confirmation: string) => Promise<void>
+  /** Rend `null` quand le geste a abouti, sa phrase d'échec sinon. */
+  onAgir: (action: ActionIntegration, confirmation: string) => Promise<string | null>
 }
 
 /* ---- Analyse des séances ------------------------------------------- */
@@ -178,8 +191,10 @@ function CleAnthropic({ etat, enCours, onAgir }: BlocProps) {
           className={s.form}
           onSubmit={(e) => {
             e.preventDefault()
-            void onAgir({ action: 'anthropic', key: cle }, 'Clé Anthropic vérifiée et enregistrée.').then(() =>
-              setCle(''),
+            void onAgir({ action: 'anthropic', key: cle }, 'Clé Anthropic vérifiée et enregistrée.').then(
+              (echec) => {
+                if (!echec) setCle('')
+              },
             )
           }}
         >
@@ -275,8 +290,10 @@ function CleStripe({ etat, enCours, onAgir }: BlocProps) {
           className={s.form}
           onSubmit={(e) => {
             e.preventDefault()
-            void onAgir({ action: 'stripe', key: cle }, 'Compte Stripe vérifié et connecté.').then(() =>
-              setCle(''),
+            void onAgir({ action: 'stripe', key: cle }, 'Compte Stripe vérifié et connecté.').then(
+              (echec) => {
+                if (!echec) setCle('')
+              },
             )
           }}
         >
@@ -314,7 +331,11 @@ function RendezVous({ etat, enCours, onAgir }: BlocProps) {
   const [url, setUrl] = useState(etat.bookingMode === 'bouton' ? (etat.bookingUrl ?? '') : '')
   /** Le code d'intégration, en mode widget. Jamais relu : il n'est pas stocké. */
   const [code, setCode] = useState('')
-  const occupe = enCours === 'rdv' || enCours === 'rdv-retirer'
+  /* Le bouton « Retrouver le formulaire » vit au milieu de la troisième
+     carte ; la phrase d'échec de l'écran, elle, s'affiche tout en haut, hors
+     de vue. Sans ce report local, le geste paraîtrait sans effet. */
+  const [echecRetrouve, setEchecRetrouve] = useState('')
+  const occupe = enCours === 'rdv' || enCours === 'rdv-retirer' || enCours === 'rdv-retrouver'
 
   const pret = mode === 'bouton' ? Boolean(url.trim()) : Boolean(code.trim())
 
@@ -352,7 +373,8 @@ function RendezVous({ etat, enCours, onAgir }: BlocProps) {
             variant="ghost"
             disabled={occupe}
             onClick={() =>
-              void onAgir({ action: 'rdv-retirer' }, 'Prise de rendez-vous retirée.').then(() => {
+              void onAgir({ action: 'rdv-retirer' }, 'Prise de rendez-vous retirée.').then((echec) => {
+                if (echec) return
                 setUrl('')
                 setCode('')
                 setMode('bouton')
@@ -381,10 +403,25 @@ function RendezVous({ etat, enCours, onAgir }: BlocProps) {
           </div>
           {racineSeule ? (
             <Notice tone="warn" style={{ marginBottom: 10 }}>
-              L'adresse tirée de votre code d'intégration ne pointe sur aucune page précise de
-              votre agenda, seulement sur son domaine : le cadre risque d'afficher tout votre site
-              de réservation au lieu du formulaire. Ouvrez votre page de réservation, cliquez
-              « Prendre rendez-vous », et collez ici l'adresse de la page où vous arrivez.
+              L'adresse enregistrée ne pointe sur aucune page précise de votre agenda, seulement
+              sur son domaine : le cadre risque donc d'afficher tout votre site de réservation au
+              lieu du formulaire. Regardez l'aperçu ci-dessous.{' '}
+              <button
+                type="button"
+                className={s.lienBouton}
+                disabled={occupe}
+                onClick={() => {
+                  setEchecRetrouve('')
+                  void onAgir(
+                    { action: 'rdv-retrouver' },
+                    "L'adresse du formulaire a été retrouvée auprès de votre agenda.",
+                  ).then((echec) => setEchecRetrouve(echec ?? ''))
+                }}
+              >
+                {enCours === 'rdv-retrouver' ? 'Recherche…' : 'Retrouver le formulaire'}
+              </button>{' '}
+              interroge votre agenda, quand c'en est un que nous savons lire.
+              {echecRetrouve ? <span className={s.echecLigne}>{echecRetrouve}</span> : null}
             </Notice>
           ) : null}
           {/* Cet aperçu est pour la thérapeute, dans SON espace : le cadre
@@ -410,7 +447,9 @@ function RendezVous({ etat, enCours, onAgir }: BlocProps) {
               ? { action: 'rdv', mode: 'widget', embed: code }
               : { action: 'rdv', mode: 'bouton', url },
             mode === 'widget' ? 'Widget de réservation intégré.' : 'Adresse de réservation enregistrée.',
-          ).then(() => setCode(''))
+          ).then((echec) => {
+            if (!echec) setCode('')
+          })
         }}
       >
         <fieldset className={s.choix} disabled={occupe}>
@@ -465,10 +504,10 @@ function RendezVous({ etat, enCours, onAgir }: BlocProps) {
             <span className={s.hint}>
               Dans BookRDV : « Intégrer sur mon site », puis collez le bloc en entier. Nous n'en
               gardons que l'adresse de réservation — le script de votre agenda n'est jamais exécuté
-              dans l'espace de vos patients, qui contient leur dossier.{' '}
-              <strong>Si l'aperçu montre tout votre site</strong> au lieu du formulaire, ouvrez
-              votre page de réservation, cliquez « Prendre rendez-vous », et collez ici l'adresse
-              de la page où vous arrivez : ce champ accepte aussi une adresse seule.
+              dans l'espace de vos patients, qui contient leur dossier. Ce code ne porte que votre
+              domaine : quand nous reconnaissons votre agenda, nous lui demandons où vit son
+              formulaire et c'est cette adresse-là que nous encadrons. Sinon, l'aperçu vous le
+              montrera — et ce champ accepte aussi une adresse seule.
             </span>
           </label>
         )}

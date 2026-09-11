@@ -16,6 +16,7 @@
  */
 import Anthropic from '@anthropic-ai/sdk'
 import Stripe from 'stripe'
+import { adresseDuFormulaire } from './agenda.js'
 import { adminConfigure, clientAdmin, exigerCabinet, identifier } from './auth.js'
 import { droitsDuCabinet, exigerDroit } from './droits.js'
 import { HttpError } from './errors.js'
@@ -63,6 +64,7 @@ export type IntegrationAction =
   | 'stripe'
   | 'stripe-retirer'
   | 'rdv'
+  | 'rdv-retrouver'
   | 'rdv-retirer'
   | 'boutique'
 
@@ -365,21 +367,76 @@ export async function appliquerIntegration(token: string | null, raw: unknown): 
       // Deux modes, deux saisies : une adresse quand c'est un bouton, le code
       // d'intégration de l'agenda quand c'est un widget. Dans les deux cas,
       // ce qui est enregistré est une adresse — jamais du code à exécuter.
-      const widget = body.mode === 'widget' ? urlDuCodeIntegration(String(body.embed ?? '')) : null
-      const page = widget ?? urlReservation(String(body.url ?? ''), "L'adresse de réservation")
+      if (body.mode === 'widget') {
+        /* Le code d'intégration porte un domaine nu : recollé tel quel, il
+           donne la racine du site de réservation, et le cadre montre alors
+           tout le site au lieu du formulaire. adresseDuFormulaire() va le
+           demander à l'agenda plutôt que de deviner ; s'il ne répond pas,
+           elle rend l'adresse déduite, inchangée. */
+        const brut = urlDuCodeIntegration(String(body.embed ?? ''))
+        const choix = await adresseDuFormulaire(brut)
+        await ecrire(
+          cabinetId,
+          {
+            booking_url: choix.page,
+            booking_mode: 'widget',
+            booking_widget_url: choix.cadre,
+          },
+          null,
+          'integration.rdv_posee',
+          appelant.userId,
+        )
+        break
+      }
+      const page = urlReservation(String(body.url ?? ''), "L'adresse de réservation")
       await ecrire(
         cabinetId,
-        {
-          booking_url: page,
-          booking_mode: widget ? 'widget' : 'bouton',
-          booking_widget_url: widget,
-        },
+        { booking_url: page, booking_mode: 'bouton', booking_widget_url: null },
         null,
         'integration.rdv_posee',
         appelant.userId,
       )
       break
     }
+    /* POUR LES RÉGLAGES DÉJÀ POSÉS.
+       Le code d'intégration n'est pas conservé — il ne vit que le temps d'un
+       clic. Sans ce geste, une thérapeute dont l'adresse enregistrée est la
+       racine du site devrait retourner chercher son code chez l'agenda pour
+       profiter de la correction. Ici, on repart de l'adresse en base. */
+    case 'rdv-retrouver': {
+      const { data, error } = await appelant.client
+        .from('cabinet_settings')
+        .select('booking_url, booking_mode, booking_widget_url')
+        .eq('cabinet_id', cabinetId)
+        .maybeSingle<Pick<SettingsRow, 'booking_url' | 'booking_mode' | 'booking_widget_url'>>()
+      if (error) throw new HttpError(502, 'Les réglages n’ont pas pu être lus.')
+      const brut = data?.booking_widget_url ?? data?.booking_url
+      if (!brut) {
+        throw new HttpError(400, "Aucune adresse de réservation n'est enregistrée pour l'instant.")
+      }
+      /* Ce geste ne bascule pas un cabinet d'un mode à l'autre : il affine
+         une adresse déjà encadrée. Sur un cabinet en mode bouton, il
+         transformerait un lien en widget sans que personne l'ait demandé. */
+      if (data?.booking_mode !== 'widget') {
+        throw new HttpError(400, "Votre prise de rendez-vous est réglée en bouton : il n'y a pas de cadre à corriger.")
+      }
+      const choix = await adresseDuFormulaire(brut)
+      if (!choix.verifie) {
+        throw new HttpError(
+          422,
+          "Votre agenda n'a pas confirmé d'adresse pour le formulaire seul. Ouvrez votre page de réservation, cliquez « Prendre rendez-vous », et collez ici l'adresse de la page où vous arrivez.",
+        )
+      }
+      await ecrire(
+        cabinetId,
+        { booking_url: choix.page, booking_mode: 'widget', booking_widget_url: choix.cadre },
+        null,
+        'integration.rdv_posee',
+        appelant.userId,
+      )
+      break
+    }
+
     case 'rdv-retirer':
       await ecrire(
         cabinetId,
