@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite-react-ssg build && node -e \"const fs=require('fs');fs.copyFileSync('dist/404/index.html','dist/404.html');fs.copyFileSync('dist/en/404/index.html','dist/en/404.html');\"",
     "preview": "vite preview",
-    "build:embed": "vite build --config vite.embed.config.ts && node scripts/build-embed-block.mjs"
+    "build:embed": "node scripts/build-all-embeds.mjs"
   },
   "dependencies": {
     "framer-motion": "^11.15.0",

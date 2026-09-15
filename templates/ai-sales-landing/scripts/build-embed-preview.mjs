@@ -15,11 +15,23 @@ import path from "node:path";
 import sharp from "sharp";
 
 const RACINE = path.resolve(import.meta.dirname, "..");
-const DIST = path.join(RACINE, "embed-dist");
+const OFFRES = {
+  ia: { dossier: "embed-dist-ia", fichier: "booster-ia-pro", titre: "Booster IA Pro" },
+  rdv: { dossier: "embed-dist-rdv", fichier: "booster-rdv-pro", titre: "Booster RDV Pro" },
+  web: { dossier: "embed-dist-web", fichier: "booster-web-pro", titre: "Web Pro" },
+};
+const CLE = process.argv[3] ?? "ia";
+const OFFRE = OFFRES[CLE];
+if (!OFFRE) {
+  console.error(`offre inconnue : ${CLE} (attendu : ia, rdv ou web)`);
+  process.exit(1);
+}
+
+const DIST = path.join(RACINE, OFFRE.dossier);
 const PUBLIC = path.join(RACINE, "public");
 const SORTIE = process.argv[2];
 if (!SORTIE) {
-  console.error("usage : node scripts/build-embed-preview.mjs <fichier-de-sortie.html>");
+  console.error("usage : node scripts/build-embed-preview.mjs <sortie.html> [ia|rdv|web]");
   process.exit(1);
 }
 
@@ -77,7 +89,7 @@ const POLICES =
 
 // Pas de <html>, <head> ni <body> : la page publiée les fournit.
 const page =
-  `<title>Landing Booster IA Pro</title>\n` +
+  `<title>Landing ${OFFRE.titre}</title>\n` +
   `<link rel="preconnect" href="https://fonts.googleapis.com">\n` +
   `<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n` +
   `<link rel="stylesheet" href="${POLICES}">\n` +

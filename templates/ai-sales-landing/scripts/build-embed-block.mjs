@@ -3,7 +3,7 @@
  * =============================================================================
  *
  *  Entrée  : embed-dist/ (produit par `npx vite build --config vite.embed.config.ts`)
- *  Sortie  : embeds/booster-ia-pro-bloc.html
+ *  Sortie  : embeds/<offre>-bloc.html   (usage : node ... [ia|rdv|web])
  *
  *  Le bloc est un <iframe> dont le document complet est intégré dans la page.
  *  L'iframe est un choix délibéré : elle garantit dans les DEUX sens qu'aucun
@@ -20,9 +20,21 @@ import path from "node:path";
 import sharp from "sharp";
 
 const RACINE = path.resolve(import.meta.dirname, "..");
-const DIST = path.join(RACINE, "embed-dist");
+const OFFRES = {
+  ia: { dossier: "embed-dist-ia", fichier: "booster-ia-pro", titre: "Booster IA Pro" },
+  rdv: { dossier: "embed-dist-rdv", fichier: "booster-rdv-pro", titre: "Booster RDV Pro" },
+  web: { dossier: "embed-dist-web", fichier: "booster-web-pro", titre: "Web Pro" },
+};
+const CLE = process.argv[2] ?? "ia";
+const OFFRE = OFFRES[CLE];
+if (!OFFRE) {
+  console.error(`offre inconnue : ${CLE} (attendu : ia, rdv ou web)`);
+  process.exit(1);
+}
+
+const DIST = path.join(RACINE, OFFRE.dossier);
 const PUBLIC = path.join(RACINE, "public");
-const SORTIE = path.resolve(RACINE, "../../embeds/booster-ia-pro-bloc.html");
+const SORTIE = path.resolve(RACINE, `../../embeds/${OFFRE.fichier}-bloc.html`);
 
 /** Adresse du bouton « Parlons-en » du palier Pro — le seul lien qui sorte du bloc. */
 const CONTACT_URL = "https://www.shakeagency.io/contact";
@@ -110,7 +122,7 @@ const interne =
 
 /* ---------- bloc à coller --------------------------------------------- */
 const bloc = `<!--
-  Booster IA Pro — bloc à coller dans un bloc HTML / code de votre site.
+  ${OFFRE.titre} — bloc à coller dans un bloc HTML / code de votre site.
 
   • La landing complète, sans en-tête ni pied de page (votre site apporte les siens).
   • Isolée dans une iframe : aucun style ne passe dans un sens ni dans l'autre.
@@ -122,17 +134,17 @@ const bloc = `<!--
   Pour changer l'adresse du bouton « Parlons-en » : cherchez
   ${CONTACT_URL} ci-dessous et remplacez-la.
 -->
-<div id="shk-ia-bloc" style="width:100%">
+<div id="shk-${CLE}-bloc" style="width:100%">
   <iframe
-    id="shk-ia-iframe"
-    title="Booster IA Pro"
+    id="shk-${CLE}-iframe"
+    title="${OFFRE.titre}"
     loading="lazy"
     style="width:100%;height:600px;border:0;display:block;color-scheme:light"
   ></iframe>
 </div>
 <script>
 (function () {
-  var cadre = document.getElementById("shk-ia-iframe");
+  var cadre = document.getElementById("shk-${CLE}-iframe");
   if (!cadre) return;
 
   window.addEventListener("message", function (e) {

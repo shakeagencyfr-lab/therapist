@@ -3,10 +3,12 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
+const PRODUIT = process.env.VITE_PRODUIT || "ia";
+
 export default defineConfig({
   plugins: [react()],
   build: {
-    outDir: "embed-dist",
+    outDir: `embed-dist-${PRODUIT}`,
     cssCodeSplit: false,
     assetsInlineLimit: 100000000,
     rollupOptions: {

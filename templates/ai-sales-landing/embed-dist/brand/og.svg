@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#e2e8f0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect x="80" y="196" width="72" height="72" rx="21" fill="#25D366"/>
+  <path d="M98 218 L116 250 L134 218" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="80" y="360" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="68" font-weight="800" fill="#0f172a">YourBrand</text>
+  <text x="80" y="428" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="34" fill="#475569">The AI sales agent that books calls</text>
+  <text x="80" y="474" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="34" fill="#475569">and closes deals in your DMs.</text>
+</svg>

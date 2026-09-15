@@ -14,11 +14,19 @@ import { createRoot } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
 import App from "./App";
 import { setActiveLang, setActiveProduct } from "./brand.config";
+import { products, type ProductKey } from "./products";
 import { brandThemeCss } from "./lib/brandTheme";
 import "./styles.css";
 
+/* L'offre à exporter est passée au build : VITE_PRODUIT=rdv, =web, ou rien
+   pour l'offre principale. Voir vite.embed.config.ts. */
+const PRODUIT = ((import.meta.env.VITE_PRODUIT as string) || "ia") as ProductKey;
+if (!(PRODUIT in products)) {
+  throw new Error(`VITE_PRODUIT inconnu : ${PRODUIT}`);
+}
+
 setActiveLang("fr");
-setActiveProduct("ia");
+setActiveProduct(PRODUIT);
 
 /* Le thème (couleurs de marque, polices, matière des cartes) est normalement
    injecté par Layout.tsx. Ici on le pose à la main dans le <head>. */
