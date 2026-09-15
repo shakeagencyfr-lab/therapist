@@ -7,12 +7,13 @@
  *  l'accent de couleur, la forme de la page d'accueil et, bien sûr, le contenu.
  *
  *      /              Booster IA Pro    (vert)
- *      /rdv-pro/      Booster RDV Pro   (ambre)
+ *      /rdv-pro/      Booster RDV Pro   (bleu)
  *      /web-pro/      Web Pro           (violet)
  *
  *  …et les mêmes sous /en/.
  *
- *  Les accents sont relevés sur les cartes d'offres de shakeagency.io. Chaque
+ *  Le vert et le violet sont relevés sur les cartes d'offres de
+ *  shakeagency.io ; le bleu de RDV Pro est choisi. Chaque
  *  gamme est construite sur une seule teinte : c500 est la couleur de marque,
  *  c500→c600 forment le dégradé des boutons, et c700 sert de couleur de TEXTE
  *  (62 usages dans le code) — d'où son assombrissement jusqu'à au moins 5:1 de
@@ -57,19 +58,19 @@ export const products: Record<ProductKey, Product> = {
     },
   },
 
-  /* --- Booster RDV Pro — ambre #F5A40D ---------------------------------- */
+  /* --- Booster RDV Pro — bleu #2D9CFF ----------------------------------- */
   rdv: {
     key: "rdv",
     slug: "rdv-pro",
     label: "Booster RDV Pro",
     homeLayout: "compact",
     colors: {
-      c50: "#fcf7ed",
-      c100: "#f7e9cf",
-      c500: "#F5A40D",
-      c600: "#c58308",
-      c700: "#936206",
-      c900: "#392605",
+      c50: "#edf5fc",
+      c100: "#cfe4f7",
+      c500: "#2D9CFF",
+      c600: "#0a86f2",
+      c700: "#086cc4",
+      c900: "#052039",
     },
   },
 
