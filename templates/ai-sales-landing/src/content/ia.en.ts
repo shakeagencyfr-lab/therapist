@@ -18,7 +18,7 @@ export const iaEn: ProductContent = {
     titleHighlight: "closes deals",
     titleB: "in the DMs.",
     subhead:
-      "YourBrand answers every message in seconds, qualifies the lead, handles objections, books the call and follows up — on WhatsApp, Instagram, Messenger, web chat and SMS. Around the clock, in your brand's voice.",
+      "Shake answers every message in seconds, qualifies the lead, handles objections, books the call and follows up — on WhatsApp, Instagram, Messenger, web chat and SMS. Around the clock, in your brand's voice.",
     primaryCta: { label: "Start your free trial", href: "/en/pricing/" },
     secondaryCta: { label: "See it in action", href: "/en/#how-it-works" },
     videoId: null,
@@ -32,7 +32,7 @@ export const iaEn: ProductContent = {
   comparison: {
     eyebrow: "Why it's different",
     heading: "An AI sales agent, not a chatbot.",
-    youLabel: "YourBrand",
+    youLabel: "Shake",
     themLabel: "Regular chatbot",
     rows: [
       ["Closes deals in chat", true, false],

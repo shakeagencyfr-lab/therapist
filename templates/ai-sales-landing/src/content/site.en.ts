@@ -3,7 +3,7 @@
 import type { SiteContent } from "./types";
 
 export const siteEn: SiteContent = {
-  logoAlt: "YourBrand",
+  logoAlt: "Shake",
   legalJurisdiction: "[your country]",
   legalEffectiveDate: "1 January 2026",
   infrastructure: {
@@ -62,11 +62,11 @@ export const siteEn: SiteContent = {
     ctaLabel: "Start free",
     ctaHref: "/en/pricing/",
     loginLabel: "Log in",
-    loginHref: "https://app.yourbrand.com",
+    loginHref: "https://www.shakeagency.io/espace-client",
   },
   footer: {
     tagline:
-      "The AI sales agent that books calls and closes deals on WhatsApp, Instagram, Messenger, web chat and SMS.",
+      "Local visibility and AI automation for businesses that want customers and time back.",
     columns: [
       {
         title: "Plans",
@@ -102,7 +102,7 @@ export const siteEn: SiteContent = {
       { label: "Instagram", href: "#" },
       { label: "LinkedIn", href: "#" },
     ],
-    copyright: "© 2026 YourBrand. All rights reserved.",
+    copyright: "© 2026 Shake. All rights reserved.",
   },
 };
 

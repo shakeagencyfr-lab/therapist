@@ -40,7 +40,13 @@ export type SectionKey =
   | "finalCta";
 
 export type HomeLayoutName =
-  "classic" | "story" | "split" | "demo" | "vsl" | "compact";
+  | "classic"
+  | "story"
+  | "split"
+  | "demo"
+  | "vsl"
+  | "compact"
+  | "offre";
 
 export interface HomeLayout {
   label: string;
@@ -146,6 +152,30 @@ export const homeLayouts: Record<HomeLayoutName, HomeLayout> = {
       "pricing",
       "guarantee",
       "testimonials",
+      "faq",
+      "finalCta",
+    ],
+  },
+
+  /** Page d'offre : pour un produit qu'on explique, pas une démonstration
+   *  qu'on montre. Ouvre sur l'accroche seule, puis déroule le problème, la
+   *  réponse, les métiers, la comparaison et le prix. Pas de démonstration de
+   *  conversation — elle n'a de sens que pour l'agent IA. */
+  offre: {
+    label: "Offre",
+    description:
+      "Une page produit classique : le problème, ce qu'on livre, pour qui, la comparaison, le prix. Sans démonstration animée.",
+    hero: "minimal",
+    sections: [
+      "problem",
+      "features",
+      "howItWorks",
+      "useCases",
+      "comparison",
+      "integrations",
+      "midCta",
+      "pricing",
+      "guarantee",
       "faq",
       "finalCta",
     ],

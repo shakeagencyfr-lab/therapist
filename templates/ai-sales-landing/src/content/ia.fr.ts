@@ -20,7 +20,7 @@ export const iaFr: ProductContent = {
     titleHighlight: "conclut vos ventes",
     titleB: "dans vos messages privés.",
     subhead:
-      "YourBrand répond à chaque message en quelques secondes, qualifie le prospect, lève les objections, fixe le rendez-vous et relance — sur WhatsApp, Instagram, Messenger, le chat de votre site et par SMS. Jour et nuit, avec le ton de votre marque.",
+      "Shake répond à chaque message en quelques secondes, qualifie le prospect, lève les objections, fixe le rendez-vous et relance — sur WhatsApp, Instagram, Messenger, le chat de votre site et par SMS. Jour et nuit, avec le ton de votre marque.",
     primaryCta: { label: "Démarrer l'essai gratuit", href: "/pricing/" },
     secondaryCta: { label: "Voir une démonstration", href: "/#how-it-works" },
     // L'identifiant YouTube de votre vidéo — utilisé par la mise en page "vsl".
@@ -35,7 +35,7 @@ export const iaFr: ProductContent = {
   comparison: {
     eyebrow: "Ce qui change",
     heading: "Un agent commercial IA, pas un chatbot.",
-    youLabel: "YourBrand",
+    youLabel: "Shake",
     themLabel: "Chatbot classique",
     rows: [
       ["Conclut des ventes dans la conversation", true, false],

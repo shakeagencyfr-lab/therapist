@@ -4,7 +4,7 @@
 import type { SiteContent } from "./types";
 
 export const siteFr: SiteContent = {
-  logoAlt: "YourBrand",
+  logoAlt: "Shake",
   legalJurisdiction: "[votre pays]",
   legalEffectiveDate: "1er janvier 2026",
   infrastructure: {
@@ -69,11 +69,11 @@ export const siteFr: SiteContent = {
     ctaLabel: "Essai gratuit",
     ctaHref: "/pricing/",
     loginLabel: "Connexion",
-    loginHref: "https://app.yourbrand.com",
+    loginHref: "https://www.shakeagency.io/espace-client",
   },
   footer: {
     tagline:
-      "L'agent commercial IA qui prend les rendez-vous et conclut les ventes sur WhatsApp, Instagram, Messenger, le chat de votre site et par SMS.",
+      "Visibilité locale et automatisation IA pour les entreprises qui veulent des clients et gagner du temps.",
     columns: [
       {
         title: "Offres",
@@ -109,7 +109,7 @@ export const siteFr: SiteContent = {
       { label: "Instagram", href: "#" },
       { label: "LinkedIn", href: "#" },
     ],
-    copyright: "© 2026 YourBrand. Tous droits réservés.",
+    copyright: "© 2026 Shake. Tous droits réservés.",
   },
 };
 

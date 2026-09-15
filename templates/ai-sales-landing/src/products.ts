@@ -6,8 +6,8 @@
  *  mêmes composants, le même en-tête et le même pied de page. Seuls changent
  *  l'accent de couleur, la forme de la page d'accueil et, bien sûr, le contenu.
  *
- *      /              Booster IA Pro    (vert)
- *      /rdv-pro/      Booster RDV Pro   (bleu)
+ *      /              IA Pro            (vert)
+ *      /rdv-pro/      RDV Pro           (bleu)
  *      /web-pro/      Web Pro           (violet)
  *
  *  …et les mêmes sous /en/.
@@ -46,7 +46,7 @@ export const products: Record<ProductKey, Product> = {
   ia: {
     key: "ia",
     slug: "",
-    label: "Booster IA Pro",
+    label: "IA Pro",
     homeLayout: "classic",
     colors: {
       c50: "#edfcf9",
@@ -62,8 +62,8 @@ export const products: Record<ProductKey, Product> = {
   rdv: {
     key: "rdv",
     slug: "rdv-pro",
-    label: "Booster RDV Pro",
-    homeLayout: "compact",
+    label: "RDV Pro",
+    homeLayout: "offre",
     colors: {
       c50: "#edf5fc",
       c100: "#cfe4f7",
@@ -79,7 +79,7 @@ export const products: Record<ProductKey, Product> = {
     key: "web",
     slug: "web-pro",
     label: "Web Pro",
-    homeLayout: "compact",
+    homeLayout: "offre",
     colors: {
       c50: "#f2effd",
       c100: "#ddd4fb",

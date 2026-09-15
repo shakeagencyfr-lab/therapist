@@ -300,12 +300,12 @@ const base = {
 
   /* La mise en page d'accueil :
    * "classic" | "story" | "split" | "demo" | "vsl" | "compact" */
-  brandName: "YourBrand",
-  domain: "yourbrand.com",
-  siteUrl: "https://yourbrand.com",
-  appUrl: "https://app.yourbrand.com",
-  supportEmail: "hello@yourbrand.com",
-  helpUrl: "https://help.yourbrand.com",
+  brandName: "Shake",
+  domain: "shakeagency.io",
+  siteUrl: "https://www.shakeagency.io",
+  appUrl: "https://www.shakeagency.io/espace-client",
+  supportEmail: "contact@shakeapp.io",
+  helpUrl: "https://www.shakeagency.io/faq",
   whatsAppLink: "https://wa.me/10000000000?text=Bonjour",
 
   /* ---- Mentions légales — À REMPLACER, puis à faire relire par un juriste ---- */
