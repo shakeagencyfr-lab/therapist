@@ -73,6 +73,13 @@ export interface AuthState {
    * faute de frappe inexistante.
    */
   lecture: 'attente' | 'faite' | 'echec'
+  /**
+   * La vérification de session a-t-elle dépassé son délai ?
+   *
+   * Sert à la porte d'entrée : elle dit alors, en une phrase, que l'espace
+   * s'ouvrira tout seul si une session finit par revenir.
+   */
+  verificationLente: boolean
   envoyerLien: (email: string, captchaToken?: string) => Promise<void>
   /** Connexion classique, pour qui a posé un mot de passe. */
   connecterParMotDePasse: (email: string, motDePasse: string, captchaToken?: string) => Promise<void>
@@ -102,6 +109,27 @@ const AuthContext = createContext<AuthState | null>(null)
  */
 export const LONGUEUR_MOT_DE_PASSE = 10
 
+/**
+ * Au-delà de ce délai, l'écran cesse d'attendre.
+ *
+ * RIEN NE DOIT RETENIR LA PAGE SANS FIN.
+ * La reprise de session appartient à @supabase/auth-js, et elle peut durer :
+ * quand le rafraîchissement du jeton échoue pour une raison réseau,
+ * `_refreshAccessToken()` réessaie avec un recul qui double à chaque fois —
+ * 200 ms, 400, 800, 1600… — tant que le prochain essai tient dans les trente
+ * secondes de AUTO_REFRESH_TICK_DURATION_MS. Pendant tout ce temps,
+ * `getSession()` ne rend pas la main et l'événement INITIAL_SESSION n'arrive
+ * pas : l'application restait donc sur « Vérification de votre accès… »,
+ * page blanche, jusqu'à une demi-minute — puis affichait la porte d'entrée,
+ * puisque la reprise avait échoué.
+ *
+ * Quatre secondes : une reprise saine tient en un aller-retour, bien en deçà.
+ * Passé ce délai, on montre la porte. Si une session finit malgré tout par
+ * revenir, `onAuthStateChange` la rattrape et l'espace s'ouvre — la porte
+ * n'aura été qu'un passage.
+ */
+const DELAI_VERIFICATION_MS = 4_000
+
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [phase, setPhase] = useState<AuthPhase>(isConfigured() ? 'chargement' : 'sans-base')
   const [session, setSession] = useState<Session | null>(null)
@@ -110,6 +138,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [sent, setSent] = useState('')
   /** La lecture du rôle a-t-elle abouti ? « echec » n'est pas « aucun accès ». */
   const [lecture, setLecture] = useState<'attente' | 'faite' | 'echec'>('attente')
+  /** La reprise de session a-t-elle dépassé son délai ? */
+  const [verificationLente, setVerificationLente] = useState(false)
 
   /** Rattache puis lit le rôle. Les deux vont ensemble. */
   const charger = useCallback(async (): Promise<void> => {
@@ -142,8 +172,25 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     let vivant = true
 
+    /* Le délai n'annule rien : la reprise continue derrière. Il décide
+       seulement de ne plus retenir l'écran, et de montrer la porte — qui
+       est, dans l'immense majorité des cas, ce que la reprise finira par
+       conclure. */
+    const minuteur = window.setTimeout(() => {
+      if (!vivant) return
+      setVerificationLente(true)
+      setPhase((p) => (p === 'chargement' ? 'deconnecte' : p))
+    }, DELAI_VERIFICATION_MS)
+
+    /** La reprise a parlé : le délai n'a plus rien à décider. */
+    function tranche() {
+      window.clearTimeout(minuteur)
+      setVerificationLente(false)
+    }
+
     db.auth.getSession().then(async ({ data }) => {
       if (!vivant) return
+      tranche()
       setSession(data.session)
       if (data.session) await charger()
       if (vivant) setPhase(data.session ? 'connecte' : 'deconnecte')
@@ -151,6 +198,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     const { data: sub } = db.auth.onAuthStateChange(async (_event, next) => {
       if (!vivant) return
+      tranche()
       setSession(next)
       if (next) {
         await charger()
@@ -163,6 +211,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     return () => {
       vivant = false
+      window.clearTimeout(minuteur)
       sub.subscription.unsubscribe()
     }
   }, [charger])
@@ -261,6 +310,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       error,
       sent,
       lecture,
+      verificationLente,
       envoyerLien,
       connecterParMotDePasse,
       definirMotDePasse,
@@ -274,6 +324,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       error,
       sent,
       lecture,
+      verificationLente,
       envoyerLien,
       connecterParMotDePasse,
       definirMotDePasse,

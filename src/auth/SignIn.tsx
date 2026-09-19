@@ -29,7 +29,7 @@ export function SignIn({
   cabinet?: string
   tagline?: string
 }) {
-  const { envoyerLien, connecterParMotDePasse, error, sent } = useAuth()
+  const { envoyerLien, connecterParMotDePasse, error, sent, verificationLente } = useAuth()
   const [email, setEmail] = useState('')
   const [envoi, setEnvoi] = useState(false)
   /**
@@ -80,6 +80,19 @@ export function SignIn({
           <>
             <h1 className={s.title}>{titre}</h1>
             <p className={s.intro}>{intro}</p>
+
+            {/* LA PORTE N'ATTEND PLUS LA REPRISE DE SESSION.
+                Elle s'affiche au bout de quatre secondes, même si la
+                vérification court encore. Dans ce cas-là seulement, cette
+                phrase : sans elle, une praticienne déjà connectée croirait
+                avoir été déconnectée et se mettrait à retaper son adresse
+                pendant que son espace s'apprête à s'ouvrir. */}
+            {verificationLente ? (
+              <p className={s.note}>
+                La vérification de votre accès est plus longue que d'habitude. Si vous étiez déjà
+                connectée, votre espace s'ouvrira tout seul — inutile de ressaisir quoi que ce soit.
+              </p>
+            ) : null}
 
             <form onSubmit={soumettre}>
               <div className={s.field}>
