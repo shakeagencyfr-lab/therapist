@@ -3,6 +3,7 @@ import { useAuth } from '@/auth/session'
 import { entreeParLienRecente, lireEntrees, LONGUEUR_MOT_DE_PASSE, refusDuNouveau } from '@/lib/motDePasse'
 import { supabase } from '@/lib/supabase'
 import type { PatientIdentity } from '@/auth/session'
+import { cheminDeLEspace } from '@/lib/rappels'
 import { Installer } from './Installer'
 import { Rappels } from './Rappels'
 import { oublierCeTelephone } from './rappelsNavigateur'
@@ -24,7 +25,10 @@ import s from './MonCompte.module.css'
  * Le journal, en revanche, est à elle : il part avec le compte.
  */
 export function MonCompte({ patient }: { patient: PatientIdentity }) {
-  const { changerMotDePasse, deconnecterAilleurs, seDeconnecter, session } = useAuth()
+  const { changerMotDePasse, deconnecterAilleurs, seDeconnecter, session, context } = useAuth()
+  /* Le même compte peut ouvrir un espace professionnel : la suppression ne
+     ferme alors que l'espace patient, et l'écran le dit AVANT. */
+  const autreEspace = Boolean(context?.cabinet || context?.reseller)
   const [ancien, setAncien] = useState('')
   const [motDePasse, setMotDePasse] = useState('')
   const [confirmation, setConfirmation] = useState('')
@@ -89,7 +93,9 @@ export function MonCompte({ patient }: { patient: PatientIdentity }) {
       // garderait la sienne sans ce geste.
       await oublierCeTelephone()
       await seDeconnecter()
-      window.location.replace('/mon')
+      // On reste à la porte du cabinet (/son-cabinet/mon, ou /mon sur son
+      // domaine) : /mon tout court aurait perdu sa marque.
+      window.location.replace(cheminDeLEspace(window.location.pathname))
     } catch {
       setEnCours('')
       setEchecSuppression('Le serveur est injoignable. Réessayez dans un instant.')
@@ -224,11 +230,19 @@ export function MonCompte({ patient }: { patient: PatientIdentity }) {
             supprimée — la loi lui demande de la garder — et elle porte encore
             l'adresse. Se reconnecter avec la même la rattache d'elle-même
             (claim_access). Ce qui est définitif, c'est le journal. */}
-        <p className={s.texte}>
-          Votre compte est supprimé et votre journal effacé — celui-là ne revient pas. Votre espace
-          se referme : vous n'y aurez plus accès tant que vous ne vous reconnecterez pas avec la
-          même adresse.
-        </p>
+        {autreEspace ? (
+          <p className={s.texte}>
+            Votre journal est effacé — celui-là ne revient pas — et cet espace patient se referme.
+            Votre compte, lui, reste ouvert : il porte aussi votre espace professionnel, qui n'est
+            pas touché.
+          </p>
+        ) : (
+          <p className={s.texte}>
+            Votre compte est supprimé et votre journal effacé — celui-là ne revient pas. Votre
+            espace se referme : vous n'y aurez plus accès tant que vous ne vous reconnecterez pas
+            avec la même adresse.
+          </p>
+        )}
         {/* Dit avant, pas après : c'est la seule chose que ce bouton ne fait
             pas, et celle qu'on croit qu'il fait. */}
         <p className={s.texte}>
@@ -244,7 +258,11 @@ export function MonCompte({ patient }: { patient: PatientIdentity }) {
               disabled={enCours !== ''}
               onClick={() => void supprimer()}
             >
-              {enCours === 'suppression' ? 'Suppression…' : 'Oui, supprimer mon compte'}
+              {enCours === 'suppression'
+                ? 'Suppression…'
+                : autreEspace
+                  ? 'Oui, fermer mon espace patient'
+                  : 'Oui, supprimer mon compte'}
             </button>
             <button type="button" className={s.annuler} onClick={() => setConfirme(false)}>
               Annuler
@@ -252,7 +270,7 @@ export function MonCompte({ patient }: { patient: PatientIdentity }) {
           </div>
         ) : (
           <button type="button" className={s.lienDanger} onClick={() => setConfirme(true)}>
-            Supprimer mon compte
+            {autreEspace ? 'Fermer mon espace patient' : 'Supprimer mon compte'}
           </button>
         )}
         {echecSuppression ? (

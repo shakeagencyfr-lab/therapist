@@ -59,7 +59,21 @@ export async function supprimerCompte(token: string | null): Promise<RetourCompt
     throw new HttpError(502, "Votre compte n'a pas pu être détaché. Réessayez dans un instant.")
   }
 
-  // 3. Le compte lui-même, en dernier.
+  // 3. Le compte lui-même, en dernier — SAUF s'il porte un autre rôle.
+  //
+  // Un même compte peut être praticienne (ou revendeur) ET patient : une
+  // thérapeute qui essaie l'espace de ses patients avec sa propre adresse, par
+  // exemple. Supprimer le compte emporterait alors, par cascade, son
+  // appartenance au cabinet — donc l'accès à tous ses dossiers. Ce bouton
+  // ferme l'espace PATIENT : on s'arrête à la fiche détachée et au journal
+  // effacé, et on le dit.
+  if (appelant.cabinetId || appelant.resellerId) {
+    return {
+      ok: true,
+      message:
+        "Votre espace patient est refermé et votre journal effacé. Votre compte, lui, reste ouvert : il porte aussi votre espace professionnel.",
+    }
+  }
   if (userId) {
     const { error } = await db.auth.admin.deleteUser(userId)
     if (error) {

@@ -74,9 +74,14 @@ export function CompteView() {
                 </div>
               ) : null}
             </dl>
+            {/* Changer d'adresse n'est pas un geste en libre-service : l'adresse
+                relie aussi les invitations, l'équipe et les fiches. La
+                praticienne passe par son revendeur ; le revendeur, par nous. */}
             <p className={s.muted}>
-              C'est à cette adresse qu'arrivent vos liens de connexion. Pour en changer, écrivez à
-              votre revendeur : elle relie aussi vos invitations et vos patients.
+              C'est à cette adresse qu'arrivent vos liens de connexion.{' '}
+              {identite?.cabinet
+                ? 'Pour en changer, écrivez à votre revendeur : elle relie aussi vos invitations et vos patients.'
+                : 'Pour en changer, écrivez au support de la plateforme : elle relie aussi vos cabinets et leurs invitations.'}
             </p>
           </Card>
 
