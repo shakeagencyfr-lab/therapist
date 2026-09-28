@@ -1,9 +1,15 @@
 import { useState } from 'react'
-import { Title } from '@/components/ui'
+import { Notice, Title } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
-import { dateDuJour } from '@/lib/format'
-import { buildPatientContext, derniereReponseEstMaquette as derniereEstMaquette, refreshProfile } from '@/services/aiClient'
-import { profileOf } from '@/state/selectors'
+import { dateDuJour, plural } from '@/lib/format'
+import { momentDuMessage } from '@/lib/seance'
+import {
+  AiError,
+  buildPatientContext,
+  derniereReponseEstMaquette as derniereEstMaquette,
+  refreshProfile,
+} from '@/services/aiClient'
+import { nouvelleSeance, profileOf } from '@/state/selectors'
 import { useStore } from '@/state/store'
 import { useEcritureConsignes } from '@/cabinet/useEcritureConsignes'
 import type { LibraryAudio, PatientModule, PsychProfile } from '@/types/domain'
@@ -24,6 +30,16 @@ export function DraftStep() {
   const [echecEnvoi, setEchecEnvoi] = useState('')
   /** Envoi des audios en cours : le bouton ne se reclique pas. */
   const [envoiAudios, setEnvoiAudios] = useState(false)
+  /** Le navigateur a refusé la copie du message : on le dit. */
+  const [echecCopie, setEchecCopie] = useState('')
+  /** L'envoi du message dans l'espace du patient, et son échec éventuel. */
+  const [envoiMessage, setEnvoiMessage] = useState<'repos' | 'en-cours'>('repos')
+  const [echecMessage, setEchecMessage] = useState('')
+  /** L'actualisation du profil : ce qu'elle a donné, ou pourquoi elle a échoué. */
+  const [profil, setProfil] = useState<{ ton: 'ok' | 'warn'; texte: string } | null>(null)
+  /* Un crochet ne se pose pas après un retour anticipé : l'écriture des
+     consignes était déclarée sous le `return null` ci-dessous. */
+  const consignes = useEcritureConsignes(cabinet?.majConsigne ?? (async () => ({ ok: false })))
 
   /* La fiche de la séance, pas celle de la barre latérale : c'est elle qui
      recevra la note, les modules et les audios, même si la sélection a
@@ -33,6 +49,9 @@ export function DraftStep() {
   if (!draft || !patient) return null
 
   const firstName = patient.name.split(' ')[0]
+  /** Le message part une fois, après la validation, et jamais un texte de maquette. */
+  const messageEnvoyable =
+    Boolean(draft.message.trim()) && state.sent && !state.msgEnvoye && !state.draftMaquette
 
   const proposals = draft.propositions ?? []
   const retainedCount = proposals.filter((_, i) => !state.proposalOff[i]).length
@@ -75,7 +94,7 @@ export function DraftStep() {
       set({
         sugSent: echecs
           ? "Certains audios n'ont pas pu être envoyés. Réessayez."
-          : `${sugOn.length}${sugOn.length > 1 ? ' audios ajoutés' : ' audio ajouté'} à la bibliothèque de ${patient.name}.`,
+          : `${plural(sugOn.length, 'audio ajouté', 'audios ajoutés')} à la bibliothèque de ${patient.name}.`,
       })
       return
     }
@@ -97,12 +116,10 @@ export function DraftStep() {
         extraAudios: add.length
           ? { ...prev.extraAudios, [key]: existing.concat(add) }
           : prev.extraAudios,
-        sugSent: `${sugOn.length}${sugOn.length > 1 ? ' audios ajoutés' : ' audio ajouté'} à la bibliothèque de ${patient.name}.`,
+        sugSent: `${plural(sugOn.length, 'audio ajouté', 'audios ajoutés')} à la bibliothèque de ${patient.name}.`,
       }
     })
   }
-
-  const consignes = useEcritureConsignes(cabinet?.majConsigne ?? (async () => ({ ok: false })))
 
   /**
    * Garder ce que la thérapeute vient de corriger.
@@ -175,7 +192,8 @@ export function DraftStep() {
         set((prev) => {
           const profNew = { ...prev.profNew }
           delete profNew[key]
-          return { sent: true, profNew }
+          // L'envoi a écrit le brouillon relu : un ancien échec ne vaut plus.
+          return { sent: true, profNew, notice: '' }
         })
         /* Les consignes s'écrivent APRÈS, et le savoir change la conduite à
            tenir en cas d'échec : la séance, les modules et les audios sont
@@ -184,20 +202,87 @@ export function DraftStep() {
       })
   }
 
-  function copyMessage() {
+  /**
+   * Copier le message.
+   *
+   * « ✓ Copié » s'affichait avant la réponse du navigateur — et même quand il
+   * refusait (page non sécurisée, permission retirée) : la thérapeute collait
+   * alors autre chose dans son courriel. Le succès ne se pose qu'une fois la
+   * copie faite.
+   */
+  async function copyMessage() {
+    setEchecCopie('')
     const text = read().draft?.message ?? ''
-    if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {})
-    set({ msgOk: true })
+    try {
+      if (!navigator.clipboard) throw new Error('presse-papiers indisponible')
+      await navigator.clipboard.writeText(text)
+      set({ msgOk: true })
+    } catch {
+      set({ msgOk: false })
+      setEchecCopie('Le navigateur a refusé la copie : sélectionnez le texte et copiez-le à la main.')
+    }
+  }
+
+  /**
+   * Envoyer le message dans l'espace du patient.
+   *
+   * L'écran l'annonçait « envoyé le soir de la séance » et n'offrait que
+   * « Copier » : rien ne partait. Il passe maintenant par les notifications
+   * du cabinet (push_notifications) : il apparaît dans l'espace du patient au
+   * moment prévu, et sur son téléphone s'il y a activé les rappels.
+   *
+   * APRÈS LA VALIDATION SEULEMENT. Le message parle des exercices que la note
+   * envoie : parti avant elle, il annoncerait ce qui n'arrivera peut-être
+   * jamais. Et UNE FOIS : le moment d'envoi est gardé dans l'état, pas dans
+   * l'écran — un aller-retour sur la fiche ne le fait pas repartir.
+   */
+  async function sendMessage() {
+    const now = read()
+    const texte = (now.draft?.message ?? '').trim()
+    if (!texte || !now.sent || now.msgEnvoye || now.draftMaquette || envoiMessage === 'en-cours') return
+    const moment = momentDuMessage()
+    const confirmation = moment.immediat
+      ? `Parti dans l'espace de ${firstName}, et sur son téléphone si les rappels y sont activés.`
+      : `Programmé ${moment.dit} : il apparaîtra dans l'espace de ${firstName} à ce moment-là, et sur son téléphone si les rappels y sont activés.`
+    if (!cabinet?.reel) {
+      set({ msgEnvoye: `${confirmation} (Démonstration : rien ne part vraiment.)` })
+      return
+    }
+    setEnvoiMessage('en-cours')
+    setEchecMessage('')
+    const r = await cabinet.envoyerNotification(
+      { title: 'Un mot après votre séance', body: texte, when: moment.libelle, quand: moment.quand },
+      [key],
+    )
+    setEnvoiMessage('repos')
+    if (!r.ok) {
+      setEchecMessage(r.message || "Le message n'a pas pu partir. Réessayez.")
+      return
+    }
+    set({ msgEnvoye: confirmation })
   }
 
   /**
    * Actualisation du profil depuis le brouillon : mêmes états que la fiche
    * client, une séance de plus est comptée dès que le profil revient.
+   *
+   * SAUF APRÈS L'ENVOI. La séance est alors déjà au compteur de la fiche :
+   * la passer à `enregistrerProfil` la comptait une seconde fois, et le « +1 »
+   * du profil fraîchement généré faisait de même à l'écran. Après l'envoi, le
+   * profil s'enregistre comme depuis la fiche — sans séance — et la version
+   * d'écran s'efface dès que le dossier la relit.
+   *
+   * LES ÉCHECS SE DISENT. L'erreur de l'analyse était avalée en « Réessayez »,
+   * le résumé écrit dans `profNote` ne s'affichait nulle part ici, et
+   * l'enregistrement partait sans qu'on regarde s'il avait réussi : un profil
+   * payé pouvait disparaître au rechargement sans un mot.
    */
   async function refreshProfil() {
     const now = read()
     if (now.profGen) return
     const current = profileOf(now, key)
+    const dejaComptee = now.sent
+    setProfil(null)
     set({ profGen: key })
     try {
       const result = await refreshProfile({
@@ -220,16 +305,22 @@ export function DraftStep() {
         dynamique: result.dynamique || current?.dynamique,
         alliance: result.alliance || current?.alliance,
         care: result.care.filter((item) => typeof item === 'string'),
+        /* L'historique suit : l'IA ne le rend pas, et sans lui les courbes
+           des axes disparaissaient de la fiche au moment même où une version
+           de plus venait les enrichir (le même défaut que PsychProfile). */
+        historique: current?.historique,
       }
+      const resume = result.resume || 'Profil actualisé.'
       set((prev) => ({
         profGen: '',
         profNew: { ...prev.profNew, [key]: next },
-        profNote: { ...prev.profNote, [key]: result.resume || 'Profil actualisé.' },
+        profNote: { ...prev.profNote, [key]: resume },
       }))
+      setProfil({ ton: 'ok', texte: resume })
       // Le profil est versionné en base : la fiche le retrouvera au prochain
       // chargement, avec le nombre de séances qui donne sa marge.
       if (cabinet?.reel && !derniereEstMaquette()) {
-        void cabinet.enregistrerProfil(key, now.sessionId, {
+        const r = await cabinet.enregistrerProfil(key, dejaComptee ? null : now.sessionId, {
           portrait: next.portrait,
           axes: next.axes,
           levers: next.levers,
@@ -238,12 +329,29 @@ export function DraftStep() {
           care: next.care,
           resume: result.resume ?? '',
         })
+        if (!r.ok) {
+          setProfil({
+            ton: 'warn',
+            texte: `${r.message} Il reste affiché, mais la fiche ne le retrouvera pas au prochain chargement : réessayez.`,
+          })
+          return
+        }
+        if (dejaComptee) {
+          /* Écrit, et la séance déjà comptée : le dossier fait foi. La
+             version d'écran se retire, sans quoi son « +1 » compterait la
+             séance une seconde fois sur le badge. */
+          await cabinet.recharger()
+          set((prev) => {
+            const profNew = { ...prev.profNew }
+            delete profNew[key]
+            return { profNew }
+          })
+        }
       }
-    } catch {
-      set((prev) => ({
-        profGen: '',
-        profNote: { ...prev.profNote, [key]: "L'actualisation a échoué. Réessayez." },
-      }))
+    } catch (error) {
+      const message = error instanceof AiError ? error.message : "le serveur n'a pas répondu"
+      set({ profGen: '' })
+      setProfil({ ton: 'warn', texte: `L'actualisation a échoué : ${message}. Réessayez.` })
     }
   }
 
@@ -261,6 +369,10 @@ export function DraftStep() {
           </p>
         </section>
       ) : null}
+
+      {/* Le brouillon n'a pas pu rejoindre la séance en base (RecordStep) :
+          il est à l'écran, pas au dossier, et la thérapeute doit le savoir. */}
+      {state.notice ? <Notice tone="warn">{state.notice}</Notice> : null}
 
       {/* Synthèse ------------------------------------------------------ */}
       <section className={s.card}>
@@ -484,23 +596,53 @@ export function DraftStep() {
           <button
             type="button"
             className={cx(s.validate, state.msgOk && s.validateOn)}
-            onClick={copyMessage}
+            onClick={() => void copyMessage()}
           >
             {state.msgOk ? '✓ Copié' : 'Copier le message'}
           </button>
         </div>
-        <div className={s.sub}>Envoyé le soir de la séance, il double le taux de réalisation des modules.</div>
+        {/* « Il double le taux de réalisation des modules » : aucun chiffre du
+            produit ne l'établit. On dit ce que fait le bouton, pas plus. */}
+        <div className={s.sub}>
+          Un mot pour le soir de la séance. Il part dans l'espace de {firstName} une fois la note
+          validée ; il se relit et se corrige ici avant.
+        </div>
         <textarea
           className={s.field}
           rows={4}
           aria-label="Message au patient"
           value={draft.message}
+          readOnly={Boolean(state.msgEnvoye)}
           onChange={(e) => {
             const message = e.target.value
             set((prev) => (prev.draft ? { draft: { ...prev.draft, message }, msgOk: false } : {}))
           }}
           onBlur={garderLesCorrections}
         />
+        <div className={s.sendRow}>
+          <button
+            type="button"
+            className={cx(s.dispatch, (!messageEnvoyable || envoiMessage === 'en-cours') && s.dispatchOff)}
+            onClick={() => void sendMessage()}
+            disabled={!messageEnvoyable || envoiMessage === 'en-cours'}
+          >
+            {state.msgEnvoye
+              ? '✓ Envoyé'
+              : envoiMessage === 'en-cours'
+                ? 'Envoi…'
+                : `Envoyer dans son espace ${momentDuMessage().dit}`}
+          </button>
+          <span className={s.sendHint}>
+            {state.msgEnvoye ||
+              (state.draftMaquette
+                ? "Un texte de maquette ne part pas chez un patient."
+                : !state.sent
+                  ? 'Disponible après « Valider et envoyer » : le message parle des exercices que la note envoie.'
+                  : "Il apparaîtra dans son espace, et sur son téléphone si les rappels y sont activés.")}
+          </span>
+        </div>
+        {echecMessage ? <Notice tone="warn">{echecMessage}</Notice> : null}
+        {echecCopie ? <Notice tone="warn">{echecCopie}</Notice> : null}
       </section>
 
       {/* Profil psychologique ------------------------------------------------------------- */}
@@ -508,15 +650,18 @@ export function DraftStep() {
         <div className={s.profText}>
           <span className={s.profTitle}>Actualiser le profil de {firstName}</span>
           <span className={s.profHint}>
-            {profFresh
-              ? 'Profil actualisé à partir de cette séance. Il est visible sur la fiche client.'
-              : "Reprend le profil psychologique et les conseils d'accompagnement à partir des notes et de la synthèse de cette séance."}
+            {profil?.ton === 'ok'
+              ? `${profil.texte} Il est visible sur la fiche client.`
+              : profFresh
+                ? 'Profil actualisé à partir de cette séance. Il est visible sur la fiche client.'
+                : "Reprend le profil psychologique et les conseils d'accompagnement à partir des notes et de la synthèse de cette séance."}
           </span>
+          {profil?.ton === 'warn' ? <Notice tone="warn">{profil.texte}</Notice> : null}
         </div>
         <button
           type="button"
           className={cx(s.profBtn, profBusy && s.profBtnBusy)}
-          onClick={refreshProfil}
+          onClick={() => void refreshProfil()}
           disabled={profBusy}
         >
           {profBusy ? 'Analyse des notes…' : 'Actualiser le profil'}
@@ -555,18 +700,28 @@ export function DraftStep() {
           >
             Voir le parcours
           </button>
-          <button
-            type="button"
-            className={s.sendGhost}
-            onClick={() => set({ draft: null, sent: false })}
-          >
-            Reprendre
-          </button>
+          {/* « Reprendre » après l'envoi ramenait à la captation d'une séance
+              close : une seconde génération, un second envoi, les modules en
+              double. Une fois la séance versée, la seule suite est une autre
+              séance — qui repart de zéro. */}
+          {state.sent ? (
+            <button type="button" className={s.sendGhost} onClick={() => set(nouvelleSeance())}>
+              Nouvelle séance
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={s.sendGhost}
+              onClick={() => set({ draft: null, sent: false })}
+            >
+              Reprendre
+            </button>
+          )}
           <button
             type="button"
             className={cx(s.sendBtn, state.sent && s.sendBtnDone)}
             onClick={sendDraft}
-            disabled={state.draftMaquette || envoi === 'en-cours'}
+            disabled={state.draftMaquette || state.sent || envoi === 'en-cours'}
           >
             {state.sent ? '✓ Envoyé' : envoi === 'en-cours' ? 'Envoi…' : 'Valider et envoyer'}
           </button>
@@ -581,7 +736,7 @@ export function DraftStep() {
               ? `Écriture des consignes — ${consignes.faits + 1} sur ${consignes.total}${consignes.enCours ? ` · ${consignes.enCours}` : ''}`
               : consignes.echecs
                 ? `Consignes écrites, sauf ${consignes.echecs} sur ${consignes.total}. Ces exercices gardent le « pourquoi » de la séance ; vous pouvez écrire le reste depuis le parcours.`
-                : `Consignes écrites : ${consignes.total} exercice${consignes.total > 1 ? 's' : ''} détaillé${consignes.total > 1 ? 's' : ''} pour ${patient.name}. Relisez-les depuis le parcours.`}
+                : `Consignes écrites : ${plural(consignes.total, 'exercice détaillé', 'exercices détaillés')} pour ${patient.name}. Relisez-les depuis le parcours.`}
           </p>
         ) : null}
       </section>

@@ -1,5 +1,5 @@
 import { useMaybeCabinet } from '@/cabinet/context'
-import { COUT_HYPNOSE } from '@/lib/coutIA'
+import { COUT_HYPNOSE, COUT_HYPNOSE_MAX } from '@/lib/coutIA'
 import { euro } from '@/lib/format'
 import { useStore } from '@/state/store'
 import s from './HypnoseToggle.module.css'
@@ -16,7 +16,9 @@ import s from './HypnoseToggle.module.css'
  *
  * ELLE PORTE SON PRIX. C'est l'appel le plus cher du produit, et le chiffre
  * doit se lire au moment de cocher — pas après, quand l'option est déjà
- * ouverte et qu'il ne reste qu'à cliquer.
+ * ouverte et qu'il ne reste qu'à cliquer. Deux hypnoses facturées ne font
+ * pas une mesure fiable : on annonce le plafond, « jusqu'à », et ce que les
+ * hypnoses ont coûté jusqu'ici à côté.
  *
  * Cocher ici ouvre aussi les prochaines séances de ce patient : c'est le même
  * réglage que sur sa fiche, pas un doublon. L'état local mirroite la fiche :
@@ -55,8 +57,9 @@ export function HypnoseToggle({
         <span className={s.titre}>Écrire une hypnose pour {prenom}</span>
         <span className={s.hint}>
           Une séance complète, bâtie sur les formulations relevées ci-dessus et lisible à voix
-          haute. C'est l'analyse la plus coûteuse du produit — environ {euro(COUT_HYPNOSE)} —
-          alors cochez-la quand elle sert. Le réglage vaut aussi pour ses prochaines séances.
+          haute. C'est l'analyse la plus coûteuse du produit — jusqu'à {euro(COUT_HYPNOSE_MAX)}, et
+          autour de {euro(COUT_HYPNOSE)} pour les hypnoses écrites jusqu'ici — alors cochez-la
+          quand elle sert. Le réglage vaut aussi pour ses prochaines séances.
         </span>
       </span>
     </label>

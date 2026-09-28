@@ -7,9 +7,13 @@
  * aucune ligne ne partait — le patient relisait la même série pendant des
  * mois, ou n'en avait jamais eu.
  *
- * Cette tâche est le lundi qui manquait. Elle tourne chez l'hébergeur
- * (vercel.json, crons) et n'agit que sur ce que la thérapeute a demandé :
- * les fiches dont `patient_settings.affirmations_auto` est vrai.
+ * Cette tâche est le lundi qui manquait. Elle n'agit que sur ce que la
+ * thérapeute a demandé : les fiches dont `patient_settings.affirmations_auto`
+ * est vrai. Deux planificateurs l'appellent, sur la même route et le même
+ * secret : l'hébergeur à 6 h UTC (vercel.json), puis la base à 8 h, 10 h et
+ * 12 h UTC (0044), qui ne réveille le serveur que s'il reste une fiche à
+ * servir. L'offre gratuite de l'hébergeur ne permet qu'un passage par jour et
+ * par tâche ; les reprises vivent donc en base, comme les rappels (0040).
  *
  * TROIS BORNES, parce qu'une tâche qui dépense sans témoin doit se tenir :
  *
@@ -20,9 +24,9 @@
  *      politique de lecture accorde au cabinet. La clé de service passe outre
  *      la RLS ; c'est donc ici qu'il faut relire la frontière.
  *   3. UNE FOIS PAR SEMAINE. Une série publiée il y a moins de quatre jours
- *      fait sauter la fiche : un nouvel essai de l'hébergeur, ou deux régions
- *      qui tirent la même tâche, ne doivent pas repayer l'appel ni remplacer
- *      une série que la thérapeute vient de corriger à la main.
+ *      fait sauter la fiche : une reprise, ou un nouvel essai de l'hébergeur,
+ *      ne doivent pas repayer l'appel ni remplacer une série que la
+ *      thérapeute vient de corriger à la main.
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { clientAdmin } from './auth.js'
@@ -54,8 +58,9 @@ const FRAICHEUR_JOURS = 4
  * La fonction est coupée à 60 secondes par l'hébergeur (vercel.json). Une
  * fiche coûte quelques secondes d'appel : au-delà d'une douzaine, la tâche
  * serait tuée en plein milieu, sans rien dire de ce qui restait. On s'arrête
- * donc AVANT, et on compte ce qu'on laisse — le passage suivant les reprendra,
- * puisque la fraîcheur fait sauter celles déjà faites.
+ * donc AVANT, et on compte ce qu'on laisse — la reprise suivante les servira,
+ * puisque la fraîcheur fait sauter celles déjà faites, et que l'ordre de
+ * passage (plus bas) met en tête celles qui attendent depuis le plus longtemps.
  */
 const BUDGET_MS = 48_000
 const DE_FRONT = 3
@@ -86,6 +91,50 @@ interface FicheAuto {
   sessions_total: number | null
   scale_label: string | null
   scale_delta: string | null
+}
+
+/** La date de la série en place d'une fiche, telle que la base la rend. */
+export interface DernierePublication {
+  patient_id: string
+  published_at: string | null
+}
+
+/**
+ * Qui passe ce lundi, et dans quel ordre.
+ *
+ * LES PLUS ANCIENNES D'ABORD. Le budget ne couvre pas toujours toutes les
+ * fiches. Servies dans l'ordre où la base les rend — un ordre qui ne change
+ * pas d'une semaine à l'autre —, les mêmes passaient devant chaque lundi, et
+ * celles du bout de la liste n'étaient jamais servies. Une fiche qui n'a
+ * jamais eu de série passe en tête ; ensuite, la série la plus vieille.
+ *
+ * Une série publiée après `limite` est fraîche : la fiche est sautée, et
+ * comptée comme telle.
+ */
+export function ordreDePassage<F extends { id: string }>(
+  fiches: readonly F[],
+  publications: readonly DernierePublication[],
+  limite: number,
+): { aFaire: F[]; fraiches: number } {
+  const derniere = new Map<string, number>()
+  for (const p of publications) {
+    const instant = p.published_at ? Date.parse(p.published_at) : Number.NaN
+    if (Number.isNaN(instant)) continue
+    derniere.set(p.patient_id, Math.max(derniere.get(p.patient_id) ?? -Infinity, instant))
+  }
+  const age = (id: string) => derniere.get(id) ?? -Infinity
+
+  let fraiches = 0
+  const aFaire = fiches.filter((f) => {
+    if (age(f.id) < limite) return true
+    fraiches += 1
+    return false
+  })
+  /* À date égale — deux fiches jamais servies, par exemple —, l'identifiant
+     départage : un ordre qui dépendrait du hasard de la requête ne se
+     vérifierait pas. */
+  aFaire.sort((a, b) => age(a.id) - age(b.id) || a.id.localeCompare(b.id))
+  return { aFaire, fraiches }
 }
 
 /** Le contexte du prompt, assemblé depuis la base et non depuis un écran. */
@@ -163,15 +212,26 @@ export async function publierLesAffirmationsDeLaSemaine(): Promise<BilanHebdo> {
     .in('id', ids)
     .is('archived_at', null)
 
-  /* La fraîcheur se lit en une requête : une série par fiche suffit, et on ne
-     veut pas d'un aller-retour par patient pour une date. */
-  const limite = new Date(Date.now() - FRAICHEUR_JOURS * 86400_000).toISOString()
-  const { data: recentes } = await admin
+  /* La date de chaque série se lit en une requête, pas un aller-retour par
+     patient. Une série s'écrit d'un bloc (cabinet_publier_affirmations) :
+     toutes ses lignes portent la même date, et la position 0 existe dès
+     qu'une ligne existe. Ne lire qu'elle donne une ligne par fiche — et
+     garde la réponse loin du plafond de lignes de l'API, qui tronquerait
+     sans rien dire et ferait repayer des séries fraîches. */
+  const { data: publications, error: eDates } = await admin
     .from('affirmations')
-    .select('patient_id')
+    .select('patient_id, published_at')
     .in('patient_id', ids)
-    .gte('published_at', limite)
-  const fraiches = new Set((recentes ?? []).map((a) => (a as { patient_id: string }).patient_id))
+    .eq('position', 0)
+    .not('published_at', 'is', null)
+  if (eDates) throw new HttpError(502, "Les dates des séries en place n'ont pas pu être lues.")
+
+  const { aFaire, fraiches } = ordreDePassage(
+    (fiches ?? []) as FicheAuto[],
+    (publications ?? []) as DernierePublication[],
+    Date.now() - FRAICHEUR_JOURS * 86400_000,
+  )
+  bilan.sautees += fraiches
 
   /** Une lecture de clé par cabinet, pas une par fiche. */
   const cles = new Map<string, boolean>()
@@ -179,12 +239,6 @@ export async function publierLesAffirmationsDeLaSemaine(): Promise<BilanHebdo> {
     if (!cles.has(cabinetId)) cles.set(cabinetId, Boolean(await cleAnthropicDuCabinet(cabinetId)))
     return cles.get(cabinetId) ?? false
   }
-
-  const aFaire = ((fiches ?? []) as FicheAuto[]).filter((f) => {
-    if (!fraiches.has(f.id)) return true
-    bilan.sautees += 1
-    return false
-  })
 
   const fin = Date.now() + BUDGET_MS
   let prochaine = 0

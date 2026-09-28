@@ -28,7 +28,9 @@ declare
   v_refus    boolean;
 begin
   select r.user_id, r.reseller_id into v_rev, v_res from public.reseller_members r limit 1;
-  select m.cabinet_id, m.user_id into v_cab_tenu, v_prat from public.cabinet_members m limit 1;
+  -- Une titulaire : depuis 0042, c'est elle seule qui invite son équipe.
+  select m.cabinet_id, m.user_id into v_cab_tenu, v_prat
+    from public.cabinet_members m where m.role = 'owner' limit 1;
   if v_rev is null or v_prat is null then
     raise exception 'ECHEC : il faut un revendeur et un cabinet tenu par sa praticienne';
   end if;

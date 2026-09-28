@@ -31,6 +31,7 @@ const REGLAGES: Array<{ value: ViewMode; label: string }> = [
   { value: 'marque', label: 'Marque' },
   { value: 'site', label: 'Site vitrine' },
   { value: 'integrations', label: 'Intégrations' },
+  { value: 'equipe', label: 'Équipe' },
 ]
 
 /** Toutes les vues, pour le menu des petits écrans et le libellé courant. */

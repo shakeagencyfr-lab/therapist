@@ -17,6 +17,7 @@ import { SiteView } from '@/views/site/SiteView'
 import { MarqueView } from '@/views/marque/MarqueView'
 import { ProgrammesView } from '@/views/programmes/ProgrammesView'
 import { CompteView } from '@/views/compte/CompteView'
+import { EquipeView } from '@/views/equipe/EquipeView'
 
 /**
  * Deux espaces, deux métiers : la thérapeute suit ses patients, le revendeur
@@ -66,6 +67,7 @@ export function App() {
       {mode === 'marque' && <MarqueView />}
       {mode === 'site' && <SiteView />}
       {mode === 'integrations' && <IntegrationsView />}
+      {mode === 'equipe' && <EquipeView />}
       {mode === 'compte' && <CompteView />}
     </div>
   )

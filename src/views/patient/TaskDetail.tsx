@@ -18,7 +18,11 @@ export function TaskDetail() {
      comme un résultat du patient ; cocher « C'est fait » marquait l'exercice
      fait en son nom. */
   const maquette = !state.patientsReels
+  /* La consigne que le patient lit, pas un modèle par type : voir consigneFor.
+     Ce qui manque s'affiche comme dans son espace (src/patient/Tache.tsx) —
+     un aperçu qui comble les vides ne montre plus ce qu'il verra. */
   const consigne = consigneFor(module, state.customs)
+  const etapes = (consigne?.steps ?? []).filter((e) => e.trim())
   const done = isModuleDone(state, key, index, module.done)
   const noteKey = `${key}:${index}`
   const quiz = consigne?.quiz ?? []
@@ -50,30 +54,34 @@ export function TaskDetail() {
         <h2 className={s.title}>{module.title}</h2>
       </div>
 
-      <div className={s.facts}>
-        <div className={s.fact}>
-          <div className={s.factLabel}>Durée</div>
-          <div className={s.factValue}>{consigne ? consigne.duree : ''}</div>
+      {consigne?.duree || consigne?.quand ? (
+        <div className={s.facts}>
+          <div className={s.fact}>
+            <div className={s.factLabel}>Durée</div>
+            <div className={s.factValue}>{consigne.duree}</div>
+          </div>
+          <div className={`${s.fact} ${s.factWhen}`}>
+            <div className={s.factLabel}>Quand</div>
+            <div className={`${s.factValue} ${s.factValueWrap}`}>{consigne.quand}</div>
+          </div>
         </div>
-        <div className={`${s.fact} ${s.factWhen}`}>
-          <div className={s.factLabel}>Quand</div>
-          <div className={`${s.factValue} ${s.factValueWrap}`}>{consigne ? consigne.quand : ''}</div>
-        </div>
-      </div>
+      ) : null}
 
-      <div className={s.block}>
-        <div className={s.overline}>La consigne</div>
-        <div className={s.steps}>
-          {(consigne?.steps ?? []).map((step, i) => (
-            <div className={s.step} key={step}>
-              <span className={s.stepNum} aria-hidden>
-                {i + 1}
-              </span>
-              <span className={s.stepText}>{step}</span>
-            </div>
-          ))}
+      {etapes.length ? (
+        <div className={s.block}>
+          <div className={s.overline}>La consigne</div>
+          <div className={s.steps}>
+            {etapes.map((step, i) => (
+              <div className={s.step} key={`${i}-${step}`}>
+                <span className={s.stepNum} aria-hidden>
+                  {i + 1}
+                </span>
+                <span className={s.stepText}>{step}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {!!consigne?.why && (
         <div className={s.block}>
@@ -83,6 +91,15 @@ export function TaskDetail() {
           </div>
         </div>
       )}
+
+      {!etapes.length && !consigne?.why ? (
+        <div className={s.block}>
+          <div className={s.whyBody}>
+            Votre thérapeute a ajouté cet exercice sans consigne écrite : il vous a été expliqué en
+            séance. Si vous ne vous rappelez plus, dites-le-lui dans un mot depuis le journal.
+          </div>
+        </div>
+      ) : null}
 
       {quiz.length > 0 && (
         <div className={s.block}>

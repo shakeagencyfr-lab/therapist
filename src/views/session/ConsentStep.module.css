@@ -60,3 +60,23 @@
 .notice {
   margin-bottom: 16px;
 }
+
+/* Une séance laissée en plan : la reprendre, ou l'effacer. */
+.reprise {
+  border-radius: var(--r-xl);
+  margin-bottom: 18px;
+}
+
+.repriseTexte {
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--c-text-2);
+  margin: 10px 0 16px;
+  max-width: 62ch;
+}
+
+.repriseActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}

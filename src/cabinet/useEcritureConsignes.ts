@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { seFaitParLePatient } from '@/lib/typesDeModules'
 import { buildPatientContext, generateModule } from '@/services/aiClient'
 import { useStore } from '@/state/store'
 import type { ModuleCree } from './useCabinet'
@@ -45,7 +46,12 @@ export function useEcritureConsignes(
   const [echecs, setEchecs] = useState(0)
 
   const ecrire = useCallback(
-    async (patientId: PatientId, modules: ModuleCree[], propositions: DraftProposal[]) => {
+    async (patientId: PatientId, crees: ModuleCree[], propositions: DraftProposal[]) => {
+      /* PAS DE CONSIGNE POUR CE QUI NE SE FAIT PAS. Un module « Audio » ou
+         « Échelle » n'apparaît jamais comme une tâche chez le patient : sa
+         consigne était écrite, payée, et lue par personne. Le brouillon n'en
+         propose plus ; un brouillon d'avant, repris, peut encore en porter. */
+      const modules = crees.filter((m) => seFaitParLePatient(m.kind))
       if (!modules.length) return
       setEcrit(true)
       setTotal(modules.length)

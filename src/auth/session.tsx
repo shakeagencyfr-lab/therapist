@@ -13,14 +13,16 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
-import type { Session } from '@supabase/supabase-js'
-import { messageEnvoiLien } from '@/lib/messageAuth'
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
+import { messageConnexionMotDePasse, messageEnvoiLien } from '@/lib/messageAuth'
 import { refusDuNouveau } from '@/lib/motDePasse'
 import { isConfigured, supabase } from '@/lib/supabase'
 import type { CabinetBranding } from '@/types/reseller'
+import { avantDelai, decisionRelecture, roleAGarder } from './relecture'
 
 export interface CabinetIdentity {
   id: string
@@ -131,6 +133,32 @@ export { LONGUEUR_MOT_DE_PASSE } from '@/lib/motDePasse'
  */
 const DELAI_VERIFICATION_MS = 4_000
 
+/**
+ * Au-delà de ce délai, la lecture du rôle est tenue pour manquée.
+ *
+ * LE DÉLAI CI-DESSUS NE COUVRAIT QUE LA REPRISE DE SESSION. Venaient ensuite
+ * `claim_access` puis `my_context`, sans aucune borne — et chaque requête du
+ * client attend elle-même `getSession()`, donc la même reprise qui peut
+ * durer trente secondes. L'écran restait sur « Vérification de votre
+ * accès… » tout ce temps.
+ *
+ * Huit secondes : deux allers-retours, dont une écriture, et un éventuel
+ * rafraîchissement du jeton. Passé ce délai, on dit que la lecture a manqué
+ * (sans effacer un rôle déjà lu) ; la lecture continue derrière, et si elle
+ * finit par aboutir, l'espace s'ouvre tout seul.
+ */
+const DELAI_LECTURE_MS = 8_000
+
+/** Ce qu'on dit quand le rôle n'a pas pu être lu. */
+const MESSAGE_LECTURE =
+  "Vos accès n'ont pas pu être lus — ce n'est pas votre adresse qui est en cause. Rechargez la page dans un instant."
+
+/** Ce que rend une lecture du rôle, réussie ou non. */
+interface LectureRole {
+  data: unknown
+  error: { message: string } | null
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [phase, setPhase] = useState<AuthPhase>(isConfigured() ? 'chargement' : 'sans-base')
   const [session, setSession] = useState<Session | null>(null)
@@ -142,30 +170,78 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   /** La reprise de session a-t-elle dépassé son délai ? */
   const [verificationLente, setVerificationLente] = useState(false)
 
+  /* Le compte dont le rôle est lu, ou en cours de lecture. C'est à lui qu'on
+     compare chaque session reçue pour décider s'il faut relire. */
+  const lu = useRef<string | null>(null)
+  /* Le rôle affiché, lisible hors rendu : une relecture qui échoue le garde. */
+  const contexteLu = useRef<AccountContext | null>(null)
+  /* Le numéro de la dernière lecture lancée. Une lecture dépassée — par une
+     autre, ou par une déconnexion — ne décide plus de rien en arrivant. */
+  const derniereLecture = useRef(0)
+
+  const poserContexte = useCallback((c: AccountContext | null) => {
+    contexteLu.current = c
+    setContext(c)
+  }, [])
+
   /** Rattache puis lit le rôle. Les deux vont ensemble. */
   const charger = useCallback(async (): Promise<void> => {
     const db = supabase()
     if (!db) return
-    const { error: claimError } = await db.rpc('claim_access')
-    if (claimError) {
-      // Un rattachement qui échoue n'empêche pas de lire un accès déjà acquis.
-      console.warn('[auth] rattachement impossible :', claimError.message)
-    }
-    const { data, error: ctxError } = await db.rpc('my_context')
-    if (ctxError) {
+    const numero = ++derniereLecture.current
+    const utilisateur = lu.current
+
+    const enCours: Promise<LectureRole> = (async () => {
+      const { error: claimError } = await db.rpc('claim_access')
+      if (claimError) {
+        // Un rattachement qui échoue n'empêche pas de lire un accès déjà acquis.
+        console.warn('[auth] rattachement impossible :', claimError.message)
+      }
+      const { data, error } = await db.rpc('my_context')
+      return { data, error }
+    })().catch((err: unknown) => ({ data: null, error: { message: String(err) } }))
+
+    const echouer = () => {
+      if (numero !== derniereLecture.current) return
+      /* UNE RELECTURE QUI ÉCHOUE NE PROUVE PAS QUE LE RÔLE A CHANGÉ.
+         Elle arrivait à chaque retour sur l'onglet, et chaque échec démontait
+         l'espace entier — séance comprise. Le rôle déjà lu pour ce compte
+         reste donc en place ; seul un premier échec se dit. */
+      if (roleAGarder(contexteLu.current, utilisateur)) {
+        console.warn('[auth] relecture du rôle impossible : le rôle déjà lu est gardé')
+        return
+      }
       /* NE PAS CONFONDRE « pas d'accès » ET « on n'a pas pu lire l'accès ».
          En sortant d'ici sans contexte, l'écran d'après concluait « Aucun
          accès pour cette adresse » : une praticienne qui a bien un cabinet se
          voyait accusée d'avoir tapé la mauvaise adresse, et allait chercher
          une faute inexistante, pendant qu'il suffisait de recharger. */
-      setError("Vos accès n'ont pas pu être lus — ce n'est pas votre adresse qui est en cause. Rechargez la page dans un instant.")
-      setContext(null)
+      setError(MESSAGE_LECTURE)
+      poserContexte(null)
       setLecture('echec')
+    }
+
+    const recevoir = ({ data, error: ctxError }: LectureRole) => {
+      if (numero !== derniereLecture.current) return
+      if (ctxError) {
+        echouer()
+        return
+      }
+      setError((e) => (e === MESSAGE_LECTURE ? '' : e))
+      setLecture('faite')
+      poserContexte(data as AccountContext)
+    }
+
+    const issue = await avantDelai(enCours, DELAI_LECTURE_MS)
+    if (issue.aTemps) {
+      recevoir(issue.valeur)
       return
     }
-    setLecture('faite')
-    setContext(data as AccountContext)
-  }, [])
+    echouer()
+    /* La lecture continue derrière le délai. Si elle finit par aboutir,
+       l'espace s'ouvre tout seul : l'écran d'échec n'aura été qu'un passage. */
+    void enCours.then(recevoir)
+  }, [poserContexte])
 
   useEffect(() => {
     const db = supabase()
@@ -189,33 +265,59 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setVerificationLente(false)
     }
 
-    db.auth.getSession().then(async ({ data }) => {
+    /**
+     * Une session arrive, part, ou se rafraîchit.
+     *
+     * `getSession()` et `onAuthStateChange` passent tous deux par ici, et
+     * apportent la même session au démarrage : la décision évite de la lire
+     * deux fois. Elle est prise, et `lu` posé, AVANT toute attente — sans
+     * quoi les deux voies se croiseraient et liraient chacune de leur côté.
+     */
+    async function suivre(evenement: AuthChangeEvent, suivante: Session | null) {
       if (!vivant) return
       tranche()
-      setSession(data.session)
-      if (data.session) await charger()
-      if (vivant) setPhase(data.session ? 'connecte' : 'deconnecte')
-    })
+      setSession(suivante)
+      const utilisateur = suivante?.user.id ?? null
+      const decision = decisionRelecture(evenement, utilisateur, lu.current)
 
-    const { data: sub } = db.auth.onAuthStateChange(async (_event, next) => {
-      if (!vivant) return
-      tranche()
-      setSession(next)
-      if (next) {
-        await charger()
-        setPhase('connecte')
-      } else {
-        setContext(null)
+      if (decision === 'oublier') {
+        lu.current = null
+        // Une lecture en cours ne rouvrira pas l'espace d'un compte parti.
+        derniereLecture.current++
+        poserContexte(null)
+        setLecture('attente')
+        setError((e) => (e === MESSAGE_LECTURE ? '' : e))
         setPhase('deconnecte')
+        return
       }
-    })
+
+      /* Même compte, session seulement rafraîchie — le retour sur l'onglet,
+         le jeton de l'heure. Le rôle lu reste le bon, et la phase n'est pas
+         touchée : si une lecture court encore, c'est elle qui la posera. */
+      if (decision === 'garder') return
+
+      if (utilisateur !== lu.current) {
+        /* Un autre compte : le rôle du précédent ne doit ni s'afficher une
+           seconde de plus, ni servir de repli si la lecture échoue. */
+        lu.current = utilisateur
+        poserContexte(null)
+        setLecture('attente')
+        setPhase((p) => (p === 'connecte' ? 'chargement' : p))
+      }
+      await charger()
+      if (vivant && lu.current === utilisateur) setPhase('connecte')
+    }
+
+    void db.auth.getSession().then(({ data }) => suivre('INITIAL_SESSION', data.session))
+
+    const { data: sub } = db.auth.onAuthStateChange((evenement, suivante) => suivre(evenement, suivante))
 
     return () => {
       vivant = false
       window.clearTimeout(minuteur)
       sub.subscription.unsubscribe()
     }
-  }, [charger])
+  }, [charger, poserContexte])
 
   const envoyerLien = useCallback(async (email: string, captchaToken?: string) => {
     const db = supabase()
@@ -265,15 +367,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       password: motDePasse,
       options: { captchaToken },
     })
-    if (err) {
-      // On ne distingue jamais « adresse inconnue » de « mot de passe faux » :
-      // ce serait dire à un inconnu quelles adresses existent chez nous.
-      setError(
-        err.status === 400
-          ? "Adresse ou mot de passe incorrect. Vous pouvez aussi demander un lien de connexion."
-          : messageEnvoiLien(err),
-      )
-    }
+    if (err) setError(messageConnexionMotDePasse(err))
   }, [])
 
   const changerMotDePasse = useCallback(
@@ -323,7 +417,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const seDeconnecter = useCallback(async () => {
-    await supabase()?.auth.signOut()
+    /* CET APPAREIL SEULEMENT. Sans portée, `signOut()` vaut 'global' : se
+       déconnecter du poste du cabinet fermait aussi la session du téléphone,
+       et la patiente perdait son application installée sans rien avoir
+       demandé. Fermer les autres appareils est un geste à part, nommé
+       comme tel : `deconnecterAilleurs`. */
+    await supabase()?.auth.signOut({ scope: 'local' })
     setSent('')
   }, [])
 

@@ -1,4 +1,4 @@
-import { Notice } from '@/components/ui'
+import { Button, Notice } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
 
 /**
@@ -14,12 +14,22 @@ import { useMaybeCabinet } from '@/cabinet/context'
  */
 export function BandeauDossier() {
   const cabinet = useMaybeCabinet()
-  if (!cabinet?.reel) return null
+  /* PAS DE GARDE SUR `reel`. Le dossier n'est « réel » qu'une fois lu : quand
+     le PREMIER chargement échouait, le bandeau se taisait donc précisément
+     dans le seul cas où rien d'autre ne parlait — et l'écran gardait ce qu'il
+     avait avant, c'est-à-dire les fiches de démonstration. Hors cabinet
+     (démonstration, banc de rendu), il n'y a pas de fournisseur : rien à dire. */
+  if (!cabinet) return null
   const message = cabinet.erreur || cabinet.incomplet
   if (!message) return null
   return (
     <Notice tone={cabinet.erreur ? 'hot' : 'warn'} style={{ margin: '12px 20px 0' }}>
       {message}
+      {cabinet.erreur ? (
+        <Button variant="secondary" onClick={() => void cabinet.recharger()} style={{ marginLeft: 10 }}>
+          Réessayer
+        </Button>
+      ) : null}
     </Notice>
   )
 }

@@ -7,8 +7,10 @@
  * de santé ; elle ne doit transiter que par une origine que le cabinet
  * maîtrise.
  */
+import { NOTES_RELUES_PAR_L_IA } from '@/lib/echelle'
 import { supabase } from '@/lib/supabase'
-import { allModules, isModuleDone, profileOf } from '@/state/selectors'
+import { seFaitParLePatient } from '@/lib/typesDeModules'
+import { allModules, isModuleDone, profileOf, scaleSeries } from '@/state/selectors'
 import type { AppState } from '@/state/state'
 import type {
   ContextJournalEntry,
@@ -30,7 +32,13 @@ export type { ContextJournalEntry, ContextModule, PatientContext }
  * Assemble le contexte envoyé au serveur : le dossier, les modules réellement
  * assignés cette semaine (programme + ajouts) avec leur état, le journal du
  * cabinet complété des notes partagées depuis l'application, les pages de
- * journal marquées comme partagées, et le profil affiché.
+ * journal marquées comme partagées, les dernières notes du soir, et le profil
+ * affiché.
+ *
+ * LES TÂCHES SEULEMENT. Un module « Audio » ou « Échelle » ne s'affiche
+ * jamais comme une tâche chez le patient : cité « (non fait) », il faisait
+ * conclure à l'IA qu'il n'avait pas été fait — et le prompt du module lui
+ * demande d'en « tirer la leçon ».
  */
 export function buildPatientContext(state: AppState, id: PatientId): PatientContext {
   const patient = state.patients[id]
@@ -39,9 +47,13 @@ export function buildPatientContext(state: AppState, id: PatientId): PatientCont
     .filter((page) => page.shared)
     .map((page) => page.text)
     .join(' ')
-  const journal = patient.journal
-    .concat(state.noteLog[id] ?? [])
+  /* DU PLUS RÉCENT AU PLUS ANCIEN, comme le journal de la fiche : les mots
+     posés pendant la session sont les derniers écrits, ils passent devant. */
+  const journal = (state.noteLog[id] ?? [])
+    .concat(patient.journal)
     .map((entry) => ({ date: entry.date, text: entry.text }))
+  /* Les notes datées du dossier ; en démonstration, la série sans dates. */
+  const mesures = patient.mesures ?? scaleSeries(state, id).map((valeur) => ({ date: '', valeur }))
 
   return {
     name: patient.name,
@@ -52,11 +64,17 @@ export function buildPatientContext(state: AppState, id: PatientId): PatientCont
     totalSessions: patient.totalSessions,
     adherence: patient.adherence,
     scaleLabel: patient.scaleLabel,
+    scaleQuestion: patient.scaleQuestion,
     scaleDelta: patient.scaleDelta,
-    modules: modules.map((module, i) => ({
-      title: module.title,
-      done: isModuleDone(state, id, i, module.done),
-    })),
+    echelle: mesures.slice(-NOTES_RELUES_PAR_L_IA),
+    modules: modules
+      .map((module, i) => ({
+        title: module.title,
+        done: isModuleDone(state, id, i, module.done),
+        kind: module.kind,
+      }))
+      .filter((m) => seFaitParLePatient(m.kind))
+      .map(({ title, done }) => ({ title, done })),
     journal,
     shared,
     // Un patient sans profil n'en a pas encore : les prompts le comprennent.
@@ -80,6 +98,24 @@ export class AiError extends Error {
     super(message)
     this.name = 'AiError'
   }
+}
+
+/**
+ * Ce qu'un écran dit quand une analyse échoue.
+ *
+ * LE MESSAGE DU SERVEUR, TEL QUEL. Il est déjà une phrase complète, qui dit
+ * la cause et le remède : « Ce cabinet n'a pas encore sa clé Anthropic :
+ * posez-la dans l'onglet Intégrations… », « Votre clé Anthropic a été
+ * refusée… ». Les écrans le remplaçaient par « Réessayez » — ce qui envoie
+ * réessayer en boucle une praticienne dont la clé manque — ou l'enrobaient
+ * dans « La génération a échoué : ….. Réessayez. », double point compris.
+ *
+ * Le repli ne sert qu'à ce qui ne vient pas du serveur : il doit être, lui
+ * aussi, une phrase complète.
+ */
+export function messageDEchec(erreur: unknown, repli: string): string {
+  const message = erreur instanceof AiError ? erreur.message.trim() : ''
+  return message || repli
 }
 
 /** Enveloppe de réponse du serveur : les données, ou l'erreur. */
@@ -113,6 +149,25 @@ async function jeton(): Promise<string | null> {
   return data.session?.access_token ?? null
 }
 
+/**
+ * Ce que dit une réponse qui ne vient pas de notre serveur.
+ *
+ * L'hébergeur répond parfois à sa place, en texte brut : un corps trop lourd
+ * pour être reçu (413), une analyse qui dépasse le temps qu'il accorde à une
+ * fonction (504). Le repli disait alors « le serveur n'a pas répondu » — il
+ * avait répondu, et disait pourquoi. `null` : rien de plus précis à dire que
+ * le repli de l'écran.
+ */
+export function messageDeLHebergeur(status: number): string | null {
+  if (status === 413) {
+    return "La demande est trop volumineuse pour être reçue par le serveur. Rien n'a été produit : raccourcissez la transcription ou les notes, puis relancez."
+  }
+  if (status === 504) {
+    return "L'analyse a dépassé le temps que l'hébergeur lui accorde. Rien n'a été produit : relancez dans un instant."
+  }
+  return null
+}
+
 async function post<T>(route: string, body: unknown, fallback: string): Promise<T> {
   let response: Response
   let payload: Envelope<T>
@@ -126,13 +181,18 @@ async function post<T>(route: string, body: unknown, fallback: string): Promise<
       },
       body: JSON.stringify(body),
     })
-    payload = (await response.json()) as Envelope<T>
   } catch {
-    // Serveur arrêté, réseau coupé, réponse illisible : même message que l'échec métier.
+    // Serveur arrêté, réseau coupé : même message que l'échec métier.
     throw new AiError(fallback)
   }
-  if (!response.ok || payload.data === undefined) {
-    throw new AiError(payload.error ?? fallback)
+  try {
+    payload = (await response.json()) as Envelope<T>
+  } catch {
+    // Une réponse qui n'est pas du JSON : l'hébergeur a parlé à notre place.
+    throw new AiError(messageDeLHebergeur(response.status) ?? fallback)
+  }
+  if (!response.ok || payload?.data === undefined) {
+    throw new AiError(payload?.error ?? messageDeLHebergeur(response.status) ?? fallback)
   }
   dernierEstMaquette = payload.mock === true
   return payload.data
@@ -237,6 +297,32 @@ export interface MouvementEcrit {
 }
 
 /**
+ * Où reprendre une hypnose interrompue.
+ *
+ * Ce qui est ACQUIS, c'est la suite ininterrompue des mouvements écrits
+ * depuis l'induction — pas tout ce qui existe. Un mouvement écrit après un
+ * trou (un versement refusé au deuxième, le troisième passé quand même) l'a
+ * été sans son prédécesseur : il reprendrait des images que la séance n'a
+ * pas posées. On repart donc du premier manquant et l'on réécrit tout ce qui
+ * suit ; l'écriture en base remplace, mouvement par mouvement, sans doublon.
+ *
+ * Un mouvement au texte vide compte comme manquant : on ne lit pas un blanc
+ * à voix haute.
+ */
+export function pointDeReprise(deja: readonly MouvementEcrit[]): {
+  acquis: MouvementEcrit[]
+  restants: MouvementHypnose[]
+} {
+  const acquis: MouvementEcrit[] = []
+  for (const mouvement of MOUVEMENTS_HYPNOSE) {
+    const ecrit = deja.find((e) => e.mouvement === mouvement && e.texte.trim().length > 0)
+    if (!ecrit) break
+    acquis.push(ecrit)
+  }
+  return { acquis, restants: MOUVEMENTS_HYPNOSE.slice(acquis.length) }
+}
+
+/**
  * Écrit la séance d'hypnose, un mouvement à la fois.
  *
  * QUATRE APPELS, PAS UN. Trente minutes de lecture font près de cinq mille
@@ -252,13 +338,19 @@ export interface MouvementEcrit {
  * `onMouvement` est appelé après chacun : l'écran montre l'avancement au
  * lieu d'un rond qui tourne trois minutes, et un échec au troisième laisse
  * les deux premiers acquis.
+ *
+ * `deja` permet de REPRENDRE : les mouvements acquis ne sont pas réécrits —
+ * ils ont été payés — et partent comme précédents du premier manquant, pour
+ * que la suite parte des images déjà posées. Voir pointDeReprise.
  */
 export async function genererHypnose(
   input: HypnoseInput,
   onMouvement?: (ecrit: MouvementEcrit, rang: number) => void | Promise<void>,
+  deja: readonly MouvementEcrit[] = [],
 ): Promise<MouvementEcrit[]> {
-  const ecrits: MouvementEcrit[] = []
-  for (const mouvement of MOUVEMENTS_HYPNOSE) {
+  const { acquis, restants } = pointDeReprise(deja)
+  const ecrits: MouvementEcrit[] = [...acquis]
+  for (const mouvement of restants) {
     const rendu = await post<{ titre: string; texte: string }>(
       'hypnose',
       {

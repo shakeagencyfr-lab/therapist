@@ -30,7 +30,14 @@ const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
  */
 const SITE = (process.env.PUBLIC_SITE_URL ?? '').replace(/\/+$/, '')
 
-export type InviteKind = 'praticienne' | 'patient'
+/**
+ * Qui l'on invite.
+ *
+ * `praticienne` : la titulaire, invitée par le revendeur à ouvrir le cabinet.
+ * `consoeur` : un membre de l'équipe, invité par la titulaire (0042).
+ * `patient` : une fiche du cabinet.
+ */
+export type InviteKind = 'praticienne' | 'consoeur' | 'patient'
 
 export interface InviteBody {
   email: string
@@ -177,8 +184,20 @@ export function courrielNonParti(email: string): InviteResult {
   }
 }
 
+/**
+ * Le modèle de courriel que mérite une invitation de cabinet.
+ *
+ * Il se lit sur le RÔLE que porte l'invitation en base, pas sur ce que le
+ * navigateur a demandé : un membre d'équipe à qui l'on écrirait « ce lien vous
+ * en rend propriétaire » recevrait une promesse que claim_access ne tiendra
+ * pas.
+ */
+export function modeleSelonRole(role: string | null | undefined): Exclude<InviteKind, 'patient'> {
+  return role === 'owner' ? 'praticienne' : 'consoeur'
+}
+
 /** Le courriel d'invitation, en marque blanche. Rien d'un dossier n'y figure. */
-function corpsInvitation(
+export function corpsInvitation(
   kind: InviteKind,
   cabinet: string,
   lien: string,
@@ -186,11 +205,18 @@ function corpsInvitation(
   /* `cabinet` est le nom du cabinet lui-même. L'objet disait donc « Votre
      cabinet sur Cabinet Claire Fontaine » : son cabinet sur son cabinet. La
      praticienne est invitée DANS le sien, pas sur quelque chose d'autre. */
-  const objet = kind === 'patient' ? `Votre espace — ${cabinet}` : `${cabinet} vous attend`
+  const objet =
+    kind === 'patient'
+      ? `Votre espace — ${cabinet}`
+      : kind === 'consoeur'
+        ? `Rejoindre l'équipe de ${cabinet}`
+        : `${cabinet} vous attend`
   const intro =
     kind === 'patient'
       ? `${cabinet} vous a ouvert votre espace entre les séances : vos exercices de la semaine, votre journal et vos audios.`
-      : `${cabinet} est ouvert. Ce lien vous y connecte et vous en rend propriétaire.`
+      : kind === 'consoeur'
+        ? `${cabinet} vous ouvre une place dans son équipe. Ce lien vous connecte à l'espace du cabinet, auprès de celles et ceux qui y exercent déjà.`
+        : `${cabinet} est ouvert. Ce lien vous y connecte et vous en rend propriétaire.`
   const text = `${intro}\n\nVotre lien de connexion :\n${lien}\n\nIl vous connecte directement, sans mot de passe à retenir. Si vous n'attendiez pas ce message, ignorez-le : personne n'a accès à votre espace sans ce lien.`
   const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.6;color:#1b1a17">
   <p>${echapper(intro)}</p>
@@ -234,7 +260,10 @@ export async function envoyerInvitation(
      quelques heures : on l'accepte, plutôt que de traiter sa patiente comme
      une praticienne et de l'envoyer sur le mauvais espace. */
   const demande = String(body.kind ?? '')
-  const kind: InviteKind = demande === 'patient' || demande === 'patiente' ? 'patient' : 'praticienne'
+  /* `let` : pour une invitation de cabinet, le modèle du courriel se corrige
+     plus bas d'après le rôle que porte l'invitation en base. */
+  let kind: InviteKind =
+    demande === 'patient' || demande === 'patiente' ? 'patient' : demande === 'consoeur' ? 'consoeur' : 'praticienne'
 
   if (!adresseValide(email)) {
     return { status: 400, body: { message: "Cette adresse ne ressemble pas à une adresse électronique." } }
@@ -268,9 +297,9 @@ export async function envoyerInvitation(
     slugCabinet = data?.slug ?? null
   }
 
-  if (kind === 'praticienne') {
-    // Un revendeur ne voit que ses propres cabinets : si la ligne remonte,
-    // c'est qu'il en est le vendeur.
+  if (kind !== 'patient') {
+    // Un revendeur ne voit que ses propres cabinets, une praticienne que le
+    // sien : si la ligne remonte, l'appelant a affaire à ce cabinet.
     const { data, error } = await appelant
       .from('cabinets')
       .select('id, slug')
@@ -283,14 +312,25 @@ export async function envoyerInvitation(
 
     const { data: invitation } = await appelant
       .from('cabinet_invitations')
-      .select('email')
+      .select('email, role, expires_at')
       .eq('cabinet_id', cabinetId)
       .is('accepted_at', null)
-      .ilike('email', email)
-      .maybeSingle()
+      // `_` et `%` sont des jokers de `ilike` : l'adresse doit désigner la sienne, et elle seule.
+      .ilike('email', email.replace(/[\\%_]/g, (c) => `\\${c}`))
+      .maybeSingle<{ email: string; role: string; expires_at: string }>()
     if (!invitation) {
       return { status: 409, body: { message: "Aucune invitation en attente pour cette adresse." } }
     }
+    /* Une invitation échue ne rattache plus personne : claim_access la
+       refuse. Envoyer son lien, c'était promettre une porte qui ne s'ouvrira
+       pas — la personne se connectait et trouvait un espace vide. */
+    if (Date.parse(invitation.expires_at) <= Date.now()) {
+      return {
+        status: 409,
+        body: { message: "Cette invitation a expiré. Relancez-la pour lui redonner trente jours, puis renvoyez le courriel." },
+      }
+    }
+    kind = modeleSelonRole(invitation.role)
   } else {
     // Une praticienne n'invite que dans son propre cabinet, et seulement
     // quelqu'un dont elle a déjà créé la fiche.

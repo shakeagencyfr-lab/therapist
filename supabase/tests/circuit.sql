@@ -8,30 +8,29 @@
 --
 --   psql "$DATABASE_URL" -f supabase/tests/circuit.sql
 --
--- Suppose que l'organisation du revendeur existe et qu'un compte y est
--- rattaché. Termine par un ROLLBACK : rien ne persiste.
+-- Un seul bloc DO qui se termine par RAISE EXCEPTION 'REUSSITE …' : rien
+-- ne persiste. L'épreuve fabrique son propre revendeur plutôt que d'emprunter
+-- celui de la base : jouée contre la production, elle ne doit ni dépendre de
+-- ce qui s'y trouve, ni lire un compteur qui appartient à un vrai cabinet.
 --
--- Piège rencontré en l'écrivant : lire l'identifiant du revendeur APRÈS avoir
--- changé de rôle le cache derrière la RLS. Tout ce qui doit être connu du
--- scénario se lit avant la première bascule.
+-- Piège rencontré en l'écrivant : lire un identifiant APRÈS avoir changé de
+-- rôle le cache derrière la RLS. Tout ce qui doit être connu du scénario se
+-- lit avant la première bascule.
 -- ============================================================================
-
-begin;
-
-insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at) values
-  ('bbbb0000-0000-4000-8000-000000000002','00000000-0000-0000-0000-000000000000','authenticated','authenticated','laetitia@exemple.fr','',now(),now(),now()),
-  ('cccc0000-0000-4000-8000-000000000003','00000000-0000-0000-0000-000000000000','authenticated','authenticated','camille@exemple.fr','',now(),now(),now());
 
 do $$
 declare
-  v_revendeur uuid; v_org uuid; v_cab uuid; v_pat uuid;
+  v_revendeur uuid := 'aaaa0000-0000-4000-8000-00000000c1c1';
+  v_org uuid; v_cab uuid; v_pat uuid;
   ctx jsonb; n integer; s text;
 begin
-  select user_id into v_revendeur from public.reseller_members limit 1;
-  select id into v_org from public.resellers limit 1;
-  if v_revendeur is null then
-    raise exception 'Aucun compte revendeur : ce test suppose une organisation déjà rattachée.';
-  end if;
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at) values
+    (v_revendeur,'00000000-0000-0000-0000-000000000000','authenticated','authenticated','circuit-revendeur@exemple.fr','',now(),now(),now()),
+    ('bbbb0000-0000-4000-8000-000000000002','00000000-0000-0000-0000-000000000000','authenticated','authenticated','laetitia@exemple.fr','',now(),now(),now()),
+    ('cccc0000-0000-4000-8000-000000000003','00000000-0000-0000-0000-000000000000','authenticated','authenticated','camille@exemple.fr','',now(),now(),now());
+
+  insert into public.resellers (name, slug) values ('Revendeur du circuit', 'revendeur-du-circuit') returning id into v_org;
+  insert into public.reseller_members (reseller_id, user_id, role) values (v_org, v_revendeur, 'owner');
 
   ---------------------------------------------------------------- revendeur
   perform set_config('role','authenticated',true);
@@ -41,6 +40,8 @@ begin
   values (v_org, 'Cabinet Laetitia Ollivier', 'laetitia-ollivier', 'Espace thérapie')
   returning id into v_cab;
 
+  /* Un essai qui court : depuis 0035, c'est lui qui ouvre le droit de créer
+     une fiche. */
   insert into public.subscriptions (cabinet_id, plan_code, status, trial_ends_at)
   values (v_cab, 'cabinet', 'essai', now() + interval '14 days');
 
@@ -85,14 +86,14 @@ begin
   perform public.claim_access();
   ctx := public.my_context();
   if ctx->'patient'->>'display_name' is distinct from 'Camille R.' then
-    raise exception 'Le patient n''a pas été rattachée à sa fiche : %', ctx;
+    raise exception 'Le patient n''a pas été rattaché à sa fiche : %', ctx;
   end if;
   if ctx->'patient'->>'cabinet_name' is distinct from 'Cabinet Laetitia Ollivier' then
     raise exception 'Mauvais cabinet rattaché : %', ctx;
   end if;
 
   select count(*) into n from public.patient_modules;
-  if n <> 1 then raise exception 'Elle devrait voir son module, elle en voit %', n; end if;
+  if n <> 1 then raise exception 'Il devrait voir son module, il en voit %', n; end if;
 
   select id into s from public.patient_modules limit 1;
   perform public.patient_set_module_done(s::uuid, true);
@@ -107,13 +108,11 @@ begin
   perform set_config('role','authenticated',true);
   perform set_config('request.jwt.claims', json_build_object('sub', v_revendeur, 'role','authenticated')::text, true);
 
-  select patients_active into n from public.reseller_cabinet_overview() limit 1;
-  if n <> 1 then raise exception 'Le compteur du revendeur devrait montrer 1 patient, il montre %', n; end if;
+  select patients_active into n from public.reseller_cabinet_overview() where cabinet_id = v_cab;
+  if n is distinct from 1 then raise exception 'Le compteur du revendeur devrait montrer 1 patient, il montre %', n; end if;
   select count(*) into n from public.patients;
-  if n <> 0 then raise exception 'FUITE : le revendeur voit le patient créée'; end if;
+  if n <> 0 then raise exception 'FUITE : le revendeur voit le patient créé'; end if;
 
   perform set_config('role','none',true);
-  raise notice 'Circuit complet : revendeur, praticienne, patient — conforme.';
+  raise exception 'REUSSITE : circuit complet — revendeur, praticienne, patient, chacun sous ses droits. (Rien ne persiste.)';
 end $$;
-
-rollback;

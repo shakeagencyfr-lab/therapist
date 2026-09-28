@@ -77,3 +77,31 @@
     font-size: 32px;
   }
 }
+
+/* Retrait du consentement : une confirmation, parce que l'effacement est
+   sans retour — mais sur place, sans fenêtre qui masquerait la séance. */
+.retrait {
+  border: 1px solid var(--c-border-light);
+  border-radius: var(--r-xl);
+  background: var(--c-surface);
+  padding: 18px 20px;
+  margin: -12px 0 24px;
+}
+
+.retraitTexte {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--c-text-2);
+  margin: 0 0 14px;
+  max-width: 62ch;
+}
+
+.retraitActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.avis {
+  margin: -12px 0 24px;
+}

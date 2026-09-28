@@ -15,6 +15,8 @@ import { dateLongue } from '@/lib/format'
 import { supabase } from '@/lib/supabase'
 import { CHEMINS_RESERVES } from '@/lib/vitrine'
 import { demanderInvitation } from '@/services/invitations'
+import { annulerInvitation as annulerEcriture, poserInvitation, relancerInvitation as relancerEcriture } from '@/services/equipe'
+import { etiquetteEquipe } from '@/lib/equipe'
 import { CABINETS, CABINET_STATS, PLANS, SUBSCRIPTIONS } from '@/data/reseller'
 import { slugify } from '@/state/resellerSelectors'
 import type { CabinetBranding, Plan, PlanCode, PortfolioRow } from '@/types/reseller'
@@ -76,9 +78,14 @@ export interface Praticienne {
 }
 
 export interface InvitationEnAttente {
+  id: string
   cabinet_id: string
   email: string
   expires_at: string
+  /** `owner` : l'ouverture du cabinet. `therapist` : une consœur, invitée par la titulaire. */
+  role: string
+  /** Le nom saisi à l'invitation, repris par claim_access (0042). */
+  display_name: string | null
 }
 
 export interface NouveauCabinet {
@@ -132,7 +139,13 @@ export interface ResellerData {
   erreur: string
   recharger: () => Promise<void>
   ouvrirCabinet: (input: NouveauCabinet) => Promise<Resultat>
-  inviterPraticienne: (cabinetId: string, email: string) => Promise<Resultat>
+  inviterPraticienne: (cabinetId: string, email: string, nom?: string) => Promise<Resultat>
+  /** Trente jours de plus pour l'invitation d'ouverture, et le courriel renvoyé. */
+  relancerInvitation: (invitationId: string) => Promise<Resultat>
+  /** Une autre adresse (et un autre nom) pour l'invitation d'ouverture, puis l'envoi. */
+  changerInvitation: (invitationId: string, email: string, nom?: string) => Promise<Resultat>
+  /** Retire l'invitation d'ouverture : le cabinet redevient sans praticienne. */
+  annulerInvitation: (invitationId: string) => Promise<Resultat>
   enregistrerMarque: (
     cabinetId: string,
     fiche: { name?: string; slug?: string; tagline?: string; branding?: CabinetBranding },
@@ -289,7 +302,11 @@ export function useReseller(): ResellerData {
       db.rpc('reseller_cabinet_overview'),
       db.from('cabinets').select('id, name, slug, tagline, branding, created_at'),
       db.from('cabinet_members').select('cabinet_id, display_name, role'),
-      db.from('cabinet_invitations').select('cabinet_id, email, expires_at').is('accepted_at', null),
+      db
+        .from('cabinet_invitations')
+        .select('id, cabinet_id, email, expires_at, role, display_name')
+        .is('accepted_at', null)
+        .order('created_at'),
       db.from('plans').select('code, label, price_cents, max_patients, shop, marque_blanche, site, position').order('position'),
       db
         .from('subscriptions')
@@ -316,18 +333,23 @@ export function useReseller(): ResellerData {
     for (const e of (exceptions.data ?? []) as ExceptionRow[]) parCabinet.set(e.cabinet_id, e)
 
     const equipes = (membres.data ?? []) as Praticienne[]
+    const attente = (invits.data ?? []) as InvitationEnAttente[]
     const lignes = ((apercu.data ?? []) as OverviewRow[]).map((o) => {
       const row = versPortfolio(o, parId.get(o.cabinet_id), cat, parCabinet.get(o.cabinet_id))
-      const equipe = equipes.find((m) => m.cabinet_id === o.cabinet_id)
-      const invit = ((invits.data ?? []) as InvitationEnAttente[]).find((i) => i.cabinet_id === o.cabinet_id)
-      row.cabinet.therapist = equipe?.display_name ?? (invit ? 'Invitation envoyée' : 'Aucune praticienne')
-      row.cabinet.email = invit?.email ?? ''
+      const equipe = equipes.filter((m) => m.cabinet_id === o.cabinet_id)
+      /* Seule l'invitation d'ouverture parle au revendeur : celles que la
+         titulaire adresse à son équipe ne sont pas les siennes. Et son
+         échéance compte — « Invitation envoyée » sur une invitation échue
+         depuis des semaines laissait croire qu'il suffisait d'attendre. */
+      const invit = attente.find((i) => i.cabinet_id === o.cabinet_id && i.role === 'owner')
+      row.cabinet.therapist = etiquetteEquipe(equipe, equipe.length ? null : invit)
+      row.cabinet.email = equipe.length ? '' : (invit?.email ?? '')
       return row
     })
 
     setRows(lignes)
     setPraticiennes(equipes)
-    setInvitations((invits.data ?? []) as InvitationEnAttente[])
+    setInvitations(attente)
     setReel(true)
     setChargement(false)
   }, [])
@@ -409,7 +431,10 @@ export function useReseller(): ResellerData {
         }
       }
 
-      const [{ error: eSub }, { error: eInv }] = await Promise.all([
+      /* Le nom de la praticienne part avec l'invitation : claim_access le
+         reprend (0042). Il inscrivait jusqu'ici la partie gauche de
+         l'adresse — « claire.fontaine » — et le nom saisi ici était perdu. */
+      const [{ error: eSub }, invitation] = await Promise.all([
         db.from('subscriptions').insert({
           cabinet_id: cabinet.id,
           plan_code: input.offre,
@@ -417,14 +442,15 @@ export function useReseller(): ResellerData {
           trial_ends_at: new Date(Date.now() + 14 * 86400_000).toISOString(),
         }),
         input.email.trim()
-          ? db.from('cabinet_invitations').insert({
-              cabinet_id: cabinet.id,
-              email: input.email.trim().toLowerCase(),
+          ? poserInvitation(db, {
+              cabinetId: cabinet.id,
+              email: input.email,
+              nom: input.praticienne,
               role: 'owner',
-              expires_at: new Date(Date.now() + 30 * 86400_000).toISOString(),
             })
-          : Promise.resolve({ error: null }),
+          : Promise.resolve({ ok: true, message: '' }),
       ])
+      const eInv = !invitation.ok
 
       // L'invitation est posée ; reste à prévenir la praticienne.
       let envoi = ''
@@ -461,34 +487,80 @@ export function useReseller(): ResellerData {
     [recharger, reel],
   )
 
-  const inviterPraticienne = useCallback(
+  /**
+   * Après une écriture réussie, le courriel.
+   *
+   * L'invitation est enregistrée quoi qu'il arrive : `ok` reste vrai, sans
+   * quoi le revendeur la reposerait sur une ligne qui existe déjà. Ce que
+   * `partiel` porte, c'est que le courriel, lui, n'est pas parti.
+   */
+  const envoyer = useCallback(
     async (cabinetId: string, email: string): Promise<Resultat> => {
-      const db = supabase()
-      if (!db || !reel) return { ok: false, message: 'Connectez-vous pour inviter une praticienne.' }
-      const { error } = await db.from('cabinet_invitations').insert({
-        cabinet_id: cabinetId,
-        email: email.trim().toLowerCase(),
-        role: 'owner',
-        expires_at: new Date(Date.now() + 30 * 86400_000).toISOString(),
-      })
-      if (error) {
-        await recharger()
-        return { ok: false, message: "L'invitation n'a pas pu être enregistrée." }
-      }
-      const envoi = await demanderInvitation({
-        email: email.trim(),
-        cabinetId,
-        kind: 'praticienne',
-      })
+      const envoi = await demanderInvitation({ email, cabinetId, kind: 'praticienne' })
       await recharger()
-      /* L'invitation est enregistrée quoi qu'il arrive : `ok` reste vrai, sans
-         quoi le revendeur la reposerait sur une ligne qui existe déjà. Ce que
-         `partiel` porte, c'est que le courriel, lui, n'est pas parti. */
       return {
         ok: true,
         partiel: !envoi.ok,
-        message: envoi.message || `Invitation prête pour ${email.trim()}. Elle se connectera avec cette adresse.`,
+        message:
+          envoi.message ||
+          `Invitation prête pour ${email}, valable trente jours. La personne se connectera avec cette adresse.`,
       }
+    },
+    [recharger],
+  )
+
+  const inviterPraticienne = useCallback(
+    async (cabinetId: string, email: string, nom?: string): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !reel) return { ok: false, message: 'Connectez-vous pour inviter une praticienne.' }
+      /* Une invitation qui attend déjà cette adresse — expirée, le plus
+         souvent — est relancée plutôt que refusée : l'index unique en faisait
+         un blocage définitif. */
+      const ecrit = await poserInvitation(db, { cabinetId, email, nom, role: 'owner' })
+      if (!ecrit.ok) {
+        await recharger()
+        return { ok: false, message: ecrit.message }
+      }
+      return envoyer(cabinetId, ecrit.email ?? email.trim())
+    },
+    [envoyer, recharger, reel],
+  )
+
+  const relancerInvitation = useCallback(
+    async (invitationId: string): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !reel) return { ok: false, message: 'Connectez-vous pour relancer une invitation.' }
+      const ecrit = await relancerEcriture(db, { id: invitationId, role: 'owner' })
+      if (!ecrit.ok || !ecrit.cabinetId || !ecrit.email) {
+        await recharger()
+        return { ok: false, message: ecrit.message }
+      }
+      return envoyer(ecrit.cabinetId, ecrit.email)
+    },
+    [envoyer, recharger, reel],
+  )
+
+  const changerInvitation = useCallback(
+    async (invitationId: string, email: string, nom?: string): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !reel) return { ok: false, message: 'Connectez-vous pour modifier une invitation.' }
+      const ecrit = await relancerEcriture(db, { id: invitationId, role: 'owner', email, nom })
+      if (!ecrit.ok || !ecrit.cabinetId || !ecrit.email) {
+        await recharger()
+        return { ok: false, message: ecrit.message }
+      }
+      return envoyer(ecrit.cabinetId, ecrit.email)
+    },
+    [envoyer, recharger, reel],
+  )
+
+  const annulerInvitation = useCallback(
+    async (invitationId: string): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !reel) return { ok: false, message: 'Connectez-vous pour annuler une invitation.' }
+      const r = await annulerEcriture(db, { id: invitationId, role: 'owner' })
+      await recharger()
+      return r
     },
     [recharger, reel],
   )
@@ -707,6 +779,9 @@ export function useReseller(): ResellerData {
     reglerContrat,
     ouvrirCabinet,
     inviterPraticienne,
+    relancerInvitation,
+    changerInvitation,
+    annulerInvitation,
     enregistrerMarque,
     changerOffre,
     enregistrerOffre,

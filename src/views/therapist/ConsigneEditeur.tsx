@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button, Notice } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
+import { consigneCorrigee } from '@/lib/parcours'
 import type { PatientModule } from '@/types/domain'
 import s from './ConsigneEditeur.module.css'
 
@@ -17,6 +18,14 @@ import s from './ConsigneEditeur.module.css'
  * pour ajouter, retirer, déplacer, coûterait dix fois plus de code pour un
  * texte de six lignes qu'on relit une fois. Une zone de texte se corrige au
  * clavier, se réordonne au copier-coller, et ne se casse pas.
+ *
+ * LE TITRE AUSSI. C'est la première chose que le patient lit de l'exercice,
+ * et il ne se corrigeait nulle part : une coquille dictée en séance restait
+ * sous ses yeux jusqu'à la fin du suivi.
+ *
+ * CE QUE L'ÉCRAN NE MONTRE PAS, IL NE L'EFFACE PAS : le quiz d'un module de
+ * l'atelier n'a pas de champ ici, et il survit à la correction (voir
+ * consigneCorrigee).
  */
 export function ConsigneEditeur({
   module,
@@ -27,6 +36,7 @@ export function ConsigneEditeur({
 }) {
   const cabinet = useMaybeCabinet()
   const c = module.consigne
+  const [titre, setTitre] = useState(module.title)
   const [duree, setDuree] = useState(c?.duree ?? '')
   const [quand, setQuand] = useState(c?.quand ?? '')
   const [why, setWhy] = useState(c?.why ?? '')
@@ -38,14 +48,9 @@ export function ConsigneEditeur({
     if (!module.id || !cabinet || envoi) return
     setEnvoi(true)
     setEchec('')
-    const r = await cabinet.majConsigne(module.id, {
-      duree: duree.trim(),
-      quand: quand.trim(),
-      steps: etapes
-        .split('\n')
-        .map((e) => e.trim())
-        .filter(Boolean),
-      why: why.trim(),
+    const r = await cabinet.majModule(module.id, {
+      titre,
+      consigne: consigneCorrigee(module.consigne, { duree, quand, why, etapes }),
     })
     setEnvoi(false)
     if (r.ok) onFerme()
@@ -59,6 +64,16 @@ export function ConsigneEditeur({
           Cette fiche est une démonstration : la consigne ne s'enregistre pas.
         </Notice>
       ) : null}
+
+      <label className={s.champ}>
+        <span className={s.label}>Titre de l'exercice</span>
+        <input
+          className={s.input}
+          value={titre}
+          onChange={(e) => setTitre(e.target.value)}
+          placeholder="Geste d'ancrage avant le café"
+        />
+      </label>
 
       <div className={s.deux}>
         <label className={s.champ}>
@@ -110,8 +125,12 @@ export function ConsigneEditeur({
       {echec ? <Notice tone="warn">{echec}</Notice> : null}
 
       <div className={s.actions}>
-        <Button variant="primary" onClick={() => void enregistrer()} disabled={envoi || !module.id}>
-          {envoi ? 'Enregistrement…' : 'Enregistrer la consigne'}
+        <Button
+          variant="primary"
+          onClick={() => void enregistrer()}
+          disabled={envoi || !module.id || !titre.trim()}
+        >
+          {envoi ? 'Enregistrement…' : 'Enregistrer'}
         </Button>
         <Button variant="ghost" onClick={onFerme}>
           Annuler

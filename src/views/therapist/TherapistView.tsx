@@ -109,7 +109,11 @@ export function TherapistView() {
         ) : (
           <div className={s.empty}>
             <h1 className={s.emptyTitle}>
-              {cabinet?.chargement ? 'Ouverture de votre cabinet…' : 'Votre cabinet est prêt'}
+              {cabinet?.chargement
+                ? 'Ouverture de votre cabinet…'
+                : cabinet?.erreur
+                  ? "Votre dossier n'a pas pu être lu"
+                  : 'Votre cabinet est prêt'}
             </h1>
             {cabinet?.erreur ? (
               <p className={s.emptyText}>{cabinet.erreur}</p>

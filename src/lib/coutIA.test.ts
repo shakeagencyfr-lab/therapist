@@ -3,8 +3,12 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
-  JETONS_GABARIT,
+  COUT_HYPNOSE,
+  COUT_HYPNOSE_MAX,
+  JETONS_FIXES_BROUILLON,
+  PLAFOND_MOUVEMENT,
   PLAFOND_SORTIE,
+  TAUX_EURO,
   estimationBrouillon,
   jetonsDe,
 } from './coutIA'
@@ -16,9 +20,9 @@ describe("estimation du coût d'analyse", () => {
     expect(e.entree).toBe(0)
   })
 
-  it('compte le gabarit du prompt en plus de la transcription', () => {
+  it('compte ce que l’appel envoie avant la matière, en plus de la transcription', () => {
     const e = estimationBrouillon('bonjour')
-    expect(e.entree).toBe(JETONS_GABARIT + jetonsDe('bonjour'))
+    expect(e.entree).toBe(JETONS_FIXES_BROUILLON + jetonsDe('bonjour'))
   })
 
   it('ajoute les notes écrites à la matière envoyée', () => {
@@ -60,11 +64,51 @@ describe("estimation du coût d'analyse", () => {
  * le gabarit du prompt (server/prompts.test.ts).
  */
 describe('plafond de sortie', () => {
-  it("vaut le maxTokens du brouillon de séance, dans server/ai.ts", () => {
-    const ai = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../../server/ai.ts'), 'utf8')
-    const appel = ai.slice(ai.indexOf("route: 'session-draft'"))
+  const ai = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../../server/ai.ts'), 'utf8')
+  const plafondDe = (route: string) => {
+    const appel = ai.slice(ai.indexOf(`route: '${route}'`))
     const plafond = /maxTokens: (\d+)/.exec(appel)
     expect(plafond).not.toBeNull()
-    expect(Number(plafond![1])).toBe(PLAFOND_SORTIE)
+    return Number(plafond![1])
+  }
+
+  it("vaut le maxTokens du brouillon de séance, dans server/ai.ts", () => {
+    expect(plafondDe('session-draft')).toBe(PLAFOND_SORTIE)
+  })
+
+  it("vaut le maxTokens d'un mouvement d'hypnose, dans server/ai.ts", () => {
+    expect(plafondDe('hypnose')).toBe(PLAFOND_MOUVEMENT)
+  })
+})
+
+/**
+ * Les montants réellement facturés, relevés dans la table ai_usage
+ * (septembre 2026), en centimes de dollar. L'estimation annonçait à peu près
+ * la moitié du prix : ces cas la tiennent au-dessus de la réalité.
+ */
+describe('recalée sur les appels facturés', () => {
+  const enEuros = (centimesDollar: number) => (centimesDollar / 100) * TAUX_EURO
+
+  it.each([
+    { caracteres: 259, facture: 7.314 },
+    { caracteres: 879, facture: 6.025 },
+  ])('un brouillon de $caracteres caractères n’est plus annoncé en dessous de son prix', ({ caracteres, facture }) => {
+    const e = estimationBrouillon('a'.repeat(caracteres))
+    const reel = enEuros(facture)
+    // Jamais nettement sous le prix réel : c'était le défaut.
+    expect(e.euros).toBeGreaterThanOrEqual(reel * 0.9)
+    // Ni absurdement au-dessus : une estimation qui fait peur n'aide pas non plus.
+    expect(e.euros).toBeLessThanOrEqual(reel * 1.5)
+    // Le « jusqu'à » affiché est une vraie borne.
+    expect(e.eurosMax).toBeGreaterThanOrEqual(reel)
+  })
+
+  it('l’hypnose : autour des deux hypnoses facturées, et un plafond au-dessus', () => {
+    const facturees = [enEuros(31.945), enEuros(32.103)]
+    for (const reel of facturees) {
+      expect(COUT_HYPNOSE).toBeGreaterThanOrEqual(reel * 0.9)
+      expect(COUT_HYPNOSE).toBeLessThanOrEqual(reel * 1.2)
+      expect(COUT_HYPNOSE_MAX).toBeGreaterThan(reel)
+    }
   })
 })

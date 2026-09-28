@@ -6,7 +6,33 @@
  * Les prompts vivent côté serveur : ils ne sont jamais exposés au navigateur,
  * pas plus que la clé d'API.
  */
+import { TYPES_PROPOSABLES } from '../src/lib/typesDeModules.js'
 import type { ModuleContext, PatientContext } from './schemas.js'
+
+/**
+ * « Exercice, Journal ou Écriture » — lu dans la liste que le format de
+ * sortie impose (server/schemas.ts) : le prompt ne peut pas annoncer un type
+ * que la sortie refuserait, ni en taire un qu'elle accepte.
+ */
+const TYPES_DITS =
+  TYPES_PROPOSABLES.slice(0, -1).join(", ") + " ou " + TYPES_PROPOSABLES[TYPES_PROPOSABLES.length - 1]
+
+/**
+ * L'échelle du soir, telle que les prompts la citent.
+ *
+ * Elle écrivait « Auto-évaluation suivie : Envie () » : l'écart n'était
+ * jamais calculé, et aucune note n'arrivait jusqu'ici. Les chiffres viennent
+ * maintenant AVEC LEUR QUESTION — sans elle, le modèle ne peut pas savoir si
+ * une baisse est un progrès (« l'envie de fumer ») ou un recul (« la
+ * confiance »).
+ */
+export function ligneEchelle(c: PatientContext): string {
+  return "Auto-évaluation suivie : " + (c.scaleLabel || "non réglée") + (c.scaleDelta ? " (" + c.scaleDelta + ")" : "") + ".\n"
+    + (c.scaleQuestion ? "Question posée chaque soir, notée de 0 à 10 : « " + c.scaleQuestion + " »\n" : "")
+    + (c.echelle.length
+      ? "Ses dernières notes, de la plus ancienne à la plus récente : " + c.echelle.map((m) => (m.date ? m.date + " : " : "") + m.valeur).join(" · ") + ".\n"
+      : "Aucune note du soir pour l'instant.\n")
+}
 
 /* ------------------------------------------------------------------ *
  * 1. Brouillon de note de séance
@@ -52,7 +78,7 @@ export function sessionMaterial(transcript: string, notes: string): string {
 }
 
 export function sessionDraftPrompt(text: string, categories: string[], locuteurs = true): string {
-  return "Voici la transcription d'une séance d'hypnothérapie.\n\n---\n" + text + "\n---" + (locuteurs ? "" : SANS_LOCUTEURS) + "\n\nProduis un objet JSON avec exactement ces clés :\n\"synthese\" : 4 à 6 phrases résumant la séance, à la troisième personne, factuel, ce qui a été travaillé et ce qui s'est passé depuis la dernière fois.\n\"mots\" : tableau de 4 à 8 chaînes, les formulations les plus marquantes de la séance, citées littéralement — images, métaphores, tournures répétées, mots chargés d'affect. Courtes, sans guillemets. Ce sont celles qu'il vaudra la peine de reprendre telles quelles.\n\"themes\" : tableau de 2 à 4 chaînes, les fils qui traversent la séance et mériteraient d'être explorés, formulés comme des observations et non comme des conclusions.\n\"propositions\" : tableau de 3 à 5 objets {\"titre\", \"pourquoi\", \"type\"} où type vaut Audio, Exercice, Journal, Échelle ou Écriture ; ce sont des modules courts que le patient réalisera entre deux séances.\n\"questions\" : tableau de 3 à 5 chaînes, des questions ouvertes et précises que la thérapeute pourrait poser à la séance suivante, appuyées sur ce qui est resté en suspens.\n\"vigilance\" : tableau de 0 à 3 objets {\"point\", \"conduite\"}, uniquement si la transcription contient un élément qui mérite l'attention du praticien (détresse marquée, mention médicale, sujet hors du champ de l'hypnose). \"conduite\" décrit la conduite professionnelle à envisager, jamais un diagnostic. Tableau vide s'il n'y a rien à signaler.\n\"categories_audio\" : tableau de 1 à 3 objets {\"categorie\", \"pourquoi\"} où \"categorie\" est choisie STRICTEMENT dans cette liste : « " + categories.join(", ") + " » ; \"pourquoi\" est une phrase disant ce que cet audio viendrait soutenir chez ce patient. Ce sont les rayons de la bibliothèque d'audios de la thérapeute, pas des titres.\n\"message\" : un message de 40 à 70 mots, à la deuxième personne, chaleureux et sans jargon, que la thérapeute pourra envoyer au patient dans la journée pour accompagner les modules retenus."
+  return "Voici la transcription d'une séance d'hypnothérapie.\n\n---\n" + text + "\n---" + (locuteurs ? "" : SANS_LOCUTEURS) + "\n\nProduis un objet JSON avec exactement ces clés :\n\"synthese\" : 4 à 6 phrases résumant la séance, à la troisième personne, factuel, ce qui a été travaillé et ce qui s'est passé depuis la dernière fois.\n\"mots\" : tableau de 4 à 8 chaînes, les formulations les plus marquantes de la séance, citées littéralement — images, métaphores, tournures répétées, mots chargés d'affect. Courtes, sans guillemets. Ce sont celles qu'il vaudra la peine de reprendre telles quelles.\n\"themes\" : tableau de 2 à 4 chaînes, les fils qui traversent la séance et mériteraient d'être explorés, formulés comme des observations et non comme des conclusions.\n\"propositions\" : tableau de 3 à 5 objets {\"titre\", \"pourquoi\", \"type\"} où type vaut " + TYPES_DITS + " ; ce sont des tâches courtes que le patient réalisera seul entre deux séances. Ni écoute ni auto-évaluation : les audios se proposent dans « categories_audio », et la note du soir existe déjà.\n\"questions\" : tableau de 3 à 5 chaînes, des questions ouvertes et précises que la thérapeute pourrait poser à la séance suivante, appuyées sur ce qui est resté en suspens.\n\"vigilance\" : tableau de 0 à 3 objets {\"point\", \"conduite\"}, uniquement si la transcription contient un élément qui mérite l'attention du praticien (détresse marquée, mention médicale, sujet hors du champ de l'hypnose). \"conduite\" décrit la conduite professionnelle à envisager, jamais un diagnostic. Tableau vide s'il n'y a rien à signaler.\n\"categories_audio\" : tableau de 1 à 3 objets {\"categorie\", \"pourquoi\"} où \"categorie\" est choisie STRICTEMENT dans cette liste : « " + categories.join(", ") + " » ; \"pourquoi\" est une phrase disant ce que cet audio viendrait soutenir chez ce patient. Ce sont les rayons de la bibliothèque d'audios de la thérapeute, pas des titres.\n\"message\" : un message de 40 à 70 mots, à la deuxième personne, chaleureux et sans jargon, que la thérapeute pourra envoyer au patient dans la journée pour accompagner les modules retenus."
 }
 
 /* ------------------------------------------------------------------ *
@@ -70,10 +96,13 @@ export function modulePrompt({ intent, type, quiz, context: c }: ModuleContext):
   const pour = c
     ? "Ce module est destiné à une personne en particulier. Écris-le pour elle.\n"
       + "Personne : " + c.name + ". " + c.program + ". " + c.weekLabel + ". Assiduité : " + c.adherence + " %.\n"
+      + (c.echelle.length ? ligneEchelle(c) : "")
       + (c.profile.portrait ? "Ce que la thérapeute sait d'elle : " + c.profile.portrait + "\n" : "")
       + (c.profile.levers.length ? "Leviers repérés : " + c.profile.levers.map((l) => l.title).join(", ") + "\n" : "")
       + (c.modules.length ? "Modules récents : " + c.modules.map((m) => m.title + (m.done ? " (fait)" : " (non fait)")).join(", ") + "\n" : "")
-      + (c.journal.length ? "Derniers mots de son journal :\n" + c.journal.slice(-5).map((j) => j.text).join("\n") + "\n" : "")
+      // Le journal arrive du plus récent au plus ancien : les derniers mots
+      // sont en tête. `slice(-5)` citait les cinq plus anciens.
+      + (c.journal.length ? "Derniers mots de son journal :\n" + c.journal.slice(0, 5).map((j) => j.text).join("\n") + "\n" : "")
       + "Sers-toi de sa manière de parler et de ce qui a déjà pris chez elle. Si des modules récents sont restés non faits, tires-en la leçon : propose quelque chose de plus court ou de plus ancré dans sa journée.\n\n"
     : ""
   return pour + "Intention de la thérapeute : " + intent + "\n\nType de module demandé : " + type + ".\n" + (quiz ? "Inclure un quiz." : "Ne pas inclure de quiz : renvoie un tableau vide.") + "\n\nProduis un objet JSON avec exactement ces clés :\n\"titre\" : le nom du module, court, concret, sans guillemets ni majuscules superflues.\n\"duree\" : la durée réelle, formulée simplement (ex. « 3 minutes »).\n\"quand\" : le moment de la journée ou la circonstance où le faire, précis et rattaché à un repère existant de sa journée plutôt qu'à une heure abstraite.\n\"steps\" : tableau de 4 à 6 chaînes, les temps de la consigne, à la deuxième personne. Chacun deux ou trois phrases : ce qu'on fait, comment on le fait, et à quoi on reconnaît que c'est en train de marcher. Le dernier temps dit comment refermer l'exercice et revenir à sa journée.\n\"pourquoi\" : 4 à 6 phrases expliquant au patient à quoi sert l'exercice et pourquoi il fonctionne, sans le survendre et sans jargon. Dis aussi ce qui peut se passer si ça ne marche pas du premier coup, pour qu'il ne conclue pas à un échec.\n\"quiz\" : tableau de 2 objets {\"question\", \"options\" (3 chaînes), \"correct\" (index de la bonne réponse, entier), \"feedback\" (2 à 3 phrases expliquant la bonne réponse)} portant sur la compréhension de la consigne, jamais sur l'état du patient."
@@ -112,7 +141,8 @@ export interface ProfileInput {
 export function profilePrompt({ context: c, notes, synthese, transcript }: ProfileInput): string {
   const mods = c.modules.map((m) => m.title + (m.done ? " (fait)" : " (non fait)")).join(", ")
   const jr = c.journal.map((j) => j.date + " — " + j.text).join("\n")
-  return "Patient : " + c.name + ". " + c.program + ". " + c.weekLabel + ". Séances réalisées : " + c.sessions + " sur " + c.totalSessions + ". Assiduité : " + c.adherence + " %. Auto-évaluation suivie : " + c.scaleLabel + " (" + c.scaleDelta + ").\n"
+  return "Patient : " + c.name + ". " + c.program + ". " + c.weekLabel + ". Séances réalisées : " + c.sessions + " sur " + c.totalSessions + ". Assiduité : " + c.adherence + " %.\n"
+    + ligneEchelle(c)
     + "Modules de la semaine : " + mods + ".\n"
     + "Journal du patient :\n" + jr + "\n" + c.shared.slice(0, 600) + "\n"
     + (notes ? "Notes écrites par la thérapeute pendant la dernière séance :\n" + notes + "\n" : "")

@@ -18,8 +18,29 @@ export interface ErreurAuth {
   message?: string
 }
 
+/** Ce qu'on dit quand la case anti-robot n'a pas été acceptée. */
+const MESSAGE_CAPTCHA =
+  "La vérification anti-robot n'a pas abouti — votre adresse n'est pas en cause. Refaites la vérification anti-robot, puis réessayez."
+
+/**
+ * Le refus vient-il du CAPTCHA ?
+ *
+ * Il arrive avec un statut 400, le même que pour une adresse mal formée ou
+ * un mot de passe faux : lu au seul statut, un jeton expiré devenait « cette
+ * adresse n'est pas acceptée », et la praticienne relisait une adresse
+ * juste. Le code le dit (`captcha_failed`) ; le message aussi, pour les
+ * versions du service qui n'envoient pas encore de code.
+ */
+export function refusCaptcha(err: ErreurAuth | null | undefined): boolean {
+  if (!err) return false
+  return /captcha/i.test(err.code ?? '') || /captcha/i.test(err.message ?? '')
+}
+
 export function messageEnvoiLien(err: ErreurAuth | null | undefined): string {
   if (!err) return ''
+
+  // Le CAPTCHA d'abord : son refus porte le même statut qu'une adresse refusée.
+  if (refusCaptcha(err)) return MESSAGE_CAPTCHA
 
   // Cadence : le service d'envoi a atteint son quota. Réessayer tout de
   // suite ne peut pas marcher — on le dit, plutôt que de l'inviter à le faire.
@@ -33,4 +54,16 @@ export function messageEnvoiLien(err: ErreurAuth | null | undefined): string {
   }
 
   return "L'envoi a échoué. Réessayez dans un instant ; si cela persiste, prévenez votre revendeur."
+}
+
+/** Ce qu'on dit à qui n'a pas pu entrer par son mot de passe. */
+export function messageConnexionMotDePasse(err: ErreurAuth | null | undefined): string {
+  if (!err) return ''
+  if (refusCaptcha(err)) return MESSAGE_CAPTCHA
+  // On ne distingue jamais « adresse inconnue » de « mot de passe faux » :
+  // ce serait dire à un inconnu quelles adresses existent chez nous.
+  if (err.status === 400) {
+    return 'Adresse ou mot de passe incorrect. Vous pouvez aussi demander un lien de connexion.'
+  }
+  return messageEnvoiLien(err)
 }

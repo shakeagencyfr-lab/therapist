@@ -115,6 +115,8 @@ export interface PatientModule {
   id?: string
   /** La consigne détaillée, écrite par l'IA et corrigée par la thérapeute. */
   consigne?: Consigne
+  /** Retiré du parcours le… (date lisible). Seuls les modules retirés la portent. */
+  retireLe?: string
 }
 
 /** Un audio envoyé à un patient. */
@@ -122,6 +124,10 @@ export interface PatientAudio {
   title: string
   meta: string
   duration: string
+  /** La ligne d'envoi en base (`patient_audios`) : c'est elle qu'on retire. */
+  id?: string
+  /** L'audio de la bibliothèque : c'est lui qu'on écoute. Absent en démonstration. */
+  audioId?: string
 }
 
 /** Une entrée du journal partagé, vue côté cabinet. */
@@ -156,13 +162,39 @@ export interface Patient {
   totalSessions: number
   scaleLabel: string
   scaleQuestion: string
+  /**
+   * L'évolution de l'échelle en une ligne : « 8 → 3 en 3 semaines ».
+   * Calculée à l'assemblage depuis les notes (src/lib/echelle.ts) ; écrite
+   * à la main sur les fiches de démonstration.
+   */
   scaleDelta: string
   /** Série de l'auto-évaluation, 0–10, du plus ancien au plus récent. */
   scale: number[]
+  /**
+   * La même série, datée — ce que l'IA relit. Absente en démonstration, où
+   * les notes n'ont pas de date.
+   */
+  mesures?: MesureEchelle[]
   /** Sa séance produit-elle aussi une hypnose personnalisée ? */
   hypnoseActivee: boolean
   profile: PsychProfile
+  /** Son parcours : les modules qu'il voit. Les retirés n'y figurent pas. */
   modules: PatientModule[]
+  /**
+   * Les modules retirés du parcours, du plus récent au plus ancien.
+   *
+   * Le patient ne les voit plus ; le dossier les garde — fait, mot, réponses
+   * au quiz —, et la thérapeute peut les remettre. Absent en démonstration.
+   */
+  modulesRetires?: PatientModule[]
+  /** L'adresse de la fiche : celle qui ouvre son espace. Vide si aucune. */
+  email?: string
+  /**
+   * Son compte est-il rattaché à la fiche ? C'est-à-dire : a-t-il ouvert son
+   * espace au moins une fois. L'identifiant du compte, lui, ne quitte pas
+   * la couche de données : l'écran n'a besoin que de savoir.
+   */
+  compteActif?: boolean
   audios: PatientAudio[]
   journal: JournalEntry[]
   /** Les hypnoses écrites pour elle, de la plus récente à la plus ancienne. */
@@ -347,6 +379,12 @@ export interface ContextJournalEntry {
   text: string
 }
 
+/** Une note du soir : son jour (« AAAA-MM-JJ », vide si inconnu) et sa valeur, 0 à 10. */
+export interface MesureEchelle {
+  date: string
+  valeur: number
+}
+
 /** Le dossier du patient réduit à ce que les prompts consomment. */
 export interface PatientContext {
   name: string
@@ -355,10 +393,17 @@ export interface PatientContext {
   weekLabel: string
   sessions: number
   totalSessions: number
+  /** Assiduité, en pourcentage des tâches qu'il peut faire (src/lib/typesDeModules.ts). */
   adherence: number
   scaleLabel: string
+  /** La question du soir : c'est elle qui dit si une baisse est un progrès. */
+  scaleQuestion: string
   scaleDelta: string
+  /** Ses dernières notes du soir, de la plus ancienne à la plus récente. */
+  echelle: MesureEchelle[]
+  /** Les tâches de son parcours — ni les audios, ni l'échelle, qui ne se cochent pas. */
   modules: ContextModule[]
+  /** Son journal, DU PLUS RÉCENT AU PLUS ANCIEN. */
   journal: ContextJournalEntry[]
   /** Ce que le patient écrit lui-même : pages de journal partagées, mises bout à bout. */
   shared: string

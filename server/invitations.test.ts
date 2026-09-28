@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { courrielNonParti, dejaInscrit } from './invitations.js'
+import { corpsInvitation, courrielNonParti, dejaInscrit, modeleSelonRole } from './invitations.js'
 
 /**
  * « Ce compte existe déjà » n'est pas « ça n'a pas marché ».
@@ -73,5 +73,35 @@ describe('envoyerInvitation', () => {
     expect(lien).toBeGreaterThan(-1)
     expect(repli).toBeGreaterThan(lien)
     expect(source.slice(lien, repli)).toContain('return courrielNonParti(email)')
+  })
+})
+
+/**
+ * Le courriel dit ce que l'invitation ouvre vraiment.
+ *
+ * Une consœur recevait le même texte que la titulaire : « ce lien vous en rend
+ * propriétaire ». Le modèle se lit désormais sur le rôle en base, jamais sur
+ * ce que le navigateur a demandé.
+ */
+describe('le courriel selon le rôle', () => {
+  it('la titulaire ouvre le cabinet, tout autre rôle rejoint son équipe', () => {
+    expect(modeleSelonRole('owner')).toBe('praticienne')
+    expect(modeleSelonRole('therapist')).toBe('consoeur')
+    expect(modeleSelonRole('assistant')).toBe('consoeur')
+    expect(modeleSelonRole(null)).toBe('consoeur')
+  })
+
+  it('ne promet pas la propriété du cabinet à un membre de l’équipe', () => {
+    const c = corpsInvitation('consoeur', 'Cabinet Fontaine', 'https://exemple.fr/lien')
+    expect(c.subject).toBe("Rejoindre l'équipe de Cabinet Fontaine")
+    expect(c.text).toContain('Cabinet Fontaine vous ouvre une place dans son équipe')
+    expect(c.text).not.toMatch(/propriétaire/)
+    expect(c.html).toContain('https://exemple.fr/lien')
+  })
+
+  it('garde pour la titulaire le courriel d’ouverture', () => {
+    const c = corpsInvitation('praticienne', 'Cabinet Fontaine', 'https://exemple.fr/lien')
+    expect(c.subject).toBe('Cabinet Fontaine vous attend')
+    expect(c.text).toMatch(/propriétaire/)
   })
 })

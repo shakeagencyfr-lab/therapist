@@ -3,8 +3,8 @@
  * au cabinet.
  *
  * Données de démonstration reprises du prototype. Dans le produit réel elles
- * viennent de l'API : données de santé, chiffrées en transit et au repos, chez
- * un hébergeur certifié HDS.
+ * viennent de la base du cabinet (Supabase, région de Paris). Aucune
+ * certification HDS n'est revendiquée (voir server/README.md).
  */
 import type { JournalPage, PatientId } from '@/types/domain'
 

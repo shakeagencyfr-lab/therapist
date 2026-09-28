@@ -6,6 +6,7 @@ import { SignIn } from './auth/SignIn'
 import { SessionProvider, useAuth } from './auth/session'
 import { Button } from './components/ui'
 import { cheminEspacePatient } from './lib/domaine'
+import { DOSSIER_AVANT_LECTURE } from './state/state'
 import { AppStoreProvider } from './state/store'
 import {
   cabinetDuDomaine,
@@ -224,8 +225,11 @@ function Portail() {
 
   // L'espace ouvert découle du rôle, pas d'un choix : un revendeur qui n'est
   // pas praticienne n'a pas d'espace cabinet à ouvrir, et inversement.
+  // Un vrai cabinet part d'un dossier vide, jamais des fiches de démonstration.
   return (
-    <AppStoreProvider initial={{ space: context.cabinet ? 'cabinet' : 'reseller' }}>
+    <AppStoreProvider
+      initial={context.cabinet ? { space: 'cabinet', ...DOSSIER_AVANT_LECTURE } : { space: 'reseller' }}
+    >
       <CabinetProvider cabinetId={context.cabinet?.id ?? null}>
         <DroitsProvider actif={Boolean(context.cabinet)}>
           <App />

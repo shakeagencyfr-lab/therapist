@@ -1,4 +1,5 @@
 import { Button, Pill } from '@/components/ui'
+import { seanceEnCours } from '@/lib/seance'
 import { nouvelleSeance, patientOf } from '@/state/selectors'
 import { useStore } from '@/state/store'
 import s from './PatientHeader.module.css'
@@ -28,12 +29,15 @@ export function PatientHeader() {
    * Ouvrir la séance depuis la fiche : elle démarre sur ce patient, il n'y
    * a pas à la rechoisir. Une captation déjà commencée n'est pas écrasée pour
    * autant — on rejoint l'écran là où il en est.
+   *
+   * Une séance ENVOYÉE, elle, n'est plus « commencée » : c'est `seanceEnCours`
+   * qui le dit. Sans cette distinction, « Nouvelle séance » ramenait au
+   * brouillon qu'on venait d'envoyer.
    */
   function openSession() {
-    set((prev) => {
-      const enCours = prev.consent || prev.transcript || prev.sessionNotes || prev.draft
-      return enCours ? { mode: 'session' } : { ...nouvelleSeance(prev.sel), mode: 'session' }
-    })
+    set((prev) =>
+      seanceEnCours(prev) ? { mode: 'session' } : { ...nouvelleSeance(prev.sel), mode: 'session' },
+    )
   }
 
   return (

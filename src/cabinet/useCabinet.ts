@@ -13,9 +13,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRetour } from '@/lib/useRetour'
 import { supabase } from '@/lib/supabase'
 import { demanderInvitation } from '@/services/invitations'
+import { adresseValide, messageCreation, normaliserAdresse, refusAdresse } from '@/lib/accesPatient'
 import { useStore } from '@/state/store'
 import { durationToSeconds, plural } from '@/lib/format'
 import { bilanTelephone } from '@/lib/rappels'
+import { DELAI_PURGE_JOURS } from '@/lib/seance'
 import type { CabinetBranding } from '@/types/reseller'
 import type {
   Consigne,
@@ -70,10 +72,15 @@ interface ModuleRow {
   done_at: string | null
   patient_note: string | null
   consigne: Consigne | null
+  /** Retiré du parcours (0045) : le patient ne le voit plus, le dossier le garde. */
+  archived_at: string | null
 }
 
 interface AudioRow {
+  /** La ligne d'envoi : c'est elle qu'on retire au patient. */
+  id: string
   patient_id: string
+  audio_id: string
   listens: number
   audio: { title: string; duration_seconds: number } | null
 }
@@ -161,6 +168,11 @@ export interface ConsigneModule {
   quand: string
   steps: string[]
   why: string
+  /**
+   * Le quiz d'un module de l'atelier. Facultatif, mais à ne pas perdre :
+   * la base remplace la colonne entière à chaque écriture.
+   */
+  quiz?: QuizQuestion[]
 }
 
 interface ProfileRow {
@@ -284,9 +296,14 @@ function assembler(
   mouvements: MouvementRow[],
   brouillon: SessionDraft | undefined,
 ): Patient {
-  const mods = modules
-    .filter((m) => m.patient_id === p.id)
-    .sort((a, b) => a.position - b.position)
+  /* LE PARCOURS, C'EST CE QUE LE PATIENT VOIT. Un module retiré (0045) n'y
+     compte plus — ni dans l'assiduité, ni dans « faits sur », ni dans le
+     contexte que l'IA relit. Il reste au dossier, à part, pour être remis. */
+  const siens = modules.filter((m) => m.patient_id === p.id)
+  const mods = siens.filter((m) => !m.archived_at).sort((a, b) => a.position - b.position)
+  const retires = siens
+    .filter((m) => m.archived_at)
+    .sort((a, b) => (b.archived_at ?? '').localeCompare(a.archived_at ?? ''))
   const faits = mods.filter((m) => m.done_at).length
 
   const auds = audios.filter((a) => a.patient_id === p.id)
@@ -355,10 +372,29 @@ function assembler(
       id: m.id,
       consigne: m.consigne ?? undefined,
     })),
+    modulesRetires: retires.map<PatientModule>((m) => ({
+      title: m.title,
+      meta: m.meta,
+      kind: m.kind,
+      done: Boolean(m.done_at),
+      note: m.patient_note ?? undefined,
+      id: m.id,
+      consigne: m.consigne ?? undefined,
+      retireLe: m.archived_at
+        ? new Date(m.archived_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+        : undefined,
+    })),
+    /* L'accès à son espace, enfin lisible depuis la fiche : `auth_user_id`
+       était chargé à chaque rechargement et jamais montré. On n'en garde que
+       le fait — l'identifiant du compte n'a rien à faire dans l'état. */
+    email: p.email ?? '',
+    compteActif: Boolean(p.auth_user_id),
     audios: auds.map<PatientAudio>((a) => ({
       title: a.audio?.title ?? 'Enregistrement',
       meta: a.listens > 0 ? `Écouté ${a.listens} fois` : 'Jamais écouté',
       duration: duree(a.audio?.duration_seconds ?? 0),
+      id: a.id,
+      audioId: a.audio_id,
     })),
     journal: journal
       .filter((j) => j.patient_id === p.id)
@@ -381,6 +417,21 @@ export interface Brouillon {
   notes: string
   dureeSecondes: number
   draft: SessionDraft
+}
+
+/** Ce que la captation a déjà pris, enregistré au fil de la séance. */
+export type Captation = Omit<Brouillon, 'draft'>
+
+/**
+ * Une séance ouverte et jamais envoyée : consentement signé, puis la page
+ * s'est fermée, ou la thérapeute est passée à autre chose.
+ */
+export interface SeanceOuverte extends Captation {
+  id: string
+  /** Horodatage de la signature du consentement. */
+  ouverteLe: string
+  /** Le brouillon, s'il avait déjà été rédigé. */
+  draft: SessionDraft | null
 }
 
 /** Ce qui part au dossier à la validation du brouillon. */
@@ -460,10 +511,23 @@ export interface CabinetData {
   archiverPatiente: (patientId: PatientId) => Promise<Resultat>
   /** Rouvre un suivi clos, si l'offre a encore une place. */
   rouvrirPatiente: (patientId: PatientId) => Promise<Resultat>
-  /** Coche ou décoche un module du parcours. */
-  basculerModule: (patientId: PatientId, position: number, fait: boolean) => Promise<Resultat>
+  /** Coche ou décoche un module du parcours, désigné par son identifiant. */
+  basculerModule: (moduleId: string, fait: boolean) => Promise<Resultat>
+  /** Retire un module du parcours : le patient ne le voit plus, le dossier le garde. */
+  retirerModule: (moduleId: string) => Promise<Resultat>
+  /** Remet au parcours un module retiré, à sa place d'origine. */
+  remettreModule: (moduleId: string) => Promise<Resultat>
+  /** Renomme un module et remplace sa consigne, en une seule écriture. */
+  majModule: (moduleId: string, input: { titre: string; consigne: Consigne }) => Promise<Resultat>
   /** Règle la fiche : programme, échelle, question du soir, prochaine séance. */
   majFiche: (patientId: PatientId, input: ReglagesFiche) => Promise<Resultat>
+  /**
+   * Change l'adresse de la fiche. Si son compte y était rattaché, il est
+   * détaché dans la même écriture — l'écran l'annonce avant, jamais après.
+   */
+  changerAdresse: (patientId: PatientId, email: string) => Promise<Resultat & { detache?: boolean }>
+  /** Envoie (ou renvoie) le lien qui ouvre son espace, à l'adresse de la fiche. */
+  envoyerLienAcces: (email: string) => Promise<Resultat>
   /** Publie la marque du cabinet : nom affiché, sur-titre, initiales, couleurs. */
   enregistrerMarque: (input: MarqueCabinet) => Promise<Resultat>
   /** Dépose une image dans le compartiment public et rend son adresse. */
@@ -484,6 +548,10 @@ export interface CabinetData {
   renommerAudio: (audioId: string, title: string) => Promise<Resultat>
   recategoriserAudio: (audioId: string, categorie: string) => Promise<Resultat>
   urlEcoute: (audioId: string) => Promise<string | null>
+  /** Retire un audio du compte d'un patient (la ligne d'envoi, pas le fichier). */
+  retirerAudioPatient: (envoiId: string) => Promise<Resultat>
+  /** Supprime un audio de la bibliothèque : sa ligne, puis son fichier. */
+  supprimerAudio: (audioId: string) => Promise<Resultat>
   /* L'atelier, les affirmations, les notifications --------------------- */
   /** Le module rejoint la bibliothèque du cabinet et le parcours des patients choisies. */
   assignerModule: (module: CustomModule, patientIds: PatientId[]) => Promise<Resultat>
@@ -500,6 +568,12 @@ export interface CabinetData {
    * autorise la captation, elle est horodatée et conservée. Le brouillon
    * la complète, l'envoi la clôt et verse au dossier ce qui a été retenu. */
   ouvrirSeance: (patientId: PatientId) => Promise<Resultat & { id?: string }>
+  /** La dernière séance ouverte et jamais envoyée de cette fiche, à reprendre. */
+  seanceOuverte: (patientId: PatientId) => Promise<SeanceOuverte | null>
+  /** Enregistre ce que la captation a pris, sans attendre le brouillon. */
+  sauverCaptation: (sessionId: string, input: Captation) => Promise<Resultat>
+  /** Retire le consentement : la base efface tout ce qui a été pris. */
+  retirerConsentement: (sessionId: string) => Promise<Resultat>
   enregistrerBrouillon: (sessionId: string, input: Brouillon) => Promise<Resultat>
   /** Réécrit le seul brouillon, à la sortie d'un champ relu. */
   majBrouillon: (sessionId: string, draft: SessionDraft) => Promise<Resultat>
@@ -555,9 +629,11 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         .select('id, display_name, initials, archived_at')
         .not('archived_at', 'is', null)
         .order('archived_at', { ascending: false }),
-      db.from('patient_modules').select('id, patient_id, title, meta, kind, position, done_at, patient_note, consigne'),
+      // Les retirés aussi : `assembler` les range à part, pour les remettre.
+      db.from('patient_modules').select('id, patient_id, title, meta, kind, position, done_at, patient_note, consigne, archived_at'),
       // `last_listened_at` était chargé à chaque rechargement et lu nulle part.
-      db.from('patient_audios').select('patient_id, listens, audio:audio_library (title, duration_seconds)'),
+      // `id` et `audio_id` : de quoi retirer l'envoi, et écouter l'audio.
+      db.from('patient_audios').select('id, patient_id, audio_id, listens, audio:audio_library (title, duration_seconds)'),
       db.from('scale_entries').select('patient_id, value, recorded_at'),
       db.from('journal_pages').select('patient_id, title, body, trigger_label, written_at'),
       db.from('psych_profiles').select('patient_id, version, sessions_count, portrait, axes, levers, dynamique, alliance, care, resume').order('version', { ascending: false }),
@@ -806,8 +882,9 @@ export function useCabinet(cabinetId: string | null): CabinetData {
 
   /**
    * Créer un patient, c'est écrire une fiche avec son adresse : c'est cette
-   * adresse qui la connectera, au premier lien magique. Rien n'est envoyé ici —
-   * le compte se crée quand elle demande son lien.
+   * adresse qui ouvrira son espace, au premier lien. Le lien part juste après
+   * l'écriture ; sans adresse, il partira depuis « Réglages de la fiche »,
+   * qui permet désormais de l'ajouter, de la corriger et de renvoyer le lien.
    */
   const creerPatiente = useCallback(
     async (input: NouvellePatiente): Promise<Resultat> => {
@@ -817,8 +894,14 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       }
 
       const nom = input.nom.trim()
-      const email = input.email.trim().toLowerCase()
+      const email = normaliserAdresse(input.email)
       if (nom.length < 2) return { ok: false, message: 'Indiquez au moins un nom.' }
+      /* Une adresse mal formée était écrite quand même : le serveur
+         d'invitations la refusait ensuite, et la fiche gardait une adresse à
+         laquelle rien ne partirait jamais. On la refuse avant d'écrire. */
+      if (email && !adresseValide(email)) {
+        return { ok: false, message: 'Cette adresse ne ressemble pas à une adresse électronique.' }
+      }
 
       /* Les colonnes non renseignées restent vides plutôt que de recevoir une
          valeur que personne n'a choisie : « aucun programme » se lit dans la
@@ -856,45 +939,103 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         }
       }
 
-      // Sa fiche existe ; on lui envoie le lien qui ouvre son espace.
-      let envoi = ''
-      /* Le serveur dit s'il a envoyé quelque chose ; on jetait sa réponse et
-         on ne gardait que sa phrase. « Votre serveur d'envoi n'a pas répondu »
+      /* Sa fiche existe ; on lui envoie le lien qui ouvre son espace. Le
+         serveur dit s'il a envoyé quelque chose ; on jetait sa réponse et on
+         ne gardait que sa phrase. « Votre serveur d'envoi n'a pas répondu »
          s'affichait donc dans le bandeau vert des réussites. */
-      let parti = true
-      if (email) {
-        const r = await demanderInvitation({ email, cabinetId, kind: 'patient' })
-        envoi = r.message
-        parti = r.ok
-      }
+      const envoi = email ? await demanderInvitation({ email, cabinetId, kind: 'patient' }) : null
 
       await recharger()
-      if (!email) {
-        return { ok: true, message: `${nom} est ajoutée. Ajoutez son adresse pour qu'elle puisse ouvrir son espace.` }
-      }
       /* La fiche est faite dans tous les cas : c'est la première chose à dire,
-         sans quoi la phrase du courriel se lit comme si rien n'avait eu lieu. */
-      return {
-        ok: true,
-        partiel: !parti,
-        message: envoi
-          ? `${nom} est ajoutée. ${envoi}`
-          : `${nom} est ajoutée. Elle entrera dans son espace avec ${email}, sans mot de passe.`,
-      }
+         sans quoi la phrase du courriel se lit comme si rien n'avait eu lieu.
+         Et elle se dit au neutre : voir messageCreation. */
+      const { message, partiel } = messageCreation(nom, email, envoi)
+      return { ok: true, partiel, message }
     },
     [cabinetId, recharger],
   )
 
+  /**
+   * Cocher un module, DÉSIGNÉ PAR SON IDENTIFIANT.
+   *
+   * L'écran passait le rang du module dans la liste, et la base cherchait
+   * `position = rang`. Les deux ne coïncidaient que par chance : dès qu'un
+   * module sort du parcours (0045), les rangs glissent et la case cochée
+   * était celle du voisin — et plusieurs modules à la même position
+   * basculaient ensemble.
+   */
   const basculerModule = useCallback(
-    async (patientId: PatientId, position: number, fait: boolean): Promise<Resultat> => {
+    async (moduleId: string, fait: boolean): Promise<Resultat> => {
       const db = supabase()
       if (!db || !cabinetId) return { ok: false, message: '' }
       const { error } = await db
         .from('patient_modules')
         .update({ done_at: fait ? new Date().toISOString() : null })
-        .eq('patient_id', patientId)
-        .eq('position', position)
+        .eq('id', moduleId)
       if (error) return { ok: false, message: "Le module n'a pas pu être mis à jour." }
+      await recharger()
+      return { ok: true, message: '' }
+    },
+    [cabinetId, recharger],
+  )
+
+  /**
+   * Retirer un module du parcours.
+   *
+   * RETIRER, PAS SUPPRIMER. Un exercice fait, commenté, dont le quiz a reçu
+   * des réponses, fait partie du dossier : le supprimer emporterait en
+   * cascade ce que le patient y a laissé. On le sort donc de son parcours
+   * (`archived_at`) — la RLS de 0045 le lui cache, ses gestes le refusent — et
+   * il reste à la thérapeute, qui peut le remettre.
+   */
+  const retirerModule = useCallback(
+    async (moduleId: string): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const { error } = await db
+        .from('patient_modules')
+        .update({ archived_at: new Date().toISOString() })
+        .eq('id', moduleId)
+        .is('archived_at', null)
+      if (error) return { ok: false, message: "L'exercice n'a pas pu être retiré. Réessayez." }
+      await recharger()
+      return { ok: true, message: '' }
+    },
+    [cabinetId, recharger],
+  )
+
+  /** Il reprend sa position : c'est là que la thérapeute l'avait mis. */
+  const remettreModule = useCallback(
+    async (moduleId: string): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const { error } = await db
+        .from('patient_modules')
+        .update({ archived_at: null })
+        .eq('id', moduleId)
+      if (error) return { ok: false, message: "L'exercice n'a pas pu être remis au parcours. Réessayez." }
+      await recharger()
+      return { ok: true, message: '' }
+    },
+    [cabinetId, recharger],
+  )
+
+  /**
+   * Le titre et la consigne, ensemble : c'est un seul geste à l'écran, et une
+   * seule écriture en base — un titre renommé sur une consigne refusée
+   * laisserait le patient devant un exercice à moitié corrigé.
+   */
+  const majModule = useCallback(
+    async (moduleId: string, input: { titre: string; consigne: Consigne }): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const titre = input.titre.trim()
+      if (!titre) return { ok: false, message: 'Un exercice a besoin d’un titre.' }
+      const { error } = await db
+        .from('patient_modules')
+        .update({ title: titre, consigne: input.consigne })
+        .eq('id', moduleId)
+      if (error) return { ok: false, message: "L'exercice n'a pas pu être enregistré." }
       await recharger()
       return { ok: true, message: '' }
     },
@@ -923,6 +1064,76 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       return { ok: true, message: '' }
     },
     [cabinetId, recharger],
+  )
+
+  /**
+   * Changer l'adresse d'une fiche.
+   *
+   * Un patient créé sans adresse ne pouvait jamais recevoir son accès, et une
+   * adresse fausse ne se corrigeait pas : `majFiche` n'écrit pas `email`, et
+   * aucun écran ne la montrait.
+   *
+   * L'écriture passe par `cabinet_changer_adresse` (0045) plutôt que par un
+   * UPDATE : quand un compte est déjà rattaché, changer l'adresse sans le
+   * détacher laisserait l'espace à l'ancienne adresse — le lien envoyé à la
+   * nouvelle ouvrirait un compte neuf, sans fiche, sur un espace vide. La
+   * fonction détache donc le compte dans la même écriture, et le dit ; la
+   * base refuse tout autre chemin (déclencheur de 0045). C'est l'écran qui
+   * prévient AVANT : rien ne se détache en silence.
+   */
+  const changerAdresse = useCallback(
+    async (patientId: PatientId, saisie: string): Promise<Resultat & { detache?: boolean }> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: 'Connectez-vous à votre cabinet.' }
+      const email = normaliserAdresse(saisie)
+      if (email && !adresseValide(email)) {
+        return { ok: false, message: 'Cette adresse ne ressemble pas à une adresse électronique.' }
+      }
+      const { data, error } = await db.rpc('cabinet_changer_adresse', {
+        p_patient: patientId,
+        p_email: email || null,
+      })
+      if (error) return { ok: false, message: refusAdresse(error, email) }
+      const r = (data ?? {}) as { change?: boolean; detache?: boolean }
+      await recharger()
+      if (!r.change) return { ok: true, message: 'Cette adresse est déjà celle de la fiche.' }
+      return {
+        ok: true,
+        detache: Boolean(r.detache),
+        message: !email
+          ? "Adresse retirée. Son espace ne s'ouvrira qu'avec une nouvelle adresse."
+          : r.detache
+            ? `Adresse changée pour ${email}, et l'ancien compte détaché. Envoyez le lien d'accès : l'espace se rouvrira à la première connexion avec cette adresse.`
+            : `Adresse enregistrée : ${email}. Envoyez le lien d'accès pour ouvrir son espace.`,
+      }
+    },
+    [cabinetId, recharger],
+  )
+
+  /**
+   * Envoyer — ou renvoyer — le lien d'accès.
+   *
+   * `demanderInvitation` n'était appelée qu'à la création : un courriel
+   * perdu, arrivé en indésirables ou expiré ne se rattrapait plus. Le serveur
+   * vérifie sous la RLS que l'adresse est bien celle d'une fiche du cabinet,
+   * puis envoie ; sa réponse dit ce qui s'est passé, et c'est elle qu'on rend.
+   */
+  const envoyerLienAcces = useCallback(
+    async (email: string): Promise<Resultat> => {
+      if (!cabinetId) return { ok: false, message: 'Connectez-vous à votre cabinet.' }
+      const adresse = normaliserAdresse(email)
+      if (!adresse) return { ok: false, message: "La fiche n'a pas d'adresse : ajoutez-la d'abord." }
+      const r = await demanderInvitation({ email: adresse, cabinetId, kind: 'patient' })
+      return {
+        ok: r.ok,
+        message:
+          r.message ||
+          (r.ok
+            ? `Lien d'accès envoyé à ${adresse}.`
+            : "Le lien n'a pas pu être envoyé. Reconnectez-vous, puis réessayez."),
+      }
+    },
+    [cabinetId],
   )
 
   /**
@@ -1284,6 +1495,71 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     [],
   )
 
+  /**
+   * Retirer un audio du compte d'un patient.
+   *
+   * Seule la ligne d'envoi part : le fichier reste dans la bibliothèque, et
+   * les autres patients qui l'ont le gardent. Un audio ACHETÉ dans la
+   * boutique ne se retire pas — la base le refuse (0045), avec une phrase
+   * écrite pour être lue, qu'on rend telle quelle.
+   */
+  const retirerAudioPatient = useCallback(
+    async (envoiId: string): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const { error } = await db.from('patient_audios').delete().eq('id', envoiId)
+      if (error) {
+        return {
+          ok: false,
+          message: error.code === '23514' ? error.message : "L'audio n'a pas pu être retiré. Réessayez.",
+        }
+      }
+      await recharger()
+      return { ok: true, message: '' }
+    },
+    [cabinetId, recharger],
+  )
+
+  /**
+   * Supprimer un audio de la bibliothèque : la ligne, PUIS le fichier.
+   *
+   * Dans cet ordre, parce que c'est la ligne qui porte les refus : un audio
+   * en vente, ou acheté par un patient, ne se supprime pas (0045). Effacer
+   * le fichier d'abord laisserait, sur un refus, une ligne qui pointe vers
+   * rien — un audio qu'on ne peut plus écouter mais qui s'affiche encore.
+   * Dans l'autre sens, l'échec du stockage ne laisse qu'un fichier que plus
+   * rien ne désigne : de la place perdue, pas un audio cassé.
+   *
+   * Ce que la ligne emporte en cascade — les envois aux patients — l'écran
+   * l'a dit avant de demander confirmation.
+   */
+  const supprimerAudio = useCallback(
+    async (audioId: string): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const { data: ligne } = await db
+        .from('audio_library')
+        .select('storage_path')
+        .eq('id', audioId)
+        .maybeSingle<{ storage_path: string }>()
+      const { error } = await db.from('audio_library').delete().eq('id', audioId)
+      if (error) {
+        return {
+          ok: false,
+          message: error.code === '23514' ? error.message : "L'audio n'a pas pu être supprimé. Réessayez.",
+        }
+      }
+      if (ligne?.storage_path) {
+        const { error: eFichier } = await db.storage.from('audios').remove([ligne.storage_path])
+        // Journal technique seulement : la raison du stockage, ni titre ni chemin.
+        if (eFichier) console.warn('[audios] fichier non retiré du stockage', eFichier.message)
+      }
+      await recharger()
+      return { ok: true, message: '' }
+    },
+    [cabinetId, recharger],
+  )
+
   /* ---- L'atelier, les affirmations, les notifications ---------------- */
 
   const assignerModule = useCallback(
@@ -1473,11 +1749,129 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     [cabinetId],
   )
 
+  /**
+   * La séance laissée en plan sur cette fiche, s'il y en a une.
+   *
+   * La captation vit en mémoire : un onglet fermé, une page rechargée, et
+   * l'écran repartait de zéro — alors que la séance, elle, existait en base
+   * depuis le consentement, avec ce qui avait déjà été enregistré. On la
+   * retrouve ici pour la proposer à la reprise.
+   *
+   * Seulement dans le délai de la purge (sept jours, 0043) : au-delà, le
+   * verbatim est effacé, et reprendre une séance vidée de sa matière
+   * tromperait plus qu'elle n'aiderait.
+   */
+  const seanceOuverte = useCallback(
+    async (patientId: PatientId): Promise<SeanceOuverte | null> => {
+      const db = supabase()
+      if (!db || !cabinetId) return null
+      const depuis = new Date(Date.now() - DELAI_PURGE_JOURS * 86_400_000).toISOString()
+      const { data, error } = await db
+        .from('therapy_sessions')
+        .select('id, consent_given_at, created_at, transcript, notes, duration_seconds, draft')
+        .eq('patient_id', patientId)
+        .is('sent_at', null)
+        .is('consent_revoked_at', null)
+        .gte('created_at', depuis)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle<{
+          id: string
+          consent_given_at: string | null
+          created_at: string
+          transcript: string | null
+          notes: string | null
+          duration_seconds: number | null
+          draft: SessionDraft | null
+        }>()
+      if (error || !data) return null
+      // Une séance ouverte sur laquelle rien n'a été pris ne vaut pas reprise.
+      if (!data.transcript && !data.notes && !data.draft) return null
+      return {
+        id: data.id,
+        ouverteLe: data.consent_given_at ?? data.created_at,
+        transcript: data.transcript ?? '',
+        notes: data.notes ?? '',
+        dureeSecondes: data.duration_seconds ?? 0,
+        draft: data.draft,
+      }
+    },
+    [cabinetId],
+  )
+
+  /**
+   * Ce que la captation a pris, écrit pendant la séance.
+   *
+   * La transcription n'existait qu'en mémoire jusqu'à « Terminer » : une
+   * heure de séance tenait à un onglet. La séance existe en base dès le
+   * consentement ; on y dépose le texte au fil de l'eau. Jamais sur une
+   * séance close ou dont le consentement est retiré : la base le refuserait
+   * de toute façon (0043), le filtre évite d'essayer.
+   */
+  const sauverCaptation = useCallback(
+    async (sessionId: string, input: Captation): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const { data, error } = await db
+        .from('therapy_sessions')
+        .update({
+          transcript: input.transcript || null,
+          notes: input.notes || null,
+          duration_seconds: Math.max(0, Math.round(input.dureeSecondes)),
+        })
+        .eq('id', sessionId)
+        .is('sent_at', null)
+        .is('consent_revoked_at', null)
+        .select('id')
+      if (error) return { ok: false, message: "La séance n'a pas pu être enregistrée." }
+      if (!data?.length) {
+        return { ok: false, message: "Cette séance est close : ce qui est à l'écran ne s'y enregistre plus." }
+      }
+      return { ok: true, message: '' }
+    },
+    [cabinetId],
+  )
+
+  /**
+   * Le patient retire son consentement.
+   *
+   * La colonne attendait depuis 0002 et rien ne l'écrivait : l'écran disait
+   * « révocable à tout moment » sans geste pour le faire. Poser la date
+   * suffit — le déclencheur de 0043 efface la transcription, les notes et le
+   * brouillon, et range la séance. Le consentement reste daté, avec son
+   * retrait : c'est la trace de ce qui a été autorisé, puis retiré.
+   */
+  const retirerConsentement = useCallback(
+    async (sessionId: string): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const { data, error } = await db
+        .from('therapy_sessions')
+        .update({ consent_revoked_at: new Date().toISOString(), status: 'archive' })
+        .eq('id', sessionId)
+        .is('consent_revoked_at', null)
+        .select('id')
+      if (error || !data?.length) {
+        return { ok: false, message: "Le retrait n'a pas pu être enregistré : rien n'a été effacé. Réessayez." }
+      }
+      return { ok: true, message: '' }
+    },
+    [cabinetId],
+  )
+
+  /**
+   * Le brouillon rédigé, posé sur la séance.
+   *
+   * JAMAIS SUR UNE SÉANCE ENVOYÉE. « Reprendre » après l'envoi ramenait à la
+   * captation, et la génération suivante réécrivait ici le verbatim et le
+   * statut de brouillon d'une séance close. Le filtre refuse d'emblée ; la
+   * garde de 0043 le refuse aussi en base, pour tout autre chemin.
+   */
   const enregistrerBrouillon = useCallback(
     async (sessionId: string, input: Brouillon): Promise<Resultat> => {
       const db = supabase()
       if (!db || !cabinetId) return { ok: false, message: '' }
-      const { error } = await db
+      const { data, error } = await db
         .from('therapy_sessions')
         .update({
           transcript: input.transcript || null,
@@ -1487,7 +1881,13 @@ export function useCabinet(cabinetId: string | null): CabinetData {
           status: 'brouillon',
         })
         .eq('id', sessionId)
+        .is('sent_at', null)
+        .is('consent_revoked_at', null)
+        .select('id')
       if (error) return { ok: false, message: "Le brouillon n'a pas pu être conservé." }
+      if (!data?.length) {
+        return { ok: false, message: "Cette séance est déjà close : ce brouillon ne s'y enregistre pas." }
+      }
       return { ok: true, message: '' }
     },
     [cabinetId],
@@ -1502,86 +1902,53 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       const db = supabase()
       if (!db || !cabinetId) return { ok: false, message: '' }
 
-      // Les modules retenus prennent la suite du parcours existant.
-      const { data: dernier } = await db
-        .from('patient_modules')
-        .select('position')
-        .eq('patient_id', patientId)
-        .order('position', { ascending: false })
-        .limit(1)
-        .maybeSingle<{ position: number }>()
-      let position = (dernier?.position ?? -1) + 1
-      /* Les identifiants des modules créés : l'écriture des consignes qui
-         suit l'envoi doit savoir lesquels compléter. */
-      let crees: Array<{ id: string; title: string; kind: ModuleKind }> = []
-      if (input.modules.length) {
-        const { data, error } = await db.from('patient_modules').insert(
-          input.modules.map((m) => ({
-            cabinet_id: cabinetId,
-            patient_id: patientId,
-            title: m.title,
-            meta: m.meta,
-            kind: m.kind,
-            source: 'seance',
-            /* Le « pourquoi » de la séance devient la consigne du module.
-               Il n'y a pas d'étapes — le brouillon n'en produit pas — mais
-               savoir à quoi sert un exercice change tout pour qui doit le
-               faire seul, un soir de semaine. */
-            consigne: m.pourquoi ? { why: m.pourquoi } : null,
-            position: position++,
-          })),
-        ).select('id, title, kind')
-        if (error) return { ok: false, message: "Les modules n'ont pas pu être envoyés." }
-        crees = (data ?? []) as Array<{ id: string; title: string; kind: ModuleKind }>
-      }
+      /* UN SEUL GESTE, EN BASE (cabinet_envoyer_seance, 0043).
+         Le navigateur enchaînait quatre écritures — modules, audios, clôture,
+         compteur. Un échec au milieu laissait des modules sans séance close,
+         que le nouvel essai insérait une seconde fois ; un second envoi de
+         la même séance (« Reprendre » après l'envoi, un autre onglet) faisait
+         de même et comptait la séance deux fois. La fonction verrouille la
+         séance, refuse celle qui est déjà close ou dont le consentement est
+         retiré, et fait tout ou rien. Elle efface aussi le verbatim : la
+         transcription n'a servi qu'à écrire ce que la thérapeute a retenu.
 
-      // Les audios : seulement ceux qui existent en base (identifiants UUID).
+         Les audios : seulement ceux qui existent en base (identifiants UUID) —
+         ceux de la démonstration n'ont rien à faire dans un dossier. */
       const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-      const audios = input.audioIds.filter((id) => UUID.test(id))
-      if (audios.length) {
-        await db
-          .from('patient_audios')
-          .upsert(
-            audios.map((audio_id) => ({ cabinet_id: cabinetId, patient_id: patientId, audio_id })),
-            { onConflict: 'patient_id,audio_id', ignoreDuplicates: true },
-          )
+      const { data, error } = await db.rpc('cabinet_envoyer_seance', {
+        p_session: sessionId,
+        p_patient: patientId,
+        /* La version relue l'emporte sur celle de l'IA : c'est elle que la
+           thérapeute vient de valider, et elle seule qui a sa main. */
+        p_draft: input.draft,
+        p_modules: input.modules.map((m) => ({
+          title: m.title,
+          meta: m.meta,
+          kind: m.kind,
+          /* Le « pourquoi » de la séance devient la consigne du module : il
+             n'y a pas d'étapes — le brouillon n'en produit pas — mais savoir
+             à quoi sert un exercice change tout pour qui doit le faire seul. */
+          pourquoi: m.pourquoi ?? '',
+        })),
+        p_audios: input.audioIds.filter((id) => UUID.test(id)),
+      })
+      if (error) {
+        /* 55000 : la base a refusé une séance close ou au consentement
+           retiré, et son message le dit en français. Le reste est une panne :
+           rien n'est passé, un nouvel essai ne fera pas de doublon. */
+        return {
+          ok: false,
+          message:
+            error.code === '55000'
+              ? error.message
+              : "La séance n'a pas pu être envoyée. Rien n'a été versé au dossier : réessayez.",
+        }
       }
-
-      /* LA TRANSCRIPTION BRUTE PART AVEC LA CLÔTURE.
-         La barre d'envoi le promet depuis toujours — « La transcription brute
-         est supprimée » — et rien ne la supprimait : le verbatim d'une séance
-         d'hypnothérapie restait en base indéfiniment, sous les yeux de qui a
-         accès au cabinet, alors que la personne à qui il appartient a signé un
-         consentement qui dit le contraire. Les deux colonnes de 0002
-         attendaient depuis le premier jour.
-
-         Ce qui reste au dossier, c'est ce que la thérapeute a retenu : la
-         synthèse, les mots de la séance, les modules. Le verbatim, lui, n'a
-         servi qu'à les écrire. */
-      const { error: e2 } = await db
-        .from('therapy_sessions')
-        .update({
-          sent_at: new Date().toISOString(),
-          status: 'envoye',
-          transcript: null,
-          transcript_deleted_at: new Date().toISOString(),
-          /* La version relue l'emporte sur celle de l'IA : c'est elle que la
-             thérapeute vient de valider, et elle seule qui a sa main. */
-          ...(input.draft ? { draft: input.draft } : {}),
-        })
-        .eq('id', sessionId)
-      if (e2) return { ok: false, message: "La séance n'a pas pu être clôturée." }
-
-      /* Une séance de plus au compteur de la fiche, EN BASE et en une seule
-         instruction. Le lire-puis-écrire d'avant confondait « la fiche dit
-         zéro » et « la lecture n'a rien rendu » : une panne d'une seconde
-         remettait à un le compteur d'une patiente suivie depuis deux ans. Et
-         deux clôtures simultanées n'en comptaient qu'une. */
-      const { error: eCompte } = await db.rpc('cabinet_compter_seance', { p_patient: patientId })
-      if (eCompte) console.warn('[cabinet] séance non comptée', eCompte.message)
 
       await recharger()
-      return { ok: true, message: '', modules: crees }
+      /* Les identifiants des modules créés : l'écriture des consignes qui
+         suit l'envoi doit savoir lesquels compléter. */
+      return { ok: true, message: '', modules: (data ?? []) as ModuleCree[] }
     },
     [cabinetId, recharger],
   )
@@ -1825,7 +2192,12 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     archiverPatiente,
     rouvrirPatiente,
     basculerModule,
+    retirerModule,
+    remettreModule,
+    majModule,
     majFiche,
+    changerAdresse,
+    envoyerLienAcces,
     enregistrerMarque,
     televerserLogo,
     creerProgramme,
@@ -1838,11 +2210,16 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     renommerAudio,
     recategoriserAudio,
     urlEcoute,
+    retirerAudioPatient,
+    supprimerAudio,
     assignerModule,
     publierAffirmations,
     reglerAffirmationsAuto,
     envoyerNotification,
     ouvrirSeance,
+    seanceOuverte,
+    sauverCaptation,
+    retirerConsentement,
     enregistrerBrouillon,
     majBrouillon,
     envoyerSeance,

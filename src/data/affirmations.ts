@@ -2,8 +2,8 @@
  * Affirmations de la semaine, par patient, et mode de publication.
  *
  * Données de démonstration reprises du prototype. Dans le produit réel elles
- * viennent de l'API : données de santé, chiffrées en transit et au repos, chez
- * un hébergeur certifié HDS.
+ * viennent de la base du cabinet (Supabase, région de Paris). Aucune
+ * certification HDS n'est revendiquée (voir server/README.md).
  */
 import type { PatientId } from '@/types/domain'
 

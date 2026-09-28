@@ -44,6 +44,8 @@ export type ViewMode =
   | 'marque'
   | 'site'
   | 'integrations'
+  /** Équipe du cabinet : membres, invitations en attente, inviter et retirer. */
+  | 'equipe'
   /** Mon compte : mot de passe, appareils. Ouvert depuis le menu du compte, dans les deux espaces. */
   | 'compte'
 
@@ -143,8 +145,15 @@ export interface AppState {
   proposalOff: Record<number, boolean>
   /** Le brouillon a été envoyé au patient. */
   sent: boolean
-  /** Le message au patient a été relu. */
+  /** Le message au patient vient d'être copié dans le presse-papiers. */
   msgOk: boolean
+  /**
+   * Le message au patient est parti dans son espace : le moment prévu
+   * (« Ce soir, 20 h »), vide sinon. Il tient dans l'état et non dans
+   * l'écran, pour qu'un aller-retour sur la fiche ne permette pas de
+   * l'envoyer deux fois.
+   */
+  msgEnvoye: string
   /** Audios suggérés décochés, par identifiant. */
   sugOff: Record<string, boolean>
   /** Confirmation d'envoi des audios suggérés. */
@@ -313,6 +322,7 @@ export const initialState: AppState = {
   proposalOff: {},
   sent: false,
   msgOk: false,
+  msgEnvoye: '',
   sugOff: {},
   sugSent: '',
 
@@ -389,4 +399,32 @@ export const initialState: AppState = {
   rNewEmail: '',
   rNewTherapist: '',
   rNewPlan: 'cabinet',
+}
+
+/**
+ * Le dossier d'un cabinet RÉEL avant sa première lecture : vide.
+ *
+ * L'état initial porte les fiches de démonstration — c'est ce que montrent
+ * la démonstration publique et le banc de rendu, qui n'ont pas de session.
+ * Mais un compte de cabinet les recevait aussi : Camille s'affichait le temps
+ * du chargement, et RESTAIT si ce premier chargement échouait. Rien ne
+ * distinguait alors une fiche fictive d'une vraie, et la praticienne pouvait
+ * y lancer une séance réelle, facturée, sur un dossier qui n'existe pas.
+ *
+ * Tout ce que le chargement du cabinet remplace est vidé ici : un dossier
+ * qui n'a pas pu être lu se montre vide, avec son erreur — jamais rempli
+ * de quelqu'un d'autre.
+ */
+export const DOSSIER_AVANT_LECTURE: Partial<AppState> = {
+  sel: '',
+  patients: {},
+  patientOrder: [],
+  lib: [],
+  libSel: null,
+  cats: [],
+  upCat: '',
+  programmes: [],
+  pages: {},
+  affs: {},
+  affAuto: {},
 }

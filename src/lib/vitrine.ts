@@ -19,7 +19,7 @@
  * un mot dont on ne se servira jamais ne coûte rien, le réclamer trop tard
  * coûte l'adresse de quelqu'un.
  */
-import { supabase } from '@/lib/supabase'
+import { lecturePublique } from '@/lib/supabase'
 import type { CabinetBranding } from '@/types/reseller'
 
 export interface Vitrine {
@@ -259,12 +259,17 @@ export function versSiteVitrine(brut: unknown, slug: string): SiteVitrine | null
   }
 }
 
+/*
+ * LES TROIS LECTURES CI-DESSOUS PASSENT PAR `lecturePublique`, SANS SESSION.
+ * Par le client, chacune attendait la reprise de session — jusqu'à trente
+ * secondes quand le jeton peine à se rafraîchir — et la porte du cabinet
+ * restait blanche tout ce temps, pour une marque qui est publique.
+ */
+
 /** Le site publié d'un cabinet, ou null s'il n'y en a pas. */
 export async function lireSiteVitrine(slug: string): Promise<SiteVitrine | null> {
-  const db = supabase()
-  if (!db) return null
-  const { data, error } = await db.rpc('site_vitrine', { p_slug: slug })
-  if (error || !data) return null
+  const data = await lecturePublique('site_vitrine', { p_slug: slug })
+  if (!data) return null
   return versSiteVitrine(data, slug)
 }
 
@@ -287,10 +292,8 @@ export function estDomainePersonnalise(host: string): boolean {
  * domaine remplace le chemin /son-identifiant, sans que rien d'autre change.
  */
 export async function cabinetDuDomaine(host: string): Promise<(Vitrine & { slug: string }) | null> {
-  const db = supabase()
-  if (!db) return null
-  const { data, error } = await db.rpc('cabinet_par_domaine', { p_domaine: host.replace(/:\d+$/, '') })
-  if (error || !data) return null
+  const data = await lecturePublique('cabinet_par_domaine', { p_domaine: host.replace(/:\d+$/, '') })
+  if (!data) return null
   const v = data as Partial<Vitrine & { slug: string }>
   return v.name && v.slug
     ? { slug: v.slug, name: v.name, tagline: v.tagline ?? '', branding: marqueSure(v.branding) }
@@ -299,10 +302,8 @@ export async function cabinetDuDomaine(host: string): Promise<(Vitrine & { slug:
 
 /** Le nom et les couleurs d'un cabinet, ou null si le slug n'existe pas. */
 export async function lireVitrine(slug: string): Promise<Vitrine | null> {
-  const db = supabase()
-  if (!db) return null
-  const { data, error } = await db.rpc('cabinet_vitrine', { p_slug: slug })
-  if (error || !data) return null
+  const data = await lecturePublique('cabinet_vitrine', { p_slug: slug })
+  if (!data) return null
   const v = data as Partial<Vitrine>
   return v.name ? { name: v.name, tagline: v.tagline ?? '', branding: marqueSure(v.branding) } : null
 }

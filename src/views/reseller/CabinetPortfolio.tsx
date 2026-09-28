@@ -11,6 +11,7 @@ import {
   TextInput,
 } from '@/components/ui'
 import { adresseCabinet } from '@/lib/domaine'
+import { adressePlausible, echeanceDite, invitationExpiree } from '@/lib/equipe'
 import { euroCents, plural } from '@/lib/format'
 import {
   adherenceLabel,
@@ -25,13 +26,19 @@ import {
 } from '@/state/resellerSelectors'
 import { useStore } from '@/state/store'
 import { useResellerData } from '@/reseller/context'
+import type { InvitationEnAttente, Resultat } from '@/reseller/useReseller'
 import { STATUS_LABEL } from '@/data/reseller'
 import { LEVIERS } from '@/types/reseller'
 import type { PlanCode, PortfolioRow, SubscriptionStatus } from '@/types/reseller'
 import s from './CabinetPortfolio.module.css'
 
-/** Ce que la couche d'accès écrit quand aucune praticienne n'est rattachée. */
-const SANS_PRATICIENNE = 'Aucune praticienne'
+/** Ce qu'on saisit pour inviter : un nom, une adresse. */
+interface Saisie {
+  nom: string
+  email: string
+}
+
+const VIDE: Saisie = { nom: '', email: '' }
 
 /** Ton de la pilule de statut d'abonnement. */
 function statusTone(status: SubscriptionStatus) {
@@ -103,9 +110,100 @@ function CabinetRow({ row, on, onSelect }: { row: PortfolioRow; on: boolean; onS
   )
 }
 
+/**
+ * L'invitation d'ouverture d'un cabinet qui attend encore sa praticienne.
+ *
+ * Il n'y avait rien ici : ni échéance, ni renvoi, ni moyen de corriger une
+ * adresse mal saisie. Une invitation échue restait « envoyée » et bloquait
+ * toute nouvelle invitation à la même adresse. Le revendeur voit maintenant
+ * jusqu'à quand elle court, et peut la faire repartir, la rediriger ou la
+ * retirer — tant que le cabinet est vide ; ensuite, il est à sa praticienne.
+ */
+function InvitationOuverture({
+  invitation,
+  cabinet,
+  enCours,
+  onGeste,
+}: {
+  invitation: InvitationEnAttente
+  cabinet: string
+  enCours: boolean
+  onGeste: (geste: 'relancer' | 'changer' | 'annuler', saisie?: Saisie) => Promise<boolean>
+}) {
+  const [changer, setChanger] = useState(false)
+  const [saisie, setSaisie] = useState<Saisie>(VIDE)
+  const echue = invitationExpiree(invitation.expires_at)
+
+  function ouvrirChangement() {
+    setSaisie({ nom: invitation.display_name ?? '', email: invitation.email })
+    setChanger(true)
+  }
+
+  return (
+    <div className={s.attente}>
+      <div className={s.attenteLigne}>
+        <span className={echue ? `${s.attenteTexte} ${s.attenteEchue}` : s.attenteTexte}>
+          {invitation.display_name ? `${invitation.display_name} · ` : ''}
+          {invitation.email} — {echeanceDite(invitation.expires_at)}
+          {echue ? ' : le lien ne donne plus accès. Renvoyez-la pour trente jours de plus.' : ''}
+        </span>
+        <span className={s.attenteGestes}>
+          <Button onClick={() => void onGeste('relancer')} disabled={enCours}>
+            {enCours ? 'Envoi…' : 'Renvoyer'}
+          </Button>
+          <Button variant="ghost" onClick={() => (changer ? setChanger(false) : ouvrirChangement())} disabled={enCours}>
+            Changer d'adresse
+          </Button>
+          <Button variant="ghost" onClick={() => void onGeste('annuler')} disabled={enCours}>
+            Annuler
+          </Button>
+        </span>
+      </div>
+      {changer ? (
+        <div className={s.invite} style={{ padding: 0 }}>
+          <TextInput
+            value={saisie.nom}
+            onChange={(e) => setSaisie((x) => ({ ...x, nom: e.target.value }))}
+            placeholder="Claire Fontaine"
+            aria-label={`Nom de la praticienne de ${cabinet}`}
+          />
+          <TextInput
+            type="email"
+            value={saisie.email}
+            onChange={(e) => setSaisie((x) => ({ ...x, email: e.target.value }))}
+            placeholder="claire@cabinet-fontaine.fr"
+            aria-label={`Nouvelle adresse d'invitation pour ${cabinet}`}
+          />
+          <Button
+            variant="primary"
+            disabled={enCours || !adressePlausible(saisie.email)}
+            onClick={async () => {
+              if (await onGeste('changer', saisie)) setChanger(false)
+            }}
+          >
+            {enCours ? 'Envoi…' : 'Inviter cette adresse'}
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 export function CabinetPortfolio() {
   const { state, set } = useStore()
-  const { rows, offres, reel, chargement, erreur, ouvrirCabinet, inviterPraticienne } = useResellerData()
+  const {
+    rows,
+    offres,
+    invitations,
+    reel,
+    chargement,
+    erreur,
+    ouvrirCabinet,
+    inviterPraticienne,
+    relancerInvitation,
+    changerInvitation,
+    annulerInvitation,
+  } = useResellerData()
   const sums = totals(rows)
   const place = occupation(rows)
   const warned = nearCap(rows)
@@ -114,7 +212,7 @@ export function CabinetPortfolio() {
   /** Écriture en cours : le bouton attend la base plutôt que la mémoire. */
   const [ouverture, setOuverture] = useState(false)
   const [echec, setEchec] = useState('')
-  const [invitEmail, setInvitEmail] = useState<Record<string, string>>({})
+  const [invitSaisie, setInvitSaisie] = useState<Record<string, Saisie>>({})
   const [invitEnCours, setInvitEnCours] = useState('')
   const [invitEchec, setInvitEchec] = useState<{ id: string; message: string } | null>(null)
 
@@ -154,20 +252,27 @@ export function CabinetPortfolio() {
     setEchec(resultat.message)
   }
 
-  async function inviter(cabinetId: string) {
-    const email = (invitEmail[cabinetId] ?? '').trim()
-    if (!email || invitEnCours) return
+  /** Un geste sur l'invitation d'un cabinet, et ce qu'on en dit. Vrai s'il a abouti. */
+  async function agir(cabinetId: string, geste: () => Promise<Resultat>): Promise<boolean> {
+    if (invitEnCours) return false
     setInvitEnCours(cabinetId)
     setInvitEchec(null)
     if (state.rNotice) set({ rNotice: '' })
-    const resultat = await inviterPraticienne(cabinetId, email)
+    const resultat = await geste()
     setInvitEnCours('')
     if (resultat.ok) {
-      setInvitEmail((prev) => ({ ...prev, [cabinetId]: '' }))
       set({ rNotice: resultat.message, rNoticeTon: resultat.partiel ? 'warn' : 'ok' })
-      return
+      return true
     }
     setInvitEchec({ id: cabinetId, message: resultat.message })
+    return false
+  }
+
+  async function inviter(cabinetId: string) {
+    const saisie = invitSaisie[cabinetId] ?? VIDE
+    if (!adressePlausible(saisie.email)) return
+    const fait = await agir(cabinetId, () => inviterPraticienne(cabinetId, saisie.email, saisie.nom))
+    if (fait) setInvitSaisie((prev) => ({ ...prev, [cabinetId]: VIDE }))
   }
 
   return (
@@ -221,41 +326,73 @@ export function CabinetPortfolio() {
             </span>
           </div>
           {chargement ? <div className={s.loading}>Chargement du portefeuille…</div> : null}
-          {rows.map((row) => (
-            <div key={row.cabinet.id} className={s.item}>
-              <CabinetRow
-                row={row}
-                on={row.cabinet.id === state.rSel}
-                onSelect={() => openCabinet(row.cabinet.id)}
-              />
-              {row.cabinet.therapist === SANS_PRATICIENNE ? (
-                <div className={s.invite}>
-                  <TextInput
-                    type="email"
-                    value={invitEmail[row.cabinet.id] ?? ''}
-                    onChange={(e) =>
-                      setInvitEmail((prev) => ({ ...prev, [row.cabinet.id]: e.target.value }))
+          {rows.map((row) => {
+            const id = row.cabinet.id
+            /* Un cabinet sans membre attend sa praticienne. C'est le compte
+               des membres qui le dit, pas le libellé de la ligne : celui-ci
+               change avec l'état de l'invitation. */
+            const sansEquipe = reel && row.stats.therapists === 0
+            const invitation = sansEquipe
+              ? invitations.find((i) => i.cabinet_id === id && i.role === 'owner')
+              : undefined
+            const saisie = invitSaisie[id] ?? VIDE
+            return (
+              <div key={id} className={s.item}>
+                <CabinetRow
+                  row={row}
+                  on={id === state.rSel}
+                  onSelect={() => openCabinet(id)}
+                />
+                {sansEquipe && invitation ? (
+                  <InvitationOuverture
+                    invitation={invitation}
+                    cabinet={row.cabinet.name}
+                    enCours={invitEnCours === id}
+                    onGeste={(geste, nouvelle) =>
+                      agir(id, () =>
+                        geste === 'relancer'
+                          ? relancerInvitation(invitation.id)
+                          : geste === 'annuler'
+                            ? annulerInvitation(invitation.id)
+                            : changerInvitation(invitation.id, nouvelle?.email ?? '', nouvelle?.nom),
+                      )
                     }
-                    placeholder="claire@cabinet-fontaine.fr"
-                    aria-label={`Courriel d'invitation pour ${row.cabinet.name}`}
                   />
-                  <Button
-                    onClick={() => void inviter(row.cabinet.id)}
-                    disabled={
-                      (invitEmail[row.cabinet.id] ?? '').trim().length === 0 || invitEnCours !== ''
-                    }
-                  >
-                    {invitEnCours === row.cabinet.id ? 'Invitation…' : 'Inviter'}
-                  </Button>
-                </div>
-              ) : null}
-              {invitEchec && invitEchec.id === row.cabinet.id ? (
-                <Notice tone="warn" style={{ margin: '0 20px 14px' }}>
-                  {invitEchec.message}
-                </Notice>
-              ) : null}
-            </div>
-          ))}
+                ) : sansEquipe ? (
+                  <div className={s.invite}>
+                    <TextInput
+                      value={saisie.nom}
+                      onChange={(e) =>
+                        setInvitSaisie((prev) => ({ ...prev, [id]: { ...saisie, nom: e.target.value } }))
+                      }
+                      placeholder="Claire Fontaine"
+                      aria-label={`Nom de la praticienne de ${row.cabinet.name}`}
+                    />
+                    <TextInput
+                      type="email"
+                      value={saisie.email}
+                      onChange={(e) =>
+                        setInvitSaisie((prev) => ({ ...prev, [id]: { ...saisie, email: e.target.value } }))
+                      }
+                      placeholder="claire@cabinet-fontaine.fr"
+                      aria-label={`Courriel d'invitation pour ${row.cabinet.name}`}
+                    />
+                    <Button
+                      onClick={() => void inviter(id)}
+                      disabled={!adressePlausible(saisie.email) || invitEnCours !== ''}
+                    >
+                      {invitEnCours === id ? 'Invitation…' : 'Inviter'}
+                    </Button>
+                  </div>
+                ) : null}
+                {invitEchec && invitEchec.id === id ? (
+                  <Notice tone="warn" style={{ margin: '0 20px 14px' }}>
+                    {invitEchec.message}
+                  </Notice>
+                ) : null}
+              </div>
+            )
+          })}
           {rows.length === 0 && !chargement ? (
             <div style={{ padding: 20 }}>
               <EmptyState>

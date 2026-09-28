@@ -208,3 +208,41 @@
   font-size: 13.5px;
   font-weight: 500;
 }
+
+/* L'accès à son espace, lisible fiche repliée : un point de couleur et une
+   phrase. Vert, il est ouvert ; ambre, il attend une première connexion ;
+   rouge, il ne peut pas s'ouvrir faute d'adresse. */
+.acces {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  color: var(--c-text-2);
+  overflow-wrap: anywhere;
+}
+.accesPoint {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--c-risk-high);
+}
+.acces[data-etat='en-attente'] .accesPoint {
+  background: var(--c-risk-mid);
+}
+.acces[data-etat='active'] .accesPoint {
+  background: var(--c-risk-low);
+}
+
+.accesGestes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+/* L'adresse d'un espace activé : lue, pas saisie. */
+.adresse {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}

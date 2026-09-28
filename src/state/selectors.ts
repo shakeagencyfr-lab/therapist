@@ -6,6 +6,7 @@
  * qu'un compte est connecté ou non, ce sont celles du cabinet ou celles de la
  * démonstration, et rien ici n'a besoin de le savoir.
  */
+import { seFaitParLePatient } from '@/lib/typesDeModules'
 import type { AppState } from './state'
 import type { Patient, PatientId, PatientModule, PsychProfile } from '@/types/domain'
 
@@ -59,12 +60,23 @@ export function releaseModulePatch(key: PatientId, index: number) {
   }
 }
 
-/** Nombre de modules réalisés sur le total, pour un patient. */
+/**
+ * Nombre de tâches réalisées sur le total, pour un patient.
+ *
+ * Les tâches seulement : un module « Audio » ou « Échelle » ne s'affiche
+ * jamais comme tel chez le patient et ne peut pas être coché
+ * (src/lib/typesDeModules.ts). Compté, il faisait baisser l'assiduité et
+ * déclenchait l'alerte de décrochage pour ce que personne ne lui a montré.
+ * Le rang, lui, reste celui de la liste entière : c'est la clé des cases
+ * cochées localement.
+ */
 export function moduleProgress(state: AppState, key: PatientId): { done: number; total: number } {
-  const mods = allModules(state, key)
+  const taches = allModules(state, key)
+    .map((m, i) => ({ m, i }))
+    .filter(({ m }) => seFaitParLePatient(m.kind))
   return {
-    done: mods.filter((m, i) => isModuleDone(state, key, i, m.done)).length,
-    total: mods.length,
+    done: taches.filter(({ m, i }) => isModuleDone(state, key, i, m.done)).length,
+    total: taches.length,
   }
 }
 
@@ -157,6 +169,7 @@ export function nouvelleSeance(patient: PatientId = ''): Partial<AppState> {
     proposalOff: {},
     sent: false,
     msgOk: false,
+    msgEnvoye: '',
     sugOff: {},
     sugSent: '',
   }
@@ -227,7 +240,8 @@ export function notifRows(state: AppState): NotifRow[] {
   return state.patientOrder.map((k) => {
     const d = state.patients[k]
     const mods = allModules(state, k)
-    const late = mods.filter((m, i) => !isModuleDone(state, k, i, m.done)).length
+    // Une tâche en retard est une tâche qu'il pouvait faire.
+    const late = mods.filter((m, i) => seFaitParLePatient(m.kind) && !isModuleDone(state, k, i, m.done)).length
     const noNext = d.nextSession.indexOf('Aucune') === 0
     const tail = d.scale.slice(-3)
     const flat = tail.length === 3 && tail[0] === tail[2]

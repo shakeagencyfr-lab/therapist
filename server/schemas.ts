@@ -13,6 +13,7 @@
  * la compilation, donc sans effet sur ce que le serveur charge à l'exécution.
  */
 import { z } from 'zod'
+import { TYPES_PROPOSABLES } from '../src/lib/typesDeModules.js'
 import type {
   GeneratedAffirmations,
   GeneratedModule,
@@ -74,11 +75,107 @@ export interface ProfileBody {
 }
 
 /* ------------------------------------------------------------------ *
+ * Lecture du dossier reçu
+ * ------------------------------------------------------------------ */
+
+/*
+ * LE DOSSIER ÉTAIT CRU SUR PAROLE. Le corps était vérifié « objet », puis
+ * converti en PatientContext sans rien regarder : un champ absent ou d'un
+ * autre type — un onglet resté ouvert sur une version précédente de
+ * l'application, qui n'envoie pas encore un champ que les prompts lisent —
+ * levait un TypeError au milieu d'un prompt, et la thérapeute lisait
+ * « Erreur interne du serveur ». Chaque champ est maintenant lu : absent, il
+ * prend sa valeur vide ; d'un mauvais type, la requête est refusée en le
+ * disant.
+ *
+ * BORNÉ SANS REFUS. Ce que le dossier accumule — journal, parcours, pages
+ * partagées, notes du soir — grossit à chaque semaine de suivi : le refuser
+ * au-delà d'une taille rendrait un patient fidèle impossible à analyser. On
+ * en garde le plus récent, bien au-delà de ce que les prompts citent, et le
+ * reste est coupé : un corps démesuré ne devient jamais une facture
+ * démesurée. (Ce que la thérapeute tape elle-même est borné AVEC refus, dans
+ * server/ai.ts : là, couper en silence trahirait ce qu'elle a demandé.)
+ */
+
+/** Une chaîne coupée à `max` caractères, sans refus. */
+const texte = (max: number) => z.string().transform((s) => s.slice(0, max))
+/** Un libellé : un titre, une date, un nom de programme. */
+const ligne = texte(300)
+
+const axeLuSchema = z.object({ label: ligne, value: z.number(), note: ligne })
+
+const profilLuSchema = z.object({
+  updated: ligne.default(''),
+  portrait: texte(8000).default(''),
+  axes: z.array(axeLuSchema).default([]).transform((a) => a.slice(0, 12)),
+  levers: z
+    .array(z.object({ title: ligne, body: texte(2000) }))
+    .default([])
+    .transform((a) => a.slice(0, 12)),
+  dynamique: texte(4000).optional(),
+  alliance: texte(4000).optional(),
+  care: z.array(texte(1000)).default([]).transform((a) => a.slice(0, 12)),
+  resume: texte(1000).optional(),
+  /* Les versions passées nourrissent la « dynamique » : le profil qui se
+     révise voit d'où il vient. Les douze dernières suffisent. */
+  historique: z
+    .array(z.object({ version: z.number(), sessions: z.number(), axes: z.array(axeLuSchema) }))
+    .optional()
+    .transform((a) => a?.slice(-12)),
+})
+
+/**
+ * Le dossier du patient, tel que le serveur accepte de le lire.
+ *
+ * Les champs inconnus sont écartés : rien de ce que le client ajouterait ne
+ * part vers le modèle sans être passé par ici.
+ */
+export const contexteLuSchema = z.object({
+  name: texte(200),
+  program: ligne.default(''),
+  subtitle: ligne.default(''),
+  weekLabel: ligne.default(''),
+  sessions: z.number().default(0),
+  totalSessions: z.number().default(0),
+  adherence: z.number().default(0),
+  scaleLabel: ligne.default(''),
+  scaleQuestion: ligne.default(''),
+  scaleDelta: ligne.default(''),
+  // Un mois de soirées au plus ; le client en envoie deux semaines
+  // (src/lib/echelle.ts). Une note hors de 0–10 n'est pas une note.
+  echelle: z
+    .array(z.object({ date: ligne, valeur: z.number().min(0).max(10) }))
+    .default([])
+    .transform((a) => a.slice(-31)),
+  // Le parcours va du plus ancien au plus récent : on garde la fin.
+  modules: z
+    .array(z.object({ title: ligne, done: z.boolean() }))
+    .default([])
+    .transform((a) => a.slice(-80)),
+  // Le journal va du plus récent au plus ancien : on garde le début.
+  journal: z
+    .array(z.object({ date: ligne, text: texte(4000) }))
+    .default([])
+    .transform((a) => a.slice(0, 60)),
+  shared: texte(6000).default(''),
+  // Un patient sans profil : l'objet vide passe par le schéma, qui le remplit
+  // de ses valeurs vides (`prefault`, et non `default`, qui l'accepterait tel
+  // quel sans le lire).
+  profile: profilLuSchema.prefault({}),
+})
+
+/* ------------------------------------------------------------------ *
  * Schémas de sortie
  * ------------------------------------------------------------------ */
 
-/** Les cinq types de modules que le brouillon de séance peut proposer. */
-const proposalKindSchema = z.enum(['Audio', 'Exercice', 'Journal', 'Échelle', 'Écriture'])
+/**
+ * Les types de modules que le brouillon de séance peut proposer.
+ *
+ * Ni « Audio » ni « Échelle » : l'espace du patient ne les montre jamais
+ * comme une tâche, il ne pouvait donc jamais les faire (src/lib/typesDeModules.ts).
+ * Contraint ici, dans le format de sortie, le modèle ne peut plus en rendre.
+ */
+const proposalKindSchema = z.enum(TYPES_PROPOSABLES)
 
 const quizSchema = z.object({
   question: z.string(),
@@ -157,3 +254,5 @@ export type GeneratedAffirmationsOutput = Aligned<
   GeneratedAffirmations
 >
 export type GeneratedProfileOutput = Aligned<z.infer<typeof generatedProfileSchema>, GeneratedProfile>
+/** Le dossier lu doit rester un PatientContext : les prompts n'en lisent pas d'autre. */
+export type ContexteLu = Aligned<z.output<typeof contexteLuSchema>, PatientContext>

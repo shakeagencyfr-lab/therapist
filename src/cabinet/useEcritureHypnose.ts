@@ -1,15 +1,35 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useMaybeCabinet } from '@/cabinet/context'
 import {
-  AiError,
   MOUVEMENTS_HYPNOSE,
   NOM_MOUVEMENT,
   buildPatientContext,
   genererHypnose,
+  messageDEchec,
+  pointDeReprise,
   type MouvementEcrit,
+  type MouvementHypnose,
 } from '@/services/aiClient'
 import { useStore } from '@/state/store'
-import type { PatientId, SessionDraft } from '@/types/domain'
+import type { Hypnose, PatientId, SessionDraft } from '@/types/domain'
+
+/**
+ * Ce qu'il faut garder d'une écriture pour la reprendre : à qui elle est
+ * destinée, sur quelle matière, avec quelle intention, et où elle s'écrit.
+ */
+interface Chantier {
+  patientId: PatientId
+  brouillon: SessionDraft
+  intention: string
+  /** La ligne ouverte en base ; nulle sans cabinet réel (démonstration). */
+  hypnoseId: string | null
+}
+
+/** Le rendu d'un geste d'écriture en base, comme ceux du cabinet. */
+interface Resultat {
+  ok: boolean
+  message: string
+}
 
 /**
  * Écrire une hypnose, d'où qu'on la lance.
@@ -29,6 +49,13 @@ import type { PatientId, SessionDraft } from '@/types/domain'
  *   empilées.
  *
  *   UN SECOND APPEL NE RELANCE RIEN tant que le premier tourne.
+ *
+ * ET UNE ÉCRITURE INTERROMPUE SE REPREND. Un échec au troisième mouvement
+ * laissait les deux premiers en base — c'est ce que promet leur versement
+ * au fil de l'eau — mais aucun geste ne permettait d'en repartir : l'écran
+ * restait figé sur deux coches, sans bouton, et la seule issue était de
+ * tout repayer. On reprend au premier mouvement manquant, les acquis
+ * partant comme précédents, et l'on ferme quand on préfère abandonner.
  */
 export interface EcritureHypnose {
   /** Un mouvement s'écrit en ce moment. */
@@ -48,7 +75,25 @@ export interface EcritureHypnose {
    * alors qu'il vient de coûter l'appel le plus cher du produit.
    */
   conservee: boolean
+  /**
+   * Le mouvement où reprendre, après un échec ; null s'il n'y a rien à
+   * reprendre (pas d'échec, ou écriture en cours).
+   */
+  aReprendre: MouvementHypnose | null
   ecrire: (patientId: PatientId, brouillon: SessionDraft, intention: string) => Promise<void>
+  /** Reprendre l'écriture qui vient d'échouer, au premier mouvement manquant. */
+  reprendre: () => Promise<void>
+  /**
+   * Reprendre une hypnose interrompue retrouvée en base — après un
+   * rechargement, l'écriture en mémoire est perdue, pas ce qu'elle a versé.
+   */
+  reprendreHypnose: (patientId: PatientId, brouillon: SessionDraft, hypnose: Hypnose) => Promise<void>
+  /**
+   * Corriger le texte d'un mouvement déjà écrit. La praticienne le lit à
+   * voix haute : une tournure qui ne passe pas dans sa bouche doit pouvoir
+   * se reprendre avant la séance, pas se contourner en la lisant.
+   */
+  corriger: (mouvement: MouvementHypnose, texte: string) => Promise<Resultat>
   /** Repartir d'un écran vierge, sans toucher à ce qui est en base. */
   reinitialiser: () => void
 }

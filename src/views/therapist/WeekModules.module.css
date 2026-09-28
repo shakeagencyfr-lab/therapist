@@ -90,3 +90,63 @@
   color: var(--c-text-muted);
   line-height: 1.45;
 }
+
+/* La consigne et le retrait, côte à côte : deux gestes discrets sur la même
+   ligne, le second moins appuyé que le premier. */
+.gestes {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+.retirer {
+  margin-top: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.retirer:hover:not(:disabled) {
+  color: var(--c-text-2);
+}
+.retirer:disabled,
+.consigne:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Les exercices retirés : sous le parcours, repliés. */
+.retires {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--c-border-light);
+}
+.retiresTete {
+  padding: 12px 20px;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--c-text-muted);
+  text-align: left;
+  cursor: pointer;
+}
+.retiresTete:hover {
+  color: var(--c-text-2);
+}
+.retire {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 20px;
+  border-top: 1px solid var(--c-border-light);
+  background: var(--c-surface-2);
+}
+.retire .consigne {
+  margin-top: 0;
+  flex: none;
+}

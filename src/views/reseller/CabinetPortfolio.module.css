@@ -163,6 +163,40 @@
   min-width: 0;
 }
 
+/* L'invitation d'ouverture en attente : à qui, jusqu'à quand, et les trois
+   gestes qui la font repartir, la redirigent ou la retirent. */
+.attente {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 20px 14px 67px;
+}
+
+.attenteLigne {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.attenteTexte {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--c-text-2);
+  overflow-wrap: anywhere;
+}
+
+.attenteEchue {
+  color: var(--c-warn-text-2);
+}
+
+.attenteGestes {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .aside {
   display: flex;
   flex-direction: column;
@@ -271,5 +305,12 @@
   }
   .formRow {
     grid-template-columns: 1fr;
+  }
+  .invite {
+    flex-wrap: wrap;
+    padding-left: 20px;
+  }
+  .attente {
+    padding-left: 20px;
   }
 }

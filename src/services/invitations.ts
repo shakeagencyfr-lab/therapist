@@ -11,7 +11,8 @@ import { supabase } from '@/lib/supabase'
 export interface DemandeInvitation {
   email: string
   cabinetId: string
-  kind: 'praticienne' | 'patient'
+  /** `consoeur` : un membre d'équipe invité par la titulaire (écran Équipe). */
+  kind: 'praticienne' | 'consoeur' | 'patient'
 }
 
 export interface RetourInvitation {

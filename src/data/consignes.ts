@@ -3,8 +3,8 @@
  * application : trois temps, un « pourquoi », parfois un quiz.
  *
  * Données de démonstration reprises du prototype. Dans le produit réel elles
- * viennent de l'API : données de santé, chiffrées en transit et au repos, chez
- * un hébergeur certifié HDS.
+ * viennent de la base du cabinet (Supabase, région de Paris). Aucune
+ * certification HDS n'est revendiquée (voir server/README.md).
  */
 import type { Consigne, CustomModule, ModuleKind, PatientModule } from '@/types/domain'
 
@@ -250,12 +250,34 @@ export const CONSIGNE_PAR_TYPE: Partial<Record<ModuleKind, Consigne>> = {
  * Consigne d'un module : un module créé dans l'atelier prime sur la consigne de
  * référence, qui prime sur la consigne générique du type, avec repli sur celle
  * de l'exercice.
+ *
+ * SAUF SUR UN DOSSIER RÉEL. Un module en base porte SA consigne — écrite par
+ * l'IA, corrigée par la thérapeute —, et c'est elle que le patient lit
+ * (src/patient/Tache.tsx). L'aperçu de la fiche la contournait : il cherchait
+ * par titre dans l'atelier, puis servait une consigne générique par type, et
+ * la thérapeute relisait des étapes que personne n'avait prescrites — ou ne
+ * voyait pas la correction qu'elle venait d'enregistrer. Le badge « Quiz » de
+ * la fiche, lui, ne trouvait pas le quiz du module.
+ *
+ * Un module réel sans consigne n'en reçoit pas d'inventée : l'espace patient
+ * dit qu'il n'y en a pas, l'aperçu doit dire la même chose. Les modèles
+ * ci-dessus ne servent qu'à la démonstration, où aucun module n'a d'identifiant.
  */
 export function consigneFor(
   module: PatientModule | null,
   customs: Record<string, CustomModule[]>,
 ): Consigne | null {
   if (!module) return null
+  if (module.consigne) {
+    // Un module de séance ne porte parfois que son « pourquoi ».
+    return {
+      ...module.consigne,
+      duree: module.consigne.duree ?? '',
+      quand: module.consigne.quand ?? '',
+      steps: module.consigne.steps ?? [],
+    }
+  }
+  if (module.id) return null
   for (const list of Object.values(customs)) {
     const made = list.find((c) => c.titre === module.title)
     if (made) {

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Button, Card, Chip, Notice, TextInput, Title } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { useDroits } from '@/cabinet/droits'
+import { etatAcces, libelleAcces, normaliserAdresse } from '@/lib/accesPatient'
 import { patientOf } from '@/state/selectors'
 import { useAppState } from '@/state/store'
 import s from './FicheSettings.module.css'
@@ -38,6 +39,12 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
   const [supprime, setSupprime] = useState(false)
   /** Clôture en cours : elle demande un aller-retour à la base. */
   const [cloture, setCloture] = useState(false)
+  /** L'adresse telle qu'on la tape, avant de l'enregistrer. */
+  const [adresse, setAdresse] = useState('')
+  /** Changer l'adresse d'un espace activé : un geste qu'on ouvre exprès. */
+  const [changerAdresse, setChangerAdresse] = useState(false)
+  /** Un aller-retour d'accès en cours : adresse ou envoi du lien. */
+  const [acces, setAcces] = useState(false)
 
   // Les champs suivent la fiche OUVERTE : on ne garde pas les saisies d'une
   // patient quand on passe à la suivante. Ils ne suivent pas chaque
@@ -54,10 +61,44 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
     setOuvert(ouvertParDefaut)
     setNouveau('')
     setSuppression('')
+    setAdresse(fiche.email ?? '')
+    setChangerAdresse(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.sel])
 
   if (!fiche || !cabinet?.reel) return null
+
+  /* L'ACCÈS À SON ESPACE.
+     Une fiche créée sans adresse ne pouvait jamais recevoir son accès ; une
+     adresse fausse ne se corrigeait pas ; un lien perdu ne se renvoyait pas ;
+     et l'état du compte, chargé à chaque rechargement, n'était montré nulle
+     part. La thérapeute ne savait pas si son patient avait seulement ouvert
+     son espace. */
+  const etat = etatAcces(fiche)
+  const enregistree = fiche.email ?? ''
+  const modifiee = normaliserAdresse(adresse) !== normaliserAdresse(enregistree)
+
+  async function enregistrerAdresse() {
+    if (!cabinet || acces || !modifiee) return
+    setAcces(true)
+    setNotice(null)
+    const r = await cabinet.changerAdresse(state.sel, adresse)
+    setAcces(false)
+    setNotice({ tone: r.ok ? 'ok' : 'warn', text: r.message })
+    if (r.ok) {
+      setAdresse(normaliserAdresse(adresse))
+      setChangerAdresse(false)
+    }
+  }
+
+  async function envoyerLien() {
+    if (!cabinet || acces || !enregistree) return
+    setAcces(true)
+    setNotice(null)
+    const r = await cabinet.envoyerLienAcces(enregistree)
+    setAcces(false)
+    setNotice({ tone: r.ok ? 'ok' : 'warn', text: r.message })
+  }
 
   async function enregistrer() {
     if (!cabinet) return
@@ -131,9 +172,15 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
         <div className={s.headText}>
           <Title>Réglages de la fiche</Title>
           <span className={s.resume}>{resume}</span>
+          {/* Visible fiche repliée : c'est l'état qu'on vient vérifier. */}
+          <span className={s.acces} data-etat={etat}>
+            <span className={s.accesPoint} aria-hidden />
+            {libelleAcces(etat, enregistree)}
+          </span>
           {!ouvert ? (
             <span className={s.contenu}>
-              Programme, échelle du soir, hypnose, et suppression de la fiche.
+              Adresse et lien d'accès, programme, échelle du soir, hypnose, et suppression de la
+              fiche.
             </span>
           ) : null}
         </div>
@@ -143,6 +190,22 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
           </Button>
         )}
       </div>
+
+      {/* Le geste qui manque, à portée sans ouvrir le formulaire : un espace
+          qui ne s'ouvre pas est la première chose à régler sur une fiche. */}
+      {!ouvert && etat !== 'active' ? (
+        <div className={s.accesGestes}>
+          {etat === 'en-attente' ? (
+            <Button variant="secondary" onClick={() => void envoyerLien()} disabled={acces}>
+              {acces ? 'Envoi…' : "Envoyer le lien d'accès"}
+            </Button>
+          ) : (
+            <Button variant="secondary" onClick={() => setOuvert(true)}>
+              Ajouter son adresse
+            </Button>
+          )}
+        </div>
+      ) : null}
 
       {notice ? (
         <div className={s.notice}>
@@ -158,6 +221,98 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
             void enregistrer()
           }}
         >
+          {/* L'adresse a son propre bouton : elle ne s'enregistre pas avec le
+              reste, parce qu'elle ne se change pas comme le reste. */}
+          <div className={s.field}>
+            <span className={s.label}>Adresse électronique</span>
+            {etat === 'active' && !changerAdresse ? (
+              <>
+                <span className={s.adresse}>{enregistree}</span>
+                <span className={s.hint}>
+                  Son espace est activé avec cette adresse : la connexion se fait depuis la page
+                  d'accès de votre cabinet, sans mot de passe.
+                </span>
+                <button
+                  type="button"
+                  className={s.retirer}
+                  onClick={() => {
+                    setAdresse(enregistree)
+                    setChangerAdresse(true)
+                  }}
+                >
+                  Changer d'adresse
+                </button>
+              </>
+            ) : (
+              <>
+                <div className={s.ajout}>
+                  <TextInput
+                    type="email"
+                    inputMode="email"
+                    value={adresse}
+                    onChange={(e) => setAdresse(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key !== 'Enter') return
+                      e.preventDefault()
+                      void enregistrerAdresse()
+                    }}
+                    placeholder="camille@exemple.fr"
+                    aria-label="Adresse électronique de la fiche"
+                    disabled={acces}
+                  />
+                  <Button
+                    variant={etat === 'active' ? 'danger' : 'secondary'}
+                    onClick={() => void enregistrerAdresse()}
+                    disabled={acces || !modifiee}
+                  >
+                    {acces
+                      ? 'Enregistrement…'
+                      : etat === 'active'
+                        ? 'Détacher et changer'
+                        : "Enregistrer l'adresse"}
+                  </Button>
+                </div>
+                {etat === 'active' ? (
+                  <>
+                    {/* Détacher n'est jamais silencieux : on le dit avant, en
+                        toutes lettres, et le bouton le porte dans son nom. */}
+                    <Notice tone="warn">
+                      Son espace est activé avec {enregistree}. Changer d'adresse détache ce compte :
+                      l'espace se ferme aussitôt, et ne se rouvrira qu'à la première connexion avec
+                      la nouvelle adresse. À faire si l'adresse est erronée, ou si ce compte n'est
+                      pas le bon.
+                    </Notice>
+                    <button
+                      type="button"
+                      className={s.retirer}
+                      onClick={() => {
+                        setAdresse(enregistree)
+                        setChangerAdresse(false)
+                      }}
+                    >
+                      Garder l'adresse actuelle
+                    </button>
+                  </>
+                ) : (
+                  <span className={s.hint}>
+                    C'est avec cette adresse que son espace s'ouvrira, sans mot de passe. Une
+                    autre fiche de votre cabinet ne peut pas porter la même.
+                  </span>
+                )}
+              </>
+            )}
+            {etat === 'en-attente' && !modifiee ? (
+              <div className={s.ajout}>
+                <Button variant="secondary" onClick={() => void envoyerLien()} disabled={acces}>
+                  {acces ? 'Envoi…' : "Envoyer le lien d'accès"}
+                </Button>
+                <span className={s.hint}>
+                  Aucune connexion pour l'instant. Si le courriel s'est perdu, ou a expiré,
+                  renvoyez-le d'ici.
+                </span>
+              </div>
+            ) : null}
+          </div>
           <div className={s.field}>
             <span className={s.label}>Programme</span>
             <div className={s.chips}>
@@ -232,7 +387,10 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
               onChange={(e) => setQuestion(e.target.value)}
               placeholder="Où en est l'envie de fumer ?"
             />
-            <span className={s.hint}>Elle la lira chaque soir : écrivez-la comme vous la lui diriez.</span>
+            <span className={s.hint}>
+              Elle s'affiche chaque soir dans son espace : écrivez-la comme vous la poseriez en
+              séance.
+            </span>
           </label>
 
           <label className={s.field}>
@@ -288,8 +446,8 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
             <span className={s.hint}>
               Sa fiche quitte vos patients actifs et libère une place sur votre offre. Son
               dossier est conservé entier, et vous pouvez rouvrir le suivi depuis « Suivis clos »,
-              en bas de la colonne de gauche. Elle perd en revanche l'accès à son espace : un
-              suivi clos est un accompagnement terminé.
+              en bas de la colonne de gauche. Son espace, en revanche, se ferme : un suivi clos
+              est un accompagnement terminé.
             </span>
             <Button
               variant="secondary"
@@ -314,8 +472,8 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
           <div className={s.danger}>
             <span className={s.dangerTitre}>Supprimer la fiche de {fiche.name}</span>
             <span className={s.hint}>
-              Son dossier, ses modules, ses audios, son journal et ses hypnoses partent avec
-              elle. Rien ne se récupère. Pour confirmer, recopiez son nom.
+              Son dossier, ses modules, ses audios, son journal et ses hypnoses partent avec la
+              fiche. Rien ne se récupère. Pour confirmer, recopiez son nom.
             </span>
             <div className={s.dangerLigne}>
               <TextInput

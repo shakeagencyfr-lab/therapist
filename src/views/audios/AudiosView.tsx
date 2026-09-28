@@ -4,16 +4,24 @@ import { useMaybeCabinet } from '@/cabinet/context'
 import { plural } from '@/lib/format'
 import { useStore } from '@/state/store'
 import type { AppState } from '@/state/state'
-import type { LibraryAudio, PatientId } from '@/types/domain'
+import type { LibraryAudio, PatientAudio, PatientId } from '@/types/domain'
 import s from './AudiosView.module.css'
 
 /* Règles métier ------------------------------------------------------- */
 
-/** Le patient a-t-il déjà cet audio, dans sa fiche d'origine ou après un envoi ? */
-function hasAudio(state: AppState, key: PatientId, title: string): boolean {
+/**
+ * Le patient a-t-il déjà cet audio, dans sa fiche d'origine ou après un envoi ?
+ *
+ * Par l'identifiant quand l'envoi en porte un : deux audios peuvent avoir le
+ * même titre, et la confirmation de suppression annonce combien de comptes
+ * vont le perdre — un compte par homonymie y serait un compte faux. Le titre
+ * ne sert plus qu'à la démonstration, où rien n'a d'identifiant.
+ */
+function hasAudio(state: AppState, key: PatientId, audio: LibraryAudio): boolean {
+  const meme = (a: PatientAudio) => (a.audioId ? a.audioId === audio.id : a.title === audio.title)
   return (
-    (state.patients[key]?.audios ?? []).some((audio) => audio.title === title) ||
-    (state.extraAudios[key] ?? []).some((audio) => audio.title === title)
+    (state.patients[key]?.audios ?? []).some(meme) ||
+    (state.extraAudios[key] ?? []).some(meme)
   )
 }
 
@@ -61,6 +69,8 @@ export function AudiosView() {
   const [ecoute, setEcoute] = useState<string | null>(null)
   /** Vrai tant que l'URL se prépare. Faux et sans URL : elle a échoué. */
   const [ecoutePrete, setEcoutePrete] = useState(false)
+  /** La suppression attend sa confirmation : elle efface un fichier. */
+  const [aSupprimer, setASupprimer] = useState(false)
 
   const filtered =
     state.libFilter === 'Toutes'
@@ -68,6 +78,8 @@ export function AudiosView() {
       : state.lib.filter((audio) => audio.cat === state.libFilter)
   const selected = state.lib.find((audio) => audio.id === state.libSel) ?? null
   const targets = state.patientOrder.filter((key) => state.libAssign[key])
+  /** Les patients actifs qui perdraient l'audio sélectionné s'il était supprimé. */
+  const detenteurs = selected ? state.patientOrder.filter((key) => hasAudio(state, key, selected)).length : 0
 
   /* L'écoute suit la sélection : une URL signée, courte, par audio réel.
      LA DÉPENDANCE EST LA FONCTION, PAS LE DOSSIER. `useCabinet` rend un objet
@@ -81,6 +93,8 @@ export function AudiosView() {
   useEffect(() => {
     setEcoute(null)
     setTitreSaisi(null)
+    // Une confirmation vaut pour l'audio qu'on regardait, pas pour le suivant.
+    setASupprimer(false)
     if (!reel || !urlEcoute || !state.libSel) {
       setEcoutePrete(false)
       return
@@ -200,6 +214,41 @@ export function AudiosView() {
         libNotice: `Envoyé dans le compte de ${targets.map((key) => state.patients[key].name).join(', ')}.`,
       }
     })
+  }
+
+  /**
+   * Supprimer un audio de la bibliothèque.
+   *
+   * Il n'y avait aucun moyen de le faire : un fichier importé par erreur, ou
+   * remplacé par un meilleur enregistrement, restait au catalogue et dans le
+   * stockage pour toujours. La suppression emporte la ligne, les envois aux
+   * patients (en cascade) et le fichier ; la base refuse celle d'un audio en
+   * vente ou acheté dans la boutique (0045), et sa phrase est rendue telle
+   * quelle.
+   */
+  async function supprimer() {
+    if (!selected) return
+    const titre = selected.title
+    const suivant = state.lib.find((audio) => audio.id !== selected.id)?.id ?? null
+    if (reel && cabinet) {
+      setOccupe(true)
+      const r = await cabinet.supprimerAudio(selected.id)
+      setOccupe(false)
+      setASupprimer(false)
+      set(
+        r.ok
+          ? { libSel: suivant, libAssign: {}, libNotice: `« ${titre} » est supprimé de la bibliothèque.` }
+          : { libNotice: r.message },
+      )
+      return
+    }
+    setASupprimer(false)
+    set((prev) => ({
+      lib: prev.lib.filter((audio) => audio.id !== selected.id),
+      libSel: suivant,
+      libAssign: {},
+      libNotice: `« ${titre} » est supprimé de la bibliothèque.`,
+    }))
   }
 
   /** Création de catégorie à la volée : elle devient aussitôt le filtre et la catégorie d'import. */
@@ -380,7 +429,7 @@ export function AudiosView() {
 
             {filtered.map((audio) => {
               const on = audio.id === state.libSel
-              const who = state.patientOrder.filter((key) => hasAudio(state, key, audio.title)).length
+              const who = state.patientOrder.filter((key) => hasAudio(state, key, audio)).length
               return (
                 <button
                   key={audio.id}
@@ -469,7 +518,7 @@ export function AudiosView() {
               {state.patientOrder.map((key) => {
                 const patient = state.patients[key]
                 const on = !!state.libAssign[key]
-                const has = hasAudio(state, key, selected.title)
+                const has = hasAudio(state, key, selected)
                 return (
                   <button
                     key={key}
@@ -509,6 +558,33 @@ export function AudiosView() {
               <span className={s.dispatchHint}>
                 L'audio apparaît dans leur bibliothèque, écoutable depuis leur espace.
               </span>
+            </div>
+
+            {/* Supprimer : à l'écart de l'envoi, et jamais en un seul clic —
+                ce qui part des comptes des patients se dit avant. */}
+            <div className={s.supprimer}>
+              {aSupprimer ? (
+                <>
+                  <span className={s.supprimerTexte}>
+                    {detenteurs
+                      ? `Il disparaîtra de l'espace de tous les patients qui l'ont reçu — dont ${plural(detenteurs, 'patient actif', 'patients actifs')} —, avec le compte de leurs écoutes. `
+                      : "Il n'est dans le compte d'aucun patient actif. "}
+                    Le fichier est effacé de votre espace : rien ne se récupère.
+                  </span>
+                  <span className={s.supprimerGestes}>
+                    <Button variant="danger" disabled={occupe} onClick={() => void supprimer()}>
+                      {occupe ? 'Suppression…' : 'Supprimer définitivement'}
+                    </Button>
+                    <Button variant="ghost" disabled={occupe} onClick={() => setASupprimer(false)}>
+                      Annuler
+                    </Button>
+                  </span>
+                </>
+              ) : (
+                <button type="button" className={s.supprimerLien} onClick={() => setASupprimer(true)}>
+                  Supprimer cet audio de la bibliothèque
+                </button>
+              )}
             </div>
           </Card>
         ) : (

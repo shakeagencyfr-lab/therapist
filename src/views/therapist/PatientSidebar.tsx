@@ -176,7 +176,9 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
                     placeholder="camille@exemple.fr"
                   />
                   <span className={s.hint}>
-                    C'est avec cette adresse qu'elle ouvrira son espace, sans mot de passe.
+                    C'est avec cette adresse que son espace s'ouvrira, sans mot de passe. Sans
+                    elle, la fiche se crée quand même : l'adresse s'ajoute ensuite depuis ses
+                    réglages.
                   </span>
                 </div>
 

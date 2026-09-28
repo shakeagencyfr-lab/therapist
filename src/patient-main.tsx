@@ -8,7 +8,9 @@
 import { StrictMode, useEffect, useState, type CSSProperties } from 'react'
 import { createRoot } from 'react-dom/client'
 import { SessionProvider, useAuth } from './auth/session'
+import { AvisPorte } from './auth/AvisPorte'
 import { SignIn } from './auth/SignIn'
+import { Button } from './components/ui'
 import { PatientSpace } from './patient/PatientSpace'
 import {
   cabinetDuDomaine,
@@ -66,7 +68,7 @@ function useCabinetDeLaPorte(): { vitrine: Vitrine | null; cherche: boolean } {
 }
 
 function Portail() {
-  const { phase, context } = useAuth()
+  const { phase, context, lecture, seDeconnecter } = useAuth()
   const { vitrine, cherche } = useCabinetDeLaPorte()
 
   /* L'onglet aussi porte la marque du cabinet. Un patient qui met son espace
@@ -116,6 +118,53 @@ function Portail() {
           intro="Entrez l'adresse que vous avez donnée à votre thérapeute : vous recevrez un lien qui vous connecte, sans mot de passe à retenir."
           {...marque}
         />
+      </div>
+    )
+  }
+
+  /* Une panne de lecture n'est pas une absence de suivi. Sans cette branche,
+     une patiente connectée lisait « Aucun suivi en cours à cette adresse »
+     parce que la base n'avait pas répondu à temps — et allait demander à sa
+     thérapeute pourquoi son suivi avait été fermé. */
+  if (lecture === 'echec') {
+    return (
+      <div style={couleurs}>
+        <AvisPorte
+          titre="Vos accès n'ont pas pu être lus"
+          texte="Ce n'est pas votre adresse qui est en cause : la base n'a pas répondu. Réessayez dans un instant."
+          {...marque}
+        >
+          <Button variant="primary" onClick={() => window.location.reload()}>
+            Recharger
+          </Button>
+        </AvisPorte>
+      </div>
+    )
+  }
+
+  /* Un compte de cabinet ou de revendeur n'a pas de suivi, et c'est normal :
+     son espace est à la racine. Sans cette branche, il lisait « Aucun suivi
+     en cours » sous un formulaire de connexion, sans autre sortie que de se
+     reconnecter — pour retomber ici. */
+  if (!context?.patient && (context?.cabinet || context?.reseller)) {
+    return (
+      <div style={couleurs}>
+        <AvisPorte
+          titre="Votre espace est ailleurs"
+          texte={
+            context?.cabinet
+              ? "Cette adresse ouvre l'espace des personnes suivies. Le vôtre, celui de votre cabinet, s'ouvre à la page principale."
+              : "Cette adresse ouvre l'espace des personnes suivies. Le vôtre, l'espace revendeur, s'ouvre à la page principale."
+          }
+          {...marque}
+        >
+          <Button variant="primary" onClick={() => (window.location.href = '/')}>
+            Ouvrir mon espace
+          </Button>
+          <Button variant="secondary" onClick={() => void seDeconnecter()}>
+            Utiliser une autre adresse
+          </Button>
+        </AvisPorte>
       </div>
     )
   }

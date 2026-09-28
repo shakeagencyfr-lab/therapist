@@ -52,6 +52,26 @@ describe('la reprise de session a une fin', () => {
     expect(source.match(/clearTimeout\(minuteur\)/g)?.length ?? 0).toBeGreaterThanOrEqual(2)
   })
 
+  /* Le délai ci-dessus ne couvrait que la reprise de session : claim_access et
+     my_context venaient ensuite, sans borne, et chaque requête du client
+     attend elle-même la reprise. La lecture du rôle a donc sa propre fin. */
+  it('borne aussi la lecture du rôle', () => {
+    const delai = /const DELAI_LECTURE_MS = ([\d_]+)/.exec(source)
+    expect(delai).not.toBeNull()
+    const ms = Number(delai?.[1].replace(/_/g, ''))
+    expect(ms).toBeGreaterThanOrEqual(4_000)
+    expect(ms).toBeLessThanOrEqual(12_000)
+    expect(source).toMatch(/avantDelai\(\w+, DELAI_LECTURE_MS\)/)
+  })
+
+  /* Chaque retour sur l'onglet apporte un SIGNED_IN : relire à chaque
+     événement, c'était risquer de démonter l'espace sur une panne d'une
+     seconde. La décision passe par decisionRelecture, éprouvée à part. */
+  it('ne relit le rôle que sur décision', () => {
+    expect(source).toContain('decisionRelecture(')
+    expect(source).toContain('roleAGarder(')
+  })
+
   /* Sans ce mot, la porte s'affiche sans rien dire, et qui était connectée
      croit l'avoir été déconnectée. */
   it('dit à la porte que la vérification court encore', () => {
@@ -59,5 +79,16 @@ describe('la reprise de session a une fin', () => {
     const porte = readFileSync(join(ici, 'SignIn.tsx'), 'utf8')
     expect(porte).toContain('verificationLente')
     expect(porte).toMatch(/s'ouvrira tout seul/)
+  })
+})
+
+describe('la déconnexion', () => {
+  /* Sans portée, `signOut()` vaut 'global' : se déconnecter du poste du
+     cabinet fermait aussi la session du téléphone. Fermer les autres
+     appareils est un geste à part, `deconnecterAilleurs`. */
+  it('ne ferme que la session de cet appareil', () => {
+    expect(source).toContain("signOut({ scope: 'local' })")
+    expect(source).toContain("signOut({ scope: 'others' })")
+    expect(source).not.toMatch(/\.signOut\(\)/)
   })
 })

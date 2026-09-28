@@ -21,7 +21,7 @@ import { IconeOnglet } from '../src/patient/IconesOnglets'
 import { ConsigneEditeur } from '../src/views/therapist/ConsigneEditeur'
 import { AppStoreProvider } from '../src/state/store'
 import { PATIENTS } from '../src/data/patients'
-import type { AppState, ResellerView, ViewMode } from '../src/state/state'
+import { DOSSIER_AVANT_LECTURE, type AppState, type ResellerView, type ViewMode } from '../src/state/state'
 
 const noms = Object.values(PATIENTS).map((p) => p.name)
 const extraits = Object.values(PATIENTS).flatMap((p) => [
@@ -50,7 +50,7 @@ function rendu(label: string, initial: Partial<AppState>): string {
 // 1. Les six vues du cabinet rendent.
 const MODES: ViewMode[] = [
   'therapist', 'patient', 'session', 'atelier', 'audios', 'notif', 'boutique', 'programmes', 'marque',
-  'site', 'integrations', 'compte',
+  'site', 'integrations', 'equipe', 'compte',
 ]
 for (const mode of MODES) {
   const html = rendu(`cabinet/${mode}`, { space: 'cabinet', mode })
@@ -81,6 +81,23 @@ const VIDE = { space: 'cabinet', patients: {}, patientOrder: [], sel: '', patien
 for (const mode of MODES) {
   const html = rendu(`vide/${mode}`, { ...VIDE, mode })
   if (html) console.log(`✓ vide/${mode.padEnd(12)} ${String(html.length).padStart(6)} octets`)
+}
+
+/* 1 ter ter. UN CABINET RÉEL NE VOIT JAMAIS LES FICHES DE DÉMONSTRATION.
+   Avant sa première lecture — et pour toujours si elle échoue —, il gardait
+   l'état initial : Camille et les autres, sur lesquelles une séance réelle,
+   facturée, pouvait se lancer. Root lui donne désormais un dossier vide. */
+const fuites: string[] = []
+for (const mode of MODES) {
+  const html = rendu(`avant-lecture/${mode}`, { space: 'cabinet', ...DOSSIER_AVANT_LECTURE, mode })
+  const vus = noms.filter((n) => html.includes(n))
+  if (vus.length) fuites.push(`${mode} (${vus.join(', ')})`)
+}
+if (fuites.length) {
+  console.error(`✗ avant-lecture : des fiches de démonstration s'affichent — ${fuites.join(' ; ')}`)
+  echecs++
+} else {
+  console.log(`✓ avant-lecture       ${MODES.length} vues · aucune fiche de démonstration`)
 }
 
 /* 1 ter bis. L'APERÇU N'ÉCRIT PAS DANS LE DOSSIER.

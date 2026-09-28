@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button, Card, Notice, Title } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
+import type { SeanceOuverte } from '@/cabinet/useCabinet'
 import { consentPoints } from '@/data/session'
+import { DELAI_PURGE_JOURS, ceQuiAEtePris } from '@/lib/seance'
 import { useStore } from '@/state/store'
 import s from './ConsentStep.module.css'
 
@@ -12,6 +14,32 @@ export function ConsentStep() {
   const patient = state.patients[state.sessionPatient]
   const [envoi, setEnvoi] = useState(false)
   const [echec, setEchec] = useState('')
+  /** Une séance de cette fiche, ouverte et jamais envoyée, à reprendre. */
+  const [ouverte, setOuverte] = useState<SeanceOuverte | null>(null)
+  const [effacement, setEffacement] = useState<'repos' | 'en-cours'>('repos')
+  const [avis, setAvis] = useState<{ ton: 'ok' | 'warn'; texte: string } | null>(null)
+
+  /* LA REPRISE. La captation s'enregistre dans la séance au fil de l'eau ;
+     encore faut-il la retrouver. Une page rechargée, un onglet fermé en
+     pleine séance, et l'écran proposait de signer un nouveau consentement
+     comme si rien n'avait eu lieu — la séance restait en base, orpheline,
+     jusqu'à la purge. On la propose ici, avant la signature. */
+  const reel = Boolean(cabinet?.reel)
+  const chercher = cabinet?.seanceOuverte
+  const patientId = state.sessionPatient
+  useEffect(() => {
+    if (!reel || !chercher || !patientId) return
+    let vivant = true
+    void chercher(patientId).then((o) => {
+      if (vivant) setOuverte(o)
+    })
+    return () => {
+      vivant = false
+    }
+    // La fonction change d'identité à chaque rendu du dossier : seule la
+    // fiche décide d'une nouvelle recherche.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reel, patientId])
 
   // Le consentement se donne par quelqu'un : sans fiche, il n'y a rien à signer.
   if (!patient) return null
@@ -39,38 +67,120 @@ export function ConsentStep() {
     set({ consent: true, sessionId: r.id ?? null })
   }
 
+  /** Reprendre là où la séance s'est arrêtée : son consentement tient toujours. */
+  function reprendre(o: SeanceOuverte) {
+    set({
+      consent: true,
+      sessionId: o.id,
+      transcript: o.transcript,
+      interim: '',
+      sessionNotes: o.notes,
+      elapsed: o.dureeSecondes,
+      draft: o.draft,
+      draftMaquette: false,
+      syntheseOk: false,
+      proposalOff: {},
+      sent: false,
+      msgOk: false,
+      msgEnvoye: '',
+      sugOff: {},
+      sugSent: '',
+      notice: '',
+    })
+  }
+
+  /** Effacer ce qui a été pris : c'est un retrait de consentement. */
+  async function effacer(o: SeanceOuverte) {
+    if (!cabinet) return
+    setEffacement('en-cours')
+    const r = await cabinet.retirerConsentement(o.id)
+    setEffacement('repos')
+    if (!r.ok) {
+      setAvis({ ton: 'warn', texte: r.message })
+      return
+    }
+    setOuverte(null)
+    setAvis({
+      ton: 'ok',
+      texte:
+        'Séance effacée : sa transcription, ses notes et son brouillon ne sont plus dans le dossier. Il reste la date du consentement et celle de son retrait.',
+    })
+  }
+
+  const le = ouverte
+    ? new Date(ouverte.ouverteLe).toLocaleString('fr-FR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : ''
+
   return (
-    <Card padded={false} className={s.card}>
-      <div className={s.heading}>
-        <Title large as="h2">
-          Consentement du patient
-        </Title>
-      </div>
-      <div className={s.points}>
-        {consentPoints(prenom).map((point) => (
-          <div className={s.point} key={point}>
-            <span className={s.dot} aria-hidden />
-            <span className={s.text}>{point}</span>
+    <>
+      {ouverte ? (
+        <Card className={s.reprise}>
+          <Title as="h2">Une séance de {prenom} n'a pas été envoyée</Title>
+          <p className={s.repriseTexte}>
+            Consentement signé le {le}. Elle contient{' '}
+            {ceQuiAEtePris({
+              transcript: ouverte.transcript,
+              notes: ouverte.notes,
+              aUnBrouillon: Boolean(ouverte.draft),
+            })}
+            . Reprenez-la là où elle s'est arrêtée, ou effacez-la si {prenom} le demande. Sans
+            suite, sa transcription est effacée d'office {DELAI_PURGE_JOURS} jours après la signature.
+          </p>
+          <div className={s.repriseActions}>
+            <Button variant="primary" onClick={() => reprendre(ouverte)} disabled={effacement === 'en-cours'}>
+              Reprendre cette séance
+            </Button>
+            <Button variant="danger" onClick={() => void effacer(ouverte)} disabled={effacement === 'en-cours'}>
+              {effacement === 'en-cours' ? 'Effacement…' : 'Effacer ce qui a été pris'}
+            </Button>
           </div>
-        ))}
-      </div>
-      {echec ? (
+        </Card>
+      ) : null}
+
+      {avis ? (
         <div className={s.notice}>
-          <Notice tone="warn">{echec}</Notice>
+          <Notice tone={avis.ton}>{avis.texte}</Notice>
         </div>
       ) : null}
-      <div className={s.foot}>
-        <Button variant="primary" className={s.sign} onClick={() => void signer()} disabled={envoi}>
-          {envoi ? 'Enregistrement…' : `${prenom} a donné son accord, signer`}
-        </Button>
-        {/* « depuis l'espace patient » : cet écran n'existe pas, et n'a jamais
-            existé. La révocation passe par la thérapeute — c'est elle qui est
-            dans la pièce. */}
-        <span className={s.hint}>
-          Révocable à tout moment : il suffit de le dire, l'enregistrement s'arrête et ce qui a
-          été pris est supprimé.
-        </span>
-      </div>
-    </Card>
+
+      <Card padded={false} className={s.card}>
+        <div className={s.heading}>
+          <Title large as="h2">
+            {ouverte ? 'Ou une nouvelle séance' : 'Consentement du patient'}
+          </Title>
+        </div>
+        <div className={s.points}>
+          {consentPoints(prenom).map((point) => (
+            <div className={s.point} key={point}>
+              <span className={s.dot} aria-hidden />
+              <span className={s.text}>{point}</span>
+            </div>
+          ))}
+        </div>
+        {echec ? (
+          <div className={s.notice}>
+            <Notice tone="warn">{echec}</Notice>
+          </div>
+        ) : null}
+        <div className={s.foot}>
+          <Button variant="primary" className={s.sign} onClick={() => void signer()} disabled={envoi}>
+            {envoi ? 'Enregistrement…' : `${prenom} a donné son accord, signer`}
+          </Button>
+          {/* « depuis l'espace patient » : cet écran n'existe pas, et n'a jamais
+              existé. La révocation se demande de vive voix, et le geste qui
+              l'exécute est en haut de la séance. */}
+          <span className={s.hint}>
+            Révocable à tout moment : il suffit de le dire. « Retirer le consentement », en haut de
+            la séance, arrête l'enregistrement et efface ce qui a été pris.
+          </span>
+        </div>
+      </Card>
+    </>
   )
 }

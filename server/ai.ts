@@ -46,6 +46,7 @@ import {
   sessionMaterial,
 } from './prompts.js'
 import {
+  contexteLuSchema,
   generatedAffirmationsSchema,
   generatedHypnoseSchema,
   generatedModuleSchema,
@@ -60,7 +61,7 @@ import type {
   ProfileBody,
   SessionDraftBody,
 } from './schemas.js'
-import type { ModuleKind } from '../src/types/domain.js'
+import { seFaitParLePatient, typeDeModule } from '../src/lib/typesDeModules.js'
 
 /* ------------------------------------------------------------------ *
  * Configuration
@@ -213,9 +214,21 @@ export function describeError(err: unknown): { status: number; message: string }
   }
   if (err instanceof Anthropic.APIError) {
     const status = typeof err.status === 'number' ? err.status : 502
+    /* Une panne du service (5xx) passe : réessayer a un sens. Un refus de
+       la demande (4xx) ne passe pas — la même demande échouera pareil, et
+       « Réessayez » envoyait la thérapeute tourner en rond. */
+    if (status >= 500) {
+      return {
+        status: 502,
+        message:
+          status === 529
+            ? "Le service d'analyse est momentanément saturé. Réessayez dans un instant."
+            : `Le service d'analyse a répondu ${status}. Réessayez dans un instant.`,
+      }
+    }
     return {
-      status: status >= 500 ? 502 : status,
-      message: `Le service d'analyse a répondu ${status}. Réessayez.`,
+      status,
+      message: `Le service d'analyse a refusé la demande (${status}). Rien n'a été produit. Si cela se répète, prévenez votre revendeur : c'est un réglage du serveur.`,
     }
   }
   return { status: 500, message: 'Erreur interne du serveur.' }
@@ -326,16 +339,61 @@ function asText(value: unknown): string {
   return typeof value === 'string' ? value : ''
 }
 
+/**
+ * Le dossier du patient, LU et non plus cru sur parole (server/schemas.ts).
+ *
+ * Un champ d'un mauvais type levait un TypeError au milieu d'un prompt, et
+ * l'écran disait « Erreur interne du serveur » : un message qui n'apprend
+ * rien à personne. Le refus se dit maintenant, avec le remède — un onglet
+ * resté sur une ancienne version de l'application se corrige en rechargeant.
+ */
 function asContext(value: unknown): PatientContext {
   if (!value || typeof value !== 'object') {
     throw new HttpError(400, 'Le dossier du patient est absent de la requête.')
   }
-  return value as PatientContext
+  const lu = contexteLuSchema.safeParse(value)
+  if (!lu.success) {
+    // Les chemins seulement — des noms de champs, jamais leur contenu.
+    const champs = lu.error.issues.map((i) => i.path.join('.') || '(racine)').join(', ')
+    console.warn(`[ia] dossier illisible — ${champs}`)
+    throw new HttpError(
+      400,
+      "Le dossier du patient est arrivé incomplet. Rechargez la page, puis relancez : rien n'a été produit.",
+    )
+  }
+  return lu.data
 }
 
-function asStrings(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []
+/** Au plus `combien` chaînes, de `longueur` caractères au plus : le reste est ignoré. */
+function asStrings(value: unknown, combien: number, longueur: number): string[] {
+  return Array.isArray(value)
+    ? value
+        .filter((v): v is string => typeof v === 'string')
+        .map((v) => v.slice(0, longueur))
+        .slice(0, combien)
+    : []
 }
+
+/**
+ * Ce que la thérapeute écrit elle-même, borné AVEC REFUS.
+ *
+ * À l'inverse du dossier, qu'on coupe sans rien dire (server/schemas.ts) :
+ * couper en silence la fin d'une séance ferait analyser une séance qui n'a
+ * pas eu lieu, couper un brief ferait écrire un module sur la moitié d'une
+ * intention. Au-delà, la requête est refusée en disant quoi raccourcir. Les
+ * bornes sont larges — trois heures de parole, des pages de notes — : elles
+ * n'arrêtent qu'un corps qui n'a plus rien d'une séance, avant qu'il ne
+ * devienne une facture.
+ */
+const BORNES = {
+  /** Transcription et notes d'une séance : environ trois heures de parole. */
+  matiere: 200_000,
+  brief: 4_000,
+  notes: 50_000,
+  intention: 2_000,
+}
+
+const nombre = (n: number) => n.toLocaleString('fr-FR')
 
 /* ------------------------------------------------------------------ *
  * Les quatre fonctions
@@ -354,13 +412,20 @@ export interface AiResult {
 
 async function sessionDraft(body: Partial<SessionDraftBody>, cle: Cle | null): Promise<Produit<unknown>> {
   const context = asContext(body.context)
-  const categories = asStrings(body.categories)
+  // Les rayons de la bibliothèque : une vingtaine d'ordinaire.
+  const categories = asStrings(body.categories, 50, 100)
   const transcript = asText(body.transcript)
   const material = sessionMaterial(transcript, asText(body.notes))
   if (material.length < 80) {
     throw new HttpError(
       400,
-      "Il faut un peu plus de matière. Dictez quelques phrases ou chargez la séance d'exemple.",
+      'Il faut un peu plus de matière. Dictez quelques phrases, ou écrivez vos notes dans le champ prévu : elles suffisent.',
+    )
+  }
+  if (material.length > BORNES.matiere) {
+    throw new HttpError(
+      400,
+      `La séance dépasse ce qu'une analyse peut lire d'un bloc : ${nombre(material.length)} caractères, pour ${nombre(BORNES.matiere)} au plus. Rien n'a été produit. Raccourcissez la transcription ; vos notes, elles, priment et peuvent suffire.`,
     )
   }
   if (mockMode()) return { data: mockSessionDraft(context, categories), usage: null }
@@ -374,7 +439,24 @@ async function sessionDraft(body: Partial<SessionDraftBody>, cle: Cle | null): P
   })
 }
 
-async function customModule(body: Partial<ModuleContext>, cle: Cle | null): Promise<Produit<unknown>> {
+/**
+ * Le brief d'un module, lu dans le corps de la requête.
+ *
+ * LE DOSSIER EN FAISAIT PARTIE, ET IL ÉTAIT JETÉ. Le brief était recomposé
+ * champ par champ — intention, type, quiz — et le contexte n'y était pas
+ * recopié : les consignes d'une séance partaient avec le dossier de la
+ * personne, et l'IA écrivait un exercice de manuel, payé au prix d'un
+ * exercice sur mesure. modulePrompt savait pourtant l'écrire pour quelqu'un.
+ * Le dossier reste facultatif — l'atelier fabrique aussi des modules
+ * génériques —, mais quand il est là, il est lu comme ailleurs, et gardé.
+ *
+ * Un module « Audio » ou « Échelle » est refusé avant tout appel : le patient
+ * ne le verrait jamais comme une tâche (src/lib/typesDeModules.ts), et sa
+ * consigne serait payée pour personne.
+ *
+ * Exportée pour être éprouvée sans appel au modèle.
+ */
+export function briefDuModule(body: Record<string, unknown>): ModuleContext {
   const intent = asText(body.intent).trim()
   if (intent.length < 15) {
     throw new HttpError(
@@ -382,11 +464,27 @@ async function customModule(body: Partial<ModuleContext>, cle: Cle | null): Prom
       'Décrivez en une phrase ou deux ce que le module doit faire travailler.',
     )
   }
-  const brief: ModuleContext = {
-    intent,
-    type: (asText(body.type) || 'Exercice') as ModuleKind,
-    quiz: body.quiz !== false,
+  if (intent.length > BORNES.brief) {
+    throw new HttpError(
+      400,
+      `Le brief est trop long : quelques phrases suffisent, ${nombre(BORNES.brief)} caractères au plus.`,
+    )
   }
+  const type = typeDeModule(asText(body.type) || 'Exercice')
+  if (!type) throw new HttpError(400, "Ce type de module n'existe pas.")
+  if (!seFaitParLePatient(type)) {
+    throw new HttpError(
+      400,
+      `Un module « ${type} » n'a pas de consigne à écrire : l'espace du patient donne aux audios et à la note du soir leur propre place, pas celle d'une tâche.`,
+    )
+  }
+  const brief: ModuleContext = { intent, type, quiz: body.quiz !== false }
+  if (body.context !== undefined && body.context !== null) brief.context = asContext(body.context)
+  return brief
+}
+
+async function customModule(body: Record<string, unknown>, cle: Cle | null): Promise<Produit<unknown>> {
+  const brief = briefDuModule(body)
   if (mockMode()) return { data: mockGeneratedModule(brief), usage: null }
   return callClaude({
     route: 'module',
@@ -428,10 +526,20 @@ async function hypnose(body: Partial<HypnoseBody>, cle: Cle | null): Promise<Pro
   if (mockMode()) return { data: mockHypnoseMouvement(mouvement), usage: null }
 
   const context = asContext(body.context)
+  const intention = asText(body.intention).trim()
+  if (intention.length > BORNES.intention) {
+    throw new HttpError(
+      400,
+      `L'intention est trop longue : une ou deux phrases suffisent, ${nombre(BORNES.intention)} caractères au plus.`,
+    )
+  }
+  /* Trois mouvements précèdent le dernier, jamais plus : au-delà, ce n'est
+     plus une séance qui se poursuit, c'est un corps qui grossit. */
   const precedents = (Array.isArray(body.precedents) ? body.precedents : [])
     .filter((p): p is { mouvement: string; texte: string } => Boolean(p && typeof p === 'object'))
-    .map((p) => ({ mouvement: asText(p.mouvement).trim() as Mouvement, texte: asText(p.texte) }))
+    .map((p) => ({ mouvement: asText(p.mouvement).trim() as Mouvement, texte: asText(p.texte).slice(0, 20_000) }))
     .filter((p) => MOUVEMENTS.includes(p.mouvement) && p.texte.trim().length > 0)
+    .slice(0, MOUVEMENTS.length - 1)
 
   return callClaude({
     route: 'hypnose',
@@ -439,10 +547,12 @@ async function hypnose(body: Partial<HypnoseBody>, cle: Cle | null): Promise<Pro
     system: HYPNOSE_SYSTEM,
     prompt: hypnosePrompt(mouvement, {
       context,
-      mots: (Array.isArray(body.mots) ? body.mots : []).map(asText).filter(Boolean),
-      themes: (Array.isArray(body.themes) ? body.themes : []).map(asText).filter(Boolean),
-      synthese: asText(body.synthese).trim(),
-      intention: asText(body.intention).trim(),
+      // Ce que la séance a relevé : quatre à huit formulations, deux à
+      // quatre fils. Les bornes n'arrêtent qu'un corps qui n'en est plus un.
+      mots: asStrings(body.mots, 30, 400).filter(Boolean),
+      themes: asStrings(body.themes, 12, 400).filter(Boolean),
+      synthese: asText(body.synthese).trim().slice(0, 8000),
+      intention,
       precedents,
     }),
     // Un mouvement fait 500 à 900 mots. Le plafond laisse de la marge au
@@ -481,12 +591,21 @@ const RATTRAPAGE =
 
 async function profile(body: Partial<ProfileBody>, cle: Cle | null): Promise<Produit<unknown>> {
   const context = asContext(body.context)
+  const notes = asText(body.notes).trim()
+  if (notes.length > BORNES.notes) {
+    throw new HttpError(
+      400,
+      `Vos notes dépassent ce que l'actualisation peut relire : ${nombre(BORNES.notes)} caractères au plus. Rien n'a été produit. Gardez l'essentiel, puis relancez.`,
+    )
+  }
   if (mockMode()) return { data: mockGeneratedProfile(context), usage: null }
   const prompt = profilePrompt({
     context,
-    notes: asText(body.notes).trim(),
-    synthese: asText(body.synthese).trim(),
-    transcript: asText(body.transcript).trim(),
+    notes,
+    // La synthèse fait six phrases ; le prompt ne cite que le début de la
+    // transcription. Au-delà, rien ne serait lu : on ne le garde pas.
+    synthese: asText(body.synthese).trim().slice(0, 8000),
+    transcript: asText(body.transcript).trim().slice(0, 2500),
   })
   let { data: generated, usage } = await callClaude({
     route: 'profile',
@@ -667,7 +786,7 @@ function produire(route: AiRoute, body: Record<string, unknown>, cle: Cle | null
     case 'session-draft':
       return sessionDraft(body as Partial<SessionDraftBody>, cle)
     case 'module':
-      return customModule(body as Partial<ModuleContext>, cle)
+      return customModule(body, cle)
     case 'affirmations':
       return affirmations(body as Partial<AffirmationsBody>, cle)
     case 'profile':

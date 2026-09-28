@@ -11,22 +11,93 @@
   padding: 0 20px 18px;
 }
 
+/* Une ligne : l'audio (qui s'ouvre au clic) et, à côté, son retrait. Deux
+   boutons voisins plutôt qu'un bouton dans un bouton. */
+.ligne {
+  border-top: 1px solid var(--c-border-light);
+}
 .row {
   display: flex;
   align-items: center;
+  gap: 10px;
+  padding-right: 20px;
+}
+.row:hover {
+  background: var(--c-surface-2);
+}
+.lecture {
+  display: flex;
+  align-items: center;
   gap: 13px;
-  width: 100%;
-  padding: 12px 20px;
+  flex: 1;
+  min-width: 0;
+  padding: 12px 0 12px 20px;
   border: none;
-  border-top: 1px solid var(--c-border-light);
   background: transparent;
   text-align: left;
   color: var(--c-text);
   font-family: inherit;
   cursor: pointer;
 }
-.row:hover {
+
+.retirer {
+  flex: none;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.retirer:hover {
+  color: var(--c-text-2);
+}
+
+/* Le retrait se confirme : les écoutes comptées partent avec l'envoi. */
+.confirmer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 20px 12px;
   background: var(--c-surface-2);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--c-text-2);
+}
+.confirmerGestes {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.retirerOui {
+  padding: 5px 10px;
+  border: 1px solid var(--c-danger);
+  border-radius: var(--r-pill);
+  background: transparent;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--c-danger);
+  cursor: pointer;
+}
+.retirerOui:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Le lecteur, sous la ligne ouverte. */
+.lecteur {
+  padding: 0 20px 14px 65px;
+}
+.player {
+  width: 100%;
+  height: 36px;
+}
+@media (max-width: 640px) {
+  .lecteur {
+    padding-left: 20px;
+  }
 }
 
 .play {

@@ -2,11 +2,22 @@ import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
 import { messageEnvoiLien } from '@/lib/messageAuth'
 import { supabase } from '@/lib/supabase'
 import { captchaConfigure, useCaptcha } from '@/auth/Captcha'
+import { cheminEspacePatient } from '@/lib/domaine'
 import { lireVitrine, slugEmbed, type Vitrine } from '@/lib/vitrine'
 import s from './EmbedSignIn.module.css'
 
-/** Où mène le lien reçu : l'espace du patient, sur son téléphone. */
-const DESTINATION = '/mon'
+/**
+ * Où mène le lien reçu : l'espace du patient, À LA PORTE DE SON CABINET.
+ *
+ * `/mon` tout court perdait le cabinet en chemin : le patient qui venait de
+ * s'inscrire depuis le site de sa thérapeute, à ses couleurs, ouvrait son
+ * lien sur une porte aux couleurs de Klaro — et c'est cette adresse-là que
+ * son téléphone installait. `/son-identifiant/mon` ouvre le même espace,
+ * avec la marque du cabinet.
+ */
+function destination(slug: string | null): string {
+  return `${window.location.origin}${cheminEspacePatient(slug ?? '')}`
+}
 
 /**
  * Le widget que la thérapeute pose sur son propre site.
@@ -56,7 +67,8 @@ export function EmbedSignIn() {
     const { error } = await db.auth.signInWithOtp({
       email: email.trim(),
       options: {
-        emailRedirectTo: `${window.location.origin}${DESTINATION}`,
+        // Seulement un identifiant qui désigne bien un cabinet : sinon, `/mon`.
+        emailRedirectTo: destination(vitrine ? slug : null),
         captchaToken: captcha.jeton,
       },
     })

@@ -59,15 +59,12 @@ export function mockSessionDraft(context: PatientContext, categories: string[]):
           'Installer le geste au calme, hors situation, pour qu\'il reste disponible quand la tension monte.',
         type: 'Exercice',
       },
+      // Ni « Audio » ni « Échelle » : le patient ne les voit jamais comme
+      // des tâches (src/lib/typesDeModules.ts). La maquette suit la règle.
       {
-        titre: 'Audio de retour au calme',
-        pourquoi: 'Une écoute brève à reprendre après un épisode, pour refermer la séquence autrement.',
-        type: 'Audio',
-      },
-      {
-        titre: 'Échelle du soir',
-        pourquoi: "Suivre l'évolution de la semaine sans y passer plus de dix secondes.",
-        type: 'Échelle',
+        titre: 'Trois lignes après un épisode',
+        pourquoi: "Écrire, une fois l'épisode passé, ce qui a précédé la bascule : refermer la séquence autrement qu'en la subissant.",
+        type: 'Écriture',
       },
     ],
     questions: [
@@ -102,9 +99,9 @@ export function mockSessionDraft(context: PatientContext, categories: string[]):
   }
 }
 
-export function mockGeneratedModule({ intent, type, quiz }: ModuleContext): GeneratedModule {
+export function mockGeneratedModule({ intent, quiz }: ModuleContext): GeneratedModule {
   return {
-    titre: type === 'Audio' ? 'écoute du soir, trois minutes' : 'trois respirations posées',
+    titre: 'trois respirations posées',
     duree: '3 minutes',
     quand: 'Le soir, juste avant de vous coucher, téléphone posé.',
     steps: [

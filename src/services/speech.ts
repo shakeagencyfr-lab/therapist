@@ -4,12 +4,14 @@
  * DEUX LIMITES, à connaître avant de s'appuyer dessus.
  *
  * 1. L'AUDIO SORT DU POSTE. Contrairement à ce que « API du navigateur »
- *    laisse croire, Chrome et Edge envoient le son à un service de
- *    reconnaissance distant (Google pour Chrome). La parole d'un patient en
- *    séance transite donc par un tiers, hors du cadre HDS que ce produit
- *    promet. C'est le point qui interdit aujourd'hui un usage clinique réel :
- *    il se règle en captant l'audio localement et en le confiant à un service
- *    de transcription sous contrat, pas en changeant une ligne ici.
+ *    laisse croire, le son part chez l'éditeur du navigateur pour être
+ *    transcrit : Google pour Chrome, Microsoft pour Edge, Apple pour Safari.
+ *    La parole d'un patient en séance transite donc par un tiers avec qui le
+ *    cabinet n'a aucun contrat. Le consentement le dit (src/data/session.ts),
+ *    et dit aussi ce que nous garantissons : l'application ne reçoit que le
+ *    texte, jamais le son. Le régler vraiment demande de capter l'audio
+ *    localement et de le confier à un service de transcription sous contrat
+ *    — pas de changer une ligne ici.
  *
  * 2. AUCUNE DIARISATION. La spécification n'a pas de notion de locuteur : ce
  *    module rend un flux de texte unique où la voix de la thérapeute et celle
@@ -17,8 +19,9 @@
  *    (hasSpeakerLabels) et l'annonce au modèle, pour qu'il cesse d'attribuer
  *    au patient des phrases qu'il ne peut pas lui attribuer.
  *
- * Seuls Chrome et Edge proposent cette API ; ailleurs, l'écran de séance
- * propose la séance d'exemple.
+ * Chrome, Edge et Safari proposent cette API ; ailleurs (Firefox), l'écran de
+ * séance invite à écrire ses notes dans le champ prévu : elles suffisent à
+ * rédiger le brouillon.
  *
  * L'API n'est pas dans les typages DOM standard : les interfaces minimales
  * dont ce module a besoin sont déclarées ici.
