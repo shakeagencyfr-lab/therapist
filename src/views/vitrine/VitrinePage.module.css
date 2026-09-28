@@ -235,6 +235,21 @@
   cursor: default;
 }
 
+/* Le second geste du bandeau, quand le rendez-vous passe devant : même
+   taille, pour qu'on ne le prenne pas pour une note de bas de page. */
+.boutonSecond {
+  display: inline-block;
+  padding: 11px 21px;
+  border: 1px solid var(--c-accent);
+  border-radius: var(--r-pill);
+  color: var(--c-accent);
+  font-size: 14px;
+  text-decoration: none;
+}
+.boutonSecond:hover {
+  background: var(--c-accent-soft);
+}
+
 /* ---- Services ----------------------------------------------------------- */
 
 .services {
@@ -384,6 +399,31 @@
   color: var(--c-text-muted);
 }
 
+.mentions {
+  margin-top: 10px;
+}
+.mentionsTitre {
+  cursor: pointer;
+  width: fit-content;
+}
+.mentionsListe {
+  margin: 10px 0 0;
+  display: grid;
+  gap: 4px;
+}
+.mentionsLigne {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
+}
+.mentionsLigne dt::after {
+  content: ' :';
+}
+.mentionsLigne dd {
+  margin: 0;
+  color: var(--c-text-3);
+}
+
 /* ---- Les trois modèles -------------------------------------------------- */
 
 /* Sobre : une colonne, la photo en bandeau sous le titre. */
@@ -495,6 +535,12 @@
     min-height: 48px;
     padding: 14px 24px;
     /* Le bouton principal prend la ligne : c'est le geste de la page. */
+    width: 100%;
+    text-align: center;
+  }
+  .boutonSecond {
+    min-height: 48px;
+    padding: 13px 23px;
     width: 100%;
     text-align: center;
   }

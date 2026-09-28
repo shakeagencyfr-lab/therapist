@@ -4,6 +4,7 @@ import { ConsigneEditeur } from './ConsigneEditeur'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { consigneFor } from '@/data/consignes'
 import { plural } from '@/lib/format'
+import { libelleSeptJours } from '@/lib/assiduite'
 import { allModules, isModuleDone, moduleProgress, releaseModulePatch, toggleModulePatch } from '@/state/selectors'
 import type { AppState } from '@/state/state'
 import { useStore } from '@/state/store'
@@ -111,7 +112,9 @@ export function WeekModules() {
     <Card padded={false} flush>
       <div className={s.head}>
         <Title>Son parcours</Title>
-        <span className={s.count}>{`${done} / ${plural(total, 'exercice réalisé', 'exercices réalisés')}`}</span>
+        {/* La case dit « fait aujourd'hui » : un exercice se refait chaque
+            jour (0051). La semaine se lit sous chaque titre. */}
+        <span className={s.count}>{`${done} / ${plural(total, 'exercice fait', 'exercices faits')} aujourd'hui`}</span>
       </div>
 
       {echec ? (
@@ -129,12 +132,19 @@ export function WeekModules() {
             <div className={s.row}>
               <RoundCheck
                 on={on}
-                label={on ? `Marquer « ${m.title} » comme non réalisé` : `Marquer « ${m.title} » comme réalisé`}
+                label={
+                  on
+                    ? `Marquer « ${m.title} » comme non fait aujourd'hui`
+                    : `Marquer « ${m.title} » comme fait aujourd'hui`
+                }
                 onClick={() => void basculer(i, m)}
               />
               <div className={s.body}>
                 <span className={on ? `${s.title} ${s.titleDone}` : s.title}>{m.title}</span>
-                <span className={s.meta}>{m.meta + quizBadge(state, key, i, m)}</span>
+                <span className={s.meta}>
+                  {[m.meta, m.septJours ? libelleSeptJours(m.septJours) : ''].filter(Boolean).join(' · ') +
+                    quizBadge(state, key, i, m)}
+                </span>
                 {/* Le mot qu'elle a posé sur l'exercice. La colonne était lue
                     depuis 0007 et n'était jamais écrite ni montrée : ce qu'une
                     patient notait sur un exercice n'existait nulle part. */}

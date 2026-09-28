@@ -276,6 +276,9 @@
   color: var(--c-text-muted);
   margin-top: 5px;
 }
+.slugProbleme {
+  color: var(--c-warn-text-2);
+}
 .planPick {
   display: flex;
   flex-wrap: wrap;
@@ -298,10 +301,25 @@
   .row {
     grid-template-columns: 34px minmax(0, 1fr);
   }
+  /* Sur téléphone, la ligne passe à la ligne au lieu de déborder : sans
+     retour, compteurs, offre et pastille demandaient près de 400 px, et la
+     liste — qui coupe ce qui dépasse — cachait justement le statut du
+     contrat et l'offre. */
   .right {
     grid-column: 1 / -1;
+    flex-wrap: wrap;
     justify-content: space-between;
+    row-gap: 10px;
+    min-width: 0;
     padding-left: 47px;
+  }
+  .counters {
+    flex-wrap: wrap;
+    gap: 8px 16px;
+  }
+  .offre {
+    width: auto;
+    text-align: left;
   }
   .formRow {
     grid-template-columns: 1fr;
@@ -312,5 +330,11 @@
   }
   .attente {
     padding-left: 20px;
+  }
+}
+
+@media (max-width: 420px) {
+  .right {
+    padding-left: 0;
   }
 }

@@ -139,6 +139,9 @@ describe('versSiteVitrine', () => {
     avis: [{ auteur: 'Claire', note: 5, texte: 'Merci', date: '' }],
     google_note: 4.9,
     google_avis: 37,
+    reservation: 'https://agenda.exemple.fr/cabinet-fontaine',
+    responsable: 'Laetitia Ollivier',
+    numero_pro: 'SIRET 123 456 789 00012',
   }
 
   it('ne perd aucun champ de la ligne', () => {
@@ -170,6 +173,13 @@ describe('versSiteVitrine', () => {
     expect(site.photos.map((p) => p.url)).toEqual([
       `${STOCKAGE}/storage/v1/object/public/sites/ok.jpg`,
     ])
+  })
+
+  /* Le bouton « Prendre rendez-vous » est un `href` venu de la base : même
+     filtre au point d'usage que le site web du cabinet. */
+  it("ne rend cliquable qu'une adresse d'agenda en http ou https", () => {
+    expect(versSiteVitrine({ ...LIGNE, reservation: 'javascript:alert(1)' }, 'x')!.reservation).toBeNull()
+    expect(versSiteVitrine({ ...LIGNE, reservation: null }, 'x')!.reservation).toBeNull()
   })
 
   it('rend null sans nom : une page sans cabinet ne se montre pas', () => {

@@ -31,8 +31,8 @@ function dateLongue(iso: string): string {
  *
  * Dans l'ordre du temps, de la première page à la dernière : c'est ainsi
  * qu'on relit un journal, même si l'écran le montre à l'envers. Chaque page
- * dit si elle avait été montrée à la thérapeute — c'est une information
- * qu'on ne retrouverait nulle part ailleurs une fois le compte parti.
+ * dit si elle était partagée avec le cabinet — une information qu'on ne
+ * retrouverait nulle part ailleurs une fois le compte parti.
  */
 export function journalEnTexte(
   pages: PageExportee[],
@@ -48,7 +48,7 @@ export function journalEnTexte(
   const corps = ordre.map((page) =>
     [
       trait,
-      `${dateLongue(page.written_at)}${page.shared ? ' · montrée à votre thérapeute' : ''}`,
+      `${dateLongue(page.written_at)}${page.shared ? ' · partagée' : ''}`,
       page.title.trim(),
       '',
       page.body.trim(),

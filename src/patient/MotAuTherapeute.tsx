@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useDictee } from './useDictee'
 import { BoutonDictee } from './BoutonDictee'
+import { useBrouillon } from './useBrouillon'
 import s from './MotAuTherapeute.module.css'
 
 /**
@@ -29,7 +30,9 @@ export function MotAuTherapeute({
   accent?: string
   onEnvoye: () => Promise<void>
 }) {
-  const [texte, setTexte] = useState('')
+  // Le brouillon survit à l'exercice qu'on ouvre entre-temps (useBrouillon) ;
+  // vider le champ après l'envoi l'efface.
+  const [texte, setTexte] = useBrouillon('mot')
   const [envoi, setEnvoi] = useState(false)
   const [envoye, setEnvoye] = useState(false)
   const [erreur, setErreur] = useState('')
@@ -82,7 +85,7 @@ export function MotAuTherapeute({
         rows={3}
         value={texte}
         onChange={(e) => setTexte(e.target.value)}
-        placeholder="Ce que vous voulez qu'elle sache…"
+        placeholder="Ce que vous voulez lui dire…"
         aria-label="Un mot pour votre thérapeute"
       />
       <BoutonDictee dictee={dictee} accent={accent} />

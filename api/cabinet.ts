@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { jetonDe } from '../server/auth.js'
 import { describeError } from '../server/ai.js'
+import { journaliserRefus } from '../server/errors.js'
 import { agirVolet, lireVolet } from '../server/cabinet.js'
 
 /**
@@ -24,7 +25,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   } catch (err) {
     const { status, message } = describeError(err)
     // Journal technique seulement : jamais un secret, jamais un corps de requête.
-    console.error(`[cabinet] ${req.method} — ${status} · ${message}`)
+    journaliserRefus(`[cabinet] ${req.method}`, status, message)
     res.status(status).json({ error: message })
   }
 }

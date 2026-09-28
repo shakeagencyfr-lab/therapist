@@ -20,6 +20,10 @@ import { bilanTelephone } from '@/lib/rappels'
 import { DELAI_PURGE_JOURS } from '@/lib/seance'
 import { ecartEchelle, mesuresDatees } from '@/lib/echelle'
 import { seFaitParLePatient } from '@/lib/typesDeModules'
+import { assiduite, decalerJour, jourDeParis, JOURS_SUIVIS, septJours } from '@/lib/assiduite'
+import { couleursInvalides } from '@/lib/couleurs'
+import { refusDeReouverture, type DroitsLus } from '@/lib/contrat'
+import { effacerDuStockage } from '@/lib/stockage'
 import type { CabinetBranding } from '@/types/reseller'
 import type {
   Consigne,
@@ -76,6 +80,14 @@ interface ModuleRow {
   consigne: Consigne | null
   /** Retiré du parcours (0045) : le patient ne le voit plus, le dossier le garde. */
   archived_at: string | null
+  /** Le jour où il a été confié : avant, il ne pouvait pas être fait. */
+  created_at: string
+}
+
+/** Les jours où un exercice a été fait (0051), au fuseau de Paris : « AAAA-MM-JJ ». */
+interface JoursFaitsRow {
+  module_id: string
+  jours: string[] | null
 }
 
 interface AudioRow {
@@ -297,6 +309,10 @@ function assembler(
   hypnoses: HypnoseRow[],
   mouvements: MouvementRow[],
   brouillon: SessionDraft | undefined,
+  /** Les jours faits de la semaine, par module ; `null` s'ils n'ont pas pu être lus. */
+  joursFaits: Map<string, string[]> | null,
+  /** Le jour de Paris où le dossier est lu. */
+  aujourdhui: string,
 ): Patient {
   /* LE PARCOURS, C'EST CE QUE LE PATIENT VOIT. Un module retiré (0045) n'y
      compte plus — ni dans l'assiduité, ni dans « faits sur », ni dans le
@@ -311,7 +327,26 @@ function assembler(
      (src/lib/typesDeModules.ts) : compté, il restait « non fait » pour
      toujours, et l'assiduité baissait jusqu'à signaler un décrochage. */
   const taches = mods.filter((m) => seFaitParLePatient(m.kind))
-  const faits = taches.filter((m) => m.done_at).length
+
+  /* CHAQUE JOUR SE COCHE (0051). Un exercice se refait chaque jour : la case
+     dit « fait aujourd'hui », la semaine dit combien de jours. Sans les
+     jours — leur lecture a échoué, et l'écran le dit —, la case se déduit
+     de `done_at`, que la base tient à l'instant du dernier jour fait : c'est
+     la même réponse, par un autre chemin. */
+  const faitAujourdhui = (m: ModuleRow): boolean =>
+    joursFaits
+      ? (joursFaits.get(m.id) ?? []).includes(aujourdhui)
+      : m.done_at !== null && jourDeParis(m.done_at) === aujourdhui
+  const semaine = (m: ModuleRow) =>
+    joursFaits ? septJours(joursFaits.get(m.id) ?? [], jourDeParis(m.created_at), aujourdhui) : undefined
+  /* L'ASSIDUITÉ EST LA PART DES JOURS FAITS SUR LES SEPT DERNIERS. Sans les
+     jours, on retombe sur le seul chiffre que la base sait encore donner :
+     la part des tâches faites au moins une fois. */
+  const adherence = joursFaits
+    ? assiduite(taches.map((m) => semaine(m) ?? { faits: 0, possibles: 0 }))
+    : taches.length
+      ? Math.round((taches.filter((m) => m.done_at).length / taches.length) * 100)
+      : 0
 
   const auds = audios.filter((a) => a.patient_id === p.id)
   /* L'ÉCHELLE SE LIT DANS LE TEMPS. `scale_delta` n'a jamais été écrit par
@@ -332,7 +367,7 @@ function assembler(
     subtitle: p.subtitle || sousTitre(p),
     weekLabel: p.week_label || libelleSemaine(p),
     nextSession: p.next_session ?? 'Aucune séance planifiée',
-    adherence: taches.length ? Math.round((faits / taches.length) * 100) : 0,
+    adherence,
     listens: auds.reduce((n, a) => n + a.listens, 0),
     sessions: p.sessions_done,
     totalSessions: p.sessions_total,
@@ -378,11 +413,14 @@ function assembler(
       title: m.title,
       meta: m.meta,
       kind: m.kind,
-      done: Boolean(m.done_at),
+      done: faitAujourdhui(m),
+      // Un audio, une échelle ne se font pas « un jour sur sept » : rien à compter.
+      septJours: seFaitParLePatient(m.kind) ? semaine(m) : undefined,
       note: m.patient_note ?? undefined,
       id: m.id,
       consigne: m.consigne ?? undefined,
     })),
+    /* Un retiré ne se fait plus : « Fait » y dit qu'il l'a été, un jour. */
     modulesRetires: retires.map<PatientModule>((m) => ({
       title: m.title,
       meta: m.meta,
@@ -574,6 +612,13 @@ export interface CabinetData {
     input: { title: string; body: string; when: string; quand: Date | null },
     patientIds: PatientId[],
   ) => Promise<Resultat>
+  /** Réécrit ou reprogramme un mot pas encore parti. La base refuse après l'heure (0047). */
+  modifierNotification: (
+    pushId: string,
+    input: { title: string; body: string; when: string; quand: Date },
+  ) => Promise<Resultat>
+  /** Annule un mot pas encore parti : il n'arrivera nulle part. */
+  annulerNotification: (pushId: string) => Promise<Resultat>
   /* La séance ------------------------------------------------------ *
    * Elle s'ouvre à la signature du consentement — c'est la pièce qui
    * autorise la captation, elle est horodatée et conservée. Le brouillon
@@ -632,8 +677,11 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     }
     setErreur('')
     setChargement(true)
+    /* Le jour de Paris où le dossier est lu : c'est celui des cases, et la
+       fin de la semaine que l'assiduité regarde. */
+    const aujourdhui = jourDeParis()
 
-    const [fiches, closes, modules, audios, echelles, journal, profils, categories, progs, rdv, bibliotheque, ateliers, affs, reglages, pushes, hypnoses, mouvements, brouillons, quiz, telephones] = await Promise.all([
+    const [fiches, closes, modules, audios, echelles, journal, profils, categories, progs, rdv, bibliotheque, ateliers, affs, reglages, pushes, hypnoses, mouvements, brouillons, quiz, telephones, joursFaits] = await Promise.all([
       db.from('patients').select('*').is('archived_at', null).order('created_at'),
       db
         .from('patients')
@@ -641,7 +689,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         .not('archived_at', 'is', null)
         .order('archived_at', { ascending: false }),
       // Les retirés aussi : `assembler` les range à part, pour les remettre.
-      db.from('patient_modules').select('id, patient_id, title, meta, kind, position, done_at, patient_note, consigne, archived_at'),
+      db.from('patient_modules').select('id, patient_id, title, meta, kind, position, done_at, patient_note, consigne, archived_at, created_at'),
       // `last_listened_at` était chargé à chaque rechargement et lu nulle part.
       // `id` et `audio_id` : de quoi retirer l'envoi, et écouter l'audio.
       db.from('patient_audios').select('id, patient_id, audio_id, listens, audio:audio_library (title, duration_seconds)'),
@@ -683,6 +731,11 @@ export function useCabinet(cabinetId: string | null): CabinetData {
          espace pour le lire. Le nombre seulement : une adresse d'envoi
          permet d'écrire sur un écran verrouillé, elle ne quitte pas la base. */
       db.rpc('cabinet_appareils', { p_cabinet: cabinetId }),
+      /* Les jours faits de la semaine (0051) : huit jours, parce que la
+         semaine finit hier tant qu'un exercice n'est pas fait aujourd'hui
+         (src/lib/assiduite.ts). Regroupés par exercice en base : ligne à
+         ligne, l'API s'arrêterait à mille et tronquerait la semaine. */
+      db.rpc('jours_faits_depuis', { p_depuis: decalerJour(aujourdhui, -JOURS_SUIVIS) }),
     ])
 
     /* CE QUI N'A PAS ÉTÉ LU N'EST PAS VIDE.
@@ -721,6 +774,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       ['les brouillons de séance', brouillons],
       ['les réponses aux quiz', quiz],
       ['les téléphones inscrits aux rappels', telephones],
+      ['les jours faits des exercices', joursFaits],
     ]
 
     if (VITALES.some(([, r]) => r.error)) {
@@ -758,6 +812,13 @@ export function useCabinet(cabinetId: string | null): CabinetData {
        étaient déjà chargées et jetées à chaque rechargement. */
     const toutesVersions = (profils.data ?? []) as ProfileRow[]
 
+    /* Les jours faits, par module. `null` — et non une carte vide — quand la
+       lecture a échoué : « aucun jour fait » et « jours non lus » ne disent
+       pas la même chose, et l'assemblage ne les traite pas pareil. */
+    const parModule: Map<string, string[]> | null = joursFaits.error
+      ? null
+      : new Map(((joursFaits.data ?? []) as JoursFaitsRow[]).map((j) => [j.module_id, j.jours ?? []]))
+
     const assemblees: Record<PatientId, Patient> = {}
     for (const ligne of lignes) {
       assemblees[ligne.id] = assembler(
@@ -771,6 +832,8 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         (hypnoses.data ?? []) as HypnoseRow[],
         (mouvements.data ?? []) as MouvementRow[],
         dernierBrouillon.get(ligne.id),
+        parModule,
+        aujourdhui,
       )
     }
 
@@ -837,9 +900,11 @@ export function useCabinet(cabinetId: string | null): CabinetData {
 
     // Le journal des envois.
     const envois = ((pushes.data ?? []) as unknown as PushRow[]).map<PushRecord>((n) => ({
+      id: n.id,
       title: n.title,
       message: n.body,
       when: n.scheduled_for,
+      prevu: n.scheduled_at,
       names: n.recipients.map((r) => r.patient?.display_name ?? '').filter(Boolean),
       stamp: new Date(n.created_at).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
       /* Programmée et pas encore due : depuis 0036, l'espace patient ne la
@@ -974,16 +1039,18 @@ export function useCabinet(cabinetId: string | null): CabinetData {
    * module sort du parcours (0045), les rangs glissent et la case cochée
    * était celle du voisin — et plusieurs modules à la même position
    * basculaient ensemble.
+   *
+   * POUR AUJOURD'HUI, PAR LA MÊME FONCTION QUE LE PATIENT (0051). La case
+   * écrivait `done_at` directement : « fait » une fois pour toutes, et sans
+   * jour. Elle coche désormais le jour de Paris, comme le patient, et la
+   * base tient `done_at` au même endroit pour les deux.
    */
   const basculerModule = useCallback(
     async (moduleId: string, fait: boolean): Promise<Resultat> => {
       const db = supabase()
       if (!db || !cabinetId) return { ok: false, message: '' }
-      const { error } = await db
-        .from('patient_modules')
-        .update({ done_at: fait ? new Date().toISOString() : null })
-        .eq('id', moduleId)
-      if (error) return { ok: false, message: "Le module n'a pas pu être mis à jour." }
+      const { error } = await db.rpc('patient_set_module_done', { p_module: moduleId, p_done: fait })
+      if (error) return { ok: false, message: "L'exercice n'a pas pu être mis à jour. Réessayez." }
       await recharger()
       return { ok: true, message: '' }
     },
@@ -1165,18 +1232,32 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         return { ok: false, message: 'Connectez-vous à votre cabinet pour publier votre marque.' }
       }
       const nom = input.nom.trim()
-      if (!nom) return { ok: false, message: 'Le nom affiché ne peut pas être vide.' }
+      if (nom.length < 2) return { ok: false, message: 'Le nom affiché doit compter au moins deux caractères.' }
+      /* La base refuse aussi une couleur hors format (0048) ; le dire ici donne
+         la raison au lieu d'un échec muet. */
+      if (couleursInvalides(input.branding).length) {
+        return { ok: false, message: 'Une couleur n’est pas au format #RRGGBB : corrigez-la avant de publier.' }
+      }
+      /* Le logo publié jusqu'ici, pour l'effacer du compartiment une fois le
+         nouveau en place : un logo remplacé restait public pour toujours. */
+      const { data: avant } = await db
+        .from('cabinets')
+        .select('branding')
+        .eq('id', cabinetId)
+        .maybeSingle<{ branding: CabinetBranding | null }>()
       const { error } = await db
         .from('cabinets')
         .update({ name: nom, tagline: input.surTitre.trim(), branding: input.branding })
         .eq('id', cabinetId)
-      return error
-        ? { ok: false, message: "Votre marque n'a pas pu être publiée. Réessayez." }
-        : {
-            ok: true,
-            message:
-              'Marque publiée. Elle habille votre espace et l’application de vos patients.',
-          }
+      if (error) return { ok: false, message: "Votre marque n'a pas pu être publiée. Réessayez." }
+      const ancien = avant?.branding?.logoUrl ?? null
+      if (ancien && ancien !== (input.branding.logoUrl ?? null)) {
+        void effacerDuStockage('logos', ancien, cabinetId)
+      }
+      return {
+        ok: true,
+        message: 'Marque publiée. Elle habille votre espace et l’application de vos patients.',
+      }
     },
     [cabinetId],
   )
@@ -1715,6 +1796,64 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     [cabinetId, recharger],
   )
 
+  /* UN MOT PROGRAMMÉ SE REPREND TANT QU'IL N'EST PAS PARTI. Une faute de
+     frappe, une heure mal choisie : il fallait attendre qu'il parte, puis
+     s'excuser. La base garde la frontière (0047) — après l'heure, le texte
+     est celui que le patient a pu lire, et il ne se réécrit plus — si bien
+     qu'un clic à la dernière seconde reçoit un refus clair, pas un mot
+     modifié après coup sur un téléphone. */
+  const modifierNotification = useCallback(
+    async (
+      pushId: string,
+      input: { title: string; body: string; when: string; quand: Date },
+    ): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const { data, error } = await db
+        .from('push_notifications')
+        .update({
+          title: input.title,
+          body: input.body,
+          scheduled_for: input.when,
+          scheduled_at: input.quand.toISOString(),
+        })
+        .eq('id', pushId)
+        .select('id')
+      await recharger()
+      if (error) {
+        return {
+          ok: false,
+          message: /déjà parti/.test(error.message)
+            ? 'Ce mot est déjà parti : il ne peut plus être modifié.'
+            : "Le mot n'a pas pu être modifié. Réessayez.",
+        }
+      }
+      if (!data?.length) return { ok: false, message: "Ce mot n'existe plus." }
+      return { ok: true, message: `Mot reprogrammé pour ${input.when}.` }
+    },
+    [cabinetId, recharger],
+  )
+
+  const annulerNotification = useCallback(
+    async (pushId: string): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const { data, error } = await db.from('push_notifications').delete().eq('id', pushId).select('id')
+      await recharger()
+      if (error) {
+        return {
+          ok: false,
+          message: /déjà parti/.test(error.message)
+            ? 'Ce mot est déjà parti : il ne peut plus être annulé.'
+            : "Le mot n'a pas pu être annulé. Réessayez.",
+        }
+      }
+      if (!data?.length) return { ok: false, message: "Ce mot n'existe plus." }
+      return { ok: true, message: 'Mot annulé : il ne partira pas.' }
+    },
+    [cabinetId, recharger],
+  )
+
   /* ---- La séance ----------------------------------------------------- */
 
   const ouvrirSeance = useCallback(
@@ -2114,24 +2253,23 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     async (patientId: PatientId): Promise<Resultat> => {
       const db = supabase()
       if (!db || !cabinetId) return { ok: false, message: 'Connectez-vous à votre cabinet.' }
-      /* Le déclencheur du plafond ne joue qu'à l'insertion : une réouverture
-         est une mise à jour, et passerait au-dessus. On compte donc ici, avec
-         les droits de l'appelante — la fonction refuse à qui n'est pas du
-         cabinet. */
+      /* On le dit avant d'écrire, avec les droits de l'appelante — la
+         fonction refuse à qui n'est pas du cabinet. Le CONTRAT d'abord : hors
+         contrat, le plafond vaut le nombre de fiches déjà actives, et « Closez
+         un autre suivi » envoyait fermer un suivi pour une place qui ne se
+         libère jamais. La base tient la même règle (0032, 0049). */
       const { data: droits } = await db.rpc('mes_droits')
-      const d = (droits ?? {}) as { max_patients?: number | null; patients_actives?: number }
-      if (d.max_patients !== null && d.max_patients !== undefined && (d.patients_actives ?? 0) >= d.max_patients) {
-        return {
-          ok: false,
-          message: `Votre offre permet ${d.max_patients} fiches actives, et elles le sont toutes. Closez un autre suivi, ou demandez à votre revendeur de relever le plafond.`,
-        }
-      }
+      const refus = refusDeReouverture((droits ?? null) as DroitsLus | null)
+      if (refus) return { ok: false, message: refus }
       const { error } = await db
         .from('patients')
         .update({ archived_at: null })
         .eq('id', patientId)
         .not('archived_at', 'is', null)
-      if (error) return { ok: false, message: "Le suivi n'a pas pu être rouvert. Réessayez." }
+      if (error) {
+        // 23514 : le déclencheur du plafond, dont le message est écrit pour l'écran.
+        return { ok: false, message: error.code === '23514' ? error.message : "Le suivi n'a pas pu être rouvert. Réessayez." }
+      }
       await recharger()
       return { ok: true, message: 'Suivi rouvert. Son patient retrouve son espace.' }
     },
@@ -2227,6 +2365,8 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     publierAffirmations,
     reglerAffirmationsAuto,
     envoyerNotification,
+    modifierNotification,
+    annulerNotification,
     ouvrirSeance,
     seanceOuverte,
     sauverCaptation,

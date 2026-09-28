@@ -105,3 +105,39 @@ describe('le courriel selon le rôle', () => {
     expect(c.text).toMatch(/propriétaire/)
   })
 })
+
+/**
+ * Le code, à côté du lien.
+ *
+ * Sur iPhone, le lien du courriel s'ouvre dans Safari : l'espace installé sur
+ * l'écran d'accueil, dont la session vit à part, restait à la porte. Le code
+ * se tape dans l'application elle-même.
+ */
+describe('le code dans le courriel', () => {
+  it('accompagne le lien quand le service l’a fourni, avec le geste pour s’en servir', () => {
+    const c = corpsInvitation('patient', 'Cabinet Fontaine', 'https://exemple.fr/lien', '482913')
+    expect(c.text).toContain('482913')
+    expect(c.html).toContain('482913')
+    // Le libellé cité est celui de la porte : l'un ne change pas sans l'autre.
+    expect(c.text).toContain("« J'ai déjà reçu un code »")
+    expect(c.text).toMatch(/sans ce lien ou ce code/)
+    expect(c.html).toContain('https://exemple.fr/lien')
+  })
+
+  it('ne parle pas de code quand il n’y en a pas', () => {
+    const c = corpsInvitation('patient', 'Cabinet Fontaine', 'https://exemple.fr/lien')
+    expect(c.text).not.toMatch(/code/)
+    expect(c.html).not.toMatch(/code/)
+  })
+
+  it('n’insère dans le HTML que des chiffres', () => {
+    const c = corpsInvitation('patient', 'Cabinet Fontaine', 'https://exemple.fr/lien', '<img src=x>')
+    expect(c.html).not.toContain('<img')
+    expect(c.text).not.toMatch(/code/)
+  })
+
+  it('garde le libellé que la porte affiche vraiment', () => {
+    const porte = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'auth', 'SignIn.tsx'), 'utf8')
+    expect(porte).toContain(`"J'ai déjà reçu un code"`)
+  })
+})

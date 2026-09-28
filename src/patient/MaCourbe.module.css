@@ -1,0 +1,41 @@
+/* Sa courbe, sous la question du soir : discrète, lisible d'un coup d'œil.
+   Le dessin garde ses proportions — étiré en largeur seulement, les points
+   deviendraient des ovales — et le trait son épaisseur
+   (`non-scaling-stroke`), quelle que soit la largeur de l'écran. */
+
+.courbe {
+  margin: 18px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--c-border-light);
+}
+
+.titre {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+  margin-bottom: 10px;
+}
+
+.dessin {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* Le milieu de l'échelle, en pointillé : un repère, pas un objectif. */
+.repere {
+  stroke: var(--c-border);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.bornes {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--c-text-muted);
+}

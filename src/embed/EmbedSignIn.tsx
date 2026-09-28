@@ -1,7 +1,8 @@
-import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { messageEnvoiLien } from '@/lib/messageAuth'
 import { supabase } from '@/lib/supabase'
 import { captchaConfigure, useCaptcha } from '@/auth/Captcha'
+import { variablesDeMarque } from '@/lib/couleurs'
 import { cheminEspacePatient } from '@/lib/domaine'
 import { lireVitrine, slugEmbed, type Vitrine } from '@/lib/vitrine'
 import s from './EmbedSignIn.module.css'
@@ -82,9 +83,9 @@ export function EmbedSignIn() {
   }
 
   const b = vitrine?.branding
-  const couleurs = b
-    ? ({ '--c-accent': b.accent, '--c-accent-hover': b.accentHover } as CSSProperties)
-    : undefined
+  /* Validées avant de devenir des variables : sur le site d'une thérapeute,
+     une couleur mal formée rendrait le seul bouton du cadre transparent. */
+  const couleurs = variablesDeMarque(b)
 
   if (chargement) return <div className={s.carte} />
 

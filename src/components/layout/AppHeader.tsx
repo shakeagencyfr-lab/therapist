@@ -1,6 +1,7 @@
 import { useState, type CSSProperties } from 'react'
 import { Marque, Segmented } from '@/components/ui'
 import { useMaybeAuth } from '@/auth/session'
+import { couleurSure } from '@/lib/couleurs'
 import { cabinetById } from '@/state/resellerSelectors'
 import { useStore } from '@/state/store'
 import type { Space, ViewMode } from '@/state/state'
@@ -90,7 +91,7 @@ export function AppHeader() {
   return (
     <header
       className={s.header}
-      style={reseller ? undefined : ({ '--c-accent': cabinet.branding.accent } as CSSProperties)}
+      style={reseller ? undefined : ({ '--c-accent': couleurSure(cabinet.branding.accent) } as CSSProperties)}
     >
       <div className={s.brand}>
         <Marque

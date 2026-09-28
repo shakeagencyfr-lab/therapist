@@ -2,8 +2,10 @@ import { useState, type CSSProperties, type FormEvent } from 'react'
 import { messageEnvoiLien } from '@/lib/messageAuth'
 import { supabase } from '@/lib/supabase'
 import { captchaConfigure, useCaptcha } from '@/auth/Captcha'
-import type { SiteVitrine } from '@/lib/vitrine'
+import { lienSortant, type SiteVitrine } from '@/lib/vitrine'
+import { variablesDeMarque } from '@/lib/couleurs'
 import { cheminEspacePatient } from '@/lib/domaine'
+import { lignesMentions } from '@/lib/mentionsLegales'
 import { titreDuCabinet, useEnTete } from '@/lib/enTete'
 import { pileTexte, pileTitres, policesAcharger, resoudreTheme } from '@/lib/themeVitrine'
 import { AvisGoogle } from './AvisGoogle'
@@ -24,11 +26,6 @@ import s from './VitrinePage.module.css'
  * Trois modèles se partagent ce composant : ils ne changent que la mise en
  * page, jamais les rubriques. Un changement de modèle ne doit rien perdre.
  */
-/** Une couleur hexadécimale, ou undefined — jamais la chaîne telle quelle. */
-function couleurSure(valeur: string | undefined): string | undefined {
-  return valeur && /^#[0-9a-f]{3,8}$/i.test(valeur.trim()) ? valeur.trim() : undefined
-}
-
 export function VitrinePage({ site, apercu = false }: { site: SiteVitrine; apercu?: boolean }) {
   const b = site.branding
   /* Le thème est relu par la liste blanche à CHAQUE rendu, et pas seulement
@@ -45,10 +42,7 @@ export function VitrinePage({ site, apercu = false }: { site: SiteVitrine; aperc
      ressource chez un tiers depuis la page publique d'un cabinet. Le reste du
      produit interdit précisément cela. Une couleur hexadécimale, ou rien. */
   const couleurs = {
-    '--c-accent': couleurSure(b?.accent),
-    '--c-accent-hover': couleurSure(b?.accentHover),
-    '--c-accent-deep': couleurSure(b?.accentDeep),
-    '--c-dark': couleurSure(b?.dark),
+    ...variablesDeMarque(b),
     '--vitrine-titres': pileTitres(theme),
     '--vitrine-texte': pileTexte(theme),
   } as CSSProperties
@@ -66,6 +60,57 @@ export function VitrinePage({ site, apercu = false }: { site: SiteVitrine; aperc
   const couverture = site.photos[0] ?? null
   const autres = site.photos.slice(1)
   const joignable = site.adresse || site.telephone || site.horaires.some((h) => h.heures)
+  /* Relue ici même si la conversion l'a déjà filtrée : l'aperçu de l'éditeur
+     passe ses propres données, sans `versSiteVitrine`. */
+  const reservation = lienSortant(site.reservation)
+
+  /* LE PRATIQUE. Le modèle « Clinique » promet « horaires, adresse et prise
+     de rendez-vous en tête » : il le met juste sous l'accroche, là où les
+     deux autres le gardent après la présentation. Le même bloc, à deux
+     places — un changement de modèle ne perd toujours rien. */
+  const pratique =
+    joignable || reservation ? (
+      <section className={s.section}>
+        <h2 className={s.h2}>Me trouver</h2>
+        <div className={s.pratique}>
+          <div>
+            {site.adresse ? <p className={s.texte}>{site.adresse}</p> : null}
+            {site.telephone ? (
+              <p className={s.texte}>
+                <a className={s.lien} href={`tel:${site.telephone.replace(/\s+/g, '')}`}>
+                  {site.telephone}
+                </a>
+              </p>
+            ) : null}
+            {site.site_web ? (
+              <p className={s.texte}>
+                <a className={s.lien} href={site.site_web} target="_blank" rel="noreferrer">
+                  {site.site_web.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                </a>
+              </p>
+            ) : null}
+            {reservation ? (
+              <p className={s.texte}>
+                <a className={s.bouton} href={reservation} target="_blank" rel="noopener noreferrer">
+                  Prendre rendez-vous
+                </a>
+              </p>
+            ) : null}
+          </div>
+          {site.horaires.some((h) => h.heures) ? (
+            <dl className={s.horaires}>
+              {site.horaires.map((h, i) => (
+                <div key={`${h.jour}-${i}`} className={s.horaire}>
+                  <dt className={s.jour}>{h.jour}</dt>
+                  <dd className={s.heures}>{h.heures || 'Fermé'}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
+        </div>
+      </section>
+    ) : null
+  const pratiqueEnTete = modele === 'clinique'
 
   return (
     <div
@@ -117,10 +162,25 @@ export function VitrinePage({ site, apercu = false }: { site: SiteVitrine; aperc
             </p>
           ) : null}
 
+          {/* Deux personnes lisent cette page. Quand l'agenda du cabinet est
+              réglé, le geste de celle qui ne consulte pas encore passe en
+              premier : c'est elle que la page doit convaincre, l'autre
+              connaît déjà le chemin de son espace. */}
           <div className={s.heroActions}>
-            <a className={s.bouton} href="#espace">
-              Ouvrir mon espace
-            </a>
+            {reservation ? (
+              <>
+                <a className={s.bouton} href={reservation} target="_blank" rel="noopener noreferrer">
+                  Prendre rendez-vous
+                </a>
+                <a className={s.boutonSecond} href="#espace">
+                  Ouvrir mon espace
+                </a>
+              </>
+            ) : (
+              <a className={s.bouton} href="#espace">
+                Ouvrir mon espace
+              </a>
+            )}
             {site.telephone ? (
               <a className={s.lien} href={`tel:${site.telephone.replace(/\s+/g, '')}`}>
                 {site.telephone}
@@ -137,6 +197,8 @@ export function VitrinePage({ site, apercu = false }: { site: SiteVitrine; aperc
           </figure>
         ) : null}
       </section>
+
+      {pratiqueEnTete ? pratique : null}
 
       {site.presentation ? (
         <section className={s.section}>
@@ -163,40 +225,7 @@ export function VitrinePage({ site, apercu = false }: { site: SiteVitrine; aperc
         </section>
       ) : null}
 
-      {joignable ? (
-        <section className={s.section}>
-          <h2 className={s.h2}>Me trouver</h2>
-          <div className={s.pratique}>
-            <div>
-              {site.adresse ? <p className={s.texte}>{site.adresse}</p> : null}
-              {site.telephone ? (
-                <p className={s.texte}>
-                  <a className={s.lien} href={`tel:${site.telephone.replace(/\s+/g, '')}`}>
-                    {site.telephone}
-                  </a>
-                </p>
-              ) : null}
-              {site.site_web ? (
-                <p className={s.texte}>
-                  <a className={s.lien} href={site.site_web} target="_blank" rel="noreferrer">
-                    {site.site_web.replace(/^https?:\/\//, '').replace(/\/$/, '')}
-                  </a>
-                </p>
-              ) : null}
-            </div>
-            {site.horaires.some((h) => h.heures) ? (
-              <dl className={s.horaires}>
-                {site.horaires.map((h, i) => (
-                  <div key={`${h.jour}-${i}`} className={s.horaire}>
-                    <dt className={s.jour}>{h.jour}</dt>
-                    <dd className={s.heures}>{h.heures || 'Fermé'}</dd>
-                  </div>
-                ))}
-              </dl>
-            ) : null}
-          </div>
-        </section>
-      ) : null}
+      {pratiqueEnTete ? null : pratique}
 
       {autres.length ? (
         <section className={`${s.section} ${s.pleine}`}>
@@ -225,6 +254,20 @@ export function VitrinePage({ site, apercu = false }: { site: SiteVitrine; aperc
           © {site.name}
           {site.adresse ? ` · ${site.adresse}` : ''}
         </span>
+        {/* Les mentions qu'un site professionnel doit porter. Repliées : elles
+            doivent être là, pas occuper la page de quelqu'un qui cherche une
+            thérapeute. */}
+        <details className={s.mentions}>
+          <summary className={s.mentionsTitre}>Mentions légales</summary>
+          <dl className={s.mentionsListe}>
+            {lignesMentions(site).map((l) => (
+              <div key={l.libelle} className={s.mentionsLigne}>
+                <dt>{l.libelle}</dt>
+                <dd>{l.valeur}</dd>
+              </div>
+            ))}
+          </dl>
+        </details>
       </footer>
     </div>
   )

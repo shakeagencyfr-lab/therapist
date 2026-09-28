@@ -16,6 +16,8 @@ const OUVERT: Droits = {
   enRegle: true,
   statut: 'actif',
   echeance: null,
+  finEssai: null,
+  revendeur: null,
 }
 
 describe('exigerDroit', () => {

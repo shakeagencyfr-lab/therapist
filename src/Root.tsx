@@ -1,11 +1,13 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useState } from 'react'
 import { App } from './App'
 import { CabinetProvider } from './cabinet/context'
 import { DroitsProvider } from './cabinet/droits'
 import { SignIn } from './auth/SignIn'
 import { SessionProvider, useAuth } from './auth/session'
 import { Button } from './components/ui'
+import { variablesDeMarque } from './lib/couleurs'
 import { cheminEspacePatient } from './lib/domaine'
+import { cheminSousIdentifiant } from './lib/identifiant'
 import { DOSSIER_AVANT_LECTURE } from './state/state'
 import { AppStoreProvider } from './state/store'
 import {
@@ -66,11 +68,25 @@ function useVitrine(): { vitrine: Vitrine | null; site: SiteVitrine | null; cher
         if (vivant) setCherche(false)
         return
       }
-      const [marque, page] = await Promise.all([
+      const [marque, lu] = await Promise.all([
         parDomaine ? Promise.resolve(parDomaine as Vitrine) : lireVitrine(slug),
         lireSiteVitrine(slug),
       ])
       if (!vivant) return
+      /* UNE ANCIENNE ADRESSE MÈNE AU CABINET (0049). `cabinet_vitrine` la
+         résout et rend l'identifiant actuel : on réécrit l'adresse — sans
+         recharger, le fragment d'un lien de connexion compris — et on relit
+         le site sous le bon nom, puisque c'est lui qu'il porte. */
+      let page = lu
+      const actuel = parDomaine ? null : marque?.slug
+      if (actuel && actuel !== slug) {
+        const suite = cheminSousIdentifiant(window.location.pathname, slug, actuel)
+        if (suite) {
+          window.history.replaceState(window.history.state, '', `${suite}${window.location.search}${window.location.hash}`)
+        }
+        page = await lireSiteVitrine(actuel)
+        if (!vivant) return
+      }
       setVitrine(marque)
       setSite(page)
       setCherche(false)
@@ -152,16 +168,7 @@ function Portail() {
     if (vitrine) {
       const b = vitrine.branding
       return (
-        <div
-          style={
-            {
-              '--c-accent': b?.accent,
-              '--c-accent-hover': b?.accentHover,
-              '--c-accent-deep': b?.accentDeep,
-              '--c-dark': b?.dark,
-            } as CSSProperties
-          }
-        >
+        <div style={variablesDeMarque(b)}>
           <SignIn
             titre={`Entrer chez ${vitrine.name}`}
             intro="Entrez l'adresse que connaît votre cabinet : vous recevrez un lien qui vous connecte, sans mot de passe à retenir."
@@ -176,7 +183,7 @@ function Portail() {
     return (
       <SignIn
         titre="Entrer dans votre espace"
-        intro="Cet espace est réservé à la praticienne et à son cabinet. Entrez l'adresse à laquelle vous avez été invitée : vous recevrez un lien de connexion."
+        intro="Cet espace est réservé à la praticienne et à son cabinet. Entrez l'adresse qui a reçu votre invitation : vous recevrez un lien de connexion."
       />
     )
   }

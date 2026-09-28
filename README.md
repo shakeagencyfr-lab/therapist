@@ -152,6 +152,14 @@ ni espace cabinet, ni espace patient, aucune donnée. **Toutes les autres pages
 refusent d'être encadrées** (`frame-ancestors 'self'`, posé dans `vercel.json`) —
 encadrer une application connectée, c'est offrir ses clics à qui l'encadre.
 
+Le même fichier pose, sur toute réponse, `nosniff`, `Referrer-Policy` et une
+`Permissions-Policy` qui ne laisse que le micro (la dictée), et une politique de
+contenu en deux temps : **appliquée**, elle n'admet de scripts que les nôtres et
+ceux de hCaptcha ; **observée** (`Report-Only`), elle décrit tout ce que les
+pages chargent — la base, hCaptcha, l'agenda tiers encadré. La seconde deviendra
+la première une fois l'espace cabinet parcouru sans signalement dans la console.
+`server/hebergement.test.ts` tient ces règles.
+
 ## Trois niveaux
 
 Le produit est vendu à des cabinets par un revendeur. Trois rôles, et une règle

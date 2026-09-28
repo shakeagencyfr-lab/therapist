@@ -2,7 +2,8 @@
 -- La vitrine d'un cabinet : ce qu'un visiteur non connecté peut en lire.
 --
 --   anonyme → le nom, le sur-titre et les couleurs, par cabinet_vitrine()
---           → rien d'autre : ni identifiant, ni revendeur, ni réglage
+--           → et l'identifiant actuel, déjà public (0049 : ancienne adresse)
+--           → rien d'autre : ni revendeur, ni réglage
 --           → rien du tout sur un identifiant qui n'existe pas
 --           → toujours rien par une lecture directe de public.cabinets
 --
@@ -36,8 +37,10 @@ begin
   if v->>'name' is distinct from 'Cabinet Vitrine' then raise exception 'ECHEC : nom rendu = %', v->>'name'; end if;
   if v->'branding'->>'accent' is distinct from '#2F6F62' then raise exception 'ECHEC : couleurs non rendues'; end if;
 
-  -- 2. Elle ne rend QUE ces trois clés.
-  select count(*) into n from jsonb_object_keys(v) k where k not in ('name','tagline','branding');
+  -- 2. Elle ne rend QUE ces clés. L'identifiant actuel en est une depuis
+  -- 0049 : il est déjà public — c'est l'adresse — et c'est lui qui permet à
+  -- une ancienne adresse de mener à la nouvelle.
+  select count(*) into n from jsonb_object_keys(v) k where k not in ('slug','name','tagline','branding');
   if n <> 0 then raise exception 'FUITE : la vitrine rend % clé(s) de trop', n; end if;
 
   -- 3. Un identifiant inconnu ne rend rien.

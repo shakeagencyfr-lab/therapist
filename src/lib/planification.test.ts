@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { libelleDuMoment, momentDuRaccourci, momentSaisi, valeurChamp } from './planification'
+import { libelleDuMoment, momentDEnvoi, momentDuRaccourci, momentSaisi, valeurChamp } from './planification'
 
 describe('momentDuRaccourci', () => {
   it('« maintenant » est maintenant', () => {
@@ -53,5 +53,39 @@ describe('momentSaisi', () => {
   it('fait l’aller-retour avec le champ du navigateur', () => {
     const d = new Date('2026-09-09T14:30:00')
     expect(momentSaisi(valeurChamp(d))?.getTime()).toBe(d.getTime())
+  })
+})
+
+describe('momentDEnvoi — rien ne part sur une date qui n’en est pas une', () => {
+  const maintenant = new Date('2026-09-02T10:00:00')
+
+  it('une date précise effacée bloque l’envoi au lieu de partir « maintenant »', () => {
+    // Le défaut : champ vidé → libellé « Date incomplète » → retombait sur
+    // « maintenant », et le mot du soir partait à 10 h.
+    const r = momentDEnvoi('', 'Date incomplète', true, maintenant)
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.raison).toContain('Date incomplète')
+  })
+
+  it('un libellé inconnu sans date ne vaut pas « maintenant » non plus', () => {
+    expect(momentDEnvoi('', 'Date incomplète', false, maintenant).ok).toBe(false)
+  })
+
+  it('refuse une date déjà passée', () => {
+    const r = momentDEnvoi('2026-09-02T09:00', 'mercredi 2 septembre, 9 h', true, maintenant)
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.raison).toContain('déjà passée')
+  })
+
+  it('accepte une date à venir, telle quelle', () => {
+    const r = momentDEnvoi('2026-09-03T09:00', 'jeudi 3 septembre, 9 h', true, maintenant)
+    expect(r.ok && r.moment.getTime()).toBe(new Date('2026-09-03T09:00').getTime())
+  })
+
+  it('laisse les trois raccourcis calculer leur moment', () => {
+    const soir = momentDEnvoi('', 'Ce soir, 20 h', false, maintenant)
+    expect(soir.ok && soir.moment.getHours()).toBe(20)
+    const tout = momentDEnvoi('', 'Maintenant', false, maintenant)
+    expect(tout.ok && tout.moment.getTime()).toBe(maintenant.getTime())
   })
 })

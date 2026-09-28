@@ -1,0 +1,41 @@
+/* Ce que « Ma journée » a gagné : la prochaine séance, la journée faite qui
+   laisse sa liste à portée, et l'état d'un premier jour. Les sections
+   elles-mêmes gardent le style commun (PatientSpace.module.css). */
+
+.prochaineTexte {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  line-height: 1.35;
+  margin: 0;
+}
+
+/* « Revoir mes exercices » : toute la largeur, au pouce, sous le message. */
+.revoir {
+  display: block;
+  width: 100%;
+  margin: 14px 0 0;
+  padding: 11px 14px;
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+  background: var(--c-surface);
+  color: var(--c-text-3);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.liste {
+  margin-top: 14px;
+}
+
+.vide {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--c-text-3);
+  margin: 0;
+}
+
+.echec {
+  margin-bottom: 12px;
+}

@@ -370,7 +370,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
    * (/otp, /token, /signup…) ; /verify ne le lit pas, il est borné par sa
    * propre limite d'essais. Le code, lui, n'est parti qu'après la case
    * franchie : demander une seconde case pour le saisir n'arrêterait
-   * personne et ferait tout recommencer à la patiente.
+   * personne et ferait tout recommencer à qui attend d'entrer.
    */
   const connecterParCode = useCallback(async (email: string, code: string) => {
     const db = supabase()

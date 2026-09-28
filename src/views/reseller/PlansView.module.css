@@ -299,3 +299,69 @@
   color: var(--c-text-muted);
   margin: 6px 0 0;
 }
+
+/* La date du contrat : fin d'essai pour un essai, échéance sinon. */
+.contratDate {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--c-text-muted);
+}
+.champDate {
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--c-text);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-sm, 8px);
+  padding: 6px 8px;
+  max-width: 180px;
+}
+.contratGestes {
+  margin-top: 10px;
+}
+
+/* Le journal des offres et des contrats. */
+.journal {
+  list-style: none;
+  margin: 0;
+  padding: 6px 20px 10px;
+}
+.journalLigne {
+  display: grid;
+  grid-template-columns: 118px minmax(0, 1fr);
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  border-bottom: 1px solid var(--c-border-light);
+}
+.journalLigne:last-child {
+  border-bottom: none;
+}
+.journalQuand {
+  color: var(--c-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.journalAuteur {
+  color: var(--c-text-muted);
+}
+.journalVide {
+  padding: 14px 20px 16px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--c-text-muted);
+  line-height: 1.55;
+}
+.journalPied {
+  padding: 0 20px 14px;
+}
+
+@media (max-width: 600px) {
+  .journalLigne {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+}

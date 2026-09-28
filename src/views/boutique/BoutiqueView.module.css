@@ -205,6 +205,23 @@
   gap: 6px;
 }
 
+/* Un produit en cours de modification prend la place de sa ligne : on
+   corrige là où on lit, sans perdre la liste de vue. */
+.edition {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--c-border-light);
+}
+.edition:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.boutons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .select {
   min-height: 40px;
   padding: 0 10px;

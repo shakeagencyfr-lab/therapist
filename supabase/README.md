@@ -44,6 +44,87 @@ actifs — dans un cabinet d'un patient, une moyenne est un chiffre individuel.
 | `0017_hypnose_et_profil_detaille.sql` | l'hypnose en quatre mouvements, activée fiche par fiche ; le profil gagne ce qui bouge et l'alliance |
 | `0016_revente_ia.sql` | deux façons de vendre l'IA, au choix cabinet par cabinet ; grand livre des crédits, paquets, achats |
 
+## Fichiers du dépôt et historique de la base
+
+Les fichiers portent un numéro (`0001` à …) ; la base, elle, a enregistré
+chaque migration sous un horodatage, au moment où elle a été appliquée
+(`supabase_migrations.schema_migrations`, lisible par `list_migrations`). Les
+deux historiques ne se rapprochent donc pas d'eux-mêmes : **`supabase db push`
+et `supabase migration list` ne savent pas les apparier**, et proposeraient de
+rejouer ce qui est déjà en place. On ne les emploie pas sur ce projet.
+
+**La règle.** Une migration s'applique par `apply_migration` avec pour nom le
+fichier sans son extension — numéro compris, comme depuis `0040`. Ce tableau
+reçoit alors sa ligne. Aucun fichier n'est renommé : son numéro est cité dans
+les commentaires et les épreuves des migrations suivantes.
+
+Relevé du 28 septembre 2026 (base `koytgcbpeorupdklswxd`).
+
+| Fichier | Version en base | Nom en base |
+| --- | --- | --- |
+| `0001_socle_multi_cabinet.sql` | 20260831202428 | socle_multi_cabinet |
+| `0002_donnees_de_sante.sql` | 20260831202509 | donnees_de_sante |
+| `0003_commercial_et_revendeur.sql` | 20260831202539 | commercial_et_revendeur |
+| `0004_durcissement_execution.sql` | 20260831202622 | durcissement_execution |
+| `0005_connexion_et_roles.sql` | 20260831215427 | connexion_et_roles |
+| `0006_invitations_revendeur.sql` | 20260831215456 | invitations_revendeur |
+| `0007_gestes_du_patient.sql` | 20260831215854 | gestes_du_patient |
+| `0008_invitation_sans_jeton.sql` | 20260901053141 | invitation_sans_jeton |
+| `0009_integrations.sql` | 20260901235856 | integrations |
+| `0010_boutique.sql` | 20260902000047 | boutique |
+| `0011_stockage_audios.sql` | 20260902001413 | stockage_audios |
+| `0012_lectures_de_la_patiente.sql` | 20260902060530 | lectures_de_la_patiente |
+| `0013_programmes_et_reservation.sql` | 20260902120737 | programmes_et_reservation |
+| `0014_vitrine_du_cabinet.sql` | 20260902122419 | vitrine_du_cabinet |
+| `0015_logo_du_cabinet.sql` | 20260902123425 | logo_du_cabinet |
+| `0016_revente_ia.sql` | 20260902181417 | revente_ia |
+| `0017_hypnose_et_profil_detaille.sql` | 20260902202751 | hypnose_et_profil_detaille |
+| `0018_hypnose_comptee.sql` | — (voir ci-dessous) | — |
+| *(aucun fichier)* | 20260902204211 | notification_heure_precise |
+| `0019_offres_domaine_smtp_site.sql` | 20260903133951 | offres_domaine_smtp_site |
+| `0020_surface_api_reduite.sql` | 20260903142413 | surface_api_reduite |
+| `0021_invitations_bornees.sql` | 20260903142802 · 20260903142822 · 20260903142903 | invitations_bornees · invitations_bornees_droit_execution · invitations_bornees_ancienne_politique |
+| `0022_plafond_dit_le_bon_geste.sql` | 20260903143427 | plafond_dit_le_bon_geste |
+| `0023_droits_appliques_aux_pages_publiques.sql` | 20260903143652 | droits_appliques_aux_pages_publiques |
+| `0024_une_note_par_soir.sql` | 20260903144657 | une_note_par_soir |
+| `0025_derive_et_trois_oublis.sql` | 20260903165348 | derive_et_trois_oublis |
+| `0026_boutique_selon_offre.sql` | 20260903170750 | boutique_selon_offre |
+| `0027_journal_ordonne.sql` | 20260903223742 | journal_ordonne |
+| `0028_identifiants_a_la_racine.sql` | 20260904003030 | identifiants_a_la_racine |
+| `0029_habillage_vitrine.sql` | 20260904014311 | habillage_vitrine |
+| `0030_frontieres_refermees.sql` | 20260904201025 | frontieres_refermees |
+| `0031_compter_une_seance.sql` | 20260904202126 | compter_une_seance |
+| `0032_plafond_a_la_reouverture.sql` | 20260904202537 | plafond_a_la_reouverture |
+| `0033_publier_sans_perdre.sql` | 20260905025327 | publier_sans_perdre |
+| `0034_affirmations_du_lundi.sql` | 20260905112100 | affirmations_du_lundi |
+| `0035_abonnement_en_regle.sql` | 20260905112507 | abonnement_en_regle |
+| `0036_lheure_dite.sql` | 20260905113317 · 20260905113613 | lheure_dite · lheure_dite_sans_recursion |
+| `0037_un_seul_identifiant.sql` | 20260905114352 | un_seul_identifiant |
+| `0038_deux_index_et_du_menage.sql` | 20260905120804 | deux_index_et_du_menage |
+| `0039_portes_refermees.sql` | 20260905121254 | portes_refermees |
+| `0040_rappels_sur_le_telephone.sql` | 20260928164924 | 0040_rappels_sur_le_telephone |
+| `0041_changer_son_mot_de_passe.sql` | 20260928181603 | 0041_changer_son_mot_de_passe |
+| `0042_une_equipe_par_cabinet.sql` | 20260928194749 | 0042_une_equipe_par_cabinet |
+| `0043_la_seance_se_referme.sql` | 20260928194830 | 0043_la_seance_se_referme |
+| `0044_le_suivi_clos_ferme_la_porte.sql` | 20260928195441 | 0044_le_suivi_clos_ferme_la_porte |
+| `0045_retirer_et_rattacher.sql` | 20260928195517 | 0045_retirer_et_rattacher |
+| `0046_l_assiduite_ne_compte_que_les_taches.sql` | 20260928201356 | 0046_l_assiduite_ne_compte_que_les_taches |
+
+Les écarts, et ce qu'ils recouvrent — le contenu, lui, est en place :
+
+- **`0018_hypnose_comptee.sql` n'a pas d'entrée.** Son unique instruction
+  (`alter type ai_call_kind add value 'hypnose'`) a été jouée hors de
+  l'historique : la valeur est bien dans l'énumération. À l'inverse, l'entrée
+  `notification_heure_precise` n'a pas de fichier : elle ajoutait
+  `push_notifications.scheduled_at` et son index, que `0025` reprend
+  (`add column if not exists`). Rejouer `0018` serait sans effet.
+- **`0021` et `0036` ont été appliquées en plusieurs temps** (trois et deux
+  entrées) : le fichier est la somme de ses entrées.
+- **La journée quotidienne porte le numéro `0051`.** Écrite en même temps
+  que `0046_l_assiduite_ne_compte_que_les_taches`, elle portait d'abord le
+  même numéro ; elle a été renumérotée avant d'être appliquée. Les migrations
+  `0047` à `0051` s'appliquent dans l'ordre de leur numéro.
+
 Les tests de `tests/` se jouent sous les droits réels de chaque acteur, dans
 un seul bloc qui se rétracte (`RAISE EXCEPTION 'REUSSITE …'`) : rien ne
 persiste, et le message dit ce qui a été vérifié.
@@ -101,7 +182,11 @@ jamais écrites.
 ## Exécuter
 
 ```bash
-# via le CLI Supabase, en local ou contre le projet distant
-supabase db push
+# Une base NEUVE (locale, branche) : les fichiers dans l'ordre de leur numéro.
+for f in supabase/migrations/*.sql; do psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"; done
+# Chaque épreuve finit par « REUSSITE : … » (une exception, qui annule tout).
 psql "$DATABASE_URL" -f supabase/tests/isolation.sql
 ```
+
+Contre la base du projet, jamais `supabase db push` : voir « Fichiers du dépôt
+et historique de la base » plus haut.

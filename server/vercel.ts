@@ -12,6 +12,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { jetonDe } from './auth.js'
 import { describeError, handleAi, type AiRoute } from './ai.js'
+import { journaliserRefus } from './errors.js'
 
 export function aiFunction(route: AiRoute) {
   return async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
@@ -37,7 +38,7 @@ export function aiFunction(route: AiRoute) {
         console.error(`[ia] ${route} — 500 · ${cause}`)
         if (err instanceof Error && err.stack) console.error(err.stack)
       } else {
-        console.error(`[ia] ${route} — ${status} · ${message}`)
+        journaliserRefus(`[ia] ${route}`, status, message)
       }
       res.status(status).json({ error: message })
     }

@@ -70,11 +70,51 @@ describe('barre latérale', () => {
     const rows = sidebarPatients({ ...initialState, q: sub.toLowerCase() })
     expect(rows.length).toBeGreaterThan(0)
   })
-  it('une fiche décroche sous 50 % de modules faits', () => {
-    for (const id of slippingPatients(initialState)) {
-      const { done, total } = moduleProgress(initialState, id)
-      expect(done / total).toBeLessThan(0.5)
-    }
+  it('une fiche décroche sous 50 % d’assiduité', () => {
+    const slipping = slippingPatients(initialState)
+    expect(slipping.length).toBeGreaterThan(0)
+    for (const id of slipping) expect(initialState.patients[id]!.adherence).toBeLessThan(50)
+  })
+})
+
+/**
+ * Chaque jour se coche (0051) : la case d'un module dit « fait aujourd'hui ».
+ * Le décrochage et les retards se lisent sur la semaine, sans quoi toute la
+ * patientèle décrochait chaque matin avant d'avoir rien pu faire.
+ */
+describe('la semaine, pas la case du matin', () => {
+  const camille = initialState.patients['camille']!
+  const fiche = (adherence: number, septJours: { faits: number; possibles: number }) => ({
+    ...initialState,
+    extra: {},
+    done: {},
+    patients: {
+      ...initialState.patients,
+      camille: {
+        ...camille,
+        adherence,
+        modules: [
+          { title: 'Trois respirations', meta: '', kind: 'Exercice' as const, done: false, id: 'm1', septJours },
+          { title: 'Retour au calme', meta: '', kind: 'Audio' as const, done: false, id: 'm2' },
+        ],
+      },
+    },
+  })
+
+  it('rien de coché ce matin, six jours faits sur sept : ni décrochage ni retard', () => {
+    const etat = fiche(86, { faits: 6, possibles: 7 })
+    expect(slippingPatients(etat)).not.toContain('camille')
+    expect(notifRows(etat).find((r) => r.key === 'camille')?.reason).not.toContain('en retard')
+  })
+
+  it('pas un jour fait de la semaine : décrochage, et un module en retard', () => {
+    const etat = fiche(0, { faits: 0, possibles: 7 })
+    expect(slippingPatients(etat)).toContain('camille')
+    expect(notifRows(etat).find((r) => r.key === 'camille')?.reason).toContain('1 module en retard')
+  })
+
+  it('tout vient d’être confié : rien à juger encore', () => {
+    expect(slippingPatients(fiche(0, { faits: 0, possibles: 0 }))).not.toContain('camille')
   })
 })
 

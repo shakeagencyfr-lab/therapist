@@ -117,6 +117,12 @@ export interface PatientModule {
   consigne?: Consigne
   /** Retiré du parcours le… (date lisible). Seuls les modules retirés la portent. */
   retireLe?: string
+  /**
+   * Les jours faits sur les sept derniers, et ceux où il pouvait l'être
+   * (src/lib/assiduite.ts). Un exercice se refait chaque jour : `done` dit
+   * « fait aujourd'hui », ceci dit la semaine. Absent en démonstration.
+   */
+  septJours?: { faits: number; possibles: number }
 }
 
 /** Un audio envoyé à un patient. */
@@ -251,9 +257,16 @@ export interface CustomModule {
 
 /** Une notification envoyée à un groupe de patients. */
 export interface PushRecord {
+  /** La ligne en base — absente en démonstration, où rien ne s'enregistre. */
+  id?: string
   title: string
   message: string
   when: string
+  /**
+   * L'horodatage prévu (ISO), tant que le mot n'est pas parti : de quoi
+   * rouvrir le champ de date à la même heure pour le reprogrammer.
+   */
+  prevu?: string | null
   /** Noms des destinataires. */
   names: string[]
   /** Date d'envoi affichée dans le journal des envois. */

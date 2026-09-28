@@ -11,9 +11,15 @@ import {
 } from '@/components/ui'
 import { useMaybeAuth } from '@/auth/session'
 import { lienCabinet } from '@/lib/domaine'
+import { fusionnerFiche, retirerAvis, type FicheImportee } from '@/lib/ficheGoogle'
+import { enumeration } from '@/lib/format'
+import { mentionsManquantes } from '@/lib/mentionsLegales'
+import { deplacer, mettreEnCouverture } from '@/lib/photosSite'
+import { effacerDuStockage } from '@/lib/stockage'
 import { supabase } from '@/lib/supabase'
 import {
   chercherFiche,
+  depublierSite,
   enregistrerSite,
   importerFiche,
   lireSite,
@@ -52,6 +58,7 @@ import s from './SiteView.module.css'
 function versVitrine(
   site: Site,
   identite: { name: string; slug: string; tagline: string; branding: CabinetBranding } | null,
+  reservation: string | null,
 ): SiteVitrine {
   return {
     slug: identite?.slug ?? 'cabinet',
@@ -78,6 +85,9 @@ function versVitrine(
     avis: site.avis,
     google_note: site.googleNote,
     google_avis: site.googleAvis,
+    reservation,
+    responsable: site.responsable,
+    numero_pro: site.numeroPro,
   }
 }
 
@@ -102,6 +112,13 @@ export function SiteView() {
   const [occupe, setOccupe] = useState('')
   const [erreur, setErreur] = useState('')
   const [message, setMessage] = useState('')
+  /* Le brouillon tel qu'il est À CET INSTANT, pour l'import : la fiche met
+     quelques secondes à arriver, et ce qui a été tapé entre-temps doit être
+     dans ce qu'on complète, pas écrasé par une version d'avant. */
+  const courant = useRef<Site | null>(null)
+  useEffect(() => {
+    courant.current = site
+  }, [site])
 
   useEffect(() => {
     let vivant = true
@@ -162,22 +179,76 @@ export function SiteView() {
     )
   }
 
+  /**
+   * Dépublier, même sans le droit du site : la page n'est plus servie, mais
+   * elle reviendrait telle quelle — horaires périmés compris — le jour où
+   * l'offre est rétablie. C'est à la thérapeute d'en décider.
+   */
+  async function depublier() {
+    if (occupe) return
+    setOccupe('depublier')
+    setErreur('')
+    setMessage('')
+    try {
+      const suite = await depublierSite()
+      setEtat(suite)
+      setSite(suite.site)
+      setMessage('Page dépubliée. Elle ne reviendra en ligne que lorsque vous la publierez à nouveau.')
+    } catch (err) {
+      setErreur((err as Error).message)
+    }
+    setOccupe('')
+  }
+
   if (etat && !etat.droit) {
+    /* DEUX CAUSES, DEUX PHRASES. « Pas dans votre offre » à un cabinet dont
+       l'essai a expiré l'envoyait réclamer une option qu'il a déjà payée,
+       au lieu de régler le contrat. */
+    const suspendu = !etat.enRegle
     return (
       <div className={s.wrap}>
         <div className={s.crumb}>
           <Overline>Réglages du cabinet</Overline>
         </div>
         <h1 className={s.h1}>Votre site vitrine</h1>
+        {erreur ? <Notice tone="warn">{erreur}</Notice> : null}
+        {message ? <Notice tone="ok">{message}</Notice> : null}
         <Card>
           <p className={s.muted}>
-            Le site vitrine ne fait pas partie de votre offre{etat.offre ? ` « ${etat.offre} »` : ''}.
-            Votre revendeur peut l'ouvrir depuis son espace — vos réglages actuels seront conservés.
+            {suspendu ? (
+              <>
+                Votre abonnement n'est plus en cours : votre site vitrine est suspendu, et votre
+                page n'est plus visible en ligne. Vos réglages sont conservés ; votre revendeur
+                peut réactiver l'offre.
+              </>
+            ) : (
+              <>
+                Le site vitrine ne fait pas partie de votre offre
+                {etat.offre ? ` « ${etat.offre} »` : ''}. Votre revendeur peut l'ouvrir depuis son
+                espace — vos réglages actuels seront conservés.
+              </>
+            )}
           </p>
+          {site?.publie ? (
+            <>
+              <p className={s.note}>
+                Votre page est encore marquée comme publiée : elle reviendra en ligne telle quelle
+                dès que {suspendu ? "l'abonnement reprendra" : 'votre offre comprendra le site'}.
+                Pour la relire avant, dépubliez-la maintenant.
+              </p>
+              <div className={s.actions}>
+                <Button variant="secondary" disabled={occupe !== ''} onClick={() => void depublier()}>
+                  {occupe === 'depublier' ? 'Dépublication…' : 'Dépublier'}
+                </Button>
+              </div>
+            </>
+          ) : null}
         </Card>
       </div>
     )
   }
+
+  const manquent = site ? mentionsManquantes(site) : []
 
   return (
     <div className={s.wrap}>
@@ -200,12 +271,30 @@ export function SiteView() {
             possible={etat?.google ?? false}
             connu={etat !== null}
             importeLe={site.importeLe}
+            sansPhotos={site.photos.length === 0}
             occupe={occupe}
             setOccupe={setOccupe}
-            onImport={(suite) => {
+            onImport={(suite, fiche) => {
               setEtat(suite)
-              setSite(suite.site)
-              setMessage('Fiche importée. Relisez : ce qui était déjà écrit chez vous a été gardé.')
+              const brouillon = courant.current
+              if (!brouillon) return
+              /* La fiche rejoint le BROUILLON, pas la base : la saisie en
+                 cours reste, ce qui est écrit n'est pas remplacé, et rien ne
+                 part en ligne avant « Enregistrer ». Seuls les chiffres de
+                 Google — note, nombre d'avis, date — sont déjà à jour. */
+              const { site: suiteBrouillon, ajouts } = fusionnerFiche(brouillon, fiche)
+              setSite({
+                ...suiteBrouillon,
+                googlePlaceId: suite.site.googlePlaceId,
+                googleNote: suite.site.googleNote,
+                googleAvis: suite.site.googleAvis,
+                importeLe: suite.site.importeLe,
+              })
+              setMessage(
+                ajouts.length
+                  ? `Fiche versée dans votre brouillon : ${enumeration(ajouts)}. Ce que vous aviez écrit est resté. Relisez, puis enregistrez — rien de cela n'est en ligne avant.`
+                  : "La fiche n'apporte rien de neuf : tout ce qu'elle contient est déjà dans votre page. Sa note et son nombre d'avis sont à jour.",
+              )
             }}
             onErreur={setErreur}
           />
@@ -291,6 +380,12 @@ export function SiteView() {
             </div>
 
             <Horaires horaires={site.horaires} onChange={(horaires) => patch({ horaires })} />
+
+            <p className={s.note}>
+              {etat?.reservation
+                ? 'Votre page affiche un bouton « Prendre rendez-vous » vers l’agenda réglé dans Intégrations.'
+                : 'Réglez votre agenda dans Intégrations : votre page affichera un bouton « Prendre rendez-vous ».'}
+            </p>
           </Card>
 
           <Card className={s.panel}>
@@ -307,6 +402,7 @@ export function SiteView() {
           <Photos
             cabinetId={identite.id}
             photos={site.photos}
+            enregistrees={etat?.site.photos ?? []}
             onChange={(photos) => patch({ photos })}
             onErreur={setErreur}
           />
@@ -322,7 +418,7 @@ export function SiteView() {
                   ? ` — ${site.googleNote.toFixed(1).replace('.', ',')} sur 5, ${site.googleAvis ?? 0} avis`
                   : ''}
                 . Vous pouvez en retirer, pas en écrire : un avis qu'on rédige soi-même n'est plus
-                un avis.
+                un avis. Un avis retiré ne revient pas au prochain import.
               </p>
               <ul className={s.avis}>
                 {site.avis.map((a, i) => (
@@ -334,7 +430,12 @@ export function SiteView() {
                       <button
                         type="button"
                         className={s.retirer}
-                        onClick={() => patch({ avis: site.avis.filter((_, j) => j !== i) })}
+                        onClick={() => {
+                          /* Retiré ET retenu : un réimport pour rafraîchir la
+                             note ne doit pas le ramener. */
+                          const suite = retirerAvis(site, i)
+                          patch({ avis: suite.avis, avisRetires: suite.avisRetires })
+                        }}
                       >
                         Retirer
                       </button>
@@ -346,25 +447,42 @@ export function SiteView() {
             </Card>
           ) : null}
 
+          <MentionsLegales
+            site={site}
+            nomCabinet={identite.name}
+            onChange={(champs) => patch(champs)}
+          />
+
           <Card className={s.panel}>
             <Title large as="h2">
               Publication
             </Title>
             <p className={s.hint}>
               Votre page répondra à {lienCabinet(identite.slug)} — et à votre domaine, si vous en
-              avez posé un. L'accès à l'espace de vos patients y est intégré : ils entrent leur
-              adresse, elles reçoivent leur lien.
+              avez posé un. L'accès à l'espace de vos patients y est intégré : il leur suffit
+              d'entrer leur adresse pour recevoir leur lien.
             </p>
+            {manquent.length ? (
+              <p className={s.note}>
+                Mentions légales incomplètes : il manque {enumeration(manquent)}. La loi les demande
+                sur le site d'un professionnel ; vous pouvez publier, mais complétez-les dès que
+                possible.
+              </p>
+            ) : null}
             <div className={s.actions}>
               <Button variant="primary" disabled={occupe !== ''} onClick={() => void enregistrer(true)}>
                 {occupe === 'enregistrer' ? 'Enregistrement…' : site.publie ? 'Publier les modifications' : 'Publier'}
               </Button>
-              {/* Sur un site déjà en ligne, « enregistrer » publie forcément :
-                  promettre le contraire ferait croire à un brouillon. Le
-                  bouton ne le dit donc que lorsque c'est vrai. */}
-              <Button variant="secondary" disabled={occupe !== ''} onClick={() => void enregistrer()}>
-                {site.publie ? 'Enregistrer le brouillon en ligne' : 'Enregistrer sans publier'}
-              </Button>
+              {/* Sur une page déjà en ligne, il n'existe pas de brouillon :
+                  tout enregistrement part en ligne. Un second bouton
+                  « Enregistrer le brouillon en ligne » laissait croire le
+                  contraire — il n'est offert que tant que la page n'est pas
+                  publiée, là où il dit vrai. */}
+              {site.publie ? null : (
+                <Button variant="secondary" disabled={occupe !== ''} onClick={() => void enregistrer()}>
+                  Enregistrer sans publier
+                </Button>
+              )}
               {site.publie ? (
                 <>
                   <a className={s.lien} href={lienCabinet(identite.slug)} target="_blank" rel="noreferrer">
@@ -397,7 +515,7 @@ export function SiteView() {
           </div>
           <div className={s.apercuCadre}>
             <div className={s.apercuPage}>
-              <VitrinePage site={versVitrine(site, identite)} apercu />
+              <VitrinePage site={versVitrine(site, identite, etat?.reservation ?? null)} apercu />
             </div>
           </div>
           <p className={s.apercuNote}>
@@ -417,6 +535,7 @@ function ImportGoogle({
   possible,
   connu,
   importeLe,
+  sansPhotos,
   occupe,
   setOccupe,
   onImport,
@@ -426,9 +545,11 @@ function ImportGoogle({
   /** Les réglages ont-ils pu être lus ? Sans quoi on ne sait rien, même pas non. */
   connu: boolean
   importeLe: string | null
+  /** Le brouillon n'a aucune photo : celles de la fiche valent d'être recopiées. */
+  sansPhotos: boolean
   occupe: string
   setOccupe: (v: string) => void
-  onImport: (etat: EtatSite) => void
+  onImport: (etat: EtatSite, fiche: FicheImportee) => void
   onErreur: (message: string) => void
 }) {
   const [requete, setRequete] = useState('')
@@ -451,7 +572,8 @@ function ImportGoogle({
     setOccupe('importer')
     onErreur('')
     try {
-      onImport(await importerFiche(placeId))
+      const { etat, fiche } = await importerFiche(placeId, sansPhotos)
+      onImport(etat, fiche)
       setFiches(null)
       setRequete('')
     } catch (err) {
@@ -469,7 +591,9 @@ function ImportGoogle({
         <>
           <p className={s.hint}>
             Cherchez votre cabinet comme un patient le chercherait : votre nom et votre ville.
-            L'import remplit ce qui est vide et ne remplace jamais ce que vous avez écrit.
+            L'import complète votre brouillon — ce qui est vide se remplit, ce que vous avez écrit
+            reste, un avis retiré ne revient pas — et rien n'est en ligne avant que vous
+            enregistriez.
             {importeLe ? ` Dernier import le ${new Date(importeLe).toLocaleDateString('fr-FR')}.` : ''}
           </p>
           <div className={s.recherche}>
@@ -626,11 +750,14 @@ function Services({
 function Photos({
   cabinetId,
   photos,
+  enregistrees,
   onChange,
   onErreur,
 }: {
   cabinetId: string
   photos: PhotoSite[]
+  /** Les photos de la version enregistrée — peut-être en ligne. */
+  enregistrees: PhotoSite[]
   onChange: (p: PhotoSite[]) => void
   onErreur: (message: string) => void
 }) {
@@ -671,21 +798,42 @@ function Photos({
     onChange([...photos, { url: data.publicUrl, alt: '', attribution: '' }])
   }
 
+  /**
+   * Retirer une photo.
+   *
+   * Une photo que la version enregistrée ne montre pas — déposée ou importée
+   * dans ce brouillon — est effacée du compartiment tout de suite : elle est
+   * publique dès son dépôt, et rien d'autre ne la montre. Une photo déjà
+   * enregistrée, peut-être en ligne, reste jusqu'à l'enregistrement : c'est
+   * le serveur qui l'efface alors, une fois la page mise à jour — l'effacer
+   * avant laisserait une image cassée sur la page publique.
+   */
+  function retirer(rang: number) {
+    const photo = photos[rang]
+    if (!photo) return
+    if (!enregistrees.some((p) => p.url === photo.url)) void effacerDuStockage('sites', photo.url, cabinetId)
+    onChange(photos.filter((_, j) => j !== rang))
+  }
+
   return (
     <Card className={s.panel}>
       <Title large as="h2">
         Vos photos
       </Title>
       <p className={s.hint}>
-        Celles de votre fiche Google ont été recopiées ici : les adresses que Google donne
-        expirent, les nôtres non. Leur attribution les suit — elle s'affiche sur la page, c'est
-        Google qui l'exige et c'est la moindre des choses.
+        La première est la couverture : elle s'affiche en grand sous votre titre, les autres en
+        galerie plus bas. Celles de votre fiche Google ont été recopiées ici : les adresses que
+        Google donne expirent, les nôtres non. Leur attribution les suit — elle s'affiche sur la
+        page, c'est Google qui l'exige et c'est la moindre des choses.
       </p>
 
       <div className={s.photos}>
         {photos.map((p, i) => (
           <div key={p.url} className={s.photo}>
-            <img className={s.vignette} src={p.url} alt={p.alt} loading="lazy" />
+            <div className={s.vignetteCadre}>
+              <img className={s.vignette} src={p.url} alt={p.alt} loading="lazy" />
+              {i === 0 ? <span className={s.couverture}>Couverture</span> : null}
+            </div>
             <TextInput
               value={p.alt}
               placeholder="Ce que montre la photo"
@@ -693,13 +841,34 @@ function Photos({
               aria-label={`Description de la photo ${i + 1}`}
             />
             {p.attribution ? <span className={s.attribution}>{p.attribution}</span> : null}
-            <button
-              type="button"
-              className={s.retirer}
-              onClick={() => onChange(photos.filter((_, j) => j !== i))}
-            >
-              Retirer
-            </button>
+            <div className={s.photoGestes}>
+              {i > 0 ? (
+                <button type="button" className={s.retirer} onClick={() => onChange(mettreEnCouverture(photos, i))}>
+                  Mettre en couverture
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className={s.deplacer}
+                disabled={i === 0}
+                onClick={() => onChange(deplacer(photos, i, i - 1))}
+                aria-label={`Avancer la photo ${i + 1} d'un rang`}
+              >
+                ←
+              </button>
+              <button
+                type="button"
+                className={s.deplacer}
+                disabled={i === photos.length - 1}
+                onClick={() => onChange(deplacer(photos, i, i + 1))}
+                aria-label={`Reculer la photo ${i + 1} d'un rang`}
+              >
+                →
+              </button>
+              <button type="button" className={s.retirer} onClick={() => retirer(i)}>
+                Retirer
+              </button>
+            </div>
           </div>
         ))}
       </div>
@@ -726,6 +895,61 @@ function Photos({
   )
 }
 
+/**
+ * Les mentions légales : qui publie la page, et sous quel numéro.
+ *
+ * Le site d'une professionnelle doit les porter ; la page publique n'en
+ * disait rien. Nous ne connaissons ni son nom légal ni son numéro : elle les
+ * saisit ici. L'adresse et le téléphone sont ceux de « Vous joindre »,
+ * l'hébergeur est ajouté d'office — il n'a rien à lui demander.
+ */
+function MentionsLegales({
+  site,
+  nomCabinet,
+  onChange,
+}: {
+  site: Site
+  nomCabinet: string
+  onChange: (champs: Partial<Site>) => void
+}) {
+  return (
+    <Card className={s.panel}>
+      <Title large as="h2">
+        Mentions légales
+      </Title>
+      <p className={s.hint}>
+        Le site d'un professionnel doit dire qui le publie. Elles s'affichent en bas de votre page,
+        repliées.
+      </p>
+      <div className={s.deux}>
+        <div className={s.field}>
+          <FieldLabel>Responsable de la publication</FieldLabel>
+          <TextInput
+            value={site.responsable}
+            maxLength={120}
+            onChange={(e) => onChange({ responsable: e.target.value })}
+            placeholder={nomCabinet}
+          />
+          <span className={s.hint}>Vos nom et prénom, ou la raison sociale de votre cabinet.</span>
+        </div>
+        <div className={s.field}>
+          <FieldLabel>Numéro professionnel</FieldLabel>
+          <TextInput
+            value={site.numeroPro}
+            maxLength={60}
+            onChange={(e) => onChange({ numeroPro: e.target.value })}
+            placeholder="SIRET 123 456 789 00012"
+          />
+          <span className={s.hint}>SIRET, ou ADELI / RPPS si votre profession est réglementée.</span>
+        </div>
+      </div>
+      <p className={s.note}>
+        L'adresse et le téléphone sont ceux de « Vous joindre ». L'hébergeur de la page est ajouté
+        pour vous.
+      </p>
+    </Card>
+  )
+}
 
 /**
  * L'habillage de la page : préréglages, polices, fond, cartes, angles.

@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { cronAutorise } from '../../server/affirmationsHebdo.js'
 import { describeError } from '../../server/ai.js'
+import { journaliserRefus } from '../../server/errors.js'
 import { pousserLesRappelsDus } from '../../server/push.js'
 
 /**
@@ -27,7 +28,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     res.status(200).json(bilan)
   } catch (err) {
     const { status, message } = describeError(err)
-    console.error(`[rappels] ${status} ${message}`)
+    journaliserRefus('[rappels]', status, message)
     res.status(status).json({ message })
   }
 }

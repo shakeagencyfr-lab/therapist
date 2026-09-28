@@ -30,6 +30,12 @@ export function plural(n: number, one: string, many: string): string {
   return `${n} ${n > 1 ? many : one}`
 }
 
+/** « a », « a et b », « a, b et c » — une liste dite comme une phrase. */
+export function enumeration(elements: string[]): string {
+  if (elements.length <= 1) return elements[0] ?? ''
+  return `${elements.slice(0, -1).join(', ')} et ${elements.at(-1)}`
+}
+
 /** Montant en euros à partir de centimes : « 79,00 € ». */
 export function euroCents(cents: number): string {
   return `${(cents / 100).toFixed(2).replace('.', ',')} €`

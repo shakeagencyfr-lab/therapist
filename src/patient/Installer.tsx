@@ -120,6 +120,16 @@ export function Installer({ accent, variante }: Props) {
             </li>
             <li>ouvrez désormais votre espace depuis sa nouvelle icône.</li>
           </ol>
+          {/* L'ICÔNE NE CONNAÎT PAS LA SESSION DE SAFARI. Sur iPhone, l'espace
+              installé garde son stockage à part : il s'ouvre à la porte, et
+              le lien d'un courriel, lui, repart dans Safari. On dit avant
+              l'installation comment y entrer — sans quoi on tourne en
+              rond entre l'icône et ses courriels. */}
+          <p className={s.note}>
+            À la première ouverture, entrez votre adresse : vous recevrez un code à 6 chiffres, à
+            saisir dans l'application — le lien du courriel, lui, s'ouvrirait dans Safari. Un mot de
+            passe choisi dans « Moi » fonctionne aussi.
+          </p>
         </>
       ) : null}
 

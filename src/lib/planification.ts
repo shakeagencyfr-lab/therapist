@@ -60,6 +60,39 @@ export function momentSaisi(valeur: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d
 }
 
+/** Le moment d'envoi retenu — ou la raison pour laquelle on ne peut pas encore envoyer. */
+export type MomentDEnvoi = { ok: true; moment: Date } | { ok: false; raison: string }
+
+/**
+ * Quand part le mot, d'après ce que l'écran montre.
+ *
+ * `dateChoisie` : la date précise est ouverte. Elle compte même vidée — c'est
+ * tout le défaut qu'on corrige ici. Un champ effacé donnait un libellé
+ * « Date incomplète » que `momentDuRaccourci` ne connaît pas ; il retombait
+ * alors sur « maintenant », et le mot qu'on voulait pour plus tard partait
+ * aussitôt, annoncé « Envoyé ». Rien ne part plus sur une date vide, à moitié
+ * tapée ou déjà passée : l'envoi attend un vrai moment.
+ */
+export function momentDEnvoi(
+  quandSaisi: string,
+  libelle: string,
+  dateChoisie: boolean,
+  maintenant: Date = new Date(),
+): MomentDEnvoi {
+  if (dateChoisie || quandSaisi) {
+    const moment = momentSaisi(quandSaisi)
+    if (!moment) return { ok: false, raison: 'Date incomplète : choisissez un jour et une heure.' }
+    if (moment.getTime() <= maintenant.getTime()) {
+      return { ok: false, raison: 'Cette date est déjà passée : choisissez un moment à venir, ou « Maintenant ».' }
+    }
+    return { ok: true, moment }
+  }
+  if ((RACCOURCIS as readonly string[]).includes(libelle)) {
+    return { ok: true, moment: momentDuRaccourci(libelle, maintenant) }
+  }
+  return { ok: false, raison: "Choisissez un moment d'envoi." }
+}
+
 /** La valeur d'un champ `datetime-local`, dans l'heure locale du navigateur. */
 export function valeurChamp(quand: Date): string {
   const deuxChiffres = (n: number) => String(n).padStart(2, '0')

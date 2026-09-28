@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Button, Chip, FieldLabel, Notice, TextInput } from '@/components/ui'
 import { BRAND_PRESETS } from '@/data/reseller'
+import { couleursInvalides } from '@/lib/couleurs'
 import { adresseCabinet } from '@/lib/domaine'
+import { identifiantEnSaisie, problemeIdentifiant } from '@/lib/identifiant'
 import { useResellerData } from '@/reseller/context'
-import { slugify } from '@/state/resellerSelectors'
 import { useStore } from '@/state/store'
 import type { Cabinet, CabinetBranding, PortfolioRow } from '@/types/reseller'
 import s from './BrandEditor.module.css'
@@ -90,15 +91,27 @@ export function BrandEditor() {
  * n'est touchée qu'à la publication.
  */
 function Editeur({ row }: { row: PortfolioRow }) {
-  const { rows, reel, enregistrerMarque } = useResellerData()
+  const { rows, reel, enregistrerMarque, anciensIdentifiants } = useResellerData()
   const { state, set } = useStore()
   const publie = ficheDe(row.cabinet)
   const [draft, setDraft] = useState<Fiche>(publie)
   const [publication, setPublication] = useState(false)
   const [echec, setEchec] = useState('')
+  /* CHANGER D'ADRESSE SE CONFIRME. L'identifiant partait en base au clic sur
+     « Publier la marque », sans un mot : les cartes imprimées, le widget posé
+     sur le site du cabinet, les espaces installés sur les téléphones et les
+     rappels déjà programmés visaient l'ancienne adresse. Depuis 0049 elle y
+     mène encore — mais le revendeur doit savoir ce qu'il fait, et le dire. */
+  const [confirmation, setConfirmation] = useState(false)
+  const nouvelleAdresse = draft.slug !== publie.slug
+  const problemeSlug = nouvelleAdresse ? problemeIdentifiant(draft.slug) : null
+  const anciens = anciensIdentifiants.filter((a) => a.cabinet_id === row.cabinet.id).map((a) => a.slug)
   const cabinet = draft
   const branding = draft.branding
   const modifie = !memeFiche(draft, publie)
+  /* La même règle que l'écran de la thérapeute (src/lib/couleurs.ts) et que
+     la base (0048) : un code incomplet rendrait ses boutons transparents. */
+  const publiable = couleursInvalides(draft.branding).length === 0 && draft.name.trim().length >= 2
 
   /** Applique un correctif de marque au brouillon ouvert. */
   function patch(next: Partial<CabinetBranding>, extra?: Partial<{ name: string; slug: string; tagline: string }>) {
@@ -118,6 +131,11 @@ function Editeur({ row }: { row: PortfolioRow }) {
 
   async function publier() {
     if (publication) return
+    if (nouvelleAdresse && !problemeSlug && !confirmation) {
+      setConfirmation(true)
+      return
+    }
+    setConfirmation(false)
     setPublication(true)
     setEchec('')
     // La réussite précédente ne doit pas rester affichée à côté d'un échec.
@@ -183,11 +201,20 @@ function Editeur({ row }: { row: PortfolioRow }) {
           <FieldLabel>Identifiant du cabinet</FieldLabel>
           <TextInput
             value={cabinet.slug}
-            onChange={(e) => patch({}, { slug: slugify(e.target.value) })}
+            onChange={(e) => {
+              setConfirmation(false)
+              patch({}, { slug: identifiantEnSaisie(e.target.value) })
+            }}
           />
           <p className={s.panelSub} style={{ margin: '6px 0 0' }}>
-            {adresseCabinet(cabinet.slug || 'identifiant')}
+            {problemeSlug ?? adresseCabinet(cabinet.slug || 'identifiant')}
           </p>
+          {anciens.length > 0 ? (
+            <p className={s.panelSub} style={{ margin: '4px 0 0' }}>
+              {anciens.length === 1 ? 'Ancienne adresse, qui mène toujours ici : ' : 'Anciennes adresses, qui mènent toujours ici : '}
+              {anciens.map((a) => adresseCabinet(a)).join(', ')}.
+            </p>
+          ) : null}
         </div>
 
         <div className={s.field}>
@@ -286,8 +313,39 @@ function Editeur({ row }: { row: PortfolioRow }) {
           </p>
         ) : null}
 
+        {!publiable ? (
+          <p className={s.hint} style={{ margin: '0 0 10px' }}>
+            Pour publier : un nom d'au moins deux caractères, et des couleurs au format #RRGGBB.
+          </p>
+        ) : null}
+
+        {confirmation ? (
+          <Notice tone="warn" style={{ marginBottom: 14 }}>
+            <p style={{ margin: '0 0 10px' }}>
+              L'adresse du cabinet va changer : {adresseCabinet(publie.slug)} devient{' '}
+              {adresseCabinet(draft.slug)}. L'ancienne continuera de mener au cabinet — cartes
+              imprimées, widget posé sur son site, espaces installés sur les téléphones, rappels
+              déjà programmés — et restera réservée à ce cabinet.
+            </p>
+            <div className={s.actions}>
+              <Button variant="primary" disabled={publication || !publiable} onClick={() => void publier()}>
+                Publier la nouvelle adresse
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setConfirmation(false)
+                  patch({}, { slug: publie.slug })
+                }}
+              >
+                Garder l'ancienne
+              </Button>
+            </div>
+          </Notice>
+        ) : null}
+
         <div className={s.actions}>
-          <Button variant="primary" disabled={publication} onClick={() => void publier()}>
+          <Button variant="primary" disabled={publication || !publiable} onClick={() => void publier()}>
             {publication ? 'Publication…' : 'Publier la marque'}
           </Button>
           <Button variant="ghost" onClick={() => patch(ORIGINE)}>

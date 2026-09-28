@@ -5,7 +5,7 @@ import { plural } from '@/lib/format'
 import {
   RACCOURCIS,
   libelleDuMoment,
-  momentDuRaccourci,
+  momentDEnvoi,
   momentSaisi,
   valeurChamp,
 } from '@/lib/planification'
@@ -31,10 +31,25 @@ export function NotificationsView() {
   /** L'envoi en cours, et ce que le serveur en a dit. */
   const [envoi, setEnvoi] = useState(false)
   const [retour, setRetour] = useState<{ ok: boolean; message: string } | null>(null)
+  /* LA DATE PRÉCISE EST UN CHOIX, PAS UNE VALEUR. Le champ n'existait que
+     s'il contenait quelque chose : l'effacer le faisait disparaître, aucune
+     pastille ne restait allumée, et l'envoi partait « maintenant ». Le choix
+     est tenu à part ; au retour sur l'écran, un libellé qui n'est pas un
+     raccourci veut dire qu'une date était en cours. */
+  const [dateChoisie, setDateChoisie] = useState(
+    () => Boolean(state.nQuand) || !(RACCOURCIS as readonly string[]).includes(state.nWhen),
+  )
+
+  /** Le mot programmé en cours de modification, celui dont on confirme l'annulation. */
+  const [edition, setEdition] = useState<string | null>(null)
+  const [annulation, setAnnulation] = useState<string | null>(null)
+  const [occupe, setOccupe] = useState(false)
+  const [retourLog, setRetourLog] = useState<{ ok: boolean; message: string } | null>(null)
 
   const rows = notifRows(state)
   const recipients = rows.filter((row) => row.on)
-  const canSend = recipients.length > 0 && state.nMsg.trim().length > 0
+  const quand = momentDEnvoi(state.nQuand, state.nWhen, dateChoisie)
+  const canSend = recipients.length > 0 && state.nMsg.trim().length > 0 && quand.ok
 
   const cabinet = useMaybeCabinet()
   const cabinetReel = Boolean(cabinet?.reel)
@@ -62,7 +77,10 @@ export function NotificationsView() {
 
   async function send() {
     if (!canSend) return
-    const moment = state.nQuand ? momentSaisi(state.nQuand) : momentDuRaccourci(state.nWhen)
+    // Relu à l'instant du clic : « Maintenant » est maintenant, pas au rendu.
+    const choix = momentDEnvoi(state.nQuand, state.nWhen, dateChoisie)
+    if (!choix.ok) return
+    const moment = choix.moment
     const entry: PushRecord = {
       title: state.nTitle.trim() || 'Un mot du cabinet',
       message: previewMsg,
@@ -88,6 +106,15 @@ export function NotificationsView() {
       return
     }
     set((prev) => ({ pushes: [entry].concat(prev.pushes), nTitle: '', nMsg: '' }))
+  }
+
+  async function annuler(pushId: string) {
+    if (!cabinet?.reel) return
+    setOccupe(true)
+    const r = await cabinet.annulerNotification(pushId)
+    setOccupe(false)
+    setAnnulation(null)
+    setRetourLog(r)
   }
 
   return (
@@ -264,14 +291,17 @@ export function NotificationsView() {
             </span>
             <div className={s.chips}>
               {RACCOURCIS.map((when) => {
-                const on = state.nWhen === when
+                const on = !dateChoisie && state.nWhen === when
                 return (
                   <button
                     key={when}
                     type="button"
                     className={on ? `${s.chip} ${s.chipOn}` : s.chip}
                     aria-pressed={on}
-                    onClick={() => set({ nWhen: when, nQuand: '' })}
+                    onClick={() => {
+                      setDateChoisie(false)
+                      set({ nWhen: when, nQuand: '' })
+                    }}
                   >
                     {when}
                   </button>
@@ -279,8 +309,8 @@ export function NotificationsView() {
               })}
               <button
                 type="button"
-                className={state.nQuand ? `${s.chip} ${s.chipOn}` : s.chip}
-                aria-pressed={Boolean(state.nQuand)}
+                className={dateChoisie ? `${s.chip} ${s.chipOn}` : s.chip}
+                aria-pressed={dateChoisie}
                 onClick={() => {
                   // On ouvre sur demain 9 h : une date vide oblige à tout
                   // saisir, et personne ne programme un envoi dans le passé.
@@ -288,6 +318,7 @@ export function NotificationsView() {
                   demain.setDate(demain.getDate() + 1)
                   demain.setHours(9, 0, 0, 0)
                   const valeur = valeurChamp(demain)
+                  setDateChoisie(true)
                   set({ nQuand: valeur, nWhen: libelleDuMoment(demain) })
                 }}
               >
@@ -295,23 +326,37 @@ export function NotificationsView() {
               </button>
             </div>
 
-            {state.nQuand ? (
+            {dateChoisie ? (
               <div className={s.quand}>
                 <input
                   type="datetime-local"
                   className={s.quandChamp}
                   value={state.nQuand}
                   aria-label="Date et heure de l'envoi"
+                  aria-invalid={!quand.ok}
+                  aria-describedby={!quand.ok ? 'notif-quand-raison' : undefined}
                   onChange={(e) => {
                     const valeur = e.target.value
                     const moment = momentSaisi(valeur)
                     set({ nQuand: valeur, nWhen: moment ? libelleDuMoment(moment) : 'Date incomplète' })
                   }}
                 />
-                <button type="button" className={s.quandAnnuler} onClick={() => set({ nQuand: '', nWhen: 'Ce soir, 20 h' })}>
+                <button
+                  type="button"
+                  className={s.quandAnnuler}
+                  onClick={() => {
+                    setDateChoisie(false)
+                    set({ nQuand: '', nWhen: 'Ce soir, 20 h' })
+                  }}
+                >
                   Revenir aux raccourcis
                 </button>
               </div>
+            ) : null}
+            {!quand.ok ? (
+              <p id="notif-quand-raison" className={s.quandRaison} role="status">
+                {quand.raison}
+              </p>
             ) : null}
 
             <div className={s.preview}>
@@ -373,30 +418,182 @@ export function NotificationsView() {
                 espace dans tous les cas.
               </div>
               <ul className={s.logList}>
-                {state.pushes.map((push, i) => (
-                  <li key={`${push.stamp}:${i}`} className={s.logRow}>
-                    <div className={s.logTop}>
-                      <span className={s.logTitle}>{push.title}</span>
-                      <span className={s.logWhen}>{push.when}</span>
-                    </div>
-                    <div className={s.logMsg}>{push.message}</div>
-                    <div className={s.logTo}>
-                      {/* « Envoyé » de tout, y compris de ce qui attendait le soir :
-                          depuis 0036, l'espace patient ne le voit pas avant l'heure. */}
-                      {push.attend ? `Part le ${push.attend} · ` : ''}
-                      {plural(push.names.length, 'destinataire', 'destinataires')} ·{' '}
-                      {push.names.join(', ')}
-                    </div>
-                    {push.telephone && phraseTelephone(push.telephone) ? (
-                      <div className={s.logTelephone}>{phraseTelephone(push.telephone)}</div>
-                    ) : null}
-                  </li>
-                ))}
+                {state.pushes.map((push, i) =>
+                  push.id && edition === push.id ? (
+                    <li key={push.id} className={s.logRow}>
+                      <ReprogrammerMot
+                        push={push}
+                        onFini={(r) => {
+                          setEdition(null)
+                          setRetourLog(r)
+                        }}
+                        onAnnuler={() => setEdition(null)}
+                      />
+                    </li>
+                  ) : (
+                    <li key={push.id ?? `${push.stamp}:${i}`} className={s.logRow}>
+                      <div className={s.logTop}>
+                        <span className={s.logTitle}>{push.title}</span>
+                        <span className={s.logWhen}>{push.when}</span>
+                      </div>
+                      <div className={s.logMsg}>{push.message}</div>
+                      <div className={s.logTo}>
+                        {/* « Envoyé » de tout, y compris de ce qui attendait le soir :
+                            depuis 0036, l'espace patient ne le voit pas avant l'heure. */}
+                        {push.attend ? `Part le ${push.attend} · ` : ''}
+                        {plural(push.names.length, 'destinataire', 'destinataires')} ·{' '}
+                        {push.names.join(', ')}
+                      </div>
+                      {push.telephone && phraseTelephone(push.telephone) ? (
+                        <div className={s.logTelephone}>{phraseTelephone(push.telephone)}</div>
+                      ) : null}
+                      {/* Tant qu'il attend son heure, un mot se reprend : on le
+                          réécrit, on le déplace, on l'annule. Après, il est parti. */}
+                      {cabinetReel && push.id && push.attend ? (
+                        <div className={s.logActions}>
+                          {annulation === push.id ? (
+                            <>
+                              <span className={s.logConfirme}>Annuler ce mot ? Il ne partira pas.</span>
+                              <button
+                                type="button"
+                                className={s.logAction}
+                                disabled={occupe}
+                                onClick={() => void annuler(push.id as string)}
+                              >
+                                Oui, l'annuler
+                              </button>
+                              <button type="button" className={s.logAction} onClick={() => setAnnulation(null)}>
+                                Le garder
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                className={s.logAction}
+                                aria-label={`Modifier le mot « ${push.title} »`}
+                                onClick={() => {
+                                  setRetourLog(null)
+                                  setEdition(push.id as string)
+                                }}
+                              >
+                                Modifier
+                              </button>
+                              <button
+                                type="button"
+                                className={s.logAction}
+                                aria-label={`Annuler le mot « ${push.title} »`}
+                                onClick={() => {
+                                  setRetourLog(null)
+                                  setAnnulation(push.id as string)
+                                }}
+                              >
+                                Annuler l'envoi
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      ) : null}
+                    </li>
+                  ),
+                )}
               </ul>
+              {retourLog ? (
+                <Notice tone={retourLog.ok ? 'ok' : 'warn'} style={{ margin: '12px 0 0' }}>
+                  {retourLog.message}
+                </Notice>
+              ) : null}
             </Card>
           )}
         </div>
       </div>
     </div>
+  )
+}
+
+/**
+ * Reprendre un mot programmé : son titre, son texte, son heure.
+ *
+ * Le champ de date s'ouvre sur l'heure prévue ; il refuse, comme l'envoi,
+ * une date vide, à moitié tapée ou déjà passée. Les destinataires ne
+ * changent pas ici : pour écrire à d'autres, on annule et on réécrit.
+ */
+function ReprogrammerMot({
+  push,
+  onFini,
+  onAnnuler,
+}: {
+  push: PushRecord
+  onFini: (retour: { ok: boolean; message: string }) => void
+  onAnnuler: () => void
+}) {
+  const cabinet = useMaybeCabinet()
+  const [titre, setTitre] = useState(push.title)
+  const [texte, setTexte] = useState(push.message)
+  const [valeur, setValeur] = useState(() => {
+    const prevu = push.prevu ? new Date(push.prevu) : null
+    return prevu && !Number.isNaN(prevu.getTime()) ? valeurChamp(prevu) : ''
+  })
+  const [envoi, setEnvoi] = useState(false)
+
+  const quand = momentDEnvoi(valeur, '', true)
+  const peut = quand.ok && texte.trim().length > 0 && !envoi
+
+  async function enregistrer() {
+    if (!cabinet?.reel || !push.id) return
+    // Relu au clic : l'heure a pu passer pendant qu'on écrivait.
+    const choix = momentDEnvoi(valeur, '', true)
+    if (!choix.ok || !texte.trim()) return
+    setEnvoi(true)
+    const r = await cabinet.modifierNotification(push.id, {
+      title: titre.trim() || 'Un mot du cabinet',
+      body: texte.trim(),
+      when: libelleDuMoment(choix.moment),
+      quand: choix.moment,
+    })
+    setEnvoi(false)
+    onFini(r)
+  }
+
+  return (
+    <form
+      className={s.reprise}
+      aria-label={`Modifier le mot « ${push.title} »`}
+      onSubmit={(e) => {
+        e.preventDefault()
+        void enregistrer()
+      }}
+    >
+      <TextInput
+        value={titre}
+        onChange={(e) => setTitre(e.target.value)}
+        placeholder="Titre de la notification"
+        aria-label="Titre du mot"
+      />
+      <TextArea rows={3} value={texte} onChange={(e) => setTexte(e.target.value)} aria-label="Texte du mot" />
+      <input
+        type="datetime-local"
+        className={s.quandChamp}
+        value={valeur}
+        aria-label="Nouvelle date et heure d'envoi"
+        aria-invalid={!quand.ok}
+        onChange={(e) => setValeur(e.target.value)}
+      />
+      {!quand.ok ? (
+        <p className={s.quandRaison} role="status">
+          {quand.raison}
+        </p>
+      ) : (
+        <p className={s.logSub}>Partira {libelleDuMoment(quand.moment)}.</p>
+      )}
+      <div className={s.logActions}>
+        <Button variant="primary" type="submit" disabled={!peut}>
+          {envoi ? 'Enregistrement…' : 'Enregistrer'}
+        </Button>
+        <Button variant="ghost" type="button" disabled={envoi} onClick={onAnnuler}>
+          Laisser tel quel
+        </Button>
+      </div>
+    </form>
   )
 }

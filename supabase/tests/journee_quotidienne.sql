@@ -1,5 +1,5 @@
 -- ============================================================================
--- Chaque jour se coche ; les mots et les pages se rangent en tête (0046).
+-- Chaque jour se coche ; les mots et les pages se rangent en tête (0051).
 --
 --   cocher            → une ligne pour le jour de Paris, une seule même si
 --                       l'on appuie deux fois ; done_at dit ce jour
@@ -8,8 +8,8 @@
 --                       hors de la fonction) survit à un décochage du jour
 --   écrire soi-même   → refusé : le jour est celui de la base
 --   la fiche          → la praticienne coche par la même fonction et lit
---                       les jours de ses fiches ; un autre cabinet ni ne lit
---                       ni ne coche ; un exercice retiré, une fiche close ne
+--                       les jours de ses fiches, aussi regroupés par
+--                       exercice ; un autre cabinet ni ne lit ni ne coche ; un exercice retiré, une fiche close ne
 --                       se cochent plus, et le patient ne relit plus les
 --                       jours d'un exercice retiré
 --   les mots          → triés par leur date d'envoi, pas d'écriture ; un mot
@@ -122,6 +122,8 @@ begin
   if not refuse then raise exception 'FUITE : le patient coche un exercice retiré.'; end if;
   select count(*) into n from public.module_completions where module_id = v_m4;
   if n <> 0 then raise exception 'FUITE : le patient relit les jours d''un exercice retiré (%).', n; end if;
+  select count(*) into n from public.jours_faits_depuis(v_aujourdhui - 7) where module_id = v_m4;
+  if n <> 0 then raise exception 'FUITE : le regroupement rend au patient les jours d''un exercice retiré.'; end if;
 
   -- --------------------------------------------------------- 4. la fiche
   perform set_config('role','none',true);
@@ -133,12 +135,21 @@ begin
   select count(*) into n from public.module_completions where patient_id = v_pat;
   -- m1 hier, m2 aujourd'hui, m4 hier (retiré : le dossier le garde).
   if n <> 3 then raise exception 'ECHEC : la praticienne devrait lire les 3 jours de sa fiche (%).', n; end if;
+  -- Regroupés par exercice pour le dossier : une ligne chacun.
+  select count(*) into n from public.jours_faits_depuis(v_aujourdhui - 7) where module_id in (v_m1, v_m2, v_m4);
+  if n <> 3 then raise exception 'ECHEC : le regroupement devrait rendre une ligne par exercice (%).', n; end if;
+  if (select jours from public.jours_faits_depuis(v_aujourdhui - 7) where module_id = v_m1)
+     is distinct from array[v_aujourdhui - 1] then
+    raise exception 'ECHEC : les jours regroupés du premier exercice sont faux.';
+  end if;
 
   perform set_config('role','none',true);
   perform set_config('role','authenticated',true);
   perform set_config('request.jwt.claims', json_build_object('sub', v_voisine, 'role','authenticated')::text, true);
   select count(*) into n from public.module_completions;
   if n <> 0 then raise exception 'FUITE : un autre cabinet lit % jour(s) fait(s).', n; end if;
+  select count(*) into n from public.jours_faits_depuis(v_aujourdhui - 7);
+  if n <> 0 then raise exception 'FUITE : un autre cabinet lit les jours regroupés (% ligne(s)).', n; end if;
   refuse := false;
   begin perform public.patient_set_module_done(v_m2, false); exception when others then refuse := true; end;
   if not refuse then raise exception 'FUITE : un autre cabinet décoche un exercice.'; end if;
@@ -180,11 +191,11 @@ begin
   perform set_config('role','authenticated',true);
   perform set_config('request.jwt.claims', json_build_object('sub', v_compte, 'role','authenticated')::text, true);
   select string_agg(t.title, '|' order by t.rang) into v_ordre
-    from public.patient_mots(20) with ordinality as t(push_id, title, body, du_le, read_at, rang);
+    from public.patient_mots(v_pat, 20) with ordinality as t(push_id, title, body, du_le, read_at, rang);
   if v_ordre is distinct from 'Programmé|Immédiat' then
     raise exception 'ECHEC : les mots devraient venir par date d''envoi, sans celui de demain (%).', v_ordre;
   end if;
-  select t.title into v_ordre from public.patient_mots(1) t;
+  select t.title into v_ordre from public.patient_mots(v_pat, 1) t;
   if v_ordre is distinct from 'Programmé' then
     raise exception 'ECHEC : le plus récent des mots n''est pas dans le premier lot (%).', v_ordre;
   end if;
@@ -192,7 +203,7 @@ begin
   perform set_config('role','none',true);
   perform set_config('role','authenticated',true);
   perform set_config('request.jwt.claims', json_build_object('sub', v_praticienne, 'role','authenticated')::text, true);
-  select count(*) into n from public.patient_mots(20);
+  select count(*) into n from public.patient_mots(v_pat, 20);
   if n <> 0 then raise exception 'FUITE : un compte du cabinet lit % mot(s) comme s''ils étaient les siens.', n; end if;
 
   -- --------------------------------------------------------- 6. le journal

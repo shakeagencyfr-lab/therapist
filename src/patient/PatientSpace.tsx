@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Notice, RoundCheck } from '@/components/ui'
 import { supabase } from '@/lib/supabase'
 import { timecode } from '@/lib/format'
+import { couleurSure } from '@/lib/couleurs'
 import { useAuth } from '@/auth/session'
 import { usePatientData } from './usePatientData'
 import { RendezVous } from './RendezVous'
@@ -13,7 +14,10 @@ import { Tache } from './Tache'
 import { Rappels } from './Rappels'
 import { Installer } from './Installer'
 import { IconeOnglet, type Icone } from './IconesOnglets'
+import { MaCourbe } from './MaCourbe'
+import { Urgence } from './Urgence'
 import s from './PatientSpace.module.css'
+import j from './Journee.module.css'
 
 type Onglet = 'jour' | 'journal' | 'rdv' | 'boutique' | 'moi'
 
@@ -59,10 +63,14 @@ export function PatientSpace() {
     mots,
     marquerMotLu,
     journal,
+    journalTotal,
+    voirPlusDePages,
     journalIllisible,
     affirmations,
     audios,
     scaleToday,
+    notesDuSoir,
+    prochaineSeance,
     scaleQuestion,
     bookingUrl,
     bookingMode,
@@ -91,6 +99,15 @@ export function PatientSpace() {
   const [affFige, setAffFige] = useState(false)
   const [echelle, setEchelle] = useState<number | null>(null)
   const [envoi, setEnvoi] = useState('')
+  /** Une case qui n'a pas pu être enregistrée : dit là où elle a été touchée. */
+  const [echecCase, setEchecCase] = useState('')
+  /**
+   * La liste d'une journée faite : repliée ou dépliée. `null` tant que
+   * personne n'y a touché — elle est alors repliée si la journée était déjà
+   * faite à l'ouverture, et reste ouverte sous le doigt qui vient de cocher
+   * la dernière case.
+   */
+  const [listeOuverte, setListeOuverte] = useState<boolean | null>(null)
 
   /* L'affirmation tourne toutes les cinq secondes, et s'arrête définitivement
      au premier tap : on ne reprend pas la main sur quelqu'un qui vient de
@@ -119,16 +136,36 @@ export function PatientSpace() {
   // Le patient ne voit jamais plus de trois actions : les audios et l'échelle
   // ont leur propre place, le reste tient dans « aujourd'hui ».
   const taches = modules.filter((m) => m.kind !== 'Audio' && m.kind !== 'Échelle')
-  const faites = taches.filter((m) => m.done_at).length
+  /* FAIT AUJOURD'HUI, pas « fait un jour ». Les exercices entre les séances
+     se refont chaque jour (0051) : une case cochée hier est de nouveau à
+     faire ce matin. */
+  const faites = taches.filter((m) => m.faitAujourdhui).length
   const nonLus = mots.filter((m) => !m.read_at).length
   const tache = tacheOuverte ? (modules.find((m) => m.id === tacheOuverte) ?? null) : null
   const journeeFaite = taches.length > 0 && faites === taches.length
+  const listeVisible = listeOuverte ?? !journeeFaite
 
-  async function basculer(id: string, done: boolean) {
+  /**
+   * Cocher ou décocher pour aujourd'hui.
+   *
+   * Rend vrai si la base l'a enregistré. L'échec se taisait : on touchait la
+   * case, rien ne bougeait, sans un mot — et l'on recommençait, ou l'on
+   * repartait en croyant avoir coché.
+   */
+  async function basculer(id: string, done: boolean): Promise<boolean> {
     const db = supabase()
-    if (!db) return
+    if (!db) return false
+    setEchecCase('')
+    // La main est dans la liste : elle ne se replie pas sous le doigt.
+    setListeOuverte((v) => v ?? true)
     const { error } = await db.rpc('patient_set_module_done', { p_module: id, p_done: done })
-    if (!error) await recharger()
+    if (error) {
+      console.warn('[patient] case non enregistrée', error.message)
+      setEchecCase("La case n'a pas pu être enregistrée. Vérifiez votre connexion et réessayez.")
+      return false
+    }
+    await recharger()
+    return true
   }
 
   /**
@@ -197,10 +234,20 @@ export function PatientSpace() {
   async function noterEchelle(valeur: number) {
     const db = supabase()
     if (!db) return
+    /* La note suit le doigt tout de suite, et revient à la précédente si la
+       base la refuse : une note surlignée qui n'est enregistrée nulle part
+       passait pour choisie, et le petit texte d'échec ne suffisait pas à le
+       démentir. */
+    const avant = echelle
     setEchelle(valeur)
     const { error } = await db.rpc('patient_note_echelle', { p_value: valeur })
-    setEnvoi(error ? "L'enregistrement a échoué. Réessayez." : "C'est noté, merci.")
-    if (!error) await recharger()
+    if (error) {
+      setEchelle(avant)
+      setEnvoi("Votre note n'a pas été enregistrée. Réessayez dans un instant.")
+      return
+    }
+    setEnvoi("C'est noté, merci.")
+    await recharger()
   }
 
   const valeurEchelle = echelle ?? scaleToday
@@ -227,7 +274,7 @@ export function PatientSpace() {
 
   return (
     <div className={avecOnglets ? `${s.page} ${s.pageOnglets}` : s.page}>
-      <header className={s.head} style={{ background: patient.branding?.dark }}>
+      <header className={s.head} style={{ background: couleurSure(patient.branding?.dark) }}>
         {/* La marque du cabinet, en haut : cet espace est celui de sa
             thérapeute, pas le nôtre. C'est ce que la marque blanche vend, et
             l'en-tête était le seul endroit où elle ne se voyait pas. */}
@@ -305,6 +352,18 @@ export function PatientSpace() {
             {rappelsPresents === false ? (
               <Installer variante="carte" accent={patient.branding?.accent} />
             ) : null}
+
+            {/* La prochaine séance, telle que sa thérapeute l'a écrite sur la
+                fiche. Elle y était réglée et ne se lisait que côté cabinet :
+                c'est pourtant la première chose qu'on vient vérifier. */}
+            {prochaineSeance ? (
+              <section className={s.section}>
+                <div className={s.sectionHead}>
+                  <span className={s.sectionTitle}>Prochaine séance</span>
+                </div>
+                <p className={j.prochaineTexte}>{prochaineSeance}</p>
+              </section>
+            ) : null}
           </>
         ) : null}
 
@@ -349,14 +408,32 @@ export function PatientSpace() {
                   />
                   <span className={s.motCorps}>
                     <span className={lu ? `${s.motTitre} ${s.motLuTitre}` : s.motTitre}>
-                      {mot.push?.title}
+                      {mot.title}
                     </span>
-                    <span className={s.motTexte}>{mot.push?.body}</span>
-                    <span className={s.motDate}>{jourDe(mot.push?.created_at ?? '')}</span>
+                    <span className={s.motTexte}>{mot.body}</span>
+                    {/* Le jour où le mot est arrivé : un mot programmé se
+                        datait de la veille, jour où il avait été écrit. */}
+                    <span className={s.motDate}>{jourDe(mot.du_le)}</span>
                   </span>
                 </button>
               )
             })}
+          </section>
+        ) : null}
+
+        {/* LE PREMIER JOUR. Avant la première séance, ou avant que sa
+            thérapeute ait rien confié, la section disparaissait : on voyait
+            la salutation et l'échelle du soir, et rien ne disait que les
+            exercices arriveraient — l'espace avait l'air vide, ou cassé. */}
+        {courant === 'jour' && !tache && !chargement && !erreur && taches.length === 0 ? (
+          <section className={s.section}>
+            <div className={s.sectionHead}>
+              <span className={s.sectionTitle}>Aujourd'hui</span>
+            </div>
+            <p className={j.vide}>
+              Votre thérapeute ajoutera ici vos exercices après votre séance. En attendant, vous
+              pouvez noter votre soirée ou lui écrire un mot, plus bas.
+            </p>
           </section>
         ) : null}
 
@@ -369,22 +446,47 @@ export function PatientSpace() {
               </span>
             </div>
 
+            {echecCase ? (
+              <div className={j.echec}>
+                <Notice tone="warn">{echecCase}</Notice>
+              </div>
+            ) : null}
+
+            {/* LA JOURNÉE FAITE NE CACHE PLUS RIEN. Le message remplaçait la
+                liste : une fois tout coché — ou après un mauvais tap sur la
+                dernière case —, plus aucun exercice ne s'ouvrait, plus rien
+                ne se décochait, et comme la case ne revenait jamais, le
+                message restait là les jours suivants. Il s'affiche au-dessus ;
+                la liste reste à un geste, repliée. */}
             {journeeFaite ? (
               <div className={s.done}>
                 <p className={s.doneTitle}>La journée est faite.</p>
                 <p className={s.doneText}>
-                  Rien d'autre à faire aujourd'hui. À demain.
+                  Tout est coché pour aujourd'hui. Demain, vos exercices seront de nouveau à faire :
+                  c'est en les refaisant qu'ils agissent.
                 </p>
+                <button
+                  type="button"
+                  className={j.revoir}
+                  aria-expanded={listeVisible}
+                  aria-controls="exercices-du-jour"
+                  onClick={() => setListeOuverte(!listeVisible)}
+                >
+                  {listeVisible ? 'Replier mes exercices' : 'Revoir mes exercices'}
+                </button>
               </div>
-            ) : (
-              taches.map((m) => {
-                const fait = Boolean(m.done_at)
+            ) : null}
+
+            {listeVisible ? (
+              <div id="exercices-du-jour" className={journeeFaite ? j.liste : undefined}>
+              {taches.map((m) => {
+                const fait = m.faitAujourdhui
                 return (
                   <div key={m.id} className={fait ? `${s.task} ${s.taskDone}` : s.task}>
                     <RoundCheck
                       on={fait}
                       onClick={() => void basculer(m.id, !fait)}
-                      label={fait ? `Décocher ${m.title}` : `Cocher ${m.title}`}
+                      label={fait ? `Décocher ${m.title} pour aujourd'hui` : `Cocher ${m.title} pour aujourd'hui`}
                       style={fait ? { background: patient.branding?.accent, borderColor: patient.branding?.accent } : undefined}
                     />
                     {/* Toute la ligne ouvre la consigne : au pouce, un lien
@@ -406,8 +508,9 @@ export function PatientSpace() {
                     </span>
                   </div>
                 )
-              })
-            )}
+              })}
+              </div>
+            ) : null}
           </section>
         ) : null}
 
@@ -478,16 +581,21 @@ export function PatientSpace() {
             ))}
           </div>
           {envoi ? (
-            <p className={s.count} style={{ marginTop: 10 }}>
+            <p className={s.count} style={{ marginTop: 10 }} role="status">
               {envoi}
             </p>
           ) : null}
+          {/* Sa propre courbe : il la remplit chaque soir, et seule sa
+              thérapeute la voyait. */}
+          <MaCourbe notes={notesDuSoir} accent={patient.branding?.accent} />
         </section>
         ) : null}
 
         {courant === 'journal' ? (
           <Journal
             pages={journal}
+            total={journalTotal}
+            onPlus={voirPlusDePages}
             illisible={journalIllisible}
             patientId={patient.id}
             cabinetId={patient.cabinet_id}
@@ -519,6 +627,9 @@ export function PatientSpace() {
           />
         ) : null}
 
+        {/* En bas de chaque écran, onglet et exercice ouvert compris : on ne
+            choisit pas le moment où l'on en a besoin. */}
+        <Urgence />
       </div>
 
       {avecOnglets ? (

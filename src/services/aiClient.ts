@@ -70,7 +70,9 @@ export function buildPatientContext(state: AppState, id: PatientId): PatientCont
     modules: modules
       .map((module, i) => ({
         title: module.title,
-        done: isModuleDone(state, id, i, module.done),
+        /* La case dit « fait aujourd'hui » (0051) ; l'IA prépare une séance,
+           elle lit la semaine : « fait » s'il l'a été au moins un jour. */
+        done: (module.septJours?.faits ?? 0) > 0 || isModuleDone(state, id, i, module.done),
         kind: module.kind,
       }))
       .filter((m) => seFaitParLePatient(m.kind))

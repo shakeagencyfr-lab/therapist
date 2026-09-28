@@ -1,4 +1,4 @@
-import { useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Button, Card, FieldLabel, Marque, Notice, Overline, TextInput, Title } from '@/components/ui'
 import { useMaybeAuth } from '@/auth/session'
 import { useMaybeCabinet } from '@/cabinet/context'
@@ -12,31 +12,31 @@ import {
   lienEmbed,
   lienEspacePatient,
 } from '@/lib/domaine'
+import {
+  COULEURS_ORIGINE,
+  NOM_COULEUR,
+  couleurValide,
+  couleursInvalides,
+  nuance,
+} from '@/lib/couleurs'
+import { enumeration } from '@/lib/format'
+import { effacerDuStockage } from '@/lib/stockage'
+import { lireDomaine } from '@/services/cabinet'
 import type { CabinetBranding } from '@/types/reseller'
 import s from './MarqueView.module.css'
 
-/** Éclaircit ou assombrit une couleur hexadécimale d'un facteur donné. */
-function shade(hex: string, factor: number): string {
-  const clean = hex.replace('#', '')
-  if (clean.length !== 6) return hex
-  const parts = [0, 2, 4].map((i) => parseInt(clean.slice(i, i + 2), 16))
-  return `#${parts
-    .map((v) => Math.max(0, Math.min(255, Math.round(v * factor))))
-    .map((v) => v.toString(16).padStart(2, '0'))
-    .join('')}`.toUpperCase()
-}
-
-const HEX = /^#[0-9a-fA-F]{6}$/
-
-/** Les couleurs livrées avec un cabinet neuf. */
+/**
+ * La marque d'un cabinet qui n'en a pas encore réglé une : les couleurs
+ * livrées, et des initiales de repli pour l'aperçu.
+ */
 const ORIGINE: CabinetBranding = {
-  accent: '#A17A45',
-  accentHover: '#856239',
-  accentDeep: '#6E5230',
-  dark: '#33291C',
+  ...COULEURS_ORIGINE,
   logo: 'CB',
   logoUrl: null,
 }
+
+/** Un nom affiché se lit : deux caractères au moins, comme la base l'exige (0048). */
+const NOM_MIN = 2
 
 /** Le brouillon en cours d'édition. */
 interface Fiche {
@@ -100,7 +100,7 @@ export function MarqueView() {
         </Card>
       ) : (
         <>
-          <Editeur key={identite.id} publie={publie} slug={identite.slug} />
+          <Editeur key={identite.id} publie={publie} slug={identite.slug} cabinetId={identite.id} />
           <SurVotreSite slug={identite.slug} />
           <MarqueBlanche key={`mb-${identite.id}`} slug={identite.slug} />
         </>
@@ -109,7 +109,7 @@ export function MarqueView() {
   )
 }
 
-function Editeur({ publie, slug }: { publie: Fiche; slug: string }) {
+function Editeur({ publie, slug, cabinetId }: { publie: Fiche; slug: string; cabinetId: string }) {
   const auth = useMaybeAuth()
   const cabinet = useMaybeCabinet()
   const [draft, setDraft] = useState<Fiche>(publie)
@@ -120,6 +120,14 @@ function Editeur({ publie, slug }: { publie: Fiche; slug: string }) {
   const branding = draft.branding
   const modifie = !memeFiche(draft, publie)
 
+  /* CE QUI EMPÊCHE DE PUBLIER, nommé. « Publier » ne se désactivait que
+     pendant la publication : un code incomplet (« #A17A4 ») ou un champ
+     vidé partait en base et rendait transparents les boutons de l'espace,
+     de l'application des patients et du widget. */
+  const invalides = couleursInvalides(branding)
+  const nomTropCourt = draft.nom.trim().length < NOM_MIN
+  const publiable = invalides.length === 0 && !nomTropCourt
+
   function patch(next: Partial<CabinetBranding>, extra?: Partial<Omit<Fiche, 'branding'>>) {
     setDraft((prev) => ({ ...prev, ...extra, branding: { ...prev.branding, ...next } }))
     setNotice(null)
@@ -127,7 +135,18 @@ function Editeur({ publie, slug }: { publie: Fiche; slug: string }) {
 
   /** L'accent choisi donne ses deux variantes : survol et lien appuyé. */
   function setAccent(accent: string) {
-    patch({ accent, accentHover: shade(accent, 0.84), accentDeep: shade(accent, 0.7) })
+    patch({ accent, accentHover: nuance(accent, 0.84), accentDeep: nuance(accent, 0.7) })
+  }
+
+  /**
+   * Un logo déposé dans le brouillon puis abandonné — remplacé ou retiré
+   * avant publication — est effacé tout de suite : il est public dès son
+   * dépôt, et rien d'autre ne le référence. Le logo PUBLIÉ, lui, reste
+   * jusqu'à la publication suivante : c'est elle qui l'efface, une fois la
+   * nouvelle marque en place.
+   */
+  function abandonnerLogo(url: string | null | undefined) {
+    if (url && url !== (publie.branding.logoUrl ?? null)) void effacerDuStockage('logos', url, cabinetId)
   }
 
   /**
@@ -142,6 +161,7 @@ function Editeur({ publie, slug }: { publie: Fiche; slug: string }) {
     const r = await cabinet.televerserLogo(f)
     setDepot(false)
     if (r.ok && r.url) {
+      abandonnerLogo(branding.logoUrl)
       patch({ logoUrl: r.url })
       setNotice({ tone: 'ok', text: r.message })
       return
@@ -150,7 +170,7 @@ function Editeur({ publie, slug }: { publie: Fiche; slug: string }) {
   }
 
   async function publier() {
-    if (!cabinet || publication) return
+    if (!cabinet || publication || !publiable) return
     setPublication(true)
     setNotice(null)
     const r = await cabinet.enregistrerMarque({
@@ -175,7 +195,11 @@ function Editeur({ publie, slug }: { publie: Fiche; slug: string }) {
         <div className={s.field}>
           <FieldLabel>Nom affiché</FieldLabel>
           <TextInput value={draft.nom} onChange={(e) => patch({}, { nom: e.target.value })} />
-          <span className={s.hint}>En haut de votre espace, et en haut de celui de vos patients.</span>
+          <span className={s.hint}>
+            {nomTropCourt
+              ? 'Le nom doit compter au moins deux caractères : il s’affiche en haut de chaque écran.'
+              : 'En haut de votre espace, et en haut de celui de vos patients.'}
+          </span>
         </div>
 
         <div className={s.field}>
@@ -209,7 +233,14 @@ function Editeur({ publie, slug }: { publie: Fiche; slug: string }) {
                 {depot ? 'Dépôt…' : branding.logoUrl ? 'Remplacer le logo' : 'Choisir un fichier'}
               </Button>
               {branding.logoUrl ? (
-                <Button variant="ghost" disabled={depot} onClick={() => patch({ logoUrl: null })}>
+                <Button
+                  variant="ghost"
+                  disabled={depot}
+                  onClick={() => {
+                    abandonnerLogo(branding.logoUrl)
+                    patch({ logoUrl: null })
+                  }}
+                >
                   Retirer
                 </Button>
               ) : null}
@@ -288,7 +319,7 @@ function Editeur({ publie, slug }: { publie: Fiche; slug: string }) {
               <input
                 type="color"
                 className={s.colorInput}
-                value={branding.accent}
+                value={couleurValide(branding.accent) ? branding.accent : COULEURS_ORIGINE.accent}
                 onChange={(e) => setAccent(e.target.value.toUpperCase())}
                 aria-label="Couleur d'accent"
               />
@@ -296,10 +327,11 @@ function Editeur({ publie, slug }: { publie: Fiche; slug: string }) {
                 className={s.colorText}
                 value={branding.accent}
                 onChange={(e) => {
-                  const v = e.target.value
-                  patch({ accent: v })
-                  if (HEX.test(v)) setAccent(v.toUpperCase())
+                  const v = e.target.value.trim()
+                  if (couleurValide(v)) setAccent(v.toUpperCase())
+                  else patch({ accent: v })
                 }}
+                aria-invalid={!couleurValide(branding.accent)}
                 aria-label="Code hexadécimal de l'accent"
               />
             </div>
@@ -310,14 +342,18 @@ function Editeur({ publie, slug }: { publie: Fiche; slug: string }) {
               <input
                 type="color"
                 className={s.colorInput}
-                value={branding.dark}
+                value={couleurValide(branding.dark) ? branding.dark : COULEURS_ORIGINE.dark}
                 onChange={(e) => patch({ dark: e.target.value.toUpperCase() })}
                 aria-label="Couleur sombre"
               />
               <input
                 className={s.colorText}
                 value={branding.dark}
-                onChange={(e) => patch({ dark: e.target.value })}
+                onChange={(e) => {
+                  const v = e.target.value.trim()
+                  patch({ dark: couleurValide(v) ? v.toUpperCase() : v })
+                }}
+                aria-invalid={!couleurValide(branding.dark)}
                 aria-label="Code hexadécimal du sombre"
               />
             </div>
@@ -330,6 +366,13 @@ function Editeur({ publie, slug }: { publie: Fiche; slug: string }) {
           </div>
         ) : null}
 
+        {invalides.length ? (
+          <p className={s.hint} style={{ margin: '0 0 10px' }} role="alert">
+            Pour publier, écrivez {enumeration(invalides.map((c) => NOM_COULEUR[c]))} sous la forme
+            #RRGGBB — un dièse et six caractères, par exemple #A17A45.
+          </p>
+        ) : null}
+
         {modifie ? (
           <p className={s.hint} style={{ margin: '0 0 10px' }}>
             Modifications non publiées : l'aperçu les montre, vos patients pas encore.
@@ -337,10 +380,17 @@ function Editeur({ publie, slug }: { publie: Fiche; slug: string }) {
         ) : null}
 
         <div className={s.actions}>
-          <Button variant="primary" disabled={publication || !modifie} onClick={() => void publier()}>
+          <Button
+            variant="primary"
+            disabled={publication || !modifie || !publiable}
+            onClick={() => void publier()}
+          >
             {publication ? 'Publication…' : 'Publier ma marque'}
           </Button>
-          <Button variant="ghost" disabled={publication} onClick={() => patch(ORIGINE)}>
+          {/* Les COULEURS seulement : le logo et les initiales sont à elle, et
+              les remettre à « CB » lui faisait perdre les siens pour avoir
+              voulu annuler un essai de teinte. */}
+          <Button variant="ghost" disabled={publication} onClick={() => patch(COULEURS_ORIGINE)}>
             Revenir aux couleurs d'origine
           </Button>
         </div>
@@ -407,10 +457,28 @@ function Editeur({ publie, slug }: { publie: Fiche; slug: string }) {
  * Un cadre qui ne contient qu'un champ d'adresse : ses patients entrent la
  * leur et reçoivent leur lien, sans quitter son site. Rien de l'application
  * n'y est monté — c'est ce qui permet à cette page d'être encadrée alors que
- * le reste de Klaro ne l'est pas.
+ * le reste de l'application ne l'est pas.
  */
 function SurVotreSite({ slug }: { slug: string }) {
-  const code = codeEmbed(slug)
+  /* Le domaine du cabinet, s'il est vérifié et que l'offre le couvre : le
+     widget renvoie ses patients sur l'adresse qui l'a servi, et c'est la
+     sienne qu'ils doivent voir, pas la nôtre. Faute de le savoir — lecture en
+     échec, pas de domaine —, le code reste celui de notre adresse, qui marche
+     partout. */
+  const [domaine, setDomaine] = useState<string | null>(null)
+  useEffect(() => {
+    let vivant = true
+    lireDomaine()
+      .then((e) => {
+        if (vivant && e.droit && e.verifie && e.domaine) setDomaine(e.domaine)
+      })
+      .catch(() => undefined)
+    return () => {
+      vivant = false
+    }
+  }, [])
+
+  const code = codeEmbed(slug, domaine)
   const [copie, setCopie] = useState(false)
 
   async function copier() {
@@ -433,6 +501,9 @@ function SurVotreSite({ slug }: { slug: string }) {
         Collez ce code sur votre site : vos patients y entrent leur adresse et reçoivent leur lien
         de connexion, sans quitter votre page. Le cadre porte votre nom et vos couleurs, et se met
         à jour tout seul quand vous les changez.
+        {domaine
+          ? ` Il vit sur ${domaine} : vos patients restent sur votre adresse du début à la fin. Si vous aviez collé le code avant de poser ce domaine, recollez celui-ci.`
+          : ''}
       </p>
 
       <textarea className={s.code} value={code} readOnly rows={5} spellCheck={false} />
@@ -441,7 +512,7 @@ function SurVotreSite({ slug }: { slug: string }) {
         <Button variant="secondary" onClick={() => void copier()}>
           {copie ? 'Copié' : 'Copier le code'}
         </Button>
-        <a className={s.lien} href={lienEmbed(slug)} target="_blank" rel="noreferrer">
+        <a className={s.lien} href={lienEmbed(slug, domaine)} target="_blank" rel="noreferrer">
           Voir le widget ↗
         </a>
       </div>

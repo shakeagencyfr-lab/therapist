@@ -5,13 +5,14 @@
  * l'outil de sa thérapeute, et son téléchargement ne contient pas une ligne
  * du code de l'espace cabinet.
  */
-import { StrictMode, useEffect, useState, type CSSProperties } from 'react'
+import { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { SessionProvider, useAuth } from './auth/session'
 import { AvisPorte } from './auth/AvisPorte'
 import { SignIn } from './auth/SignIn'
-import { Button } from './components/ui'
+import { Button, Notice } from './components/ui'
 import { PatientSpace } from './patient/PatientSpace'
+import { supprimerCeCompte } from './patient/suppressionCompte'
 import {
   cabinetDuDomaine,
   estDomainePersonnalise,
@@ -19,6 +20,8 @@ import {
   slugDeLEspacePatient,
   type Vitrine,
 } from './lib/vitrine'
+import { variablesDeMarque } from './lib/couleurs'
+import { cheminSousIdentifiant } from './lib/identifiant'
 import { titreDuCabinet, useEnTete } from './lib/enTete'
 import { adresseDuManifeste } from './lib/rappels'
 import { ecouterInstallation } from './patient/installation'
@@ -56,6 +59,16 @@ function useCabinetDeLaPorte(): { vitrine: Vitrine | null; cherche: boolean } {
     void (async () => {
       const trouve = propre ? await cabinetDuDomaine(hote) : slug ? await lireVitrine(slug) : null
       if (!vivant) return
+      /* Une ancienne adresse mène toujours au cabinet (0049) : l'espace
+         installé et les rappels déjà programmés la rouvrent. On la réécrit
+         sous l'identifiant actuel, sans recharger — le fragment d'un lien de
+         connexion reste où il est. */
+      if (!propre && slug && trouve?.slug && trouve.slug !== slug) {
+        const suite = cheminSousIdentifiant(window.location.pathname, slug, trouve.slug)
+        if (suite) {
+          window.history.replaceState(window.history.state, '', `${suite}${window.location.search}${window.location.hash}`)
+        }
+      }
       setVitrine(trouve)
       setCherche(false)
     })()
@@ -73,8 +86,15 @@ function Portail() {
 
   /* L'onglet aussi porte la marque du cabinet. Un patient qui met son espace
      en favori garde ce titre sur son écran d'accueil : « Klaro » y resterait
-     des mois après que sa thérapeute a payé pour ne plus le voir. */
-  useEnTete(vitrine ? titreDuCabinet(vitrine.name, 'Votre espace') : '')
+     des mois après que sa thérapeute a payé pour ne plus le voir.
+
+     UNE FOIS CONNECTÉ, C'EST SON CABINET QUI NOMME L'ONGLET, pas l'adresse.
+     Le titre ne suivait que le cabinet désigné par l'URL : sur /mon — le
+     retour d'un paiement, le widget du site, l'icône installée depuis /mon
+     —, l'onglet restait « Klaro — Votre espace » alors que l'espace ouvert
+     porte, lui, la marque du cabinet. */
+  const nomDuCabinet = context?.patient?.cabinet_name || vitrine?.name || ''
+  useEnTete(nomDuCabinet ? titreDuCabinet(nomDuCabinet, 'Votre espace') : '')
 
   /** La porte, à la marque du cabinet quand l'adresse en désigne un. */
   const marque = vitrine
@@ -86,14 +106,9 @@ function Portail() {
       }
     : {}
 
-  const couleurs = vitrine?.branding
-    ? ({
-        '--c-accent': vitrine.branding.accent,
-        '--c-accent-hover': vitrine.branding.accentHover,
-        '--c-accent-deep': vitrine.branding.accentDeep,
-        '--c-dark': vitrine.branding.dark,
-      } as CSSProperties)
-    : undefined
+  /* Validées avant de devenir des variables : une couleur mal formée ne lève
+     rien, elle rend le bouton de la porte transparent. */
+  const couleurs = variablesDeMarque(vitrine?.branding)
 
   if (phase === 'sans-base') {
     return (
@@ -115,7 +130,7 @@ function Portail() {
       <div style={couleurs}>
         <SignIn
           titre={vitrine ? `Votre espace — ${vitrine.name}` : 'Votre espace'}
-          intro="Entrez l'adresse que vous avez donnée à votre thérapeute : vous recevrez un lien qui vous connecte, sans mot de passe à retenir."
+          intro="Entrez l'adresse que vous avez donnée à votre thérapeute : vous recevrez de quoi vous connecter, sans mot de passe à retenir."
           {...marque}
         />
       </div>
@@ -176,16 +191,85 @@ function Portail() {
   if (!context?.patient) {
     return (
       <div style={couleurs}>
-        <SignIn
-          titre="Aucun suivi en cours à cette adresse"
-          intro="Votre compte existe. Si votre suivi vient de se terminer, c'est normal : votre espace se ferme avec lui, et votre thérapeute peut le rouvrir. Sinon, vérifiez avec elle l'adresse qu'elle a enregistrée."
-          {...marque}
-        />
+        <SansSuivi marque={marque} />
       </div>
     )
   }
 
   return <PatientSpace />
+}
+
+/**
+ * Connecté, sans suivi ouvert ni autre espace : l'avis, et deux sorties.
+ *
+ * C'ÉTAIT UNE PORTE SANS SORTIE. L'écran montrait le formulaire de connexion
+ * à une personne déjà connectée — elle retapait son adresse, et retombait ici.
+ * Et une fois le suivi clos, plus rien ne permettait de supprimer son compte
+ * ni son journal : « Moi » s'était fermé avec l'espace. Les deux sorties sont
+ * désormais là : changer d'adresse, ou partir en effaçant ce qu'on a écrit.
+ */
+function SansSuivi({
+  marque,
+}: {
+  /** La marque de la porte, quand l'adresse désigne un cabinet. */
+  marque: { marque?: string; logoUrl?: string | null; cabinet?: string; tagline?: string }
+}) {
+  const { seDeconnecter } = useAuth()
+  const [confirme, setConfirme] = useState(false)
+  const [enCours, setEnCours] = useState(false)
+  const [echec, setEchec] = useState('')
+
+  async function supprimer() {
+    if (enCours) return
+    setEnCours(true)
+    setEchec('')
+    const refus = await supprimerCeCompte(seDeconnecter)
+    // Sans refus, la page repart déjà vers la porte : rien à remettre.
+    if (refus) {
+      setEnCours(false)
+      setEchec(refus)
+    }
+  }
+
+  return (
+    <AvisPorte
+      titre="Aucun suivi en cours à cette adresse"
+      texte="Votre compte existe. Si votre suivi vient de se terminer, c'est normal : votre espace se ferme avec lui, et votre thérapeute peut le rouvrir. Sinon, vérifiez auprès de votre thérapeute l'adresse enregistrée dans votre fiche."
+      {...marque}
+    >
+      {confirme ? (
+        <>
+          {/* Dit avant, comme dans « Moi » : le journal ne revient pas, et
+              le dossier du suivi, lui, reste au cabinet. */}
+          <p style={{ flexBasis: '100%', margin: 0, fontSize: 13, lineHeight: 1.55, color: 'var(--c-text-3)' }}>
+            Votre compte sera supprimé et votre journal effacé — celui-là ne revient pas. Le dossier
+            de votre suivi reste au cabinet, qui doit le conserver ; pour qu'il soit effacé,
+            demandez-le à votre thérapeute.
+          </p>
+          <Button variant="danger" disabled={enCours} onClick={() => void supprimer()}>
+            {enCours ? 'Suppression…' : 'Oui, tout supprimer'}
+          </Button>
+          <Button variant="secondary" disabled={enCours} onClick={() => setConfirme(false)}>
+            Annuler
+          </Button>
+        </>
+      ) : (
+        <>
+          <Button variant="primary" onClick={() => void seDeconnecter()}>
+            Utiliser une autre adresse
+          </Button>
+          <Button variant="ghost" onClick={() => setConfirme(true)}>
+            Supprimer mon compte et mon journal
+          </Button>
+        </>
+      )}
+      {echec ? (
+        <div role="alert" style={{ flexBasis: '100%' }}>
+          <Notice tone="warn">{echec}</Notice>
+        </div>
+      ) : null}
+    </AvisPorte>
+  )
 }
 
 /* L'espace installé doit rouvrir LA porte du cabinet. Le manifeste est le

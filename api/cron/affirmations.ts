@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { cronAutorise, publierLesAffirmationsDeLaSemaine } from '../../server/affirmationsHebdo.js'
 import { describeError } from '../../server/ai.js'
+import { journaliserRefus } from '../../server/errors.js'
 
 /**
  * Le lundi matin de l'hébergeur.
@@ -23,7 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     res.status(200).json(bilan)
   } catch (err) {
     const { status, message } = describeError(err)
-    console.error(`[affirmations] lundi — ${status} ${message}`)
+    journaliserRefus('[affirmations] lundi', status, message)
     res.status(status).json({ message })
   }
 }

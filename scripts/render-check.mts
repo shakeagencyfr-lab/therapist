@@ -20,6 +20,8 @@ import { Tache } from '../src/patient/Tache'
 import { IconeOnglet } from '../src/patient/IconesOnglets'
 import { ConsigneEditeur } from '../src/views/therapist/ConsigneEditeur'
 import { AppStoreProvider } from '../src/state/store'
+import { COUT_HYPNOSE } from '../src/lib/coutIA'
+import { euro } from '../src/lib/format'
 import { PATIENTS } from '../src/data/patients'
 import { DOSSIER_AVANT_LECTURE, type AppState, type ResellerView, type ViewMode } from '../src/state/state'
 
@@ -269,7 +271,9 @@ if (hypnose) {
        ici prouve qu'il éclaire bien le choix. */
     // Sans l'apostrophe : React l'échappe en &#x27; dans le balisage rendu.
     !hypnose.includes('analyse la plus coûteuse') && "le coût ne s'affiche plus nulle part",
-    !hypnose.includes('0,24') && 'le coût est annoncé sans chiffre',
+    // Le chiffre vient de coutIA : recalibré sur les factures réelles, il
+    // bouge — le banc vérifie qu'il est dit, pas qu'il vaut une valeur figée.
+    !hypnose.includes(euro(COUT_HYPNOSE).replace(/\s/g, ' ').split(' ')[0] as string) && 'le coût est annoncé sans chiffre',
   ].filter(Boolean)
   if (manque.length) {
     console.error(`✗ session/hypnose : ${manque.join(', ')}`)
@@ -540,6 +544,7 @@ const TACHE_AVEC = {
   kind: 'Exercice',
   position: 0,
   done_at: null,
+  faitAujourdhui: false,
   patient_note: null,
   consigne: {
     duree: '3 minutes',

@@ -42,6 +42,19 @@ export interface Droits {
   statut: string
   /** La date qui vient : fin de période, ou fin d'essai. */
   echeance: string | null
+  /** La fin de l'essai — seulement quand le contrat EST un essai (0049). */
+  finEssai: string | null
+  /**
+   * À qui parler de son contrat. L'écran disait « demandez à votre
+   * revendeur » sans dire qui il était, ni comment le joindre.
+   */
+  revendeur: Revendeur | null
+}
+
+/** Les coordonnées que le revendeur a laissées pour ses cabinets. */
+export interface Revendeur {
+  nom: string
+  courriel: string | null
 }
 
 /** La forme que rend `cabinet_droits()`. */
@@ -56,6 +69,9 @@ interface DroitsRow {
   en_regle: boolean | null
   statut: string | null
   echeance: string | null
+  fin_essai?: string | null
+  revendeur?: string | null
+  revendeur_courriel?: string | null
 }
 
 /** Ce que l'écran doit lire quand un levier est fermé. */
@@ -81,6 +97,9 @@ function versDroits(brut: unknown): Droits {
     enRegle: Boolean(row.en_regle),
     statut: row.statut ?? '',
     echeance: row.echeance ?? null,
+    finEssai: row.fin_essai ?? null,
+    // Avant 0049 la fonction ne rendait pas ces clés : on n'invente rien.
+    revendeur: row.revendeur ? { nom: row.revendeur, courriel: row.revendeur_courriel ?? null } : null,
   }
 }
 

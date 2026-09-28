@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clock, dateDuJour, dateLongue, durationToSeconds, euro, plural, timecode } from './format'
+import { clock, dateDuJour, dateLongue, durationToSeconds, enumeration, euro, plural, timecode } from './format'
 
 describe('formats partagés', () => {
   it('clock : mm:ss sur deux chiffres', () => {
@@ -36,5 +36,12 @@ describe('formats partagés', () => {
     // Une valeur qu'on ne sait pas lire est rendue telle quelle : mieux vaut
     // une chaîne étrange qu'un « Invalid Date » ou un tiret qui efface.
     expect(dateLongue('pas une date')).toBe('pas une date')
+  })
+
+  it('enumeration : une liste dite comme une phrase', () => {
+    expect(enumeration([])).toBe('')
+    expect(enumeration(['les horaires'])).toBe('les horaires')
+    expect(enumeration(['les horaires', '2 avis'])).toBe('les horaires et 2 avis')
+    expect(enumeration(['le titre', 'les horaires', '2 avis'])).toBe('le titre, les horaires et 2 avis')
   })
 })

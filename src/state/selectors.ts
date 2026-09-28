@@ -7,6 +7,7 @@
  * démonstration, et rien ici n'a besoin de le savoir.
  */
 import { seFaitParLePatient } from '@/lib/typesDeModules'
+import { mesurable, tacheEnRetard } from '@/lib/assiduite'
 import type { AppState } from './state'
 import type { Patient, PatientId, PatientModule, PsychProfile } from '@/types/domain'
 
@@ -61,7 +62,10 @@ export function releaseModulePatch(key: PatientId, index: number) {
 }
 
 /**
- * Nombre de tâches réalisées sur le total, pour un patient.
+ * Nombre de tâches faites AUJOURD'HUI sur le total, pour un patient.
+ *
+ * La case d'un module dit « fait aujourd'hui » : chaque jour se coche
+ * (0051). La semaine se lit ailleurs — l'assiduité, et « fait N jours sur 7 ».
  *
  * Les tâches seulement : un module « Audio » ou « Échelle » ne s'affiche
  * jamais comme tel chez le patient et ne peut pas être coché
@@ -196,11 +200,25 @@ export function sidebarPatients(state: AppState): Array<{ id: PatientId; patient
   }).map((k) => ({ id: k, patient: state.patients[k] }))
 }
 
-/** Patients qui décrochent : moins de 50 % de modules réalisés. */
+/**
+ * Patients qui décrochent : moins de la moitié des jours faits sur la semaine.
+ *
+ * CHAQUE JOUR SE COCHE (0051). Compter les cases du jour mettait tout le
+ * monde en décrochage chaque matin, avant qu'il ait eu le temps de rien
+ * faire : c'est l'assiduité — les jours faits sur les sept derniers
+ * (src/lib/assiduite.ts) — qui le dit. Les tâches seules : une fiche dont le
+ * parcours n'a qu'un audio ou une échelle n'a rien à décrocher. Et une fiche
+ * dont aucun exercice n'a encore eu un jour possible — tout vient d'être
+ * confié — n'a pas pu décrocher non plus. Sur la démonstration, sans jours,
+ * l'assiduité est celle que porte la fiche.
+ */
 export function slippingPatients(state: AppState): PatientId[] {
   return state.patientOrder.filter((k) => {
-    const { done, total } = moduleProgress(state, k)
-    return total > 0 && done / total < 0.5
+    const taches = allModules(state, k).filter((m) => seFaitParLePatient(m.kind))
+    if (!taches.length) return false
+    const semaines = taches.flatMap((m) => (m.septJours ? [m.septJours] : []))
+    if (semaines.length === taches.length && !mesurable(semaines)) return false
+    return (state.patients[k]?.adherence ?? 0) < 50
   })
 }
 
@@ -240,8 +258,11 @@ export function notifRows(state: AppState): NotifRow[] {
   return state.patientOrder.map((k) => {
     const d = state.patients[k]
     const mods = allModules(state, k)
-    // Une tâche en retard est une tâche qu'il pouvait faire.
-    const late = mods.filter((m, i) => seFaitParLePatient(m.kind) && !isModuleDone(state, k, i, m.done)).length
+    // Une tâche en retard est une tâche qu'il pouvait faire — et qu'il n'a
+    // pas faite de la semaine, pas seulement pas encore ce matin.
+    const late = mods.filter(
+      (m, i) => seFaitParLePatient(m.kind) && tacheEnRetard(m.septJours, isModuleDone(state, k, i, m.done)),
+    ).length
     const noNext = d.nextSession.indexOf('Aucune') === 0
     const tail = d.scale.slice(-3)
     const flat = tail.length === 3 && tail[0] === tail[2]

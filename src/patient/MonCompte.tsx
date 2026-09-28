@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { useAuth } from '@/auth/session'
+import { plural } from '@/lib/format'
 import { entreeParLienRecente, lireEntrees, LONGUEUR_MOT_DE_PASSE, refusDuNouveau } from '@/lib/motDePasse'
 import { supabase } from '@/lib/supabase'
 import type { PatientIdentity } from '@/auth/session'
-import { cheminDeLEspace } from '@/lib/rappels'
+import { journalEnTexte, nomDuFichierJournal, type PageExportee } from './exportJournal'
 import { Installer } from './Installer'
 import { Rappels } from './Rappels'
 import { oublierCeTelephone } from './rappelsNavigateur'
+import { supprimerCeCompte } from './suppressionCompte'
 import s from './MonCompte.module.css'
 
 /**
@@ -37,6 +39,7 @@ export function MonCompte({ patient }: { patient: PatientIdentity }) {
   const [appareils, setAppareils] = useState<{ ton: 'ok' | 'erreur'; texte: string } | null>(null)
   const [echecSuppression, setEchecSuppression] = useState('')
   const [confirme, setConfirme] = useState(false)
+  const [exportJournal, setExport] = useState<{ ton: 'ok' | 'erreur'; texte: string } | null>(null)
 
   /* L'ancien mot de passe n'est pas demandé juste après une entrée par lien :
      c'est la voie de qui l'a oublié, ou n'en a jamais choisi. Le serveur le
@@ -71,35 +74,66 @@ export function MonCompte({ patient }: { patient: PatientIdentity }) {
   }
 
   async function supprimer() {
+    if (enCours) return
+    setEnCours('suppression')
+    setEchecSuppression('')
+    // Le même geste que depuis l'avis « Aucun suivi en cours » : il vit dans
+    // suppressionCompte.ts, qui referme aussi ce que l'appareil garde.
+    const refus = await supprimerCeCompte(seDeconnecter)
+    if (refus) {
+      setEnCours('')
+      setEchecSuppression(refus)
+    }
+  }
+
+  /**
+   * Emporter son journal, avant de partir ou simplement pour le garder.
+   *
+   * TOUTES les pages, lues ici : la journée n'en charge qu'une partie, et
+   * une copie à laquelle il manque les premiers mois ne vaut pas grand-chose.
+   * Le fichier est fabriqué dans le navigateur : le journal ne transite par
+   * aucun serveur de plus pour être téléchargé.
+   */
+  async function telechargerJournal() {
     const db = supabase()
     if (!db || enCours) return
-    setEnCours('suppression')
-    const { data } = await db.auth.getSession()
-    const jeton = data.session?.access_token ?? ''
-    try {
-      const reponse = await fetch('/api/compte', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jeton}` },
-        body: JSON.stringify({ geste: 'supprimer' }),
-      })
-      const lu = (await reponse.json().catch(() => ({}))) as { message?: string }
-      if (!reponse.ok) {
+    setEnCours('export')
+    setExport(null)
+    const pages: PageExportee[] = []
+    const PAR_LOT = 500
+    for (let debut = 0; ; debut += PAR_LOT) {
+      const { data, error } = await db
+        .from('journal_pages')
+        .select('title, body, shared, written_at')
+        .eq('patient_id', patient.id)
+        .order('written_at', { ascending: true })
+        .range(debut, debut + PAR_LOT - 1)
+      if (error) {
         setEnCours('')
-        setEchecSuppression(lu.message ?? "La suppression n'a pas abouti. Réessayez.")
+        setExport({ ton: 'erreur', texte: "Votre journal n'a pas pu être lu. Réessayez dans un instant." })
         return
       }
-      // Le compte n'existe plus : la session qui reste ouverte n'ouvre rien.
-      // Ses inscriptions sont parties avec lui en base ; le navigateur, lui,
-      // garderait la sienne sans ce geste.
-      await oublierCeTelephone()
-      await seDeconnecter()
-      // On reste à la porte du cabinet (/son-cabinet/mon, ou /mon sur son
-      // domaine) : /mon tout court aurait perdu sa marque.
-      window.location.replace(cheminDeLEspace(window.location.pathname))
-    } catch {
-      setEnCours('')
-      setEchecSuppression('Le serveur est injoignable. Réessayez dans un instant.')
+      pages.push(...((data ?? []) as PageExportee[]))
+      if (!data || data.length < PAR_LOT) break
     }
+    const maintenant = new Date()
+    const texte = journalEnTexte(pages, { nom: patient.display_name, cabinet: patient.cabinet_name, le: maintenant })
+    const url = URL.createObjectURL(new Blob([texte], { type: 'text/plain;charset=utf-8' }))
+    const lien = document.createElement('a')
+    lien.href = url
+    lien.download = nomDuFichierJournal(maintenant)
+    document.body.appendChild(lien)
+    lien.click()
+    lien.remove()
+    // Laissé le temps au téléchargement de partir avant de libérer l'adresse.
+    window.setTimeout(() => URL.revokeObjectURL(url), 30_000)
+    setEnCours('')
+    setExport({
+      ton: 'ok',
+      texte: pages.length
+        ? `${plural(pages.length, 'page copiée', 'pages copiées')} dans le fichier ${lien.download}.`
+        : "Votre journal est vide : le fichier ne contient que son titre.",
+    })
   }
 
   return (
@@ -130,9 +164,9 @@ export function MonCompte({ patient }: { patient: PatientIdentity }) {
       <section className={s.carte}>
         <h2 className={s.titre}>Votre mot de passe</h2>
         <p className={s.texte}>
-          Le lien reçu par courriel reste la voie normale, et vous n'avez rien à retenir. Un mot de
-          passe vous évite d'attendre le courriel quand vous ouvrez votre espace souvent. Une fois
-          changé, vos autres appareils sont déconnectés.
+          Le courriel de connexion — son lien ou son code — reste la voie normale, et vous n'avez
+          rien à retenir. Un mot de passe vous évite d'attendre le courriel quand vous ouvrez votre
+          espace souvent. Une fois changé, vos autres appareils sont déconnectés.
         </p>
         <form
           onSubmit={(e) => {
@@ -145,7 +179,7 @@ export function MonCompte({ patient }: { patient: PatientIdentity }) {
           <input type="email" autoComplete="username" value={session?.user.email ?? ''} readOnly hidden />
           {parLien ? (
             <p className={s.aide}>
-              Vous venez d'entrer par un lien reçu par courriel : votre mot de passe actuel ne vous
+              Vous venez d'entrer par un courriel de connexion : votre mot de passe actuel ne vous
               est pas demandé.
             </p>
           ) : (
@@ -160,8 +194,8 @@ export function MonCompte({ patient }: { patient: PatientIdentity }) {
                 aria-label="Mot de passe actuel"
               />
               <p className={s.aide}>
-                Oublié, ou jamais choisi ? Déconnectez-vous et entrez par un lien reçu par
-                courriel : pendant 24 heures, il ne vous sera pas demandé.
+                Oublié, ou jamais choisi ? Déconnectez-vous et entrez par un lien ou un code reçu
+                par courriel : pendant 24 heures, il ne vous sera pas demandé.
               </p>
             </>
           )}
@@ -224,6 +258,28 @@ export function MonCompte({ patient }: { patient: PatientIdentity }) {
       </section>
 
       <section className={s.carte}>
+        <h2 className={s.titre}>Votre journal, chez vous</h2>
+        <p className={s.texte}>
+          Téléchargez une copie de toutes vos pages, dans un fichier texte que vous garderez où vous
+          voudrez. Utile avant de fermer votre espace : le journal, lui, part avec le compte.
+        </p>
+        <button
+          type="button"
+          className={s.bouton}
+          style={{ background: patient.branding?.accent }}
+          disabled={enCours !== ''}
+          onClick={() => void telechargerJournal()}
+        >
+          {enCours === 'export' ? 'Préparation…' : 'Télécharger mon journal'}
+        </button>
+        {exportJournal ? (
+          <p className={exportJournal.ton === 'ok' ? s.noticeOk : s.noticeErreur} aria-live="polite">
+            {exportJournal.texte}
+          </p>
+        ) : null}
+      </section>
+
+      <section className={s.carte}>
         <h2 className={s.titre}>Fermer mon espace</h2>
         {/* « définitivement » : c'était faux. Le compte est bien supprimé et
             le journal effacé, mais la fiche du cabinet est DÉTACHÉE, pas
@@ -246,9 +302,10 @@ export function MonCompte({ patient }: { patient: PatientIdentity }) {
         {/* Dit avant, pas après : c'est la seule chose que ce bouton ne fait
             pas, et celle qu'on croit qu'il fait. */}
         <p className={s.texte}>
-          Le dossier de votre suivi — vos séances, ce que votre thérapeute y a noté — reste chez
-          elle : la loi lui demande de le conserver, et il ne nous appartient pas de l'effacer.
-          Pour qu'il le soit, demandez-le-lui directement.
+          Le dossier de votre suivi — vos séances, ce que votre thérapeute y a noté — reste au
+          cabinet : la loi lui demande de le conserver, et il ne nous appartient pas de l'effacer.
+          Pour qu'il le soit, demandez-le directement à votre thérapeute. Pour garder votre journal,
+          téléchargez-le d'abord, juste au-dessus.
         </p>
         {confirme ? (
           <div className={s.confirme}>

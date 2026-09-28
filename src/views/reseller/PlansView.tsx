@@ -1,12 +1,25 @@
 import { useState } from 'react'
+import { useMaybeAuth } from '@/auth/session'
+import { GesteAConfirmer } from '@/components/GesteAConfirmer'
 import { Button, Chip, FieldLabel, Notice, Pill, ProgressBar, SquareCheck, TextInput } from '@/components/ui'
-import { STATUS_LABEL } from '@/data/reseller'
+import {
+  auteurDit,
+  CE_QUI_EST_SUSPENDU,
+  dateDuContrat,
+  depuisChampDate,
+  finEssaiProposee,
+  libelleContrat,
+  noteDuContrat,
+  phraseDuJournal,
+  tonContrat,
+  versChampDate,
+} from '@/lib/contrat'
 import { euroCents, plural } from '@/lib/format'
 import { useResellerData } from '@/reseller/context'
 import { levierOuvert, maxPatientsOf, mrrCents, overrideDe } from '@/state/resellerSelectors'
 import { useStore } from '@/state/store'
 import { LEVIERS } from '@/types/reseller'
-import type { Exceptions, ReglageOffre, StatutContrat } from '@/reseller/useReseller'
+import type { Exceptions, ReglageContrat, ReglageOffre, StatutContrat } from '@/reseller/useReseller'
 import type { Levier, Plan, PlanCode, PortfolioRow } from '@/types/reseller'
 import s from './PlansView.module.css'
 
@@ -250,6 +263,150 @@ const CONTRATS: Array<{ code: StatutContrat; label: string }> = [
   { code: 'resilie', label: 'Résilié' },
 ]
 
+/**
+ * Les statuts qui ferment sur-le-champ les leviers d'un cabinet.
+ *
+ * Les puces changeaient le contrat au premier clic : un clic malheureux sur
+ * « Résilié » coupait l'analyse, la boutique et le site d'une thérapeute en
+ * pleine séance. Ceux-là passent désormais par une confirmation qui dit ce
+ * qui va se fermer.
+ */
+const CONFIRMATION: Partial<Record<StatutContrat, string>> = {
+  impaye: 'Passer en impayé',
+  suspendu: 'Suspendre le contrat',
+  resilie: 'Résilier le contrat',
+}
+
+/** De quoi savoir si le contrat a bougé sous nos pieds (rechargement, autre onglet). */
+function signatureContrat(row: PortfolioRow): string {
+  const c = row.subscription
+  return [c.status, c.trialEndsAt ?? '', c.periodEndAt ?? ''].join('|')
+}
+
+/**
+ * Le contrat d'un cabinet : un statut, et la date qui va avec.
+ *
+ * Les puces choisissent, « Appliquer » écrit. L'échéance n'est écrite que si
+ * on l'a changée — elle était remise à vide à chaque clic — et la fin d'un
+ * essai se choisit : c'était le seul moyen de prolonger un essai, et il
+ * reposait quatorze jours d'office, même sur un essai qui courait encore.
+ */
+function ReglageDuContrat({
+  row,
+  onContrat,
+}: {
+  row: PortfolioRow
+  onContrat: (reglage: ReglageContrat) => Promise<boolean>
+}) {
+  const c = row.subscription
+  const sig = signatureContrat(row)
+  const [connu, setConnu] = useState(sig)
+  const [statut, setStatut] = useState<StatutContrat>(c.status)
+  const [finEssai, setFinEssai] = useState(
+    c.status === 'essai' ? versChampDate(c.trialEndsAt) : finEssaiProposee(c.trialEndsAt),
+  )
+  const [echeance, setEcheance] = useState(versChampDate(c.periodEndAt))
+  const [enCours, setEnCours] = useState(false)
+
+  /* Le contrat relu depuis la base reprend la main sur la saisie. */
+  if (sig !== connu) {
+    setConnu(sig)
+    setStatut(c.status)
+    setFinEssai(c.status === 'essai' ? versChampDate(c.trialEndsAt) : finEssaiProposee(c.trialEndsAt))
+    setEcheance(versChampDate(c.periodEndAt))
+  }
+
+  function choisir(code: StatutContrat) {
+    setStatut(code)
+    // Repasser en essai propose une fin à venir, jamais l'ancienne date échue.
+    if (code === 'essai' && c.status !== 'essai') setFinEssai(finEssaiProposee(c.trialEndsAt))
+  }
+
+  const essai = statut === 'essai'
+  const finIso = depuisChampDate(finEssai)
+  const echeanceIso = echeance ? depuisChampDate(echeance) : null
+  const statutChange = statut !== c.status
+  const finChange = essai && (statutChange || finEssai !== versChampDate(c.trialEndsAt))
+  const echeanceChange = !essai && echeance !== versChampDate(c.periodEndAt)
+  const probleme = essai
+    ? !finIso
+      ? "Choisissez la date de fin de l'essai."
+      : Date.parse(finIso) <= Date.now()
+        ? "Cette date est passée : l'essai serait déjà fini. Choisissez une date à venir."
+        : ''
+    : echeance && !echeanceIso
+      ? "Cette échéance n'est pas une date."
+      : ''
+  const touche = statutChange || finChange || echeanceChange
+  const modifie = touche && !probleme
+
+  async function appliquer() {
+    if (!modifie || enCours) return
+    const reglage: ReglageContrat = { statut }
+    if (finChange) reglage.finEssai = finIso
+    if (echeanceChange) reglage.echeance = echeanceIso
+    setEnCours(true)
+    await onContrat(reglage)
+    setEnCours(false)
+  }
+
+  // Un contrat déjà hors règle n'a plus rien à fermer : pas de confirmation.
+  const confirmer = statutChange && c.enRegle ? CONFIRMATION[statut] : undefined
+
+  return (
+    <div className={s.exceptionLevier}>
+      <FieldLabel>Contrat</FieldLabel>
+      <div className={s.exceptionEtats}>
+        {CONTRATS.map((x) => (
+          <Chip
+            key={x.code}
+            on={statut === x.code}
+            onClick={() => choisir(x.code)}
+            title={`Choisir « ${x.label.toLowerCase()} » pour le contrat de ${row.cabinet.name}`}
+          >
+            {x.label}
+          </Chip>
+        ))}
+      </div>
+
+      <label className={s.contratDate}>
+        <span>{essai ? "Fin de l'essai" : 'Échéance de la période'}</span>
+        <input
+          type="date"
+          className={s.champDate}
+          value={essai ? finEssai : echeance}
+          onChange={(e) => (essai ? setFinEssai(e.target.value) : setEcheance(e.target.value))}
+          aria-label={essai ? `Fin de l'essai de ${row.cabinet.name}` : `Échéance du contrat de ${row.cabinet.name}`}
+        />
+      </label>
+      {!essai ? <p className={s.exceptionNote}>Vide : aucune échéance.</p> : null}
+
+      <p className={s.exceptionNote}>{noteDuContrat(c)}</p>
+      {/* Un essai échu qu'on n'a pas touché se dit dans la note ; le problème
+          ne s'affiche qu'à celui qui est en train de changer quelque chose. */}
+      {touche && probleme ? <p className={s.probleme}>{probleme}</p> : null}
+
+      <div className={s.contratGestes}>
+        {confirmer ? (
+          <GesteAConfirmer
+            libelle="Appliquer"
+            consequence={`Les leviers de ${row.cabinet.name} se ferment aussitôt : ${CE_QUI_EST_SUSPENDU}. Ses dossiers et les espaces de ses patients restent ouverts.`}
+            confirmer={confirmer}
+            enCours={enCours}
+            libelleEnCours="Enregistrement…"
+            disabled={!modifie}
+            onConfirmer={() => void appliquer()}
+          />
+        ) : (
+          <Button variant="secondary" onClick={() => void appliquer()} disabled={!modifie || enCours}>
+            {enCours ? 'Enregistrement…' : 'Appliquer'}
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function LigneException({
   row,
   onSave,
@@ -257,7 +414,7 @@ function LigneException({
 }: {
   row: PortfolioRow
   onSave: (champs: Exceptions) => Promise<void>
-  onContrat: (statut: StatutContrat) => Promise<void>
+  onContrat: (reglage: ReglageContrat) => Promise<boolean>
 }) {
   const [max, setMax] = useState(
     row.subscription.maxPatientsOverride === null ? '' : String(row.subscription.maxPatientsOverride),
@@ -274,42 +431,13 @@ function LigneException({
     setEnCours(false)
   }
 
-  async function poserContrat(statut: StatutContrat) {
-    if (enCours) return
-    setEnCours(true)
-    await onContrat(statut)
-    setEnCours(false)
-  }
-
   return (
     <div className={s.exception}>
       {/* LE CONTRAT, ET CE QU'IL FERME. Ce réglage manquait : `status` était
           posé une fois à l'ouverture et plus jamais, donc l'essai ne finissait
           pas, l'impayé n'existait pas, et le revenu récurrent restait à zéro.
           Depuis 0035 il décide vraiment — d'où le geste pour le rouvrir. */}
-      <div className={s.exceptionLevier}>
-        <FieldLabel>Contrat</FieldLabel>
-        <div className={s.exceptionEtats}>
-          {CONTRATS.map((c) => (
-            <Chip
-              key={c.code}
-              on={row.subscription.status === c.code}
-              onClick={() => void poserContrat(c.code)}
-              title={`Passer le contrat de ${row.cabinet.name} à « ${c.label.toLowerCase()} »`}
-            >
-              {c.label}
-            </Chip>
-          ))}
-        </div>
-        <p className={s.exceptionNote}>
-          {row.subscription.enRegle
-            ? "Le contrat court : l'offre s'applique."
-            : 'Hors contrat : analyse, boutique, marque blanche, site et ouverture de fiches suspendus. Les dossiers restent entiers.'}
-          {row.subscription.trialEnd && row.subscription.trialEnd !== '—'
-            ? ` Essai jusqu'au ${row.subscription.trialEnd}.`
-            : ''}
-        </p>
-      </div>
+      <ReglageDuContrat row={row} onContrat={onContrat} />
 
       <div className={s.exceptionMax}>
         <FieldLabel>Fiches actives pour ce cabinet</FieldLabel>
@@ -356,7 +484,7 @@ function LigneException({
             </div>
             <p className={s.exceptionNote}>
               {row.plan[l.code] ? "Ouvert dans l'offre." : "Fermé dans l'offre."}{' '}
-              {levierOuvert(row.subscription, row.plan, l.code) ? 'Actif chez elle.' : 'Inactif chez elle.'}
+              {levierOuvert(row.subscription, row.plan, l.code) ? 'Actif pour ce cabinet.' : 'Inactif pour ce cabinet.'}
             </p>
           </div>
         )
@@ -366,14 +494,31 @@ function LigneException({
 }
 
 export function PlansView() {
-  const { rows, offres, reel, chargement, erreur, changerOffre, enregistrerOffre, reglerExceptions, reglerContrat } =
-    useResellerData()
+  const {
+    rows,
+    offres,
+    journal,
+    reel,
+    chargement,
+    erreur,
+    changerOffre,
+    enregistrerOffre,
+    reglerExceptions,
+    reglerContrat,
+  } = useResellerData()
   const { state, set } = useStore()
+  /* Le catalogue se règle par le PROPRIÉTAIRE du revendeur (0025, 0049) : un
+     membre de son équipe voyait des champs éditables, tapait un prix, et
+     n'apprenait qu'à l'enregistrement que la base l'avait refusé. */
+  const auth = useMaybeAuth()
+  const proprietaire = auth?.context?.reseller?.role === 'owner'
   /** Le cabinet dont l'offre est en cours de changement, s'il y en a un. */
   const [enCours, setEnCours] = useState('')
   /** Le cabinet dont on a ouvert les exceptions. */
   const [ouvert, setOuvert] = useState('')
   const [echec, setEchec] = useState('')
+  /** Le journal se lit par le haut ; le reste se déplie. */
+  const [toutLeJournal, setToutLeJournal] = useState(false)
 
   /** Les messages de la manœuvre précédente ne survivent pas à la suivante. */
   function nettoyer() {
@@ -409,12 +554,20 @@ export function PlansView() {
     else setEchec(resultat.message)
   }
 
-  async function saveContrat(cabinetId: string, statut: StatutContrat) {
+  async function saveContrat(cabinetId: string, reglage: ReglageContrat): Promise<boolean> {
     nettoyer()
-    const resultat = await reglerContrat(cabinetId, statut, null)
+    const resultat = await reglerContrat(cabinetId, reglage)
     if (resultat.ok) set({ rNotice: resultat.message, rNoticeTon: 'ok' })
     else setEchec(resultat.message)
+    return resultat.ok
   }
+
+  /** Le nom d'aujourd'hui d'une offre : le journal garde son code, qui ne change pas. */
+  function nomOffre(code: string): string {
+    return offres.find((p) => p.code === code)?.label ?? code
+  }
+
+  const lignesJournal = toutLeJournal ? journal : journal.slice(0, 12)
 
   return (
     <>
@@ -424,11 +577,18 @@ export function PlansView() {
             key={plan.code}
             plan={plan}
             cabinets={rows.filter((r) => r.subscription.plan === plan.code).length}
-            editable={reel}
+            editable={reel && proprietaire}
             onSave={(champs) => saveOffre(plan.code, champs)}
           />
         ))}
       </div>
+
+      {reel && !proprietaire && offres.length > 0 ? (
+        <p className={s.demo}>
+          Le catalogue se règle par le compte propriétaire de votre organisation. Les contrats et
+          les exceptions de chaque cabinet, eux, se règlent ci-dessous.
+        </p>
+      ) : null}
 
       {erreur ? (
         <Notice tone="warn" style={{ marginBottom: 18 }}>
@@ -442,8 +602,18 @@ export function PlansView() {
         </Notice>
       ) : null}
 
-      {/* Dit une fois, sobrement : sans session, ces abonnements sont fictifs. */}
-      {!reel ? (
+      {/* Un catalogue vide se dit : il retombait sur celui de la démonstration,
+          avec des prix fictifs et des offres qu'on ne peut pas poser. */}
+      {reel && !chargement && offres.length === 0 && !erreur ? (
+        <Notice tone="warn" style={{ marginBottom: 18 }}>
+          Votre catalogue ne compte encore aucune offre. Elles se créent avec la plateforme, sous
+          votre nom : écrivez-nous pour ouvrir les vôtres.
+        </Notice>
+      ) : null}
+
+      {/* Dit une fois, sobrement : sans session, ces abonnements sont fictifs.
+          Pas pendant le chargement : on ne sait pas encore s'il y a une session. */}
+      {!reel && !chargement ? (
         <p className={s.demo}>
           Offres et abonnements de démonstration : connectez-vous pour régler les vôtres.
         </p>
@@ -470,7 +640,6 @@ export function PlansView() {
           const pct = max === null ? 0 : Math.round((row.stats.patientsActive / max) * 100)
           const serre = max !== null && row.stats.patientsActive >= max * 0.8
           const occupe = enCours === row.cabinet.id
-          const echeance = row.subscription.periodEnd.trim()
           const exceptions =
             row.subscription.maxPatientsOverride !== null ||
             row.subscription.shopOverride !== null ||
@@ -517,21 +686,10 @@ export function PlansView() {
                 </div>
 
                 <div className={s.period}>
-                  <Pill
-                    tone={
-                      row.subscription.status === 'impaye' || row.subscription.status === 'suspendu'
-                        ? 'warn'
-                        : row.subscription.status === 'essai'
-                          ? 'neutral'
-                          : 'ok'
-                    }
-                  >
-                    {STATUS_LABEL[row.subscription.status]}
-                  </Pill>
-                  {/* Pas d'échéance en base : un tiret, plutôt qu'une date inventée. */}
-                  <div style={{ marginTop: 5 }}>
-                    {echeance && echeance !== '—' ? `Échéance le ${echeance}` : '—'}
-                  </div>
+                  <Pill tone={tonContrat(row.subscription)}>{libelleContrat(row.subscription)}</Pill>
+                  {/* La fin d'essai pour un essai, l'échéance sinon ; pas de
+                      date en base : un tiret, plutôt qu'une date inventée. */}
+                  <div style={{ marginTop: 5 }}>{dateDuContrat(row.subscription)}</div>
                 </div>
 
                 <button
@@ -551,7 +709,7 @@ export function PlansView() {
                 <LigneException
                   row={row}
                   onSave={(champs) => saveException(row.cabinet.id, champs)}
-                  onContrat={(statut) => saveContrat(row.cabinet.id, statut)}
+                  onContrat={(reglage) => saveContrat(row.cabinet.id, reglage)}
                 />
               ) : null}
             </div>
@@ -560,11 +718,60 @@ export function PlansView() {
 
         <p className={s.foot}>
           Une offre règle ce que l'application ouvre : le nombre de fiches actives, la boutique, la
-          marque blanche et le site vitrine. L'analyse, elle, reste payée par la thérapeute avec sa
+          marque blanche et le site vitrine. L'analyse, elle, reste payée par chaque cabinet avec sa
           propre clé Anthropic — vous ne facturez ni ne plafonnez sa consommation. Un plafond de
-          fiches atteint n'enferme rien : elle archive un suivi terminé, ou vous le relevez ici.
+          fiches atteint n'enferme rien : le cabinet clôt un suivi terminé, ou vous relevez le
+          plafond ici. Un contrat hors règle — essai fini, impayé, suspendu, résilié — suspend{' '}
+          {CE_QUI_EST_SUSPENDU} ; les dossiers restent entiers.
         </p>
       </section>
+
+      {/* LE JOURNAL. Une offre réglée vaut pour tous ses cabinets, un statut
+          ferme ou rouvre des leviers : « qui a passé ce cabinet en résilié, et
+          quand ? » doit avoir une réponse. Écrit par la base (0049), à chaque
+          changement, quel qu'en soit le chemin. */}
+      {reel ? (
+        <section className={s.table} style={{ marginTop: 18 }}>
+          <div className={s.tableHead}>
+            <h2 className={s.tableTitle}>Journal des offres et des contrats</h2>
+            <span style={{ fontSize: 11.5, color: 'var(--c-text-muted)' }}>
+              {plural(journal.length, 'changement', 'changements')}
+              {journal.length >= 50 ? ', les plus récents' : ''}
+            </span>
+          </div>
+          {journal.length === 0 ? (
+            <p className={s.journalVide}>
+              Aucun changement pour l'instant. Chaque changement d'offre, de prix, de statut,
+              d'échéance ou d'exception s'inscrira ici, avec sa date.
+            </p>
+          ) : (
+            <ul className={s.journal}>
+              {lignesJournal.map((e, i) => (
+                <li key={`${e.quand}-${i}`} className={s.journalLigne}>
+                  <span className={s.journalQuand}>
+                    {new Date(e.quand).toLocaleString('fr-FR', {
+                      day: 'numeric',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                  <span>
+                    {phraseDuJournal(e, nomOffre)} <span className={s.journalAuteur}>{auteurDit(e.auteur)}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {journal.length > lignesJournal.length || toutLeJournal ? (
+            <div className={s.journalPied}>
+              <Button variant="ghost" onClick={() => setToutLeJournal((v) => !v)}>
+                {toutLeJournal ? 'Replier' : `Voir les ${journal.length - lignesJournal.length} suivants`}
+              </Button>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
     </>
   )
 }

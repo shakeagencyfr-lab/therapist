@@ -46,4 +46,18 @@ describe('adresse publique des cabinets', () => {
     expect(code).toContain(`<iframe src="https://${DOMAINE_CABINETS}/e/laetitia"`)
     expect(code).not.toContain('<script')
   })
+
+  /* Le widget renvoie ses patients sur l'adresse qui l'a servi : servi par la
+     nôtre, il les faisait arriver chez nous malgré le domaine du cabinet. */
+  it('le widget vit sur le domaine du cabinet quand il en a un', () => {
+    expect(lienEmbed('laetitia', 'Espace.Cabinet-Ollivier.fr')).toBe('https://espace.cabinet-ollivier.fr/e/laetitia')
+    expect(codeEmbed('laetitia', 'espace.cabinet-ollivier.fr')).toContain(
+      '<iframe src="https://espace.cabinet-ollivier.fr/e/laetitia"',
+    )
+    expect(lienEmbed('laetitia', null)).toBe(`https://${DOMAINE_CABINETS}/e/laetitia`)
+  })
+
+  it('le code collé chez la thérapeute ne nomme pas le fournisseur', () => {
+    expect(codeEmbed('laetitia', 'espace.cabinet-ollivier.fr').toLowerCase()).not.toContain('klaro')
+  })
 })

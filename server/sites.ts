@@ -33,10 +33,16 @@
  * Un import amputé de ses horaires reste un import ; un import qui plante
  * n'est rien.
  */
+import { randomUUID } from 'node:crypto'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { adminConfigure, clientAdmin, exigerCabinet, identifier } from './auth.js'
 import { droitsDuCabinet, exigerDroit } from './droits.js'
 import { HttpError } from './errors.js'
 import { THEME_DEFAUT, resoudreTheme, type ThemeVitrine } from '../src/lib/themeVitrine.js'
+/* Des TYPES seulement : ficheGoogle.ts importe d'autres modules du
+   navigateur sans extension, que Node ne résoudrait pas à l'exécution. */
+import type { FicheImportee } from '../src/lib/ficheGoogle.js'
+import { photosRetirees } from '../src/lib/photosSite.js'
 
 /* ------------------------------------------------------------------ *
  * La bibliothèque de modèles
@@ -124,13 +130,30 @@ export interface Site {
   googleNote: number | null
   googleAvis: number | null
   importeLe: string | null
+  /** Mentions légales : qui publie la page (nom, ou raison sociale). */
+  responsable: string
+  /** Mentions légales : SIRET, ADELI ou RPPS, tel que saisi. */
+  numeroPro: string
+  /** Les avis retirés par la thérapeute, par leur clé : un réimport ne les ramène pas. */
+  avisRetires: string[]
 }
 
 export interface EtatSite {
   site: Site
-  /** L'offre du cabinet ouvre-t-elle le site vitrine ? */
+  /** L'offre du cabinet ouvre-t-elle le site vitrine ? Faux aussi hors contrat. */
   droit: boolean
+  /**
+   * Le contrat court-il ? Sans lui, l'écran disait « pas dans votre offre »
+   * à un cabinet dont l'offre comprend le site mais dont l'essai a expiré —
+   * une cause fausse, qui envoyait chercher une option déjà payée.
+   */
+  enRegle: boolean
   offre: string
+  /**
+   * L'adresse de l'agenda réglé dans Intégrations, ou null. La page publique
+   * en fait un bouton « Prendre rendez-vous » ; l'aperçu la montre pareil.
+   */
+  reservation: string | null
   /** L'import depuis Google est-il configuré sur ce serveur ? */
   google: boolean
   /** Laquelle des deux sources répond — pour que l'écran puisse le dire. */
@@ -165,6 +188,9 @@ const VIDE: Site = {
   googleNote: null,
   googleAvis: null,
   importeLe: null,
+  responsable: '',
+  numeroPro: '',
+  avisRetires: [],
 }
 
 interface SiteRow {
@@ -185,10 +211,13 @@ interface SiteRow {
   google_note: number | null
   google_avis: number | null
   importe_le: string | null
+  responsable: string | null
+  numero_pro: string | null
+  avis_retires: unknown
 }
 
 const COLONNES =
-  'modele, theme, publie, titre, sous_titre, presentation, adresse, telephone, site_web, horaires, photos, services, avis, google_place_id, google_note, google_avis, importe_le'
+  'modele, theme, publie, titre, sous_titre, presentation, adresse, telephone, site_web, horaires, photos, services, avis, google_place_id, google_note, google_avis, importe_le, responsable, numero_pro, avis_retires'
 
 function versSite(row: SiteRow | null): Site {
   if (!row) return VIDE
@@ -213,7 +242,22 @@ function versSite(row: SiteRow | null): Site {
     googleNote: row.google_note === null ? null : Number(row.google_note),
     googleAvis: row.google_avis === null ? null : Number(row.google_avis),
     importeLe: row.importe_le,
+    responsable: row.responsable ?? '',
+    numeroPro: row.numero_pro ?? '',
+    avisRetires: clesRetirees(row.avis_retires),
   }
+}
+
+/** La borne de la base (0048), la même que `RETIRES_MAX` côté éditeur. */
+const RETIRES_MAX = 100
+
+/** Les clés d'avis retirés : des chaînes courtes, en nombre borné — rien d'autre. */
+function clesRetirees(brut: unknown): string[] {
+  if (!Array.isArray(brut)) return []
+  return brut
+    .filter((c): c is string => typeof c === 'string' && c.length > 0)
+    .map((c) => c.slice(0, 200))
+    .slice(-RETIRES_MAX)
 }
 
 /* ------------------------------------------------------------------ *
@@ -230,10 +274,22 @@ export async function etatSite(token: string | null): Promise<EtatSite> {
     .eq('cabinet_id', cabinetId)
     .maybeSingle<SiteRow>()
   if (error) throw new HttpError(502, "Votre site n'a pas pu être lu.")
+
+  /* L'agenda, pour que l'aperçu montre le bouton que la page publique
+     montrera. Une lecture qui échoue n'empêche pas d'éditer : l'aperçu est
+     alors sans bouton, la page publique, elle, lit l'agenda de son côté. */
+  const { data: reglages } = await appelant.client
+    .from('cabinet_settings')
+    .select('booking_url')
+    .eq('cabinet_id', cabinetId)
+    .maybeSingle<{ booking_url: string | null }>()
+
   return {
     site: versSite(data ?? null),
     droit: droits.site,
+    enRegle: droits.enRegle,
     offre: droits.offre,
+    reservation: reglages?.booking_url?.startsWith('https://') ? reglages.booking_url : null,
     google: googleConfigure(),
     source: sourceFiche(),
     modeles: MODELES,
@@ -310,6 +366,9 @@ export interface SiteBody {
   photos?: unknown[]
   services?: unknown[]
   avis?: unknown[]
+  responsable?: string
+  numeroPro?: string
+  avisRetires?: unknown[]
 }
 
 /**
@@ -325,6 +384,13 @@ export async function enregistrerSite(token: string | null, raw: unknown): Promi
   exigerDroit(droits, 'site')
 
   const body = (raw && typeof raw === 'object' ? raw : {}) as SiteBody
+
+  /* Les photos d'avant, pour savoir lesquelles ne sont plus montrées. */
+  const { data: avant } = await appelant.client
+    .from('cabinet_sites')
+    .select('photos')
+    .eq('cabinet_id', cabinetId)
+    .maybeSingle<{ photos: PhotoSite[] | null }>()
   const modele = CODES.has(String(body.modele ?? '')) ? String(body.modele) : 'sobre'
 
   const ligne = {
@@ -361,6 +427,9 @@ export async function enregistrerSite(token: string | null, raw: unknown): Promi
         date: texte(a.date, 40),
       }))
       .filter((a) => a.texte),
+    responsable: texte(body.responsable, 120),
+    numero_pro: texte(body.numeroPro, 60),
+    avis_retires: clesRetirees(body.avisRetires),
     updated_at: new Date().toISOString(),
   }
 
@@ -370,6 +439,46 @@ export async function enregistrerSite(token: string | null, raw: unknown): Promi
   if (error) {
     console.error(`[site] enregistrement — ${error.message}`)
     throw new HttpError(502, "Votre site n'a pas pu être enregistré. Réessayez dans un instant.")
+  }
+
+  await effacerPhotos(appelant.client, photosRetirees(avant?.photos ?? [], ligne.photos, STOCKAGE, cabinetId))
+  return etatSite(token)
+}
+
+/**
+ * Effacer du compartiment les photos que la page ne montre plus.
+ *
+ * APRÈS l'enregistrement, jamais avant : une photo effacée d'une page dont
+ * l'enregistrement aurait ensuite échoué laisserait une image cassée en
+ * ligne. Sous la RLS de l'appelante — les politiques du compartiment ne la
+ * laissent toucher qu'au dossier de son cabinet. Un échec ne fait pas
+ * échouer l'enregistrement, qui a eu lieu : il se dit au journal.
+ */
+async function effacerPhotos(client: SupabaseClient, chemins: string[]): Promise<void> {
+  if (!chemins.length) return
+  const { error } = await client.storage.from('sites').remove(chemins)
+  if (error) console.error(`[site] ménage des photos — ${error.message}`)
+}
+
+/**
+ * Dépublier, SANS exiger le droit.
+ *
+ * C'est le seul geste permis à un cabinet dont l'offre ne comprend plus le
+ * site, ou dont le contrat ne court plus. La page n'est alors plus servie —
+ * mais elle reviendrait telle quelle, horaires périmés compris, le jour où
+ * l'offre est rétablie. La thérapeute doit pouvoir l'empêcher sans avoir à
+ * payer d'abord. Rien d'autre ne s'écrit : ni texte, ni photo.
+ */
+export async function depublierSite(token: string | null): Promise<EtatSite> {
+  const appelant = await identifier(token)
+  const cabinetId = exigerCabinet(appelant)
+  const { error } = await appelant.client
+    .from('cabinet_sites')
+    .update({ publie: false, updated_at: new Date().toISOString() })
+    .eq('cabinet_id', cabinetId)
+  if (error) {
+    console.error(`[site] dépublication — ${error.message}`)
+    throw new HttpError(502, "Votre page n'a pas pu être dépubliée. Réessayez dans un instant.")
   }
   return etatSite(token)
 }
@@ -758,7 +867,7 @@ async function lireParPlaces(placeId: string): Promise<FicheLue> {
  * de navigateur — le chemin commence par l'identifiant du cabinet, ce qui est
  * exactement ce que vérifient les politiques du compartiment.
  */
-async function recopierPhoto(cabinetId: string, nom: string, rang: number): Promise<string | null> {
+async function recopierPhoto(cabinetId: string, nom: string): Promise<string | null> {
   const client = clientAdmin()
   if (!client || !adminConfigure()) return null
 
@@ -796,30 +905,53 @@ async function recopierPhoto(cabinetId: string, nom: string, rang: number): Prom
   if (!/^image\/(png|jpeg|webp)$/.test(type)) type = 'image/jpeg'
 
   const extension = type === 'image/png' ? 'png' : type === 'image/webp' ? 'webp' : 'jpg'
-  const chemin = `${cabinetId}/site/google-${rang}.${extension}`
+  /* UN NOM NEUF À CHAQUE FOIS, jamais `google-1.jpg` écrasé. L'ancien nom
+     fixe faisait qu'un réimport remplaçait en place la photo d'une page déjà
+     publiée : la page changeait d'image sans que personne ait rien relu ni
+     enregistré. Les copies qui ne sont finalement pas gardées sont effacées
+     au retrait (éditeur) ou à l'enregistrement suivant. */
+  const chemin = `${cabinetId}/site/google-${randomUUID()}.${extension}`
   const { error } = await client.storage
     .from('sites')
-    .upload(chemin, new Uint8Array(octets), { contentType: type, upsert: true })
+    .upload(chemin, new Uint8Array(octets), { contentType: type, upsert: false })
   if (error) return null
 
   const { data } = client.storage.from('sites').getPublicUrl(chemin)
   return data.publicUrl
 }
 
+/** Ce que rend l'import : l'état du site, et la fiche lue, à verser dans le brouillon. */
+export interface ImportFiche {
+  etat: EtatSite
+  fiche: FicheImportee
+}
+
 /**
- * Importer la fiche : remplir ce qui est vide, laisser ce qui est écrit.
+ * Importer la fiche : la LIRE, et la rendre au brouillon.
  *
- * C'est la règle qui rend l'import réutilisable. Une thérapeute qui a corrigé
- * sa présentation et réimporte pour récupérer ses nouveaux avis ne doit pas
- * retrouver le texte de Google à la place du sien.
+ * L'import écrivait le contenu en base et le fusionnait à sa façon — horaires
+ * et avis de Google à la place de ceux du cabinet, page publiée mise à jour
+ * sans relecture, saisie en cours perdue au rechargement. Il ne fait plus que
+ * deux choses ici :
+ *
+ *   1. recopier les photos chez nous, seulement si le brouillon n'en a pas
+ *      (le navigateur le dit, lui seul connaît le brouillon) ;
+ *   2. noter les CHIFFRES de Google — identifiant de fiche, note, nombre
+ *      d'avis, date d'import. Ce ne sont pas des textes à relire : c'est ce
+ *      que Google affiche, et les rafraîchir est la raison d'un réimport.
+ *
+ * Le texte, les horaires, les avis et les photos repartent vers l'éditeur,
+ * où `fusionnerFiche` (src/lib/ficheGoogle.ts) remplit ce qui est vide et
+ * laisse ce qui est écrit. Rien de ce contenu n'est en ligne avant que la
+ * thérapeute enregistre.
  */
-export async function importerFicheGoogle(token: string | null, raw: unknown): Promise<EtatSite> {
+export async function importerFicheGoogle(token: string | null, raw: unknown): Promise<ImportFiche> {
   const appelant = await identifier(token)
   const cabinetId = exigerCabinet(appelant)
   const droits = await droitsDuCabinet(cabinetId, appelant.client)
   exigerDroit(droits, 'site')
 
-  const body = (raw && typeof raw === 'object' ? raw : {}) as { placeId?: string }
+  const body = (raw && typeof raw === 'object' ? raw : {}) as { placeId?: string; avecPhotos?: boolean }
   const placeId = texte(body.placeId, 300)
   if (!placeId) throw new HttpError(400, 'Choisissez la fiche à importer.')
 
@@ -827,57 +959,49 @@ export async function importerFicheGoogle(token: string | null, raw: unknown): P
   // vient la fiche, et n'a pas à le savoir.
   const fiche = sourceFiche() === 'serpapi' ? await lireParSerpapi(placeId) : await lireParPlaces(placeId)
 
-  const { data: existant } = await appelant.client
-    .from('cabinet_sites')
-    .select(COLONNES)
-    .eq('cabinet_id', cabinetId)
-    .maybeSingle<SiteRow>()
-  const actuel = versSite(existant ?? null)
-
-  /* Les photos ne sont recopiées que la première fois : reprendre l'import
-     pour rafraîchir les avis ne doit pas redéposer six fichiers. */
-  let photos = actuel.photos
-  if (!photos.length) {
-    const recopiees: PhotoSite[] = []
+  /* Les photos ne sont recopiées que pour un brouillon qui n'en a aucune :
+     reprendre l'import pour rafraîchir les avis ne doit pas redéposer six
+     fichiers que la fusion écarterait aussitôt. */
+  const photos: PhotoSite[] = []
+  if (body.avecPhotos === true) {
     for (const [rang, reference] of fiche.images.entries()) {
-      const url = await recopierPhoto(cabinetId, reference, rang + 1)
+      const url = await recopierPhoto(cabinetId, reference)
       if (!url) continue
-      recopiees.push({
+      photos.push({
         url,
         alt: `${fiche.nom || 'Cabinet'} — photo ${rang + 1}`,
         attribution: 'Photo : Google',
       })
     }
-    photos = recopiees
   }
 
-  const ligne = {
-    cabinet_id: cabinetId,
-    modele: actuel.modele,
-    publie: actuel.publie,
-    titre: actuel.titre || fiche.nom,
-    sous_titre: actuel.sousTitre,
-    presentation: actuel.presentation || fiche.presentation,
-    adresse: actuel.adresse || fiche.adresse,
-    telephone: actuel.telephone || fiche.telephone,
-    site_web: actuel.siteWeb || fiche.siteWeb,
-    horaires: fiche.horaires.length ? fiche.horaires : actuel.horaires,
-    photos,
-    services: actuel.services,
-    avis: fiche.avis.length ? fiche.avis : actuel.avis,
-    google_place_id: fiche.placeId,
-    google_note: fiche.note === null ? null : Number(fiche.note.toFixed(1)),
-    google_avis: fiche.avisNombre === null ? null : Math.round(fiche.avisNombre),
-    importe_le: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }
-
-  const { error } = await appelant.client
-    .from('cabinet_sites')
-    .upsert(ligne, { onConflict: 'cabinet_id' })
+  const { error } = await appelant.client.from('cabinet_sites').upsert(
+    {
+      cabinet_id: cabinetId,
+      google_place_id: fiche.placeId,
+      google_note: fiche.note === null ? null : Number(fiche.note.toFixed(1)),
+      google_avis: fiche.avisNombre === null ? null : Math.round(fiche.avisNombre),
+      importe_le: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'cabinet_id' },
+  )
   if (error) {
     console.error(`[site] import — ${error.message}`)
     throw new HttpError(502, "La fiche importée n'a pas pu être enregistrée. Réessayez dans un instant.")
   }
-  return etatSite(token)
+
+  return {
+    etat: await etatSite(token),
+    fiche: {
+      nom: fiche.nom,
+      presentation: fiche.presentation,
+      adresse: fiche.adresse,
+      telephone: fiche.telephone,
+      siteWeb: fiche.siteWeb,
+      horaires: fiche.horaires,
+      avis: fiche.avis,
+      photos,
+    },
+  }
 }

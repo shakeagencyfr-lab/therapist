@@ -3,6 +3,7 @@ import { RoundCheck } from '@/components/ui'
 import type { PatientModuleRow } from './usePatientData'
 import { useDictee } from './useDictee'
 import { BoutonDictee } from './BoutonDictee'
+import { useBrouillon } from './useBrouillon'
 import s from './Tache.module.css'
 
 /** A, B, C… devant chaque option : on désigne une réponse à voix haute. */
@@ -37,14 +38,21 @@ export function Tache({
   /** Ses réponses déjà données, par `moduleId:question`. */
   reponses: Record<string, number>
   onFermer: () => void
-  onBasculer: (fait: boolean) => Promise<void>
+  /** Coche ou décoche pour aujourd'hui. Rend faux si la base ne l'a pas enregistré. */
+  onBasculer: (fait: boolean) => Promise<boolean>
   /** Rend vrai si le mot a bien été enregistré. */
   onNote: (texte: string) => Promise<boolean>
   /** Enregistre une réponse au quiz. Rend faux si elle n'est pas partie. */
   onRepondre: (question: number, choix: number) => Promise<boolean>
 }) {
-  const fait = Boolean(module.done_at)
-  const [note, setNote] = useState(module.patient_note ?? '')
+  /* Fait AUJOURD'HUI : l'exercice se refait chaque jour (0051). */
+  const fait = module.faitAujourdhui
+  /** La case n'a pas pu être enregistrée : dit sous la case, pas ailleurs. */
+  const [caseEchouee, setCaseEchouee] = useState(false)
+  /* Le mot en cours survit au retour « ‹ Ma journée » (useBrouillon) : il se
+     retrouve à la prochaine ouverture de l'exercice, tant qu'il n'est pas
+     enregistré. */
+  const [note, setNote, oublierNote] = useBrouillon(`note.${module.id}`, module.patient_note ?? '')
   const [enCours, setEnCours] = useState(false)
   const [enregistre, setEnregistre] = useState(false)
   const [echec, setEchec] = useState(false)
@@ -76,6 +84,8 @@ export function Tache({
     setEnCours(false)
     setEnregistre(ok)
     setEchec(!ok)
+    // Enregistré : plus de brouillon. En échec, il reste — le mot aussi.
+    if (ok) oublierNote()
   }
 
   return (
@@ -113,8 +123,9 @@ export function Tache({
       {!consigne?.why && !etapes.length ? (
         <section className={s.bloc}>
           <p className={s.texte}>
-            Votre thérapeute a ajouté cet exercice sans consigne écrite : elle vous l'a expliqué en
-            séance. Si vous ne vous rappelez plus, dites-le-lui dans un mot depuis le journal.
+            Votre thérapeute a ajouté cet exercice sans consigne écrite : il vous a été expliqué en
+            séance. Si vous ne vous en souvenez plus, dites-le-lui dans « Un mot pour votre
+            thérapeute », en bas de « Ma journée ».
           </p>
         </section>
       ) : null}
@@ -122,9 +133,14 @@ export function Tache({
       {quiz.length ? (
         <section className={s.bloc}>
           <h2 className={s.blocTitre}>Avez-vous bien saisi ?</h2>
+          {/* LA PROMESSE DOIT ÊTRE VRAIE. L'écran disait « votre thérapeute
+              voit seulement si vous y avez répondu », alors que la fiche du
+              cabinet affiche le nombre de BONNES réponses (WeekModules,
+              quizBadge) et que la base lui laisse lire chaque réponse. Sur une
+              application de santé, on dit ce qui est montré. */}
           <p className={s.aide}>
-            Deux questions, sans note et sans chronomètre. Elles servent à repérer ce qui reste
-            flou — votre thérapeute voit seulement si vous y avez répondu.
+            Deux questions, sans chronomètre. Elles servent à repérer ce qui reste flou : votre
+            thérapeute voit vos réponses, pour y revenir avec vous en séance si besoin.
           </p>
           {quiz.map((q, qi) => {
             const donnee = reponses[`${module.id}:${qi}`]
@@ -193,16 +209,25 @@ export function Tache({
         ) : null}
       </section>
 
-      {/* La case reste en bas, sous la main, une fois la consigne lue. */}
+      {/* La case reste en bas, sous la main, une fois la consigne lue. Elle
+          vaut pour aujourd'hui : demain, l'exercice revient. */}
       <div className={s.pied}>
         <RoundCheck
           on={fait}
-          onClick={() => void onBasculer(!fait)}
-          label={fait ? `Décocher ${module.title}` : `Cocher ${module.title}`}
+          onClick={() => {
+            setCaseEchouee(false)
+            void onBasculer(!fait).then((ok) => setCaseEchouee(!ok))
+          }}
+          label={fait ? `Décocher ${module.title} pour aujourd'hui` : `Cocher ${module.title} pour aujourd'hui`}
           style={fait && accent ? { background: accent, borderColor: accent } : undefined}
         />
-        <span className={s.piedTexte}>{fait ? "C'est fait" : 'Marquer comme fait'}</span>
+        <span className={s.piedTexte}>{fait ? "Fait aujourd'hui" : "Marquer comme fait aujourd'hui"}</span>
       </div>
+      {caseEchouee ? (
+        <p className={s.echec} role="status">
+          La case n'a pas pu être enregistrée. Vérifiez votre connexion et réessayez.
+        </p>
+      ) : null}
     </div>
   )
 }

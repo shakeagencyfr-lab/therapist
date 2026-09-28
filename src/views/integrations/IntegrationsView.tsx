@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button, Card, Notice, Overline, TextInput, Title } from '@/components/ui'
+import { GesteAConfirmer } from '@/components/GesteAConfirmer'
 import { useMaybeCabinet } from '@/cabinet/context'
 import {
   agirIntegration,
@@ -176,13 +177,15 @@ function CleAnthropic({ etat, enCours, onAgir }: BlocProps) {
           <span className={s.poseeText}>
             <span className={s.mono}>sk-ant-{posee.hint}</span> · ajoutée le {dateLongue(posee.setAt)}
           </span>
-          <Button
-            variant="ghost"
-            disabled={occupe}
-            onClick={() => void onAgir({ action: 'anthropic-retirer' }, 'Clé Anthropic retirée.')}
-          >
-            {enCours === 'anthropic-retirer' ? 'Retrait…' : 'Retirer'}
-          </Button>
+          <GesteAConfirmer
+            libelle="Retirer"
+            confirmer="Retirer la clé"
+            libelleEnCours="Retrait…"
+            enCours={enCours === 'anthropic-retirer'}
+            disabled={occupe && enCours !== 'anthropic-retirer'}
+            onConfirmer={() => void onAgir({ action: 'anthropic-retirer' }, 'Clé Anthropic retirée.')}
+            consequence="Plus aucune analyse ne sera écrite — ni note de séance, ni module, ni affirmation, ni profil — tant qu'une clé n'est pas reposée. Il faudra la recopier depuis votre console Anthropic : nous ne pouvons pas vous la rendre."
+          />
         </div>
       ) : (
         <form
@@ -249,15 +252,17 @@ function CleStripe({ etat, enCours, onAgir }: BlocProps) {
               {posee.label ? ' · ' : ''}
               <span className={s.mono}>{posee.hint}</span> · connecté le {dateLongue(posee.setAt)}
             </span>
-            <Button
-              variant="ghost"
-              disabled={occupe}
-              onClick={() =>
+            <GesteAConfirmer
+              libelle="Déconnecter"
+              confirmer="Déconnecter Stripe"
+              libelleEnCours="Déconnexion…"
+              enCours={enCours === 'stripe-retirer'}
+              disabled={occupe && enCours !== 'stripe-retirer'}
+              onConfirmer={() =>
                 void onAgir({ action: 'stripe-retirer' }, 'Compte Stripe déconnecté. La boutique est fermée.')
               }
-            >
-              {enCours === 'stripe-retirer' ? 'Déconnexion…' : 'Déconnecter'}
-            </Button>
+              consequence="Votre boutique se ferme aussitôt : vos patients ne verront plus vos produits et ne pourront plus rien acheter. Pour la rouvrir, il faudra ressaisir votre clé secrète Stripe."
+            />
           </div>
 
           <div className={s.toggleRow}>
@@ -354,7 +359,9 @@ function RendezVous({ etat, enCours, onAgir }: BlocProps) {
       </div>
       <p className={s.blocText}>
         Là où vos patients réservent, quel que soit votre agenda. Vous choisissez ce qu'ils
-        voient dans leur espace, sous « Rendez-vous ».
+        voient dans leur espace, sous « Rendez-vous ». Si votre site vitrine est publié, il
+        affiche aussi un bouton « Prendre rendez-vous » vers cette adresse — l'adresse seule,
+        jamais le code de votre agenda.
       </p>
 
       {posee ? (
@@ -467,8 +474,8 @@ function RendezVous({ etat, enCours, onAgir }: BlocProps) {
             <span>
               <span className={s.optionTitle}>Le widget, dans leur espace</span>
               <span className={s.hint}>
-                Elles choisissent leur créneau sans quitter l'application. Vous collez le code
-                d'intégration que votre agenda vous donne.
+                Vos patients choisissent leur créneau sans quitter l'application. Vous collez le
+                code d'intégration que votre agenda vous donne.
               </span>
             </span>
           </label>

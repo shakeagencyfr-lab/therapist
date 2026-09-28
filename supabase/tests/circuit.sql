@@ -31,6 +31,10 @@ begin
 
   insert into public.resellers (name, slug) values ('Revendeur du circuit', 'revendeur-du-circuit') returning id into v_org;
   insert into public.reseller_members (reseller_id, user_id, role) values (v_org, v_revendeur, 'owner');
+  -- Depuis 0049, un revendeur ne pose que les offres de SON catalogue : celui
+  -- du circuit a donc la sienne, créée par la plateforme.
+  insert into public.plans (code, label, price_cents, max_patients, shop, marque_blanche, site, position, reseller_id)
+  values ('circuit-cabinet', 'Cabinet', 7900, 80, true, true, true, 99, v_org);
 
   ---------------------------------------------------------------- revendeur
   perform set_config('role','authenticated',true);
@@ -43,7 +47,7 @@ begin
   /* Un essai qui court : depuis 0035, c'est lui qui ouvre le droit de créer
      une fiche. */
   insert into public.subscriptions (cabinet_id, plan_code, status, trial_ends_at)
-  values (v_cab, 'cabinet', 'essai', now() + interval '14 days');
+  values (v_cab, 'circuit-cabinet', 'essai', now() + interval '14 days');
 
   insert into public.cabinet_invitations (cabinet_id, email, role, expires_at)
   values (v_cab, 'laetitia@exemple.fr', 'owner', now() + interval '30 days');

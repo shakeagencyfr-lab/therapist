@@ -452,3 +452,50 @@
   color: var(--c-accent);
   text-decoration: underline;
 }
+
+/* Pourquoi l'envoi attend : une date vide, à moitié tapée ou passée. Dit sous
+   le champ, là où l'on corrige — pas seulement par un bouton grisé muet. */
+.quandRaison {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--c-warn-text);
+}
+
+/* Un mot programmé se reprend tant qu'il n'est pas parti. */
+.logActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.logAction {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--c-accent);
+  cursor: pointer;
+}
+.logAction:hover {
+  text-decoration: underline;
+}
+.logAction:disabled {
+  color: var(--c-text-muted);
+  cursor: default;
+  text-decoration: none;
+}
+
+.logConfirme {
+  font-size: 12.5px;
+  color: var(--c-text-3);
+}
+
+.reprise {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}

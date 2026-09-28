@@ -1,9 +1,11 @@
 import { useRef, useState } from 'react'
 import { Notice } from '@/components/ui'
 import { supabase } from '@/lib/supabase'
+import { plural } from '@/lib/format'
 import { useDictee } from './useDictee'
 import { BoutonDictee } from './BoutonDictee'
 import { deplacer, rangVise, type Boite } from './reordonner'
+import { useBrouillon } from './useBrouillon'
 import type { JournalPageRow } from './usePatientData'
 import s from './Journal.module.css'
 
@@ -46,6 +48,8 @@ type Filtre = 'tout' | 'partagees' | 'privees'
  */
 export function Journal({
   pages,
+  total,
+  onPlus,
   illisible,
   patientId,
   cabinetId,
@@ -53,6 +57,14 @@ export function Journal({
   onEcrit,
 }: {
   pages: JournalPageRow[]
+  /**
+   * Combien de pages le journal compte en tout — les premières seulement sont
+   * lues. Le compteur disait « 60 pages » passé soixante, et les plus
+   * anciennes n'apparaissaient nulle part.
+   */
+  total?: number
+  /** Lire les pages suivantes. */
+  onPlus?: () => Promise<void>
   /** La lecture a échoué : ses pages existent, on n'a pas pu les servir. */
   illisible?: boolean
   patientId: string
@@ -60,9 +72,17 @@ export function Journal({
   accent?: string
   onEcrit: () => Promise<void>
 }) {
-  const [ouvert, setOuvert] = useState(false)
-  const [titre, setTitre] = useState('')
-  const [texte, setTexte] = useState('')
+  /* LE BROUILLON SURVIT À L'ONGLET. Ce texte vivait dans l'état de ce seul
+     écran : un tap sur « Ma journée » démontait le journal, et la page en
+     cours partait avec lui, sans un mot. Il se garde désormais dans l'onglet
+     du navigateur (useBrouillon), et l'éditeur se rouvre dessus au retour. */
+  const [titre, setTitre] = useBrouillon('journal.titre')
+  const [texte, setTexte] = useBrouillon('journal.texte')
+  const [ouvert, setOuvert] = useState(() => Boolean(titre.trim() || texte.trim()))
+  /** « Annuler » sur un texte écrit : on demande avant de l'effacer. */
+  const [abandon, setAbandon] = useState(false)
+  /** La page en cours de modification, s'il y en a une. */
+  const [enModification, setEnModification] = useState('')
   const [partage, setPartage] = useState(false)
   const [envoi, setEnvoi] = useState(false)
   const [notice, setNotice] = useState<{ tone: 'ok' | 'warn'; text: string } | null>(null)
@@ -77,6 +97,8 @@ export function Journal({
   /** L'ordre affiché pendant le déplacement : la base ne le sait pas encore. */
   const [ordre, setOrdre] = useState<JournalPageRow[] | null>(null)
   const liste = useRef<HTMLDivElement | null>(null)
+  /** Le lot de pages suivant est en cours de lecture. */
+  const [plusEnCours, setPlusEnCours] = useState(false)
 
   async function supprimer(id: string) {
     const db = supabase()
@@ -142,12 +164,25 @@ export function Journal({
       return
     }
     dictee.arreter()
+    // Vider les champs efface aussi le brouillon : la page est en base.
     setTitre('')
     setTexte('')
     setPartage(false)
     setOuvert(false)
-    setNotice({ tone: 'ok', text: partage ? 'Page enregistrée et partagée.' : 'Page enregistrée, pour vous seule.' })
+    setNotice({
+      tone: 'ok',
+      text: partage ? 'Page enregistrée et partagée.' : "Page enregistrée. Personne d'autre que vous ne la lit.",
+    })
     await onEcrit()
+  }
+
+  /** Fermer l'éditeur en jetant ce qui y est écrit — brouillon compris. */
+  function jeter() {
+    dictee.arreter()
+    setAbandon(false)
+    setOuvert(false)
+    setTexte('')
+    setTitre('')
   }
 
   /** Le partage se reprend : une page montrée un soir de doute se retire. */
@@ -252,9 +287,9 @@ export function Journal({
       <div className={s.head}>
         <span className={s.titre}>Mon journal</span>
         <span className={s.compte}>
-          {pages.length === 0
+          {Math.max(total ?? 0, pages.length) === 0
             ? ''
-            : `${pages.length} page${pages.length > 1 ? 's' : ''}`}
+            : plural(Math.max(total ?? 0, pages.length), 'page', 'pages')}
         </span>
       </div>
 
@@ -296,36 +331,46 @@ export function Journal({
           <label className={s.partage}>
             <input type="checkbox" checked={partage} onChange={(e) => setPartage(e.target.checked)} />
             <span>
-              <span className={s.partageTitre}>Montrer cette page à ma thérapeute</span>
+              <span className={s.partageTitre}>Montrer cette page à votre thérapeute</span>
               <span className={s.partageHint}>
                 Sans cette case, personne ne la lit. Vous pourrez changer d'avis plus tard.
               </span>
             </span>
           </label>
 
-          <div className={s.actions}>
-            <button
-              type="button"
-              className={s.valider}
-              style={accent ? { background: accent } : undefined}
-              disabled={envoi || !texte.trim()}
-              onClick={() => void enregistrer()}
-            >
-              {envoi ? 'Enregistrement…' : 'Enregistrer'}
-            </button>
-            <button
-              type="button"
-              className={s.annuler}
-              onClick={() => {
-                dictee.arreter()
-                setOuvert(false)
-                setTexte('')
-                setTitre('')
-              }}
-            >
-              Annuler
-            </button>
-          </div>
+          {/* Un tap malheureux sur « Annuler » effaçait dix lignes d'un
+              coup : on demande, une fois, seulement s'il y a quelque chose
+              à perdre. */}
+          {abandon ? (
+            <div className={s.actions} role="group" aria-label="Effacer ce que vous avez écrit ?">
+              <span className={s.partageHint}>Effacer cette page ?</span>
+              <button type="button" className={s.oui} onClick={jeter}>
+                Effacer ce que j'ai écrit
+              </button>
+              <button type="button" className={s.non} onClick={() => setAbandon(false)}>
+                Continuer d'écrire
+              </button>
+            </div>
+          ) : (
+            <div className={s.actions}>
+              <button
+                type="button"
+                className={s.valider}
+                style={accent ? { background: accent } : undefined}
+                disabled={envoi || !texte.trim()}
+                onClick={() => void enregistrer()}
+              >
+                {envoi ? 'Enregistrement…' : 'Enregistrer'}
+              </button>
+              <button
+                type="button"
+                className={s.annuler}
+                onClick={() => (texte.trim() || titre.trim() ? setAbandon(true) : jeter())}
+              >
+                Annuler
+              </button>
+            </div>
+          )}
         </div>
       ) : null}
 
@@ -337,7 +382,8 @@ export function Journal({
       ) : pages.length === 0 && !ouvert ? (
         <p className={s.vide}>
           Rien d'écrit pour l'instant. Quelques lignes suffisent — ce que vous avez remarqué, ce
-          qui a été difficile. Vous seule les lisez, sauf si vous décidez de les montrer.
+          qui a été difficile. Personne d'autre que vous ne les lit, sauf si vous décidez de les
+          montrer.
         </p>
       ) : null}
 
@@ -447,7 +493,18 @@ export function Journal({
                   </button>
                 </div>
 
-                {ouverte ? (
+                {ouverte && enModification === page.id ? (
+                  <ModifierPage
+                    page={page}
+                    accent={accent}
+                    onFini={async (enregistree) => {
+                      setEnModification('')
+                      if (!enregistree) return
+                      setNotice({ tone: 'ok', text: 'Page modifiée.' })
+                      await onEcrit()
+                    }}
+                  />
+                ) : ouverte ? (
                   <>
                     <p className={s.pageTexte}>{page.body}</p>
                     <div className={s.pageActions}>
@@ -457,7 +514,21 @@ export function Journal({
                         style={accent && !page.shared ? { color: accent } : undefined}
                         onClick={() => void basculerPartage(page)}
                       >
-                        {page.shared ? 'Ne plus la montrer' : 'La montrer à ma thérapeute'}
+                        {page.shared ? 'Ne plus la montrer' : 'La montrer à votre thérapeute'}
+                      </button>
+
+                      {/* Une page se reprend, comme son partage : on ne
+                          réécrit pas une phrase de travers en en créant une
+                          autre à côté. */}
+                      <button
+                        type="button"
+                        className={s.bascule}
+                        onClick={() => {
+                          setASupprimer('')
+                          setEnModification(page.id)
+                        }}
+                      >
+                        Modifier
                       </button>
 
                       {/* Une page effacée l'est pour de bon, y compris chez la
@@ -497,6 +568,117 @@ export function Journal({
           )
         })}
       </div>
+
+      {/* LES PAGES D'AVANT. La lecture s'arrête à un lot : le reste se
+          demande, au lieu de disparaître sans un mot. */}
+      {onPlus && !illisible && total !== undefined && pages.length < total ? (
+        <button
+          type="button"
+          className={s.plus}
+          disabled={plusEnCours}
+          onClick={() => {
+            setPlusEnCours(true)
+            void onPlus().finally(() => setPlusEnCours(false))
+          }}
+        >
+          {plusEnCours ? 'Lecture…' : `Voir les pages plus anciennes (${total - pages.length})`}
+        </button>
+      ) : null}
     </section>
+  )
+}
+
+/**
+ * Reprendre une page déjà écrite.
+ *
+ * Un écran à part, monté le temps de la modification : son brouillon se range
+ * sous la page elle-même, et survit comme celui d'une page neuve à un
+ * changement d'onglet. Le partage ne bouge pas : une page montrée reste
+ * montrée, dans sa version corrigée — et l'écran le dit avant.
+ */
+function ModifierPage({
+  page,
+  accent,
+  onFini,
+}: {
+  page: JournalPageRow
+  accent?: string
+  /** `true` quand la version corrigée est en base. */
+  onFini: (enregistree: boolean) => void | Promise<void>
+}) {
+  const [titre, setTitre, oublierTitre] = useBrouillon(`modif.${page.id}.titre`, page.title)
+  const [texte, setTexte, oublierTexte] = useBrouillon(`modif.${page.id}.texte`, page.body)
+  const dictee = useDictee(texte, setTexte)
+  const [envoi, setEnvoi] = useState(false)
+  const [echec, setEchec] = useState('')
+
+  async function enregistrer() {
+    const db = supabase()
+    if (!db || !texte.trim() || envoi) return
+    setEnvoi(true)
+    setEchec('')
+    const { error } = await db
+      .from('journal_pages')
+      .update({ title: titre.trim() || page.title, body: texte.trim() })
+      .eq('id', page.id)
+    setEnvoi(false)
+    if (error) {
+      // Le texte reste dans le champ, et dans son brouillon : rien n'est perdu.
+      setEchec("La page n'a pas pu être modifiée. Votre texte est encore là : réessayez.")
+      return
+    }
+    dictee.arreter()
+    oublierTitre()
+    oublierTexte()
+    await onFini(true)
+  }
+
+  return (
+    <div className={s.editeur}>
+      <input
+        className={s.champTitre}
+        value={titre}
+        onChange={(e) => setTitre(e.target.value)}
+        aria-label="Titre de la page"
+      />
+      <textarea
+        className={s.champTexte}
+        rows={7}
+        value={texte}
+        onChange={(e) => setTexte(e.target.value)}
+        aria-label="Votre page"
+      />
+      <BoutonDictee dictee={dictee} accent={accent} />
+      {page.shared ? (
+        <p className={s.partageHint} style={{ margin: 0 }}>
+          Cette page est partagée : votre thérapeute lira la version modifiée.
+        </p>
+      ) : null}
+      {echec ? <Notice tone="warn">{echec}</Notice> : null}
+      <div className={s.actions}>
+        <button
+          type="button"
+          className={s.valider}
+          style={accent ? { background: accent } : undefined}
+          disabled={envoi || !texte.trim()}
+          onClick={() => void enregistrer()}
+        >
+          {envoi ? 'Enregistrement…' : 'Enregistrer'}
+        </button>
+        <button
+          type="button"
+          className={s.annuler}
+          onClick={() => {
+            // La page en base n'a pas bougé : c'est la correction qu'on jette.
+            dictee.arreter()
+            oublierTitre()
+            oublierTexte()
+            void onFini(false)
+          }}
+        >
+          Annuler
+        </button>
+      </div>
+    </div>
   )
 }

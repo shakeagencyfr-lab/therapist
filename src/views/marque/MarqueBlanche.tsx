@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Button, Card, FieldLabel, Notice, TextInput, Title } from '@/components/ui'
+import { GesteAConfirmer } from '@/components/GesteAConfirmer'
+import { enRegle, useDroits } from '@/cabinet/droits'
 import {
+  essayerSmtp,
   lireDomaine,
   lireSmtp,
   poserDomaine,
@@ -35,8 +38,23 @@ export function MarqueBlanche({ slug }: { slug: string }) {
   )
 }
 
-/** L'explication commune quand l'offre ne comprend pas la marque blanche. */
+/**
+ * L'explication commune quand la marque blanche est fermée.
+ *
+ * Deux causes, deux phrases : l'offre ne la comprend pas, ou le contrat ne
+ * court plus. Dire « votre offre ne la comprend pas » à un cabinet dont
+ * l'essai a expiré l'envoyait réclamer une option qu'il a déjà.
+ */
 function HorsOffre({ offre, quoi }: { offre: string; quoi: string }) {
+  const droits = useDroits()
+  if (!enRegle(droits)) {
+    return (
+      <p className={s.hint}>
+        {quoi} est suspendu : votre abonnement n'est plus en cours. Vos réglages sont conservés,
+        et reprennent dès que votre revendeur réactive l'offre.
+      </p>
+    )
+  }
   return (
     <p className={s.hint}>
       {quoi} fait partie de la marque blanche totale, que votre offre {offre ? `« ${offre} » ` : ''}
@@ -159,13 +177,22 @@ function Domaine({ slug }: { slug: string }) {
                 Ouvrir mon espace ↗
               </a>
             )}
-            <Button
-              variant="ghost"
-              disabled={occupe !== ''}
-              onClick={() => void agir('retirer', retirerDomaine)}
-            >
-              {occupe === 'retirer' ? 'Retrait…' : 'Retirer ce domaine'}
-            </Button>
+            <GesteAConfirmer
+              libelle="Retirer ce domaine"
+              confirmer="Retirer ce domaine"
+              libelleEnCours="Retrait…"
+              enCours={occupe === 'retirer'}
+              disabled={occupe !== '' && occupe !== 'retirer'}
+              onConfirmer={() => void agir('retirer', retirerDomaine)}
+              consequence={
+                <>
+                  {etat.domaine} cessera d'ouvrir l'espace de vos patients dès maintenant : ceux qui
+                  l'ont en favori ou installé sur leur téléphone tomberont sur une page d'erreur.
+                  Votre adresse {adresseEspacePatient(slug)} continue de fonctionner. Pour reposer
+                  ce domaine, il faudra refaire la vérification.
+                </>
+              }
+            />
           </div>
 
           {!etat.automatique ? (
@@ -263,7 +290,25 @@ function Courriels() {
       )
       setBrouillon(VIDE)
       setOuvert(false)
-      setMessage('Serveur d’envoi vérifié et enregistré. Vos courriels partiront de votre adresse.')
+      setMessage(
+        'Serveur d’envoi vérifié et enregistré. Vos courriels partiront de votre adresse — envoyez-vous un courriel d’essai pour le voir arriver.',
+      )
+    } catch (err) {
+      setErreur((err as Error).message)
+    }
+    setOccupe('')
+  }
+
+  /* L'enregistrement ne prouve que l'identifiant. L'essai prouve l'envoi : un
+     hébergeur qui refuse l'adresse d'expédition se découvre ici, pas le jour
+     où un patient attend son invitation. */
+  async function essayer() {
+    if (occupe) return
+    setOccupe('essayer')
+    setErreur('')
+    setMessage('')
+    try {
+      setMessage(await essayerSmtp())
     } catch (err) {
       setErreur((err as Error).message)
     }
@@ -333,7 +378,9 @@ function Courriels() {
               <p className={s.note}>
                 Expéditeur : {etat?.from}
                 {etat?.user ? ` · identifiant ${etat.user}` : ''}
-                {etat?.hint ? ` · mot de passe ${etat.hint}` : ''}
+                {etat?.setAt
+                  ? ` · réglé le ${new Date(etat.setAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`
+                  : ''}
               </p>
             </div>
           ) : null}
@@ -411,12 +458,21 @@ function Courriels() {
             </div>
           ) : (
             <div className={s.actions}>
+              <Button variant="primary" disabled={occupe !== ''} onClick={() => void essayer()}>
+                {occupe === 'essayer' ? 'Envoi…' : 'Envoyer un courriel d’essai'}
+              </Button>
               <Button variant="secondary" disabled={occupe !== ''} onClick={() => setOuvert(true)}>
                 Remplacer
               </Button>
-              <Button variant="ghost" disabled={occupe !== ''} onClick={() => void retirer()}>
-                {occupe === 'retirer' ? 'Retrait…' : 'Retirer'}
-              </Button>
+              <GesteAConfirmer
+                libelle="Retirer"
+                confirmer="Retirer le serveur d'envoi"
+                libelleEnCours="Retrait…"
+                enCours={occupe === 'retirer'}
+                disabled={occupe !== '' && occupe !== 'retirer'}
+                onConfirmer={() => void retirer()}
+                consequence="Vos invitations repartiront du service de la plateforme, sous une autre adresse que la vôtre. Pour revenir en arrière, il faudra ressaisir le mot de passe de votre messagerie."
+              />
             </div>
           )}
         </>

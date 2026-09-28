@@ -9,12 +9,13 @@ import type { Request, Response } from 'express'
 
 import { AI_ROUTES, currentMode, describeError, handleAi, type AiRoute } from './ai.js'
 import { jetonDe } from './auth.js'
+import { journaliserRefus } from './errors.js'
 import { envoyerInvitation } from './invitations.js'
 import { cronAutorise, publierLesAffirmationsDeLaSemaine } from './affirmationsHebdo.js'
 import { gesteDuCompte } from './compte.js'
 import { appliquerIntegration, etatIntegrations } from './integrations.js'
 import { agirVolet, lireVolet } from './cabinet.js'
-import { demarrerPaiement, verifierPaiement } from './shop.js'
+import { demarrerPaiement, hoteDeLaRequete, verifierEnAttente, verifierPaiement } from './shop.js'
 import { clePubliqueDuServeur, pousserLesRappelsDus } from './push.js'
 
 const PORT = Number(process.env.PORT) || 8787
@@ -36,7 +37,7 @@ for (const route of AI_ROUTES) {
     } catch (err) {
       const { status, message } = describeError(err)
       // Journal technique seulement : aucune donnée patient n'y figure.
-      console.error(`[ia] ${route} — ${status} · ${message}`)
+      journaliserRefus(`[ia] ${route}`, status, message)
       res.status(status).json({ error: message })
     }
   })
@@ -57,7 +58,7 @@ app.post('/api/integrations', async (req: Request, res: Response): Promise<void>
   } catch (err) {
     const { status, message } = describeError(err)
     // Journal technique seulement : jamais une clé, jamais un corps de requête.
-    console.error(`[integrations] ${status} · ${message}`)
+    journaliserRefus('[integrations]', status, message)
     res.status(status).json({ error: message })
   }
 })
@@ -77,22 +78,23 @@ app.post('/api/cabinet', async (req: Request, res: Response): Promise<void> => {
   } catch (err) {
     const { status, message } = describeError(err)
     // Journal technique seulement : jamais un secret, jamais un corps de requête.
-    console.error(`[cabinet] ${status} · ${message}`)
+    journaliserRefus('[cabinet]', status, message)
     res.status(status).json({ error: message })
   }
 })
 
-/** Boutique : démarrer un paiement, le vérifier au retour. */
+/** Boutique : démarrer un paiement, le vérifier au retour, reprendre ce qui attend. */
 app.post('/api/shop', async (req: Request, res: Response): Promise<void> => {
   const token = jetonDe(req.headers.authorization)
   const action = (req.body as { action?: string } | undefined)?.action
   try {
-    if (action === 'demarrer') res.json(await demarrerPaiement(token, req.body))
+    if (action === 'demarrer') res.json(await demarrerPaiement(token, req.body, hoteDeLaRequete(req.headers)))
     else if (action === 'verifier') res.json(await verifierPaiement(token, req.body))
+    else if (action === 'verifier-en-attente') res.json(await verifierEnAttente(token, req.body))
     else res.status(400).json({ error: 'Action inconnue.' })
   } catch (err) {
     const { status, message } = describeError(err)
-    console.error(`[boutique] ${action ?? '?'} — ${status} · ${message}`)
+    journaliserRefus(`[boutique] ${action ?? '?'}`, status, message)
     res.status(status).json({ error: message })
   }
 })
@@ -118,7 +120,7 @@ app.post('/api/compte', async (req: Request, res: Response): Promise<void> => {
     res.json(await gesteDuCompte(token, req.body))
   } catch (err) {
     const { status, message } = describeError(err)
-    console.error(`[compte] ${geste ?? '?'} — ${status} · ${message}`)
+    journaliserRefus(`[compte] ${geste ?? '?'}`, status, message)
     res.status(status).json({ message })
   }
 })
@@ -138,7 +140,7 @@ app.get('/api/cron/affirmations', async (req: Request, res: Response): Promise<v
     res.json(bilan)
   } catch (err) {
     const { status, message } = describeError(err)
-    console.error(`[affirmations] lundi — ${status} · ${message}`)
+    journaliserRefus('[affirmations] lundi', status, message)
     res.status(status).json({ message })
   }
 })
@@ -163,7 +165,7 @@ app.all('/api/cron/rappels', async (req: Request, res: Response): Promise<void> 
     res.json(await pousserLesRappelsDus())
   } catch (err) {
     const { status, message } = describeError(err)
-    console.error(`[rappels] ${status} · ${message}`)
+    journaliserRefus('[rappels]', status, message)
     res.status(status).json({ message })
   }
 })

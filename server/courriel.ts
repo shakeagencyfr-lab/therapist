@@ -22,7 +22,7 @@ import { adminConfigure, clientAdmin, exigerCabinet, identifier } from './auth.j
 import { droitsDuCabinet, exigerDroit, levierDuCabinet } from './droits.js'
 import { lookup } from 'node:dns/promises'
 import { HttpError } from './errors.js'
-import { chiffrementConfigure, chiffrer, dechiffrer, empreinte } from './secrets.js'
+import { chiffrementConfigure, chiffrer, dechiffrer } from './secrets.js'
 
 /* ------------------------------------------------------------------ *
  * Ce que l'écran reçoit
@@ -35,8 +35,11 @@ export interface EtatSmtp {
   user: string | null
   /** L'adresse d'expédition, celle que la destinataire voit. */
   from: string | null
-  /** « …AB12 » : de quoi reconnaître le mot de passe sans le rendre. */
-  hint: string | null
+  /* Pas d'empreinte du mot de passe, pas même ses derniers caractères : un
+     mot de passe de messagerie n'est pas une clé d'API qu'on reconnaît par sa
+     fin, c'est souvent celui de toute la boîte du cabinet. L'écran promet
+     qu'il « ne revient jamais à votre navigateur » ; il n'en revient rien.
+     Le réglage se reconnaît à son serveur, son identifiant et sa date. */
   setAt: string | null
   /** L'offre du cabinet ouvre-t-elle la marque blanche ? */
   droit: boolean
@@ -88,31 +91,11 @@ export async function etatSmtp(token: string | null): Promise<EtatSmtp> {
     .maybeSingle<SmtpRow>()
   if (error) throw new HttpError(502, "Vos réglages d'envoi n'ont pas pu être lus.")
 
-  /* L'empreinte du mot de passe est lue avec la clé de service : la table des
-     secrets n'a aucune politique pour le rôle authentifié, et c'est voulu. On
-     n'en tire que les quatre derniers caractères. */
-  let hint: string | null = null
-  if (data?.smtp_set_at && adminConfigure()) {
-    const { data: secret } = await admin()
-      .from('cabinet_secrets')
-      .select('smtp_pass_enc')
-      .eq('cabinet_id', cabinetId)
-      .maybeSingle<{ smtp_pass_enc: string | null }>()
-    if (secret?.smtp_pass_enc) {
-      try {
-        hint = empreinte(dechiffrer(secret.smtp_pass_enc))
-      } catch {
-        hint = '…'
-      }
-    }
-  }
-
   return {
     host: data?.smtp_host ?? null,
     port: data?.smtp_port ?? null,
     user: data?.smtp_user ?? null,
     from: data?.smtp_from ?? null,
-    hint,
     setAt: data?.smtp_set_at ?? null,
     droit: droits.marqueBlanche,
     offre: droits.offre,
@@ -432,4 +415,88 @@ export async function retirerSmtp(token: string | null): Promise<EtatSmtp> {
     target_id: cabinetId,
   })
   return etatSmtp(token)
+}
+
+/**
+ * Pourquoi un envoi a échoué, dit à la thérapeute.
+ *
+ * La vérification de l'enregistrement ne prouve qu'une chose : le serveur
+ * accepte l'identifiant. Elle ne prouve pas qu'il acceptera d'ENVOYER depuis
+ * l'adresse d'expédition saisie — beaucoup d'hébergeurs refusent une adresse
+ * qui n'est pas celle du compte, et c'est précisément ce que le courriel
+ * d'essai fait apparaître. Le motif de nodemailer est en anglais et
+ * technique : il va au journal, l'écran reçoit une phrase.
+ */
+export function motifEnvoi(message: string, from: string, port: number): string {
+  /* L'adresse refusée d'abord : son message parle souvent d'« authenticated
+     user », et se lirait sinon comme un mot de passe faux. */
+  if (/\b(553|550|551|554)\b|sender|from address|not owned|relay|rejected/i.test(message)) {
+    return `Votre serveur d'envoi refuse d'envoyer depuis ${from}. L'adresse d'expédition doit être celle du compte, ou un alias autorisé chez votre hébergeur de messagerie.`
+  }
+  if (/\b(535|534)\b|auth|credential|password/i.test(message)) {
+    return "Votre serveur d'envoi refuse maintenant l'identifiant ou le mot de passe : il a peut-être été changé chez votre hébergeur de messagerie. Remplacez le réglage."
+  }
+  if (/timeout|ETIMEDOUT|ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ECONNRESET/i.test(message)) {
+    return `Votre serveur d'envoi ne répond pas sur le port ${port}. Réessayez dans un instant ; si cela persiste, vérifiez le serveur et le port.`
+  }
+  return "Le courriel d'essai n'a pas pu partir de votre serveur d'envoi. Vérifiez vos réglages auprès de votre hébergeur de messagerie."
+}
+
+/**
+ * Envoyer un courriel d'essai, depuis le serveur d'envoi du cabinet.
+ *
+ * À l'adresse du compte connecté, et à AUCUNE autre : un champ « destinataire »
+ * ferait de ce bouton un relais d'envoi vers n'importe qui, depuis la
+ * messagerie du cabinet. La thérapeute voit ainsi arriver chez elle ce que
+ * ses patients recevront — l'expéditeur, le nom du cabinet — et découvre ici,
+ * pas le jour d'une invitation, qu'un hébergeur refuse l'adresse d'expédition.
+ *
+ * Aucune mention du fournisseur dans le message : c'est un courriel de la
+ * marque blanche.
+ */
+export async function essayerSmtp(token: string | null): Promise<{ ok: true; message: string }> {
+  const appelant = await identifier(token)
+  const cabinetId = exigerCabinet(appelant)
+  const droits = await droitsDuCabinet(cabinetId, appelant.client)
+  exigerDroit(droits, 'marqueBlanche')
+  const destinataire = appelant.email?.trim()
+  if (!destinataire) {
+    throw new HttpError(400, "Votre compte n'a pas d'adresse électronique où recevoir l'essai.")
+  }
+
+  const smtp = await smtpDuCabinet(cabinetId)
+  if (!smtp) {
+    throw new HttpError(400, "Aucun serveur d'envoi n'est réglé pour votre cabinet : enregistrez-le d'abord.")
+  }
+  const { data: fiche } = await appelant.client
+    .from('cabinets')
+    .select('name')
+    .eq('id', cabinetId)
+    .maybeSingle<{ name: string }>()
+  const cabinet = fiche?.name ?? 'Votre cabinet'
+
+  try {
+    await transport(smtp).sendMail({
+      from: `"${cabinet.replace(/"/g, '')}" <${smtp.from}>`,
+      to: destinataire,
+      subject: `Courriel d'essai — ${cabinet}`,
+      text: [
+        'Bonjour,',
+        '',
+        `Ce courriel d'essai est parti de ${smtp.from}, par le serveur d'envoi de votre cabinet.`,
+        "Les invitations que vous envoyez à vos patients partiront de la même adresse, sous le même nom.",
+        '',
+        `— ${cabinet}`,
+      ].join('\n'),
+    })
+  } catch (err) {
+    // Journal technique seulement : ni mot de passe, ni adresse de patient.
+    console.error(`[courriel] essai cabinet ${cabinetId} — ${(err as Error).message}`)
+    throw new HttpError(502, motifEnvoi((err as Error).message ?? '', smtp.from, smtp.port))
+  }
+
+  return {
+    ok: true,
+    message: `Courriel d'essai envoyé à ${destinataire}, depuis ${smtp.from}. S'il n'arrive pas d'ici quelques minutes, regardez dans les indésirables.`,
+  }
 }

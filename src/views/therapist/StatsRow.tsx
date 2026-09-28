@@ -33,14 +33,14 @@ export function StatsRow() {
         unit={p.totalSessions > 0 ? undefined : 'réalisées'}
         progress={p.totalSessions > 0 ? pct(p.sessions, p.totalSessions) : 0}
       />
-      {/* « Modules du jour » comptait tout le parcours depuis l'ouverture de
-          la fiche : rien, dans ce produit, ne découpe les exercices par jour.
-          Ce sont les exercices de son parcours actuel — les retirés n'y
-          comptent plus —, faits sur le total. */}
+      {/* LES EXERCICES DU JOUR, CETTE FOIS POUR DE BON. Chaque jour se coche
+          (0051) : ce sont les exercices de son parcours actuel — les retirés
+          n'y comptent plus — faits aujourd'hui. La semaine, elle, est dans
+          l'assiduité ci-contre. */}
       <StatCard
         label="Exercices faits"
         value={done}
-        unit={`sur ${total} au parcours`}
+        unit={`sur ${total} aujourd'hui`}
         progress={pct(done, total)}
       />
     </div>

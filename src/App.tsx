@@ -1,8 +1,8 @@
-import type { CSSProperties } from 'react'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { BandeauContrat } from '@/components/layout/BandeauContrat'
 import { BandeauDossier } from '@/components/layout/BandeauDossier'
 import { useMaybeAuth } from '@/auth/session'
+import { variablesDeMarque } from '@/lib/couleurs'
 import { useAppState } from '@/state/store'
 import { TherapistView } from '@/views/therapist/TherapistView'
 import { PatientView } from '@/views/patient/PatientView'
@@ -41,15 +41,9 @@ export function App() {
     )
   }
 
-  const marque = cabinet?.branding
-  const couleurs = marque
-    ? ({
-        '--c-accent': marque.accent,
-        '--c-accent-hover': marque.accentHover,
-        '--c-accent-deep': marque.accentDeep,
-        '--c-dark': marque.dark,
-      } as CSSProperties)
-    : undefined
+  /* Validées avant de devenir des variables : une couleur mal formée ne lève
+     rien, elle rend les boutons et les blocs sombres transparents. */
+  const couleurs = variablesDeMarque(cabinet?.branding)
 
   return (
     <div style={couleurs}>

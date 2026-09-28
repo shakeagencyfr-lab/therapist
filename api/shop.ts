@@ -1,9 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { jetonDe } from '../server/auth.js'
 import { describeError } from '../server/ai.js'
-import { demarrerPaiement, verifierPaiement } from '../server/shop.js'
+import { journaliserRefus } from '../server/errors.js'
+import { demarrerPaiement, hoteDeLaRequete, verifierEnAttente, verifierPaiement } from '../server/shop.js'
 
-/** POST { action: 'demarrer', productId } ou { action: 'verifier', sessionId }. */
+/**
+ * POST { action: 'demarrer', productId }, { action: 'verifier', sessionId }
+ * ou { action: 'verifier-en-attente', cote: 'patient' | 'cabinet' }.
+ */
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST')
@@ -14,17 +18,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   const body = (req.body && typeof req.body === 'object' ? req.body : {}) as { action?: string }
   try {
     if (body.action === 'demarrer') {
-      res.status(200).json(await demarrerPaiement(token, req.body))
+      res.status(200).json(await demarrerPaiement(token, req.body, hoteDeLaRequete(req.headers)))
       return
     }
     if (body.action === 'verifier') {
       res.status(200).json(await verifierPaiement(token, req.body))
       return
     }
+    if (body.action === 'verifier-en-attente') {
+      res.status(200).json(await verifierEnAttente(token, req.body))
+      return
+    }
     res.status(400).json({ error: 'Action inconnue.' })
   } catch (err) {
     const { status, message } = describeError(err)
-    console.error(`[boutique] ${body.action ?? '?'} — ${status} · ${message}`)
+    journaliserRefus(`[boutique] ${body.action ?? '?'}`, status, message)
     res.status(status).json({ error: message })
   }
 }

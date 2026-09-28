@@ -61,22 +61,34 @@ export function cheminEspacePatient(slug: string): string {
   return propre ? `/${propre}/mon` : '/mon'
 }
 
-/** L'adresse du widget de connexion, celle qu'un site tiers encadre. */
-export function lienEmbed(slug: string): string {
-  return `https://${DOMAINE_CABINETS}/e/${slug.trim()}`
+/**
+ * L'adresse du widget de connexion, celle qu'un site tiers encadre.
+ *
+ * SUR LE DOMAINE DU CABINET QUAND IL EN A UN, VÉRIFIÉ. Le widget renvoie ses
+ * patients vers `/son-identifiant/mon` sur l'adresse qui l'a servi : servi
+ * depuis la nôtre, il les faisait donc arriver chez nous — le fournisseur dans
+ * la barre d'adresse, et l'espace installé sur leur téléphone à notre nom —
+ * alors que la thérapeute a payé son domaine précisément pour l'éviter.
+ */
+export function lienEmbed(slug: string, domaine?: string | null): string {
+  const hote = domaine?.trim().toLowerCase() || DOMAINE_CABINETS
+  return `https://${hote}/e/${slug.trim()}`
 }
 
 /**
  * Le code que la thérapeute colle sur son propre site.
  *
  * Un iframe et rien d'autre : pas de script à charger, donc rien à mettre à
- * jour chez elle le jour où Klaro change, et rien qui puisse lire la page
+ * jour chez elle le jour où le produit change, et rien qui puisse lire la page
  * qui l'accueille.
+ *
+ * Le commentaire ne nomme pas le fournisseur : ce code vit dans la source du
+ * site de la thérapeute, que n'importe qui peut afficher.
  */
-export function codeEmbed(slug: string): string {
+export function codeEmbed(slug: string, domaine?: string | null): string {
   return [
-    '<!-- Espace patient — Klaro -->',
-    `<iframe src="${lienEmbed(slug)}"`,
+    '<!-- Accès à votre espace patient -->',
+    `<iframe src="${lienEmbed(slug, domaine)}"`,
     '        title="Accès à votre espace"',
     '        width="100%" height="360" loading="lazy"',
     '        style="border:0;max-width:420px;"></iframe>',

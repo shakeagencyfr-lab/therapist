@@ -26,6 +26,12 @@ export interface Vitrine {
   name: string
   tagline: string
   branding: CabinetBranding
+  /**
+   * L'identifiant ACTUEL du cabinet. Une ancienne adresse mène toujours à lui
+   * (0049) ; c'est ce champ qui permet de réécrire l'adresse et de lire son
+   * site sous le bon nom.
+   */
+  slug?: string
 }
 
 /**
@@ -136,6 +142,16 @@ export interface SiteVitrine {
   avis: Array<{ auteur: string; note: number; texte: string; date: string }>
   google_note: number | null
   google_avis: number | null
+  /**
+   * L'agenda du cabinet, pour le bouton « Prendre rendez-vous ». Une ADRESSE,
+   * jamais le code d'intégration : le script d'un agenda tiers ne s'exécute
+   * pas sur une page qui mène à l'espace des patients. Absente quand aucun
+   * agenda n'est réglé dans Intégrations.
+   */
+  reservation?: string | null
+  /** Les mentions légales : qui publie la page, et sous quel numéro. */
+  responsable?: string | null
+  numero_pro?: string | null
 }
 
 /**
@@ -256,6 +272,11 @@ export function versSiteVitrine(brut: unknown, slug: string): SiteVitrine | null
     avis: v.avis ?? [],
     google_note: v.google_note ?? null,
     google_avis: v.google_avis ?? null,
+    /* Filtré au point d'usage, comme `site_web` : un `href` en
+       `javascript:` s'exécuterait au clic, chez un futur patient. */
+    reservation: lienSortant(v.reservation),
+    responsable: v.responsable ?? null,
+    numero_pro: v.numero_pro ?? null,
   }
 }
 
@@ -305,5 +326,12 @@ export async function lireVitrine(slug: string): Promise<Vitrine | null> {
   const data = await lecturePublique('cabinet_vitrine', { p_slug: slug })
   if (!data) return null
   const v = data as Partial<Vitrine>
-  return v.name ? { name: v.name, tagline: v.tagline ?? '', branding: marqueSure(v.branding) } : null
+  if (!v.name) return null
+  return {
+    name: v.name,
+    tagline: v.tagline ?? '',
+    branding: marqueSure(v.branding),
+    // Avant 0049, la fonction ne rendait pas l'identifiant : rien à réécrire.
+    ...(typeof v.slug === 'string' && v.slug ? { slug: v.slug } : {}),
+  }
 }

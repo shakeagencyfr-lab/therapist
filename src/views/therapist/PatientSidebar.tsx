@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Avatar, Button, Notice, TextInput } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { placesRestantes, useDroits } from '@/cabinet/droits'
+import { ContactRevendeur } from '@/components/layout/BandeauContrat'
+import { plural } from '@/lib/format'
 import { riskColor, sidebarPatients, slippingPatients } from '@/state/selectors'
 import { useStore } from '@/state/store'
 import s from './PatientSidebar.module.css'
@@ -31,6 +33,12 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
   const max = droits?.droits?.maxPatients ?? null
   const places = placesRestantes(droits?.droits ?? null)
   const complet = places === 0
+  /* HORS CONTRAT, LE PLAFOND N'EST PAS LA CAUSE. La base y fixe le plafond
+     au nombre de fiches déjà actives : la colonne se disait « complète » et
+     demandait de clore un suivi pour libérer une place — ce qui ne libère
+     rien, puisque le plafond suit. La thérapeute fermait suivi après suivi,
+     et chaque patient perdait l'accès à son espace, pour rien. */
+  const horsContrat = droits?.droits ? !droits.droits.enRegle : false
 
   const peutCreer = state.pNewName.trim().length >= 2 && !envoi && !complet
 
@@ -142,11 +150,19 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
               </Notice>
             ) : null}
 
-            {complet ? (
+            {horsContrat ? (
               <Notice tone="warn" style={{ marginBottom: 12 }}>
-                Votre offre permet {max} fiches actives, et elles le sont toutes. Closez un suivi
-                terminé depuis sa fiche pour libérer une place, ou demandez à votre revendeur de
-                relever le plafond.
+                Votre abonnement n'est plus en cours : aucune fiche ne peut être ouverte ni
+                rouverte jusqu'à la reprise. Clore un suivi ne libérerait aucune place, et son
+                patient perdrait l'accès à son espace.{' '}
+                <ContactRevendeur revendeur={droits?.droits?.revendeur} pour="pour réactiver l'offre" />
+              </Notice>
+            ) : complet ? (
+              <Notice tone="warn" style={{ marginBottom: 12 }}>
+                Votre offre permet {plural(max ?? 0, 'fiche active', 'fiches actives')}, et
+                {max === 1 ? ' elle l’est' : ' elles le sont toutes'}. Closez un suivi terminé
+                depuis sa fiche pour libérer une place.{' '}
+                <ContactRevendeur revendeur={droits?.droits?.revendeur} pour="pour relever le plafond" />
               </Notice>
             ) : places !== null && places <= 3 ? (
               <p className={s.later} style={{ marginBottom: 12 }}>

@@ -340,6 +340,43 @@
   line-height: 1.4;
   color: var(--c-text-muted);
 }
+.vignetteCadre {
+  position: relative;
+}
+/* La couverture se nomme sur la vignette : c'est elle que la page met en
+   grand, et l'ordre seul ne le disait pas. */
+.couverture {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 3px 8px;
+  border-radius: var(--r-pill);
+  background: var(--c-dark);
+  color: var(--c-on-dark);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+}
+.photoGestes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.deplacer {
+  min-width: 32px;
+  min-height: 32px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-sm);
+  background: none;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--c-text-2);
+  cursor: pointer;
+}
+.deplacer:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
 .fichier {
   display: none;
 }

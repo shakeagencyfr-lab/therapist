@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { priveOuLocal } from './courriel.js'
+import { motifEnvoi, priveOuLocal } from './courriel.js'
 
 /**
  * Le tri des adresses, avant d'ouvrir une connexion vers ce qu'on nous donne.
@@ -54,5 +54,39 @@ describe('priveOuLocal', () => {
     ]) {
       expect({ [ip]: priveOuLocal(ip) }).toEqual({ [ip]: false })
     }
+  })
+})
+
+/**
+ * Le courriel d'essai dit POURQUOI il n'est pas parti.
+ *
+ * La vérification de l'enregistrement ne prouve que l'identifiant ; le refus
+ * le plus courant arrive à l'envoi — une adresse d'expédition que l'hébergeur
+ * n'autorise pas. Son message parle souvent d'« authenticated user » : il ne
+ * doit pas se lire comme un mot de passe faux.
+ */
+describe('motifEnvoi', () => {
+  it("reconnaît une adresse d'expédition refusée, même quand le motif parle d'authentification", () => {
+    const motif = motifEnvoi(
+      '553 5.7.1 <contact@cabinet.fr>: Sender address rejected: not owned by authenticated user',
+      'contact@cabinet.fr',
+      587,
+    )
+    expect(motif).toContain("refuse d'envoyer depuis contact@cabinet.fr")
+  })
+
+  it('reconnaît un mot de passe refusé', () => {
+    expect(motifEnvoi('Invalid login: 535 5.7.8 Username and Password not accepted', 'a@b.fr', 465)).toContain(
+      'identifiant ou le mot de passe',
+    )
+  })
+
+  it('reconnaît un serveur qui ne répond pas, et nomme le port', () => {
+    expect(motifEnvoi('Connection timeout', 'a@b.fr', 587)).toContain('port 587')
+  })
+
+  it("rend une phrase française, jamais le motif technique", () => {
+    const motif = motifEnvoi('Unexpected socket close', 'a@b.fr', 465)
+    expect(motif).not.toContain('socket')
   })
 })

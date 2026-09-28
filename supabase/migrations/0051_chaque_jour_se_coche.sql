@@ -1,5 +1,5 @@
 -- ============================================================================
--- 0046 — Chaque jour se coche ; les mots et les pages se rangent en tête
+-- 0051 — Chaque jour se coche ; les mots et les pages se rangent en tête
 -- ============================================================================
 --
 -- Trois écarts entre ce que l'espace du patient promet et ce que la base
@@ -110,6 +110,38 @@ select m.id, m.patient_id, m.cabinet_id, (m.done_at at time zone 'Europe/Paris')
 on conflict (module_id, jour) do nothing;
 
 /**
+ * Les jours faits depuis une date, UNE LIGNE PAR EXERCICE.
+ *
+ * Le dossier du cabinet lit la semaine de toutes ses fiches d'un coup. Lue
+ * ligne à ligne, elle compte jusqu'à huit lignes par exercice, et l'API
+ * s'arrête à mille : un cabinet de trente patients y arrive, et l'assiduité
+ * se serait calculée en silence sur une semaine tronquée. Regroupés ici, les
+ * jours tiennent en autant de lignes que d'exercices.
+ *
+ * SECURITY INVOKER : aucun droit de plus. Chacun n'y lit que ce que les
+ * politiques ci-dessus lui ouvrent — le cabinet ses fiches, le patient ses
+ * exercices en cours.
+ */
+create or replace function public.jours_faits_depuis(p_depuis date)
+returns table (module_id uuid, jours date[])
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select c.module_id, array_agg(c.jour order by c.jour)
+    from public.module_completions c
+   where c.jour >= p_depuis
+   group by c.module_id;
+$$;
+
+comment on function public.jours_faits_depuis(date) is
+  'Les jours faits depuis une date, regroupés par exercice. Sous les droits de l''appelant.';
+
+revoke execute on function public.jours_faits_depuis(date) from public, anon;
+grant execute on function public.jours_faits_depuis(date) to authenticated;
+
+/**
  * Cocher, ou décocher, l'exercice POUR AUJOURD'HUI.
  *
  * La signature et le type rendu sont ceux de 0007 (repris par 0044 et 0045) :
@@ -184,8 +216,12 @@ grant execute on function public.patient_set_module_done(uuid, boolean) to authe
 -- ============================================================================
 
 /**
- * Les mots adressés au patient, triés par l'instant où ils sont devenus
- * visibles, les plus récents d'abord.
+ * Les mots adressés à une fiche du patient connecté, triés par l'instant où
+ * ils sont devenus visibles, les plus récents d'abord.
+ *
+ * LA FICHE EST NOMMÉE, comme la lecture qu'elle remplace le faisait :
+ * l'appel dit de quelle fiche il parle, et la fonction vérifie qu'elle est
+ * bien celle du compte connecté.
  *
  * SECURITY INVOKER : la fonction ne donne aucun droit. Les politiques de
  * 0036 et 0044 (le mot est dû, il est adressé à une fiche en cours de ce
@@ -193,7 +229,7 @@ grant execute on function public.patient_set_module_done(uuid, boolean) to authe
  * servent qu'à écarter, pour un compte qui est AUSSI membre d'un cabinet,
  * les mots de ce cabinet que sa politique à lui laisserait passer.
  */
-create or replace function public.patient_mots(p_limite integer default 20)
+create or replace function public.patient_mots(p_patient uuid, p_limite integer default 20)
 returns table (push_id uuid, title text, body text, du_le timestamptz, read_at timestamptz)
 language sql
 stable
@@ -203,17 +239,18 @@ as $$
   select n.id, n.title, n.body, coalesce(n.scheduled_at, n.created_at), r.read_at
     from public.push_recipients r
     join public.push_notifications n on n.id = r.push_id
-   where public.is_patient_record(r.patient_id)
+   where r.patient_id = p_patient
+     and public.is_patient_record(r.patient_id)
      and (n.scheduled_at is null or n.scheduled_at <= now())
    order by coalesce(n.scheduled_at, n.created_at) desc, n.id
    limit least(greatest(coalesce(p_limite, 20), 1), 100);
 $$;
 
-comment on function public.patient_mots(integer) is
-  'Les mots dus du patient connecté, du plus récent au plus ancien (date d''envoi, sinon d''écriture). Sous ses propres droits.';
+comment on function public.patient_mots(uuid, integer) is
+  'Les mots dus d''une fiche du patient connecté, du plus récent au plus ancien (date d''envoi, sinon d''écriture). Sous ses propres droits.';
 
-revoke execute on function public.patient_mots(integer) from public, anon;
-grant execute on function public.patient_mots(integer) to authenticated;
+revoke execute on function public.patient_mots(uuid, integer) from public, anon;
+grant execute on function public.patient_mots(uuid, integer) to authenticated;
 
 -- ============================================================================
 -- 3. Une page neuve se range en tête du journal

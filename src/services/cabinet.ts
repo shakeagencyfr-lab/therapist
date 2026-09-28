@@ -1,3 +1,4 @@
+import type { FicheImportee } from '@/lib/ficheGoogle'
 import type { ThemeVitrine } from '@/lib/themeVitrine'
 /**
  * Les réglages du cabinet, vus du navigateur.
@@ -25,6 +26,10 @@ export interface Droits {
   statut: string
   /** La date qui vient : fin de période, ou fin d'essai. */
   echeance: string | null
+  /** La fin de l'essai, seulement quand le contrat en est un. */
+  finEssai?: string | null
+  /** À qui parler de son contrat : le nom du revendeur, et son adresse s'il en a laissé une. */
+  revendeur?: { nom: string; courriel: string | null } | null
 }
 
 /* ---- Le domaine --------------------------------------------------------- */
@@ -52,7 +57,7 @@ export interface EtatSmtp {
   port: number | null
   user: string | null
   from: string | null
-  hint: string | null
+  /* Aucune trace du mot de passe : ni lui, ni ses derniers caractères. */
   setAt: string | null
   droit: boolean
   offre: string
@@ -109,12 +114,23 @@ export interface Site {
   importeLe: string | null
   /** L'habillage : polices, fond, cartes, angles. */
   theme: ThemeVitrine
+  /** Mentions légales : qui publie la page. */
+  responsable: string
+  /** Mentions légales : SIRET, ADELI ou RPPS. */
+  numeroPro: string
+  /** Les avis retirés, par leur clé : un réimport ne les ramène pas. */
+  avisRetires: string[]
 }
 
 export interface EtatSite {
   site: Site
+  /** Le site est-il ouvert ? Faux hors offre, et hors contrat. */
   droit: boolean
+  /** Le contrat court-il ? Distingue « suspendu » de « hors offre ». */
+  enRegle: boolean
   offre: string
+  /** L'agenda réglé dans Intégrations, pour le bouton de la page publique. */
+  reservation: string | null
   google: boolean
   /** 'serpapi', 'places' ou 'aucune' — ce que le serveur voit réellement. */
   source: string
@@ -202,6 +218,12 @@ export function retirerSmtp(): Promise<EtatSmtp> {
   return appel<EtatSmtp>('smtp', { action: 'retirer' })
 }
 
+/** Un courriel d'essai, envoyé à l'adresse du compte connecté — et à nulle autre. */
+export async function essayerSmtp(): Promise<string> {
+  const r = await appel<{ message?: string }>('smtp', { action: 'essayer' })
+  return r.message ?? "Courriel d'essai envoyé."
+}
+
 export function lireSite(): Promise<EtatSite> {
   return appel<EtatSite>('site')
 }
@@ -215,6 +237,20 @@ export async function chercherFiche(requete: string): Promise<FicheTrouvee[]> {
   return r.fiches ?? []
 }
 
-export function importerFiche(placeId: string): Promise<EtatSite> {
-  return appel<EtatSite>('site', { action: 'importer', placeId })
+/**
+ * Lire une fiche Google. Rien du contenu n'est écrit : la fiche revient, et
+ * c'est l'éditeur qui la verse dans son brouillon.
+ *
+ * `avecPhotos` : le brouillon n'en a aucune, les recopier vaut la peine.
+ */
+export function importerFiche(
+  placeId: string,
+  avecPhotos: boolean,
+): Promise<{ etat: EtatSite; fiche: FicheImportee }> {
+  return appel<{ etat: EtatSite; fiche: FicheImportee }>('site', { action: 'importer', placeId, avecPhotos })
+}
+
+/** Dépublier la page, même quand l'offre ne comprend plus le site. */
+export function depublierSite(): Promise<EtatSite> {
+  return appel<EtatSite>('site', { action: 'depublier' })
 }

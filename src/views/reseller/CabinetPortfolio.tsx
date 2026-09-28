@@ -10,9 +10,11 @@ import {
   StatCard,
   TextInput,
 } from '@/components/ui'
+import { essaisQuiFinissent, libelleContrat, motifATraiter, tonContrat } from '@/lib/contrat'
 import { adresseCabinet } from '@/lib/domaine'
 import { adressePlausible, echeanceDite, invitationExpiree } from '@/lib/equipe'
 import { euroCents, plural } from '@/lib/format'
+import { identifiantEnSaisie, problemeIdentifiant } from '@/lib/identifiant'
 import {
   adherenceLabel,
   levierOuvert,
@@ -27,9 +29,8 @@ import {
 import { useStore } from '@/state/store'
 import { useResellerData } from '@/reseller/context'
 import type { InvitationEnAttente, Resultat } from '@/reseller/useReseller'
-import { STATUS_LABEL } from '@/data/reseller'
 import { LEVIERS } from '@/types/reseller'
-import type { PlanCode, PortfolioRow, SubscriptionStatus } from '@/types/reseller'
+import type { PlanCode, PortfolioRow } from '@/types/reseller'
 import s from './CabinetPortfolio.module.css'
 
 /** Ce qu'on saisit pour inviter : un nom, une adresse. */
@@ -39,13 +40,6 @@ interface Saisie {
 }
 
 const VIDE: Saisie = { nom: '', email: '' }
-
-/** Ton de la pilule de statut d'abonnement. */
-function statusTone(status: SubscriptionStatus) {
-  if (status === 'impaye' || status === 'suspendu') return 'warn' as const
-  if (status === 'essai') return 'neutral' as const
-  return 'ok' as const
-}
 
 function CabinetRow({ row, on, onSelect }: { row: PortfolioRow; on: boolean; onSelect: () => void }) {
   const adherence = adherenceLabel(row)
@@ -104,7 +98,9 @@ function CabinetRow({ row, on, onSelect }: { row: PortfolioRow; on: boolean; onS
           </span>
         </span>
 
-        <Pill tone={statusTone(row.subscription.status)}>{STATUS_LABEL[row.subscription.status]}</Pill>
+        {/* Un essai expiré n'est pas un essai en cours : même pastille grise
+            jusqu'ici, et le revendeur ne distinguait pas les deux. */}
+        <Pill tone={tonContrat(row.subscription)}>{libelleContrat(row.subscription)}</Pill>
       </span>
     </button>
   )
@@ -208,6 +204,7 @@ export function CabinetPortfolio() {
   const place = occupation(rows)
   const warned = nearCap(rows)
   const late = needsAttention(rows)
+  const bientot = essaisQuiFinissent(rows)
 
   /** Écriture en cours : le bouton attend la base plutôt que la mémoire. */
   const [ouverture, setOuverture] = useState(false)
@@ -216,7 +213,22 @@ export function CabinetPortfolio() {
   const [invitEnCours, setInvitEnCours] = useState('')
   const [invitEchec, setInvitEchec] = useState<{ id: string; message: string } | null>(null)
 
-  const canCreate = state.rNewName.trim().length >= 3 && state.rNewTherapist.trim().length >= 3
+  /* L'identifiant proposé suit le nom tant que le champ est vide ; une fois
+     saisi, il est à la personne qui l'a écrit. */
+  const identifiant = state.rNewSlug || slugify(state.rNewName)
+  const problemeSlug = identifiant ? problemeIdentifiant(identifiant) : null
+  const emailSaisi = state.rNewEmail.trim()
+  /* L'offre de départ se prend dans CE catalogue (0049) : l'offre retenue par
+     défaut peut ne pas y être, et la base refuserait de la poser. */
+  const offreChoisie = offres.some((p) => p.code === state.rNewPlan) ? state.rNewPlan : offres[0]?.code
+  const canCreate =
+    Boolean(offreChoisie) &&
+    state.rNewName.trim().length >= 3 &&
+    state.rNewTherapist.trim().length >= 3 &&
+    !problemeSlug &&
+    // Une adresse mal formée partait jusqu'au serveur d'envoi, qui la refusait
+    // après que l'invitation eut été posée.
+    (!emailSaisi || adressePlausible(emailSaisi))
 
   function openCabinet(id: string) {
     set({ rSel: id, rView: 'brand', rNotice: '' })
@@ -230,10 +242,10 @@ export function CabinetPortfolio() {
     if (state.rNotice) set({ rNotice: '' })
     const resultat = await ouvrirCabinet({
       nom: state.rNewName,
-      slug: state.rNewSlug,
+      slug: identifiant,
       praticienne: state.rNewTherapist,
       email: state.rNewEmail,
-      offre: state.rNewPlan,
+      offre: offreChoisie as PlanCode,
     })
     setOuverture(false)
     if (resultat.ok) {
@@ -304,8 +316,10 @@ export function CabinetPortfolio() {
         </Notice>
       ) : null}
 
-      {/* Dit une fois, sobrement : sans session, ces cabinets sont fictifs. */}
-      {!reel ? (
+      {/* Dit une fois, sobrement : sans session, ces cabinets sont fictifs.
+          Pas pendant le chargement — on ne sait pas encore s'il y a une
+          session, et « connectez-vous » à quelqu'un de connecté est faux. */}
+      {!reel && !chargement ? (
         <p className={s.demo}>
           Portefeuille de démonstration : connectez-vous pour voir vos cabinets.
         </p>
@@ -432,21 +446,31 @@ export function CabinetPortfolio() {
             </p>
           </section>
 
-          {late.length > 0 || warned.length > 0 ? (
+          {late.length > 0 || warned.length > 0 || bientot.length > 0 ? (
             <section className={s.panel}>
               <h2 className={s.panelTitle}>À traiter</h2>
               <p className={s.panelSub}>
-                Contrats en défaut, et cabinets qui approchent leur plafond de fiches.
+                Contrats en défaut, essais qui finissent cette semaine, et cabinets qui approchent
+                leur plafond de fiches.
               </p>
               <div className={s.attention}>
                 {late.map((row) => (
                   <div key={row.cabinet.id} className={s.attentionRow}>
                     <span className={s.attentionName}>{row.cabinet.name}</span>
-                    {/* La date est celle de fin de période, pas celle du défaut :
-                        écrire « impayé depuis » sur une échéance à venir serait
-                        faux. On nomme donc ce qu'on affiche. */}
-                    <Pill tone="warn">
-                      {STATUS_LABEL[row.subscription.status]} · échéance {row.subscription.periodEnd}
+                    {/* La date d'un essai est sa fin d'essai, celle d'un contrat
+                        sa fin de période : la ligne lisait la seconde pour un
+                        essai et affichait « Essai · échéance — ». Et jamais
+                        « impayé depuis » sur une échéance à venir. */}
+                    <Pill tone="warn">{motifATraiter(row.subscription)}</Pill>
+                  </div>
+                ))}
+                {/* Le moment de proposer la souscription, avant que les leviers
+                    ne se ferment chez la thérapeute. */}
+                {bientot.map(({ row, jours }) => (
+                  <div key={`essai-${row.cabinet.id}`} className={s.attentionRow}>
+                    <span className={s.attentionName}>{row.cabinet.name}</span>
+                    <Pill tone="neutral">
+                      {jours <= 1 ? 'Essai : dernier jour' : `Essai : encore ${plural(jours, 'jour', 'jours')}`}
                     </Pill>
                   </div>
                 ))}
@@ -478,8 +502,19 @@ export function CabinetPortfolio() {
                     onChange={(e) => set({ rNewName: e.target.value })}
                     placeholder="Cabinet Claire Fontaine"
                   />
-                  <div className={s.slugHint}>
-                    {adresseCabinet(state.rNewSlug.trim() || slugify(state.rNewName) || 'identifiant')}
+                </div>
+                <div>
+                  <FieldLabel>Identifiant</FieldLabel>
+                  {/* Vide, il suit le nom du cabinet — c'est ce que montre le
+                      texte d'attente ; ce qu'on y tape l'emporte. */}
+                  <TextInput
+                    value={state.rNewSlug}
+                    onChange={(e) => set({ rNewSlug: identifiantEnSaisie(e.target.value) })}
+                    placeholder={slugify(state.rNewName) || 'cabinet-claire-fontaine'}
+                    aria-label="Identifiant du cabinet, qui fait son adresse"
+                  />
+                  <div className={problemeSlug ? `${s.slugHint} ${s.slugProbleme}` : s.slugHint}>
+                    {problemeSlug ?? adresseCabinet(identifiant || 'identifiant')}
                   </div>
                 </div>
                 <div className={s.formRow}>
@@ -507,7 +542,7 @@ export function CabinetPortfolio() {
                     {offres.map((plan) => (
                       <Chip
                         key={plan.code}
-                        on={state.rNewPlan === plan.code}
+                        on={offreChoisie === plan.code}
                         onClick={() => set({ rNewPlan: plan.code as PlanCode })}
                       >
                         {plan.label} · {euroCents(plan.priceCents)}

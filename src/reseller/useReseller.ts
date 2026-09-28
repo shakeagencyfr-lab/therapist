@@ -13,7 +13,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRetour } from '@/lib/useRetour'
 import { dateLongue } from '@/lib/format'
 import { supabase } from '@/lib/supabase'
-import { CHEMINS_RESERVES } from '@/lib/vitrine'
+import type { EntreeJournal } from '@/lib/contrat'
+import { problemeIdentifiant } from '@/lib/identifiant'
 import { demanderInvitation } from '@/services/invitations'
 import { annulerInvitation as annulerEcriture, poserInvitation, relancerInvitation as relancerEcriture } from '@/services/equipe'
 import { etiquetteEquipe } from '@/lib/equipe'
@@ -69,6 +70,22 @@ interface CabinetRow {
   tagline: string
   branding: CabinetBranding
   created_at: string
+}
+
+/** Une ligne de `journal_des_contrats()` (0049). */
+interface JournalRow {
+  quand: string
+  action: string
+  cabinet_id: string | null
+  cabinet: string | null
+  meta: Record<string, unknown> | null
+  auteur: EntreeJournal['auteur']
+}
+
+/** Un ancien identifiant, qui mène toujours au cabinet (0049). */
+export interface AncienIdentifiant {
+  slug: string
+  cabinet_id: string
 }
 
 export interface Praticienne {
@@ -127,12 +144,32 @@ export interface Exceptions {
   siteOverride?: boolean | null
 }
 
+/**
+ * Ce que le revendeur change au contrat d'un cabinet.
+ *
+ * Seules les dates PASSÉES ici s'écrivent : un changement de statut ne
+ * touche plus l'échéance. Elle était remise à vide à chaque clic, si bien
+ * qu'une échéance posée ailleurs — à la main, ou demain par la facturation —
+ * disparaissait au premier changement de statut.
+ */
+export interface ReglageContrat {
+  statut: StatutContrat
+  /** Fin d'essai, en ISO. */
+  finEssai?: string | null
+  /** Fin de période payée, en ISO. null l'efface. */
+  echeance?: string | null
+}
+
 export interface ResellerData {
   rows: PortfolioRow[]
   /** Le catalogue, tel qu'il est en base — ou celui de démonstration. */
   offres: Plan[]
   praticiennes: Praticienne[]
   invitations: InvitationEnAttente[]
+  /** Les changements d'offre et de contrat, les plus récents d'abord. */
+  journal: EntreeJournal[]
+  /** Les anciens identifiants des cabinets, qui mènent toujours à eux. */
+  anciensIdentifiants: AncienIdentifiant[]
   /** Vrai quand les données viennent de la base et non de la démonstration. */
   reel: boolean
   chargement: boolean
@@ -155,8 +192,8 @@ export interface ResellerData {
   enregistrerOffre: (code: PlanCode, champs: ReglageOffre) => Promise<Resultat>
   /** Accorde ou retire une exception à un cabinet, sans toucher à l'offre. */
   reglerExceptions: (cabinetId: string, champs: Exceptions) => Promise<Resultat>
-  /** Pose le statut du contrat, et l'échéance qui va avec. */
-  reglerContrat: (cabinetId: string, statut: StatutContrat, echeance: string | null) => Promise<Resultat>
+  /** Pose le statut du contrat, et les dates que le revendeur a choisies. */
+  reglerContrat: (cabinetId: string, reglage: ReglageContrat) => Promise<Resultat>
 }
 
 /** Les cinq états d'un contrat, tels que la base les connaît. */
@@ -210,7 +247,17 @@ function versPortfolio(
      abonnés de cette offre dans le revenu récurrent. Or il n'avait aucun
      plafond en base — `verifier_plafond_patientes` ne trouvait pas de ligne —
      et donc aucun des droits affichés. On rend maintenant ce qu'il est. */
-  const plan = o.plan_code ? (offres.find((p) => p.code === o.plan_code) ?? offres[0]) : SANS_OFFRE
+  /* Une offre absente du catalogue lu — posée par la plateforme hors du
+     catalogue de ce revendeur (0049) — ne devient pas la première venue :
+     on garde son nom, sans lui prêter de prix ni de leviers. */
+  const plan = o.plan_code
+    ? (offres.find((p) => p.code === o.plan_code) ?? {
+        ...SANS_OFFRE,
+        code: o.plan_code,
+        label: o.plan_label ?? o.plan_code,
+        maxPatients: null,
+      })
+    : SANS_OFFRE
   return {
     cabinet: {
       id: o.cabinet_id,
@@ -226,7 +273,8 @@ function versPortfolio(
       },
       therapist: '',
       email: '',
-      since: o.created_at,
+      // L'horodatage brut s'affichait tel quel sous le nom du cabinet.
+      since: `Depuis le ${dateLongue(o.created_at)}`,
       archived: o.archived,
     },
     stats: {
@@ -241,6 +289,8 @@ function versPortfolio(
       status: (o.status ?? 'essai') as PortfolioRow['subscription']['status'],
       periodEnd: dateLongue(o.current_period_end),
       trialEnd: dateLongue(o.trial_ends_at),
+      trialEndsAt: o.trial_ends_at,
+      periodEndAt: o.current_period_end,
       /* Le verdict vient de la base, jamais d'un calcul refait ici. Sans
          contrat, il est faux — et c'est ce qui allume « Contrats en défaut ». */
       enRegle: o.en_regle === true,
@@ -270,18 +320,28 @@ function versOffre(r: PlanRow): Plan {
 }
 
 export function useReseller(): ResellerData {
-  const [rows, setRows] = useState<PortfolioRow[]>(() => portefeuilleFictif())
-  const [offres, setOffres] = useState<Plan[]>(PLANS)
+  /* RIEN DE FICTIF TANT QU'ON NE SAIT PAS. Le portefeuille démarrait sur la
+     démonstration et la gardait jusqu'à la réponse de la base — ou pour de
+     bon si la lecture échouait : un revendeur connecté voyait cinq cabinets
+     inventés, un revenu inventé, et « connectez-vous » sous les yeux. La
+     démonstration n'est plus servie qu'une fois établi qu'il n'y a pas de
+     session. Sans base du tout, on le sait d'emblée : la démonstration est
+     servie dès le premier rendu, banc de rendu compris. */
+  const [rows, setRows] = useState<PortfolioRow[]>(() => (supabase() ? [] : portefeuilleFictif()))
+  const [offres, setOffres] = useState<Plan[]>(() => (supabase() ? [] : PLANS))
   const [praticiennes, setPraticiennes] = useState<Praticienne[]>([])
   const [invitations, setInvitations] = useState<InvitationEnAttente[]>([])
+  const [journal, setJournal] = useState<EntreeJournal[]>([])
+  const [anciensIdentifiants, setAnciensIdentifiants] = useState<AncienIdentifiant[]>([])
   const [reel, setReel] = useState(false)
-  const [chargement, setChargement] = useState(true)
+  const [chargement, setChargement] = useState(() => Boolean(supabase()))
   const [erreur, setErreur] = useState('')
 
   const recharger = useCallback(async () => {
     const db = supabase()
     if (!db) {
       setRows(portefeuilleFictif())
+      setOffres(PLANS)
       setReel(false)
       setChargement(false)
       return
@@ -292,13 +352,16 @@ export function useReseller(): ResellerData {
     const { data: auth } = await db.auth.getSession()
     if (!auth.session) {
       setRows(portefeuilleFictif())
+      setOffres(PLANS)
       setReel(false)
       setChargement(false)
       return
     }
     setErreur('')
+    // Une session : ce qui s'affiche désormais vient de la base, ou rien.
+    setReel(true)
 
-    const [apercu, fiches, membres, invits, catalogue, exceptions] = await Promise.all([
+    const [apercu, fiches, membres, invits, catalogue, exceptions, lignesJournal, anciens] = await Promise.all([
       db.rpc('reseller_cabinet_overview'),
       db.from('cabinets').select('id, name, slug, tagline, branding, created_at'),
       db.from('cabinet_members').select('cabinet_id, display_name, role'),
@@ -311,9 +374,13 @@ export function useReseller(): ResellerData {
       db
         .from('subscriptions')
         .select('cabinet_id, max_patients_override, shop_override, marque_blanche_override, site_override'),
+      db.rpc('journal_des_contrats', { p_limite: 50 }),
+      db.from('cabinet_slug_aliases').select('slug, cabinet_id').order('created_at', { ascending: false }),
     ])
 
     if (apercu.error) {
+      // Une lecture ratée ne laisse rien à l'écran — surtout pas l'ancien état.
+      setRows([])
       setErreur("Votre portefeuille n'a pas pu être chargé. Réessayez dans un instant.")
       setChargement(false)
       return
@@ -322,12 +389,27 @@ export function useReseller(): ResellerData {
     const parId = new Map<string, CabinetRow>()
     for (const f of (fiches.data ?? []) as CabinetRow[]) parId.set(f.id, f)
 
-    /* Le catalogue vient de la base. S'il est vide — une base neuve, une
-       lecture refusée — on garde celui du produit plutôt que de rendre des
-       lignes sans offre : un portefeuille sans prix ne se lit pas. */
-    const lues = ((catalogue.data ?? []) as PlanRow[]).map(versOffre)
-    const cat = lues.length ? lues : PLANS
+    /* LE CATALOGUE EST CELUI DE CE REVENDEUR (0049). Il retombait sur celui
+       de la démonstration quand la base n'en rendait aucun : un revendeur
+       sans offre voyait des prix fictifs, et des codes qu'il ne peut pas
+       poser. Vide, il reste vide — l'écran Offres le dit. */
+    if (catalogue.error) setErreur("Votre catalogue d'offres n'a pas pu être lu. Réessayez dans un instant.")
+    const cat = ((catalogue.data ?? []) as PlanRow[]).map(versOffre)
     setOffres(cat)
+
+    /* Le journal et les anciens identifiants ne bloquent rien : sans eux,
+       l'écran reste juste, il en dit seulement moins. */
+    setJournal(
+      ((lignesJournal.data ?? []) as JournalRow[]).map((l) => ({
+        quand: l.quand,
+        action: l.action,
+        cabinetId: l.cabinet_id,
+        cabinet: l.cabinet,
+        meta: l.meta ?? {},
+        auteur: l.auteur,
+      })),
+    )
+    setAnciensIdentifiants((anciens.data ?? []) as AncienIdentifiant[])
 
     const parCabinet = new Map<string, ExceptionRow>()
     for (const e of (exceptions.data ?? []) as ExceptionRow[]) parCabinet.set(e.cabinet_id, e)
@@ -350,7 +432,6 @@ export function useReseller(): ResellerData {
     setRows(lignes)
     setPraticiennes(equipes)
     setInvitations(attente)
-    setReel(true)
     setChargement(false)
   }, [])
 
@@ -384,13 +465,11 @@ export function useReseller(): ResellerData {
       /* L'identifiant est une adresse à la racine du domaine : certains mots
          y heurteraient une route du produit. La base refuse déjà — mais son
          refus est un code d'erreur, et le revendeur mérite de savoir lequel
-         de ses mots pose problème avant d'avoir rempli tout le formulaire. */
-      if (CHEMINS_RESERVES.has(slug)) {
-        return {
-          ok: false,
-          message: `L'identifiant « ${slug} » est réservé par la plateforme : il servirait une page de Klaro plutôt que le cabinet. Choisissez-en un autre.`,
-        }
-      }
+         de ses mots pose problème avant d'avoir rempli tout le formulaire.
+         Le formulaire a désormais son champ « Identifiant » : « choisissez-en
+         un autre » désigne enfin quelque chose. */
+      const probleme = problemeIdentifiant(slug)
+      if (probleme) return { ok: false, message: `${probleme} Choisissez-en un autre dans le champ Identifiant.` }
       const initiales =
         input.nom
           .split(/\s+/)
@@ -424,7 +503,7 @@ export function useReseller(): ResellerData {
         return {
           ok: false,
           message: doublon
-            ? `L'identifiant « ${slug} » est déjà pris. Choisissez-en un autre.`
+            ? `L'identifiant « ${slug} » est déjà pris, ou a déjà servi à un autre cabinet dont les anciens liens y mènent encore. Choisissez-en un autre.`
             : refuse
               ? `L'identifiant « ${slug} » ne peut pas servir d'adresse : lettres non accentuées, chiffres et tirets, et pas un mot réservé par la plateforme.`
               : "Le cabinet n'a pas pu être créé. Réessayez.",
@@ -467,10 +546,16 @@ export function useReseller(): ResellerData {
 
       await recharger()
 
+      /* « Reprenez-la depuis sa fiche » : il n'y a pas de fiche de cabinet
+         chez le revendeur — cliquer la ligne ouvre l'éditeur de marque. On
+         nomme donc l'endroit où le geste se refait vraiment. */
       if (eSub || eInv) {
         return {
           ok: true,
-          message: `${cabinet.name} est ouvert, mais ${eSub ? "son offre" : "l'invitation"} n'a pas pu être enregistrée. Reprenez-la depuis sa fiche.`,
+          partiel: true,
+          message: eSub
+            ? `${cabinet.name} est ouvert, mais son offre n'a pas pu être enregistrée. Posez-la depuis l'onglet Offres : le cabinet partira en essai de quatorze jours.`
+            : `${cabinet.name} est ouvert, mais l'invitation n'a pas pu être enregistrée. Reprenez-la depuis sa ligne, ici dans le portefeuille.`,
         }
       }
       if (!input.email.trim()) {
@@ -581,40 +666,46 @@ export function useReseller(): ResellerData {
          sur un mot réservé ou un identifiant trop court. */
       const slug = fiche.slug?.trim()
       if (slug !== undefined) {
-        if (slug.length < 3) {
-          return {
-            ok: false,
-            message: "L'identifiant fait moins de trois caractères. C'est une adresse à la racine du domaine : il en faut au moins trois.",
-          }
-        }
-        if (CHEMINS_RESERVES.has(slug)) {
-          return {
-            ok: false,
-            message: `L'identifiant « ${slug} » est réservé par la plateforme : il servirait une page de Klaro plutôt que le cabinet. Choisissez-en un autre.`,
-          }
-        }
+        const probleme = problemeIdentifiant(slug)
+        if (probleme) return { ok: false, message: probleme }
       }
+      const avant = rows.find((r) => r.cabinet.id === cabinetId)?.cabinet.slug
+      const renomme = slug !== undefined && avant !== undefined && slug !== avant
 
-      const { error } = await db.from('cabinets').update(fiche).eq('id', cabinetId)
+      const { error } = await db
+        .from('cabinets')
+        .update(slug !== undefined ? { ...fiche, slug } : fiche)
+        .eq('id', cabinetId)
       await recharger()
       if (!error) {
-        return { ok: true, message: "La marque est publiée. Elle s'applique à l'espace de la thérapeute et à l'application de ses patients." }
+        return {
+          ok: true,
+          message: renomme
+            ? `La marque est publiée, et le cabinet répond désormais à ${slug}. L'ancienne adresse, ${avant}, y mène toujours : les liens déjà donnés, le widget et les espaces installés continuent de fonctionner.`
+            : "La marque est publiée. Elle s'applique à l'espace de la thérapeute et à l'application de ses patients.",
+        }
       }
       /* 23505 : un autre cabinet porte déjà cet identifiant. 23514 : la forme
          est refusée — ce qui, les deux gardes ci-dessus passés, ne peut plus
          venir que d'un caractère que `slugify` a laissé filer. */
       const doublon = error.code === '23505'
+      /* 23514 ne vient plus seulement de l'identifiant : la base borne aussi
+         les couleurs et le nom (0048). On ne met l'identifiant en cause que
+         si c'est sa contrainte qui a parlé. */
       const refuse = error.code === '23514'
+      const surIdentifiant = refuse && /slug/.test(error.message ?? '')
       return {
         ok: false,
         message: doublon
-          ? `L'identifiant « ${slug ?? ''} » est déjà pris par un autre cabinet. Choisissez-en un autre.`
-          : refuse
+          ? `L'identifiant « ${slug ?? ''} » est déjà pris par un autre cabinet, ou lui a déjà servi. Choisissez-en un autre.`
+          : surIdentifiant
             ? `L'identifiant « ${slug ?? ''} » ne peut pas servir d'adresse : lettres non accentuées, chiffres et tirets, trois caractères au moins, et pas un mot réservé par la plateforme.`
-            : "La marque n'a pas pu être publiée. Réessayez dans un instant.",
+            : refuse
+              ? "La marque n'a pas pu être publiée : un nom d'au moins deux caractères et des couleurs au format #RRGGBB sont attendus."
+              : "La marque n'a pas pu être publiée. Réessayez dans un instant.",
       }
     },
-    [recharger, reel],
+    [recharger, reel, rows],
   )
 
   const changerOffre = useCallback(
@@ -626,7 +717,12 @@ export function useReseller(): ResellerData {
          n'avait rien, et le cabinet restait sans offre à jamais. Un cabinet
          ouvert hors du formulaire — repris à la main, importé — est
          exactement dans ce cas. `upsert` sur la clé primaire pose la ligne si
-         elle manque, et ne touche qu'à l'offre si elle est là. */
+         elle manque, et ne touche qu'à l'offre si elle est là.
+
+         La ligne posée ainsi naissait « essai » SANS FIN — tous les leviers,
+         pour toujours, sans payer. La base lui donne maintenant ses quatorze
+         jours (0049) ; l'écran le dit. */
+      const sansContrat = !rows.find((r) => r.cabinet.id === cabinetId)?.subscription.plan
       const { error } = await db
         .from('subscriptions')
         .upsert(
@@ -635,16 +731,26 @@ export function useReseller(): ResellerData {
         )
       await recharger()
       const label = offres.find((p) => p.code === offre)?.label ?? offre
-      return error
-        ? { ok: false, message: "L'offre n'a pas pu être changée." }
-        : {
-            ok: true,
-            // Le plafond de fiches et les leviers sont lus à chaque geste :
-            // ils valent tout de suite, pas au prochain cycle de facturation.
-            message: `Offre ${label} appliquée. Son plafond de fiches et ses options valent dès maintenant.`,
-          }
+      if (error) {
+        return {
+          ok: false,
+          // 23514 : l'offre n'est pas au catalogue de ce revendeur (0049).
+          message:
+            error.code === '23514'
+              ? "Cette offre n'est pas à votre catalogue : choisissez l'une des vôtres."
+              : "L'offre n'a pas pu être changée.",
+        }
+      }
+      return {
+        ok: true,
+        // Le plafond de fiches et les leviers sont lus à chaque geste :
+        // ils valent tout de suite, pas au prochain cycle de facturation.
+        message: sansContrat
+          ? `Offre ${label} posée, en essai de quatorze jours. Réglez son contrat ci-dessous quand il est signé.`
+          : `Offre ${label} appliquée. Son plafond de fiches et ses options valent dès maintenant.`,
+      }
     },
-    [offres, recharger, reel],
+    [offres, recharger, reel, rows],
   )
 
   /**
@@ -739,18 +845,18 @@ export function useReseller(): ResellerData {
    * ferme les leviers du cabinet : il fallait bien qu'on puisse le rouvrir.
    */
   const reglerContrat = useCallback(
-    async (cabinetId: string, statut: StatutContrat, echeance: string | null): Promise<Resultat> => {
+    async (cabinetId: string, reglage: ReglageContrat): Promise<Resultat> => {
       const db = supabase()
       if (!db || !reel) return { ok: false, message: 'Connectez-vous pour régler ce cabinet.' }
+      const { statut, finEssai, echeance } = reglage
+      /* N'ÉCRIRE QUE CE QUI A ÉTÉ CHOISI. Chaque clic sur un statut remettait
+         l'échéance à vide, et « Essai » reposait en silence quatorze jours,
+         même sur un essai qui courait encore. Les dates viennent maintenant
+         du revendeur, champ par champ ; un essai sans date reçoit ses
+         quatorze jours de la base (0049), jamais d'ici. */
       const ligne: Record<string, unknown> = { status: statut, updated_at: new Date().toISOString() }
+      if (finEssai !== undefined) ligne.trial_ends_at = finEssai
       if (echeance !== undefined) ligne.current_period_end = echeance
-      /* Repasser un cabinet en essai sans date le rendrait éternel : la règle
-         de base laisse courir un essai sans échéance, puisqu'une colonne vide
-         est une donnée qui manque et non un contrat rompu. On pose donc
-         quatorze jours, comme à l'ouverture. */
-      if (statut === 'essai' && !echeance) {
-        ligne.trial_ends_at = new Date(Date.now() + 14 * 86400_000).toISOString()
-      }
 
       const { data, error } = await db
         .from('subscriptions')
@@ -762,7 +868,13 @@ export function useReseller(): ResellerData {
       if (!data?.length) {
         return { ok: false, message: "Ce cabinet n'a pas encore d'offre. Posez-lui-en une d'abord." }
       }
-      return { ok: true, message: `Contrat mis à jour : ${LIBELLE_CONTRAT[statut]}.` }
+      const jusquau =
+        statut === 'essai' && finEssai
+          ? ` jusqu'au ${dateLongue(finEssai)}`
+          : echeance
+            ? `, échéance le ${dateLongue(echeance)}`
+            : ''
+      return { ok: true, message: `Contrat mis à jour : ${LIBELLE_CONTRAT[statut]}${jusquau}.` }
     },
     [recharger, reel],
   )
@@ -772,6 +884,8 @@ export function useReseller(): ResellerData {
     offres,
     praticiennes,
     invitations,
+    journal,
+    anciensIdentifiants,
     reel,
     chargement,
     erreur,

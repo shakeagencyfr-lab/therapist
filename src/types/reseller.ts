@@ -103,6 +103,13 @@ export interface Subscription {
   /** Fin d'essai, en toutes lettres. Vide quand il n'y en a pas. */
   trialEnd: string
   /**
+   * Les deux mêmes dates, telles que la base les rend (ISO). Les phrases du
+   * contrat comparent à aujourd'hui — « essai expiré le », « finit dans trois
+   * jours » — et une date déjà mise en toutes lettres ne se compare plus.
+   */
+  trialEndsAt: string | null
+  periodEndAt: string | null
+  /**
    * Le contrat court-il ?
    *
    * Calculé en base (`abonnement_en_regle`, 0035) et non ici : c'est ce
