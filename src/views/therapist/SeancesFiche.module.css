@@ -1,0 +1,231 @@
+/* Le volet « Séances » : une liste pliée, la dernière séance ouverte. On
+   vient y relire une page avant de recevoir quelqu'un, pas tout le dossier. */
+
+.card {
+  border-radius: var(--r-xl);
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 16px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.notice,
+.alerte {
+  margin: 10px 0 4px;
+}
+
+.echec {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.discret {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--c-text-muted);
+}
+
+.liste {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+
+.item {
+  border-top: 1px solid var(--c-border-light);
+}
+.item:first-child {
+  border-top: none;
+}
+
+.entete {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 6px 14px;
+  padding: 14px 0;
+  border: none;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+.entete:hover .date {
+  color: var(--c-accent);
+}
+.entete:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+  border-radius: var(--r-xs);
+}
+
+.date {
+  font-size: 15px;
+  font-weight: 500;
+  min-width: 0;
+}
+.date::first-letter {
+  text-transform: uppercase;
+}
+
+.meta {
+  grid-column: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+  color: var(--c-text-muted);
+}
+
+.bascule {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  font-size: 12.5px;
+  color: var(--c-accent);
+}
+
+.corps {
+  padding: 0 0 20px;
+}
+
+.bloc {
+  margin-top: 16px;
+}
+.bloc:first-child {
+  margin-top: 4px;
+}
+
+.blocTitre {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+
+.texte {
+  margin: 0;
+  max-width: 70ch;
+  font-size: 14.5px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--c-text);
+}
+
+.mots {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mot {
+  padding: 5px 11px;
+  border-radius: var(--r-pill);
+  background: var(--c-accent-soft);
+  font-size: 13px;
+  font-style: italic;
+  color: var(--c-text);
+}
+
+.puces {
+  margin: 0;
+  padding-left: 18px;
+  max-width: 70ch;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.puces li + li {
+  margin-top: 4px;
+}
+
+.point {
+  font-weight: 500;
+}
+
+.honoraires {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 14px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--c-border);
+}
+
+.noteResume {
+  font-size: 13px;
+  color: var(--c-text-2);
+}
+
+.gestes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.gestes .discret {
+  margin: 0;
+}
+
+.registre {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--c-border-light);
+}
+
+.registreListe {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.registreLigne {
+  display: flex;
+  align-items: center;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+  padding: 8px 0;
+  font-size: 13px;
+}
+.registreLigne + .registreLigne {
+  border-top: 1px solid var(--c-border-light);
+}
+
+.registreTexte {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 600px) {
+  .entete {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .bascule {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+  }
+  .texte {
+    font-size: 14px;
+  }
+}

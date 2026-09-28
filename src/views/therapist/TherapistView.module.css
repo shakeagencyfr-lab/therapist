@@ -9,26 +9,38 @@
   max-width: 1240px;
 }
 
-/* Les volets de la fiche : trois onglets sous le nom, soulignés plutôt
-   qu'en pilules — ce sont des parties d'un même dossier, pas des écrans. */
+/* Les volets de la fiche : des onglets sous le nom, soulignés plutôt
+   qu'en pilules — ce sont des parties d'un même dossier, pas des écrans.
+   Cinq ne tiennent ni sur un téléphone ni à côté de la colonne des
+   patients sur un petit écran : la rangée défile de côté plutôt que de
+   pousser la page hors de l'écran. Le trait de base est une ombre
+   intérieure, pas une bordure : un défilement rognerait le soulignement
+   de l'onglet ouvert, posé par-dessus. */
 .volets {
   display: flex;
   gap: 4px;
   margin: -6px 0 22px;
-  border-bottom: 1px solid var(--c-border-light);
+  box-shadow: inset 0 -1px 0 var(--c-border-light);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.volets::-webkit-scrollbar {
+  display: none;
 }
 
 .volet {
   padding: 10px 14px 12px;
   border: none;
   border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
   background: none;
   cursor: pointer;
   font-family: inherit;
   font-size: 13.5px;
   font-weight: 500;
   color: var(--c-text-4);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .volet:hover {
   color: var(--c-text);
@@ -69,6 +81,15 @@
 }
 .drawerBtn:hover {
   background: var(--c-accent-soft-2);
+}
+/* « 2 mots non lus » à côté de « Patients » : la liste repliée ne les cache plus. */
+.drawerNonLus {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--c-surface);
+  background: var(--c-accent);
+  border-radius: var(--r-pill);
+  padding: 3px 8px;
 }
 
 @media (max-width: 1100px) {

@@ -141,6 +141,30 @@ export interface JournalEntry {
   date: string
   trigger: string
   text: string
+  /**
+   * La page en base. Absente des notes de la séance et de la démonstration :
+   * sans elle, rien ne se marque lu ni ne se répond.
+   */
+  id?: string
+  /** Quand le cabinet l'a ouverte (0054) ; `null` tant qu'elle attend. */
+  luLe?: string | null
+}
+
+/**
+ * Une réponse du cabinet à une page partagée (0054).
+ *
+ * C'est un mot du cabinet comme les autres — il arrive dans l'espace, et sur
+ * le téléphone si les rappels y sont activés —, adressé au seul auteur de la
+ * page et rangé sous elle.
+ */
+export interface ReponseDuCabinet {
+  /** Le mot (`push_notifications.id`). */
+  id: string
+  texte: string
+  /** Quand il est parti. */
+  le: string
+  /** Côté patient seulement : quand il l'a ouvert, `null` tant qu'il attend. */
+  lueLe?: string | null
 }
 
 /** Une page du journal, côté patient (partagée ou privée). */

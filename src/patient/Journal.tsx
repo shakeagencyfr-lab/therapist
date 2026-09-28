@@ -1,7 +1,9 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Notice } from '@/components/ui'
 import { supabase } from '@/lib/supabase'
 import { plural } from '@/lib/format'
+import { filDesReponses, momentDit, phraseLu } from '@/lib/fil'
+import type { ReponseDuCabinet } from '@/types/domain'
 import { useDictee } from './useDictee'
 import { BoutonDictee } from './BoutonDictee'
 import { deplacer, rangVise, type Boite } from './reordonner'
@@ -55,6 +57,10 @@ export function Journal({
   cabinetId,
   accent,
   onEcrit,
+  reponses = {},
+  onReponseLue,
+  pageInitiale,
+  onPageInitialeVue,
 }: {
   pages: JournalPageRow[]
   /**
@@ -71,6 +77,14 @@ export function Journal({
   cabinetId: string
   accent?: string
   onEcrit: () => Promise<void>
+  /** Les réponses de sa thérapeute, par page (0054). */
+  reponses?: Record<string, ReponseDuCabinet[]>
+  /** Une réponse a été lue sous sa page : sa pastille tombe aussi dans « Mots de votre cabinet ». */
+  onReponseLue?: (pushId: string) => void
+  /** La page à ouvrir en arrivant — celle à laquelle un mot du cabinet répond. */
+  pageInitiale?: string
+  /** La page demandée a été ouverte : l'espace l'oublie, pour ne pas la rouvrir au retour suivant. */
+  onPageInitialeVue?: () => void
 }) {
   /* LE BROUILLON SURVIT À L'ONGLET. Ce texte vivait dans l'état de ce seul
      écran : un tap sur « Ma journée » démontait le journal, et la page en
@@ -86,7 +100,7 @@ export function Journal({
   const [partage, setPartage] = useState(false)
   const [envoi, setEnvoi] = useState(false)
   const [notice, setNotice] = useState<{ tone: 'ok' | 'warn'; text: string } | null>(null)
-  const [depliee, setDepliee] = useState('')
+  const [depliee, setDepliee] = useState(pageInitiale ?? '')
   const [filtre, setFiltre] = useState<Filtre>('tout')
   /* Dicter plutôt qu'écrire : au téléphone, un soir, taper dix lignes au
      pouce décourage plus sûrement qu'une page blanche. */
@@ -99,6 +113,30 @@ export function Journal({
   const liste = useRef<HTMLDivElement | null>(null)
   /** Le lot de pages suivant est en cours de lecture. */
   const [plusEnCours, setPlusEnCours] = useState(false)
+
+  /** Les réponses de cette page que le patient n'a pas encore ouvertes : elles le sont. */
+  function lireLesReponses(pageId: string) {
+    for (const r of reponses[pageId] ?? []) if (!r.lueLe) onReponseLue?.(r.id)
+  }
+
+  /* ARRIVER SUR LA PAGE À LAQUELLE ON RÉPOND. Depuis « Mots de votre
+     cabinet », « Relire votre mot » ouvre le journal sur la page, dépliée,
+     avec la réponse dessous. Une seule fois, au montage : le défilement
+     attend que l'espace soit remonté en haut, comme à chaque changement
+     d'onglet. */
+  const pageDemandee = useRef(pageInitiale)
+  useEffect(() => {
+    const page = pageDemandee.current
+    if (!page) return
+    lireLesReponses(page)
+    onPageInitialeVue?.()
+    const t = window.setTimeout(() => {
+      document.getElementById(`page-${page}`)?.scrollIntoView({ block: 'start' })
+    }, 80)
+    return () => window.clearTimeout(t)
+    // Au montage seulement : la page demandée ne change pas en cours de lecture.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function supprimer(id: string) {
     const db = supabase()
@@ -446,6 +484,7 @@ export function Journal({
             <div key={page.id} data-page>
               {nouveauMois ? <div className={s.mois}>{titreMois}</div> : null}
               <article
+                id={`page-${page.id}`}
                 className={[s.page, ouverte && s.pageOuverte, prise && s.pagePrise]
                   .filter(Boolean)
                   .join(' ')}
@@ -470,7 +509,11 @@ export function Journal({
                   <button
                     type="button"
                     className={s.pageHead}
-                    onClick={() => setDepliee(ouverte ? '' : page.id)}
+                    onClick={() => {
+                      setDepliee(ouverte ? '' : page.id)
+                      // Déplier la page, c'est lire ce qu'on lui a répondu.
+                      if (!ouverte) lireLesReponses(page.id)
+                    }}
                     aria-expanded={ouverte}
                   >
                     <span className={s.pageHaut}>
@@ -490,6 +533,21 @@ export function Journal({
                         deux. */}
                     {!ouverte ? <span className={s.pageApercu}>{apercu(page.body)}</span> : null}
                     <span className={s.pageMeta}>{jour(page.written_at)}</span>
+                    {/* LE FIL (0054). Sous la page, ce que sa thérapeute en a
+                        fait : lue, et à quel moment ; répondue, et si la
+                        réponse attend encore d'être lue. Rien quand elle
+                        n'a pas été ouverte — ni « pas encore lu » qui
+                        sonnerait comme un reproche, ni compte à rebours. */}
+                    {page.lu_le || (reponses[page.id] ?? []).length ? (
+                      <span className={s.pageFil}>
+                        {[
+                          phraseLu(page.lu_le),
+                          filDesReponses(reponses[page.id] ?? []),
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </span>
+                    ) : null}
                   </button>
                 </div>
 
@@ -507,6 +565,18 @@ export function Journal({
                 ) : ouverte ? (
                   <>
                     <p className={s.pageTexte}>{page.body}</p>
+                    {(reponses[page.id] ?? []).map((r) => (
+                      <div
+                        key={r.id}
+                        className={s.reponse}
+                        style={accent ? { borderLeftColor: accent } : undefined}
+                      >
+                        <span className={s.reponseQui}>
+                          Réponse de votre thérapeute · {momentDit(r.le)}
+                        </span>
+                        <p className={s.reponseTexte}>{r.texte}</p>
+                      </div>
+                    ))}
                     <div className={s.pageActions}>
                       <button
                         type="button"
@@ -651,7 +721,11 @@ function ModifierPage({
       <BoutonDictee dictee={dictee} accent={accent} />
       {page.shared ? (
         <p className={s.partageHint} style={{ margin: 0 }}>
-          Cette page est partagée : votre thérapeute lira la version modifiée.
+          {/* Une page lue puis corrigée redevient non lue (0054) : on le dit
+              avant, pour que « Lu le … » qui disparaît ne surprenne pas. */}
+          {page.lu_le
+            ? 'Cette page est partagée et votre thérapeute l’a déjà lue : la version modifiée lui sera signalée comme nouvelle.'
+            : 'Cette page est partagée : votre thérapeute lira la version modifiée.'}
         </p>
       ) : null}
       {echec ? <Notice tone="warn">{echec}</Notice> : null}

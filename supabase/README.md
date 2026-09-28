@@ -151,6 +151,13 @@ persiste, et le message dit ce qui a été vérifié.
   patient vide la transcription sans détruire la note de la thérapeute.
 - **Le journal privé du patient est invisible au cabinet** tant qu'il n'est pas
   partagé : la politique de lecture du cabinet exige `shared = true`.
+- **Le patient écrit ses pages, pas leur lecture** (`0054`). Sur
+  `journal_pages`, le rôle authentifié n'a plus que des droits par colonne :
+  insertion de `cabinet_id, patient_id, title, body, trigger_label, shared,
+  position`, mise à jour de `title, body, trigger_label, shared, position`.
+  `lu_le` n'est posé que par `cabinet_marquer_page_lue()` et
+  `cabinet_repondre_a_la_page()`. Une colonne ajoutée plus tard que l'espace
+  patient doit écrire devra être accordée nommément.
 - **`audit_log` est en ajout seul** : `update` et `delete` sont révoqués.
 - **Un solde de crédits ne s'écrit pas, il se somme.** `credit_ledger` est en
   ajout seul, et `insert`, `update`, `delete` y sont révoqués pour le rôle

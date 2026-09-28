@@ -67,6 +67,12 @@ export function MotAuTherapeute({
         <p className={s.transmis}>
           C'est transmis. Votre thérapeute le verra avant votre prochaine séance.
         </p>
+        {/* Le fil (0054) : le mot n'est plus une bouteille à la mer. On dit
+            où le retrouver, sans promettre de délai ni de réponse. */}
+        <p className={s.sous}>
+          Il est rangé dans votre journal : vous y verrez quand il aura été lu, et la réponse
+          s'il y en a une.
+        </p>
         <button type="button" className={s.encore} onClick={() => setEnvoye(false)}>
           Écrire un autre mot
         </button>

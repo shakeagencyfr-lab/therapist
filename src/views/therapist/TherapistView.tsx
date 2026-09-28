@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMaybeCabinet } from '@/cabinet/context'
+import { libelleNonLus, totalNonLus } from '@/lib/fil'
 import { useAppState } from '@/state/store'
 import { PatientSidebar } from './PatientSidebar'
 import { PatientHeader } from './PatientHeader'
@@ -12,13 +13,21 @@ import { ScaleChart } from '@/views/therapist/ScaleChart'
 import { PatientAudios } from '@/views/therapist/PatientAudios'
 import { Affirmations } from '@/views/therapist/Affirmations'
 import { SharedJournal } from '@/views/therapist/SharedJournal'
+import { SeancesFiche } from '@/views/therapist/SeancesFiche'
+import { NotesCliniques } from '@/views/therapist/NotesCliniques'
+import { ExportDossier } from '@/views/therapist/ExportDossier'
 import s from './TherapistView.module.css'
 
-/** Les trois volets de la fiche. */
-type Volet = 'suivi' | 'profil' | 'reglages'
+/** Les volets de la fiche. */
+type Volet = 'suivi' | 'seances' | 'notes' | 'profil' | 'reglages'
 
+/* « Séances » juste après « Suivi » : relire la séance précédente est le
+   geste d'avant chaque rendez-vous (0053). L'anamnèse vient ensuite — elle
+   se relit, elle ne se consulte pas chaque jour. */
 const VOLETS: Array<{ value: Volet; label: string }> = [
   { value: 'suivi', label: 'Suivi' },
+  { value: 'seances', label: 'Séances' },
+  { value: 'notes', label: 'Anamnèse et notes' },
   { value: 'profil', label: 'Profil et hypnoses' },
   { value: 'reglages', label: 'Réglages de la fiche' },
 ]
@@ -26,7 +35,7 @@ const VOLETS: Array<{ value: Volet; label: string }> = [
 /**
  * Espace thérapeute : barre latérale de patients + fiche.
  *
- * La fiche se lit en trois volets. À plat, elle empilait neuf cartes sur
+ * La fiche se lit en volets. À plat, elle empilait neuf cartes sur
  * deux écrans de hauteur : les modules de la semaine — ce qu'on regarde
  * chaque jour — arrivaient sous le profil psychologique et les hypnoses,
  * qu'on consulte une fois par mois. Le volet « Suivi » ouvre sur ce qui
@@ -44,6 +53,8 @@ export function TherapistView() {
      et l'afficher planterait. C'est le premier écran que voit une praticienne
      qui vient d'accepter son invitation — il doit lui dire quoi faire. */
   const fiche = state.patients[state.sel]
+  /** Les mots qui attendent, toutes fiches confondues (0054). */
+  const enAttente = totalNonLus(state.nonLus, state.patientOrder)
 
   return (
     <div className={s.layout}>
@@ -58,6 +69,9 @@ export function TherapistView() {
           aria-controls="patient-sidebar"
         >
           Patients
+          {/* Sur un téléphone, la liste est repliée : ses pastilles aussi.
+              Le total des mots qui attendent reste à portée d'œil (0054). */}
+          {enAttente > 0 ? <span className={s.drawerNonLus}>{libelleNonLus(enAttente)}</span> : null}
         </button>
 
         {fiche ? (
@@ -107,7 +121,17 @@ export function TherapistView() {
               </>
             ) : null}
 
-            {volet === 'reglages' ? <FicheSettings key={state.sel} ouvertParDefaut /> : null}
+            {/* La clé de la fiche, ici aussi : une note d'honoraires ouverte
+                pour Nadia ne doit pas s'émettre au nom de Camille. */}
+            {volet === 'seances' ? <SeancesFiche key={`seances-${state.sel}`} /> : null}
+            {volet === 'notes' ? <NotesCliniques key={`notes-${state.sel}`} /> : null}
+
+            {volet === 'reglages' ? (
+              <>
+                <FicheSettings key={state.sel} ouvertParDefaut />
+                <ExportDossier key={`export-${state.sel}`} />
+              </>
+            ) : null}
           </>
         ) : (
           <div className={s.empty}>

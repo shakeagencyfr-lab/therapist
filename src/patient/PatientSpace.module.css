@@ -528,6 +528,40 @@
   padding-bottom: 0;
 }
 
+/* Chaque mot vit dans son enveloppe depuis qu'une réponse (0054) porte un
+   lien vers la page qu'elle suit : le trait de séparation passe à
+   l'enveloppe, sans quoi il disparaissait entre tous les mots. */
+.motFil {
+  border-bottom: 1px solid var(--c-border-light);
+}
+.motFil:last-child {
+  border-bottom: none;
+}
+.motFil > .mot {
+  border-bottom: none;
+}
+.motFil:last-child > .mot:last-child {
+  padding-bottom: 0;
+}
+.motFil:not(:last-child) > .mot:last-child {
+  padding-bottom: 12px;
+}
+
+.motLien {
+  display: block;
+  margin: -4px 0 0 17px;
+  min-height: 40px;
+  padding: 8px 0 10px;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--c-accent);
+  text-align: left;
+  cursor: pointer;
+}
+
 .motPastille {
   width: 7px;
   height: 7px;

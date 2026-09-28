@@ -1,0 +1,149 @@
+/* Anamnèse et notes de suivi : deux cartes l'une sous l'autre, précédées
+   d'une ligne qui dit qui les lit — et qui ne les lit pas. */
+
+.pile {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.card {
+  border-radius: var(--r-xl);
+}
+
+.confidentiel {
+  margin: 0;
+  max-width: 78ch;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--c-text-3);
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.form,
+.ajout {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.champ {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.champDate {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 180px;
+  max-width: 100%;
+}
+
+.label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+
+.aide {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+  max-width: 78ch;
+}
+
+.actions,
+.ajoutLigne {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.nonEnregistre {
+  font-size: 12.5px;
+  color: var(--c-warn-text);
+}
+
+.discret {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--c-text-muted);
+}
+
+.discretEnLigne {
+  font-size: 12.5px;
+  color: var(--c-text-muted);
+}
+
+.illisible {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.notes {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+}
+
+.note {
+  padding: 14px 0;
+  border-top: 1px solid var(--c-border-light);
+}
+
+.noteTete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+}
+
+.noteDate {
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.auteur {
+  font-weight: 400;
+  color: var(--c-text-muted);
+}
+
+.gestes {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.noteTexte {
+  margin: 6px 0 0;
+  max-width: 72ch;
+  font-size: 14px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 600px) {
+  .champDate {
+    width: 100%;
+  }
+}

@@ -17,6 +17,7 @@ import { App } from '../src/App'
 import { RendezVous } from '../src/patient/RendezVous'
 import { VitrinePage } from '../src/views/vitrine/VitrinePage'
 import { Tache } from '../src/patient/Tache'
+import { Journal } from '../src/patient/Journal'
 import { IconeOnglet } from '../src/patient/IconesOnglets'
 import { ConsigneEditeur } from '../src/views/therapist/ConsigneEditeur'
 import { AppStoreProvider } from '../src/state/store'
@@ -645,6 +646,86 @@ try {
 } catch (err) {
   console.error(`✗ therapeute/consigne : ${(err as Error).message}`)
   echecs++
+}
+
+/* ------------------------------------------------------------------ *
+ * Le fil (0054) : le mot lu, le mot répondu
+ *
+ * Côté cabinet, une page qui attend se signale et reste repliée : l'afficher
+ * la dirait lue d'une fiche parcourue en passant. Côté patient, la lecture
+ * et la réponse se lisent sous la page. Et la démonstration n'en montre
+ * rien : elle n'a ni pages en base, ni personne à qui répondre.
+ * ------------------------------------------------------------------ */
+{
+  const [idFil] = Object.keys(PATIENTS) as [string]
+  const ficheFil = PATIENTS[idFil] as (typeof PATIENTS)[string]
+  const filHtml = rendu('fil/fiche', {
+    space: 'cabinet',
+    mode: 'therapist',
+    patientsReels: true,
+    patients: {
+      [idFil]: {
+        ...ficheFil,
+        journal: [
+          { date: 'lundi 3 sept.', trigger: 'Un mot', text: 'TEXTE-EN-ATTENTE', id: 'p-attend', luLe: null },
+          { date: 'dimanche 2 sept.', trigger: 'Un mot', text: 'TEXTE-DEJA-LU', id: 'p-lue', luLe: '2026-09-02T18:05:00Z' },
+        ],
+      },
+    },
+    patientOrder: [idFil],
+    sel: idFil,
+    nonLus: { [idFil]: 1 },
+    reponses: { 'p-lue': [{ id: 'r1', texte: 'REPONSE-DU-CABINET', le: '2026-09-02T19:00:00Z' }] },
+  })
+  const demoFil = rendu('fil/demonstration', { space: 'cabinet', mode: 'therapist' })
+  const manque = [
+    !filHtml.includes('Non lu') && "la page qui attend n'est pas signalée",
+    filHtml.includes('TEXTE-EN-ATTENTE') && "la page qui attend s'affiche avant d'être ouverte",
+    !filHtml.includes('TEXTE-DEJA-LU') && 'la page lue ne se lit plus',
+    !filHtml.includes('REPONSE-DU-CABINET') && 'la réponse ne paraît pas sous sa page',
+    !filHtml.includes('1 mot non lu') && 'le compteur de la liste des patients manque',
+    !filHtml.includes('Ouvrir une page lui indique') && "la fiche ne dit pas qu'ouvrir une page se voit",
+    demoFil.includes('Non lu') && 'la démonstration signale des pages non lues',
+  ].filter(Boolean)
+
+  let patientFil = ''
+  try {
+    const page = (id: string, lu: string | null) => ({
+      id,
+      title: 'Un mot',
+      body: `CORPS-${id}`,
+      shared: true,
+      written_at: '2026-09-02T10:00:00Z',
+      position: null,
+      lu_le: lu,
+    })
+    patientFil = renderToString(
+      h(Journal as never, {
+        pages: [page('p1', '2026-09-02T18:05:00Z'), page('p2', null)],
+        total: 2,
+        patientId: 'x',
+        cabinetId: 'y',
+        onEcrit: async () => {},
+        reponses: { p1: [{ id: 'r1', texte: 'REPONSE-SOUS-LA-PAGE', le: '2026-09-02T19:00:00Z', lueLe: null }] },
+        pageInitiale: 'p1',
+      } as never),
+    )
+  } catch (err) {
+    manque.push(`le journal du patient ne se rend pas : ${(err as Error).message}`)
+  }
+  if (patientFil) {
+    const lus = (patientFil.match(/Lu par votre thérapeute le/g) ?? []).length
+    if (lus !== 1) manque.push(`${lus} mention(s) « Lu par votre thérapeute » pour une seule page lue`)
+    if (!patientFil.includes('1 réponse · 1 nouvelle')) manque.push("la réponse qui attend n'est pas annoncée")
+    if (!patientFil.includes('REPONSE-SOUS-LA-PAGE')) manque.push("la page demandée ne s'ouvre pas sur sa réponse")
+  }
+
+  if (manque.length) {
+    console.error(`✗ fil : ${manque.join(', ')}`)
+    echecs++
+  } else {
+    console.log(`✓ fil               ${String(filHtml.length).padStart(6)} octets · non lu replié, lu et réponse chez le patient`)
+  }
 }
 
 if (echecs > 0) {

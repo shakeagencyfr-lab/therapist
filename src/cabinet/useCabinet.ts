@@ -9,7 +9,7 @@
  * (src/types/domain.ts) puis versées dans l'état : les vues et les sélecteurs
  * n'ont pas à savoir d'où elles viennent.
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRetour } from '@/lib/useRetour'
 import { supabase } from '@/lib/supabase'
 import { demanderInvitation } from '@/services/invitations'
@@ -24,6 +24,15 @@ import { assiduite, decalerJour, jourDeParis, JOURS_SUIVIS, septJours } from '@/
 import { couleursInvalides } from '@/lib/couleurs'
 import { refusDeReouverture, type DroitsLus } from '@/lib/contrat'
 import { effacerDuStockage } from '@/lib/stockage'
+import { gestesDossier, type GestesDossier } from './dossier'
+import {
+  marquerLue,
+  messageRefusReponse,
+  nonLusParFiche,
+  refusReponse,
+  reponsesParPage,
+  type LigneReponse,
+} from '@/lib/fil'
 import type { CabinetBranding } from '@/types/reseller'
 import type {
   Consigne,
@@ -106,11 +115,15 @@ interface ScaleRow {
 }
 
 interface JournalRow {
+  /** De quoi la marquer lue et y répondre (0054). */
+  id: string
   patient_id: string
   title: string
   body: string
   trigger_label: string | null
   written_at: string
+  /** Quand le cabinet l'a ouverte ; posé par la base seule. */
+  lu_le: string | null
 }
 
 interface CategoryRow {
@@ -456,6 +469,8 @@ function assembler(
         }),
         trigger: j.trigger_label ?? j.title,
         text: j.body,
+        id: j.id,
+        luLe: j.lu_le,
       })),
   }
 }
@@ -619,6 +634,11 @@ export interface CabinetData {
   ) => Promise<Resultat>
   /** Annule un mot pas encore parti : il n'arrivera nulle part. */
   annulerNotification: (pushId: string) => Promise<Resultat>
+  /* Le fil (0054) ------------------------------------------------------ */
+  /** La thérapeute ouvre une page partagée : le patient verra « Lu le … ». */
+  marquerPageLue: (patientId: PatientId, pageId: string) => Promise<Resultat>
+  /** Répond à une page partagée : un mot pour son seul auteur, rangé sous la page. */
+  repondreAPage: (pageId: string, texte: string) => Promise<Resultat>
   /* La séance ------------------------------------------------------ *
    * Elle s'ouvre à la signature du consentement — c'est la pièce qui
    * autorise la captation, elle est horodatée et conservée. Le brouillon
@@ -654,6 +674,12 @@ export interface CabinetData {
   supprimerPatiente: (patientId: PatientId) => Promise<Resultat>
   /** Supprime une hypnose et ses mouvements. */
   supprimerHypnose: (hypnoseId: string) => Promise<Resultat>
+  /**
+   * Le dossier d'une fiche, lu et écrit À LA DEMANDE (0053) : l'historique
+   * des séances, l'anamnèse, les notes datées, les notes d'honoraires, la
+   * trace d'un export. Hors du rechargement général — voir src/cabinet/dossier.ts.
+   */
+  dossier: GestesDossier
 }
 
 export function useCabinet(cabinetId: string | null): CabinetData {
@@ -668,6 +694,9 @@ export function useCabinet(cabinetId: string | null): CabinetData {
      les retrouver, et c'est tout ce qu'on charge. */
   const [archivees, setArchivees] = useState<FicheClose[]>([])
   const reel = state.patientsReels
+  /* Un seul objet par cabinet : les écrans qui en dépendent ne relisent pas
+     le dossier à chaque rendu. */
+  const dossier = useMemo(() => gestesDossier(cabinetId), [cabinetId])
 
   const recharger = useCallback(async () => {
     const db = supabase()
@@ -681,7 +710,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
        fin de la semaine que l'assiduité regarde. */
     const aujourdhui = jourDeParis()
 
-    const [fiches, closes, modules, audios, echelles, journal, profils, categories, progs, rdv, bibliotheque, ateliers, affs, reglages, pushes, hypnoses, mouvements, brouillons, quiz, telephones, joursFaits] = await Promise.all([
+    const [fiches, closes, modules, audios, echelles, journal, profils, categories, progs, rdv, bibliotheque, ateliers, affs, reglages, pushes, hypnoses, mouvements, brouillons, quiz, telephones, joursFaits, reponses, nonLus] = await Promise.all([
       db.from('patients').select('*').is('archived_at', null).order('created_at'),
       db
         .from('patients')
@@ -694,7 +723,12 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       // `id` et `audio_id` : de quoi retirer l'envoi, et écouter l'audio.
       db.from('patient_audios').select('id, patient_id, audio_id, listens, audio:audio_library (title, duration_seconds)'),
       db.from('scale_entries').select('patient_id, value, recorded_at'),
-      db.from('journal_pages').select('patient_id, title, body, trigger_label, written_at'),
+      /* Les plus récentes d'abord : si l'API tronque un journal très long,
+         ce sont les pages d'il y a un an qui manquent, pas le mot d'hier. */
+      db
+        .from('journal_pages')
+        .select('id, patient_id, title, body, trigger_label, written_at, lu_le')
+        .order('written_at', { ascending: false }),
       db.from('psych_profiles').select('patient_id, version, sessions_count, portrait, axes, levers, dynamique, alliance, care, resume').order('version', { ascending: false }),
       db.from('audio_categories').select('id, label, position').order('position').order('label'),
       db.from('cabinet_programs').select('label, position').is('archived_at', null).order('position').order('label'),
@@ -736,6 +770,15 @@ export function useCabinet(cabinetId: string | null): CabinetData {
          (src/lib/assiduite.ts). Regroupés par exercice en base : ligne à
          ligne, l'API s'arrêterait à mille et tronquerait la semaine. */
       db.rpc('jours_faits_depuis', { p_depuis: decalerJour(aujourdhui, -JOURS_SUIVIS) }),
+      /* Le fil (0054) : les réponses de la thérapeute, rangées ensuite sous
+         leur page, et le compte des pages qui attendent — compté en base,
+         pour ne pas dépendre du lot de pages que l'API rend. */
+      db
+        .from('push_notifications')
+        .select('id, body, created_at, en_reponse_a')
+        .not('en_reponse_a', 'is', null)
+        .order('created_at'),
+      db.rpc('cabinet_pages_non_lues', { p_cabinet: cabinetId }),
     ])
 
     /* CE QUI N'A PAS ÉTÉ LU N'EST PAS VIDE.
@@ -775,6 +818,8 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       ['les réponses aux quiz', quiz],
       ['les téléphones inscrits aux rappels', telephones],
       ['les jours faits des exercices', joursFaits],
+      ['vos réponses aux mots', reponses],
+      ['le compte des mots non lus', nonLus],
     ]
 
     if (VITALES.some(([, r]) => r.error)) {
@@ -932,6 +977,12 @@ export function useCabinet(cabinetId: string | null): CabinetData {
           t.appareils,
         ]),
       ),
+      /* Illisibles, le compte et les réponses restent ceux d'avant : une
+         pastille qui disparaît sur un échec dirait « tout est lu ». */
+      nonLus: nonLus.error
+        ? prev.nonLus
+        : nonLusParFiche((nonLus.data ?? []) as Array<{ patient_id: string; non_lues: number }>),
+      reponses: reponses.error ? prev.reponses : reponsesParPage((reponses.data ?? []) as LigneReponse[]),
       patients: assemblees,
       patientOrder: ordre,
       patientsReels: true,
@@ -1854,6 +1905,59 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     [cabinetId, recharger],
   )
 
+  /* ---- Le fil (0054) ------------------------------------------------- *
+   * La lecture et la réponse passent par deux fonctions de la base : le
+   * cabinet n'écrit pas dans le journal du patient, et une réponse doit
+   * partir avec son destinataire dans la même transaction.              */
+
+  /**
+   * Ouvrir une page la marque lue.
+   *
+   * L'état suit la RÉPONSE de la base, pas le clic : c'est elle que le
+   * patient verra (« Lu par votre thérapeute le … »), et la première lecture
+   * — la vôtre ou celle d'une consœur — fait foi. Pas de rechargement du
+   * dossier pour une pastille : l'entrée et le compteur suivent sur place.
+   */
+  const marquerPageLue = useCallback(
+    async (patientId: PatientId, pageId: string): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const { data, error } = await db.rpc('cabinet_marquer_page_lue', { p_page: pageId })
+      if (error || typeof data !== 'string') {
+        return {
+          ok: false,
+          message: "La lecture n'a pas pu être notée : le patient ne voit pas encore que vous l'avez lue.",
+        }
+      }
+      set((prev) => marquerLue(prev, patientId, pageId, data))
+      return { ok: true, message: '' }
+    },
+    [cabinetId, set],
+  )
+
+  /**
+   * Répondre à une page, à son seul auteur.
+   *
+   * La réponse est un mot du cabinet : elle rejoint le journal des envois et
+   * part vers son téléphone au passage suivant des rappels. On relit le
+   * dossier ensuite — la réponse sous la page, la page lue, l'envoi au
+   * journal. Le texte ne quitte jamais le navigateur autrement que vers la
+   * base : ni journal serveur, ni trace d'audit.
+   */
+  const repondreAPage = useCallback(
+    async (pageId: string, texte: string): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const refus = refusReponse(texte)
+      if (refus) return { ok: false, message: refus }
+      const { error } = await db.rpc('cabinet_repondre_a_la_page', { p_page: pageId, p_texte: texte.trim() })
+      if (error) return { ok: false, message: messageRefusReponse(error.message) }
+      await recharger()
+      return { ok: true, message: '' }
+    },
+    [cabinetId, recharger],
+  )
+
   /* ---- La séance ----------------------------------------------------- */
 
   const ouvrirSeance = useCallback(
@@ -2367,6 +2471,8 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     envoyerNotification,
     modifierNotification,
     annulerNotification,
+    marquerPageLue,
+    repondreAPage,
     ouvrirSeance,
     seanceOuverte,
     sauverCaptation,
@@ -2382,6 +2488,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     acheverHypnose,
     supprimerPatiente,
     supprimerHypnose,
+    dossier,
   }
 }
 

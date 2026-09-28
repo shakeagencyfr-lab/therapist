@@ -10,7 +10,8 @@ import { useRetour } from '@/lib/useRetour'
 import { supabase } from '@/lib/supabase'
 import { jourDeParis } from '@/lib/assiduite'
 import type { NoteDuSoir } from '@/lib/echelle'
-import type { ModuleKind, QuizQuestion } from '@/types/domain'
+import { reponsesParPage, type LigneReponse } from '@/lib/fil'
+import type { ModuleKind, QuizQuestion, ReponseDuCabinet } from '@/types/domain'
 
 /* Le jour de Paris vit désormais avec l'assiduité, qui en a besoin des deux
    côtés ; il reste exporté d'ici pour ceux qui l'y cherchent. */
@@ -85,6 +86,9 @@ export interface MotRow {
 /** Combien de pages du journal se lisent d'un coup. */
 export const PAGES_PAR_LOT = 60
 
+/** Les réponses relues à chaque ouverture : les plus récentes, bien au-delà d'un lot de pages. */
+const REPONSES_LUES = 200
+
 /** Une page du journal, telle que le patient l'a écrite. */
 export interface JournalPageRow {
   id: string
@@ -94,6 +98,11 @@ export interface JournalPageRow {
   written_at: string
   /** Rang choisi par le patient. null tant qu'il n'a rien déplacé. */
   position: number | null
+  /**
+   * Quand sa thérapeute l'a ouverte (0054). Posé par le cabinet seul, remis
+   * à vide si la page est corrigée : la version relue n'a pas été lue.
+   */
+  lu_le: string | null
 }
 
 export interface PatientData {
@@ -102,6 +111,11 @@ export interface PatientData {
   mots: MotRow[]
   /** Marque un mot comme lu. La pastille disparaît, le mot reste. */
   marquerMotLu: (pushId: string) => Promise<void>
+  /**
+   * Les réponses de sa thérapeute, rangées sous la page à laquelle elles
+   * répondent (0054), de la plus ancienne à la plus récente.
+   */
+  reponses: Record<string, ReponseDuCabinet[]>
   /** Son journal, de la plus récente à la plus ancienne — les premières pages seulement. */
   journal: JournalPageRow[]
   /**
@@ -169,6 +183,7 @@ const NOTES_DE_LA_COURBE = 30
 export function usePatientData(patientId: string | null): PatientData {
   const [modules, setModules] = useState<PatientModuleRow[]>([])
   const [mots, setMots] = useState<MotRow[]>([])
+  const [reponses, setReponses] = useState<Record<string, ReponseDuCabinet[]>>({})
   const [journal, setJournal] = useState<JournalPageRow[]>([])
   const [journalTotal, setJournalTotal] = useState(0)
   const [journalIllisible, setJournalIllisible] = useState(false)
@@ -200,7 +215,7 @@ export function usePatientData(patientId: string | null): PatientData {
     setErreur('')
     const aujourdhui = jourDeParis()
 
-    const [mods, faitsDuJour, affs, auds, fiche, echelle, reglages, pages, courriers, quiz] = await Promise.all([
+    const [mods, faitsDuJour, affs, auds, fiche, echelle, reglages, pages, courriers, quiz, reponsesLues] = await Promise.all([
       /* Les exercices ENCORE à son parcours. La RLS les borne déjà pour le
          patient ; le filtre compte pour un compte qui est aussi membre d'un
          cabinet, que sa politique à lui laisserait voir les retirés. */
@@ -226,7 +241,7 @@ export function usePatientData(patientId: string | null): PatientData {
       db.rpc('patient_cabinet_settings'),
       db
         .from('journal_pages')
-        .select('id, title, body, shared, written_at, position', { count: 'exact' })
+        .select('id, title, body, shared, written_at, position, lu_le', { count: 'exact' })
         .eq('patient_id', patientId)
         /* L'ordre choisi d'abord, la chronologie ensuite : tant que rien n'a
            été déplacé, la position est nulle partout et le journal se lit du
@@ -248,6 +263,17 @@ export function usePatientData(patientId: string | null): PatientData {
         .from('module_quiz_answers')
         .select('module_id, question_index, answer_index, patient_modules!inner(patient_id)')
         .eq('patient_modules.patient_id', patientId),
+      /* Les réponses de sa thérapeute à ses pages (0054), pour les ranger
+         sous chacune. La RLS ne lui montre que les mots dus qui lui sont
+         adressés ; la jointure les borne à SA fiche, pour un compte qui
+         serait aussi membre d'un cabinet. */
+      db
+        .from('push_notifications')
+        .select('id, body, created_at, en_reponse_a, destinataires:push_recipients!inner(patient_id, read_at)')
+        .eq('destinataires.patient_id', patientId)
+        .not('en_reponse_a', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(REPONSES_LUES),
     ])
 
     const premiere = [mods.error, affs.error, auds.error, fiche.error, echelle.error].find(Boolean)
@@ -325,6 +351,21 @@ export function usePatientData(patientId: string | null): PatientData {
       }
       setReponsesQuiz(reponses)
     }
+    if (reponsesLues.error) {
+      // Les réponses déjà à l'écran y restent : un échec n'est pas « aucune réponse ».
+      console.warn('[patient] réponses de la thérapeute illisibles', reponsesLues.error.message)
+    } else {
+      const lignes = (
+        (reponsesLues.data ?? []) as Array<Omit<LigneReponse, 'read_at'> & { destinataires: Array<{ read_at: string | null }> }>
+      ).map<LigneReponse>((l) => ({
+        id: l.id,
+        body: l.body,
+        created_at: l.created_at,
+        en_reponse_a: l.en_reponse_a,
+        read_at: l.destinataires[0]?.read_at ?? null,
+      }))
+      setReponses(reponsesParPage(lignes))
+    }
     setChargement(false)
   }, [patientId])
 
@@ -380,9 +421,24 @@ export function usePatientData(patientId: string | null): PatientData {
    * moins gênant que l'inverse.
    */
   const marquerMotLu = useCallback(async (pushId: string) => {
+    const maintenant = new Date().toISOString()
     setMots((prev) =>
-      prev.map((m) => (m.push_id === pushId && !m.read_at ? { ...m, read_at: new Date().toISOString() } : m)),
+      prev.map((m) => (m.push_id === pushId && !m.read_at ? { ...m, read_at: maintenant } : m)),
     )
+    /* Une réponse est aussi un mot : lue sous sa page, sa pastille tombe
+       dans « Mots de votre cabinet », et l'inverse. */
+    setReponses((prev) => {
+      let change = false
+      const suite: Record<string, ReponseDuCabinet[]> = {}
+      for (const [page, liste] of Object.entries(prev)) {
+        suite[page] = liste.map((r) => {
+          if (r.id !== pushId || r.lueLe) return r
+          change = true
+          return { ...r, lueLe: maintenant }
+        })
+      }
+      return change ? suite : prev
+    })
     const db = supabase()
     if (!db) return
     /* Par une fonction, plus par un UPDATE direct. La politique qui autorisait
@@ -418,6 +474,7 @@ export function usePatientData(patientId: string | null): PatientData {
     modules,
     mots,
     marquerMotLu,
+    reponses,
     journal,
     journalTotal,
     voirPlusDePages,

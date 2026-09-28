@@ -4,6 +4,7 @@ import { useMaybeCabinet } from '@/cabinet/context'
 import { placesRestantes, useDroits } from '@/cabinet/droits'
 import { ContactRevendeur } from '@/components/layout/BandeauContrat'
 import { plural } from '@/lib/format'
+import { libelleNonLus } from '@/lib/fil'
 import { riskColor, sidebarPatients, slippingPatients } from '@/state/selectors'
 import { useStore } from '@/state/store'
 import s from './PatientSidebar.module.css'
@@ -129,6 +130,14 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
                   <span className={s.name}>{patient.name}</span>
                   <span className={s.sub}>{patient.subtitle}</span>
                 </span>
+                {/* Les mots qui attendent (0054) : le chiffre pour l'œil, la
+                    phrase pour qui ne le voit pas. */}
+                {(state.nonLus[id] ?? 0) > 0 ? (
+                  <span className={s.nonLus} title={libelleNonLus(state.nonLus[id] ?? 0)}>
+                    <span aria-hidden>{state.nonLus[id]}</span>
+                    <span className={s.horsEcran}>{libelleNonLus(state.nonLus[id] ?? 0)}</span>
+                  </span>
+                ) : null}
                 <span
                   className={s.dot}
                   style={{ background: riskColor(patient.adherence) }}

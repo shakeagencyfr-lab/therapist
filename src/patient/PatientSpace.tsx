@@ -3,6 +3,7 @@ import { Notice, RoundCheck } from '@/components/ui'
 import { supabase } from '@/lib/supabase'
 import { timecode } from '@/lib/format'
 import { couleurSure } from '@/lib/couleurs'
+import { pageDuMot } from '@/lib/fil'
 import { useAuth } from '@/auth/session'
 import { usePatientData } from './usePatientData'
 import { RendezVous } from './RendezVous'
@@ -62,6 +63,7 @@ export function PatientSpace() {
     modules,
     mots,
     marquerMotLu,
+    reponses,
     journal,
     journalTotal,
     voirPlusDePages,
@@ -88,6 +90,8 @@ export function PatientSpace() {
   /** La tâche ouverte en plein écran, s'il y en a une. */
   const [tacheOuverte, setTacheOuverte] = useState('')
   const [onglet, setOnglet] = useState<Onglet>(retour.commande || retour.annule ? 'boutique' : 'jour')
+  /** La page du journal à ouvrir, quand on y arrive depuis la réponse de sa thérapeute (0054). */
+  const [pageAOuvrir, setPageAOuvrir] = useState('')
   /** La carte des rappels est-elle à l'écran ? `null` tant qu'elle vérifie. */
   const [rappelsPresents, setRappelsPresents] = useState<boolean | null>(null)
 
@@ -141,6 +145,8 @@ export function PatientSpace() {
      faire ce matin. */
   const faites = taches.filter((m) => m.faitAujourdhui).length
   const nonLus = mots.filter((m) => !m.read_at).length
+  /** À quelle page répond chaque réponse de sa thérapeute (0054). */
+  const pageDesMots = pageDuMot(reponses)
   const tache = tacheOuverte ? (modules.find((m) => m.id === tacheOuverte) ?? null) : null
   const journeeFaite = taches.length > 0 && faites === taches.length
   const listeVisible = listeOuverte ?? !journeeFaite
@@ -394,28 +400,49 @@ export function PatientSpace() {
             </div>
             {mots.map((mot) => {
               const lu = Boolean(mot.read_at)
+              /* Une réponse à l'une de ses pages (0054) mène à la page : on
+                 ne répond pas dans le vide, on répond à quelque chose. Le
+                 lien n'est offert que si la page est là — effacée, ou trop
+                 ancienne pour être lue, elle ne s'ouvrirait pas. */
+              const page = pageDesMots[mot.push_id]
+              const pageLue = page ? journal.find((g) => g.id === page) : undefined
               return (
-                <button
-                  key={mot.push_id}
-                  type="button"
-                  className={s.mot}
-                  onClick={() => void marquerMotLu(mot.push_id)}
-                >
-                  <span
-                    className={lu ? `${s.motPastille} ${s.motLu}` : s.motPastille}
-                    style={!lu && patient.branding?.accent ? { background: patient.branding.accent } : undefined}
-                    aria-hidden
-                  />
-                  <span className={s.motCorps}>
-                    <span className={lu ? `${s.motTitre} ${s.motLuTitre}` : s.motTitre}>
-                      {mot.title}
+                <div key={mot.push_id} className={s.motFil}>
+                  <button
+                    type="button"
+                    className={s.mot}
+                    onClick={() => void marquerMotLu(mot.push_id)}
+                  >
+                    <span
+                      className={lu ? `${s.motPastille} ${s.motLu}` : s.motPastille}
+                      style={!lu && patient.branding?.accent ? { background: patient.branding.accent } : undefined}
+                      aria-hidden
+                    />
+                    <span className={s.motCorps}>
+                      <span className={lu ? `${s.motTitre} ${s.motLuTitre}` : s.motTitre}>
+                        {mot.title}
+                      </span>
+                      <span className={s.motTexte}>{mot.body}</span>
+                      {/* Le jour où le mot est arrivé : un mot programmé se
+                          datait de la veille, jour où il avait été écrit. */}
+                      <span className={s.motDate}>{jourDe(mot.du_le)}</span>
                     </span>
-                    <span className={s.motTexte}>{mot.body}</span>
-                    {/* Le jour où le mot est arrivé : un mot programmé se
-                        datait de la veille, jour où il avait été écrit. */}
-                    <span className={s.motDate}>{jourDe(mot.du_le)}</span>
-                  </span>
-                </button>
+                  </button>
+                  {pageLue ? (
+                    <button
+                      type="button"
+                      className={s.motLien}
+                      style={patient.branding?.accent ? { color: patient.branding.accent } : undefined}
+                      onClick={() => {
+                        void marquerMotLu(mot.push_id)
+                        setPageAOuvrir(pageLue.id)
+                        setOnglet('journal')
+                      }}
+                    >
+                      Relire ce que vous aviez écrit →
+                    </button>
+                  ) : null}
+                </div>
               )
             })}
           </section>
@@ -601,6 +628,10 @@ export function PatientSpace() {
             cabinetId={patient.cabinet_id}
             accent={patient.branding?.accent}
             onEcrit={recharger}
+            reponses={reponses}
+            onReponseLue={(pushId) => void marquerMotLu(pushId)}
+            pageInitiale={pageAOuvrir || undefined}
+            onPageInitialeVue={() => setPageAOuvrir('')}
           />
         ) : null}
 

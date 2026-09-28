@@ -10,6 +10,7 @@ import type {
   PatientModule,
   PsychProfile,
   PushRecord,
+  ReponseDuCabinet,
   Reservation,
   SessionDraft,
 } from '@/types/domain'
@@ -204,6 +205,12 @@ export interface AppState {
   /** Téléphones inscrits aux rappels, par fiche — le nombre, jamais les adresses. */
   appareils: Record<string, number>
 
+  /* Le fil (0054) ---------------------------------------------------- */
+  /** Pages partagées que le cabinet n'a pas encore ouvertes, par fiche. */
+  nonLus: Record<PatientId, number>
+  /** Les réponses du cabinet, rangées sous la page à laquelle elles répondent. */
+  reponses: Record<string, ReponseDuCabinet[]>
+
   /* Espace patient -------------------------------------------------- */
   pView: PatientView
   /** Pages du journal, par patient. */
@@ -357,6 +364,8 @@ export const initialState: AppState = {
   nSits: {},
   pushes: [],
   appareils: {},
+  nonLus: {},
+  reponses: {},
 
   pView: 'home',
   pages: JOURNAL_PAGES,
@@ -427,4 +436,6 @@ export const DOSSIER_AVANT_LECTURE: Partial<AppState> = {
   pages: {},
   affs: {},
   affAuto: {},
+  nonLus: {},
+  reponses: {},
 }

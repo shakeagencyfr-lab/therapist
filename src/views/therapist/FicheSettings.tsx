@@ -472,8 +472,10 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
           <div className={s.danger}>
             <span className={s.dangerTitre}>Supprimer la fiche de {fiche.name}</span>
             <span className={s.hint}>
-              Son dossier, ses modules, ses audios, son journal et ses hypnoses partent avec la
-              fiche. Rien ne se récupère. Pour confirmer, recopiez son nom.
+              Son dossier, ses séances, son anamnèse, vos notes de suivi, ses modules, ses audios,
+              son journal et ses hypnoses partent avec la fiche. Rien ne se récupère. Seules ses
+              notes d’honoraires restent à votre registre, à son nom : ce sont des pièces
+              comptables. Pour confirmer, recopiez son nom.
             </span>
             <div className={s.dangerLigne}>
               <TextInput

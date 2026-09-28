@@ -416,3 +416,37 @@
   opacity: 0.6;
   cursor: default;
 }
+
+/* ---- Le fil (0054) -------------------------------------------------- */
+
+/* « Lu par votre thérapeute le 3 septembre à 18 h 05 · 1 réponse » : une
+   ligne discrète, sous la date, lisible sans ouvrir la page. */
+.pageFil {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--c-ok-text);
+}
+
+/* La réponse se lit sous la page, dans le sens du temps ; le liseré prend
+   la couleur du cabinet quand il en a une. */
+.reponse {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--c-accent);
+  background: var(--c-app);
+  border-radius: 0 10px 10px 0;
+}
+.reponseQui {
+  display: block;
+  font-size: 12px;
+  color: var(--c-text-3);
+}
+.reponseTexte {
+  margin: 4px 0 0;
+  font-size: 15px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
