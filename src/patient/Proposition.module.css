@@ -1,5 +1,6 @@
-/* Les rappels sur ce téléphone — une carte comme les autres de l'espace,
-   pour qu'elle se lise comme une proposition et non comme une alerte. */
+/* Les propositions de l'espace — les rappels, l'installation. Des cartes
+   comme les autres, pour qu'elles se lisent comme des propositions et non
+   comme des alertes. */
 
 .carte {
   background: var(--c-surface);
@@ -91,4 +92,14 @@
   background: var(--c-ok-bg);
   border: 1px solid var(--c-ok-border);
   color: var(--c-ok-text);
+}
+
+/* Le bouton Partager de Safari, dessiné dans la phrase : on cherche plus
+   vite un signe qu'on a déjà vu qu'un mot qu'on ne trouve pas écrit. */
+.glyphe {
+  display: inline-block;
+  width: 15px;
+  height: 17px;
+  vertical-align: -3px;
+  margin: 0 2px;
 }

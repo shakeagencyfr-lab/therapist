@@ -11,6 +11,7 @@ import { MonCompte } from './MonCompte'
 import { MotAuTherapeute } from './MotAuTherapeute'
 import { Tache } from './Tache'
 import { Rappels } from './Rappels'
+import { Installer } from './Installer'
 import { IconeOnglet, type Icone } from './IconesOnglets'
 import s from './PatientSpace.module.css'
 
@@ -79,6 +80,8 @@ export function PatientSpace() {
   /** La tâche ouverte en plein écran, s'il y en a une. */
   const [tacheOuverte, setTacheOuverte] = useState('')
   const [onglet, setOnglet] = useState<Onglet>(retour.commande || retour.annule ? 'boutique' : 'jour')
+  /** La carte des rappels est-elle à l'écran ? `null` tant qu'elle vérifie. */
+  const [rappelsPresents, setRappelsPresents] = useState<boolean | null>(null)
 
   /** L'audio en cours d'écoute : son identifiant et son URL signée. */
   const [lecture, setLecture] = useState<{ id: string; url: string } | null>(null)
@@ -284,17 +287,25 @@ export function PatientSpace() {
           />
         ) : null}
 
-        {/* LES RAPPELS D'ABORD, tant qu'ils ne sont pas activés : c'est la
-            seule manière pour la thérapeute de joindre sa patiente à l'heure
-            dite. La carte s'efface d'elle-même une fois le geste fait — ou
-            pour une semaine, sur « Plus tard ». */}
+        {/* UNE PROPOSITION À LA FOIS, en haut de la journée. Les rappels
+            d'abord : c'est la seule manière pour la thérapeute de joindre sa
+            patiente à l'heure dite. L'installation ensuite, quand les rappels
+            sont réglés, écartés — ou quand, sur iPhone, c'est elle qui doit
+            venir la première. Deux demandes empilées au réveil, c'est une
+            de trop. */}
         {courant === 'jour' && !tache ? (
-          <Rappels
-            variante="carte"
-            patientId={patient.id}
-            cabinet={patient.cabinet_name}
-            accent={patient.branding?.accent}
-          />
+          <>
+            <Rappels
+              variante="carte"
+              patientId={patient.id}
+              cabinet={patient.cabinet_name}
+              accent={patient.branding?.accent}
+              onPresence={setRappelsPresents}
+            />
+            {rappelsPresents === false ? (
+              <Installer variante="carte" accent={patient.branding?.accent} />
+            ) : null}
+          </>
         ) : null}
 
         {/* Une tâche ouverte prend tout l'écran : sur un téléphone, un

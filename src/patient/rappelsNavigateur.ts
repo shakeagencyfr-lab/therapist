@@ -8,6 +8,7 @@
  * envoyer la patiente chercher au mauvais endroit.
  */
 import { supabase } from '@/lib/supabase'
+import { estInstallee } from './installation'
 import {
   cheminDeLEspace,
   cleEnOctets,
@@ -25,10 +26,7 @@ export interface Issue {
 export function environnement(): Environnement {
   const nav = typeof navigator === 'undefined' ? null : navigator
   const fen = typeof window === 'undefined' ? null : window
-  const installee = Boolean(
-    fen?.matchMedia?.('(display-mode: standalone)').matches ||
-      (nav as (Navigator & { standalone?: boolean }) | null)?.standalone,
-  )
+  const installee = estInstallee()
   return {
     serviceWorker: Boolean(nav && 'serviceWorker' in nav),
     pushManager: Boolean(fen && 'PushManager' in fen),

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAuth, LONGUEUR_MOT_DE_PASSE } from '@/auth/session'
 import { supabase } from '@/lib/supabase'
 import type { PatientIdentity } from '@/auth/session'
+import { Installer } from './Installer'
 import { Rappels } from './Rappels'
 import { oublierCeTelephone } from './rappelsNavigateur'
 import s from './MonCompte.module.css'
@@ -9,7 +10,7 @@ import s from './MonCompte.module.css'
 /**
  * Son compte, à elle.
  *
- * Quatre gestes, et celui qui supprime demande d'être honnête sur ce qu'il fait.
+ * Ses gestes, et celui qui supprime demande d'être honnête sur ce qu'il fait.
  *
  * SUPPRIMER SON COMPTE N'EFFACE PAS SON DOSSIER, et l'écran le dit avant de
  * le faire. Le dossier de suivi — les séances, le profil, ce que la
@@ -84,6 +85,8 @@ export function MonCompte({ patient }: { patient: PatientIdentity }) {
           </div>
         </dl>
       </section>
+
+      <Installer variante="reglage" accent={patient.branding?.accent} />
 
       <Rappels
         variante="reglage"

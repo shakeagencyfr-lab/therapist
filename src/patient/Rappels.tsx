@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { plusTardEncoreValable, type EtatRappels } from '@/lib/rappels'
 import { activer, desactiver, lireEtat } from './rappelsNavigateur'
-import s from './Rappels.module.css'
+import s from './Proposition.module.css'
 
 const CLE_PLUS_TARD = 'klaro.rappels.plusTard'
 
@@ -32,6 +32,13 @@ interface Props {
    * toujours là, pour activer comme pour retirer.
    */
   variante: 'carte' | 'reglage'
+  /**
+   * La carte s'affiche-t-elle ? `null` tant qu'on vérifie.
+   *
+   * La journée ne montre qu'une proposition à la fois : tant que celle-ci
+   * est là, l'installation attend son tour.
+   */
+  onPresence?: (presente: boolean | null) => void
 }
 
 /**
@@ -41,7 +48,7 @@ interface Props {
  * écrire à une heure donnée. Sans ce geste, un rappel « ce soir, 20 h »
  * attend qu'elle ouvre son espace — c'est-à-dire qu'il ne rappelle rien.
  */
-export function Rappels({ patientId, cabinet, accent, variante }: Props) {
+export function Rappels({ patientId, cabinet, accent, variante, onPresence }: Props) {
   const [etat, setEtat] = useState<EtatRappels | 'lecture'>('lecture')
   const [enCours, setEnCours] = useState(false)
   const [message, setMessage] = useState('')
@@ -81,10 +88,19 @@ export function Rappels({ patientId, cabinet, accent, variante }: Props) {
 
   const qui = cabinet ? `${cabinet} peut` : 'Votre thérapeute peut'
 
-  /* LA CARTE DE LA JOURNÉE ne s'affiche que là où un geste aboutit :
+  /* LA CARTE DE LA JOURNÉE ne s'affiche que là où un geste aboutit ICI :
      « refusée » se règle dans les réglages du téléphone, « indisponible »
-     nulle part — les rappeler chaque jour ne serait que du bruit. Après une
-     activation réussie, elle reste le temps de le dire. */
+     nulle part — les rappeler chaque jour ne serait que du bruit. Sur un
+     iPhone où l'espace n'est pas installé, c'est l'installation qui vient
+     d'abord : sa carte à elle prend la place. Après une activation réussie,
+     celle-ci reste le temps de le dire. */
+  const presente: boolean | null =
+    variante !== 'carte' ? null : reussi ? true : etat === 'lecture' ? null : !plusTard && etat === 'inactive'
+
+  useEffect(() => {
+    if (variante === 'carte') onPresence?.(presente)
+  }, [variante, presente, onPresence])
+
   if (variante === 'carte') {
     if (reussi) {
       return (
@@ -93,7 +109,7 @@ export function Rappels({ patientId, cabinet, accent, variante }: Props) {
         </section>
       )
     }
-    if (plusTard || (etat !== 'inactive' && etat !== 'a-installer')) return null
+    if (!presente) return null
   }
 
   const bouton = { background: accent ?? undefined }
@@ -117,21 +133,11 @@ export function Rappels({ patientId, cabinet, accent, variante }: Props) {
       ) : null}
 
       {etat === 'a-installer' ? (
-        <>
-          <p className={s.texte}>
-            Sur iPhone, les rappels n'arrivent que si votre espace est installé sur l'écran
-            d'accueil :
-          </p>
-          <ol className={s.etapes}>
-            <li>
-              touchez <strong>Partager</strong> (le carré avec une flèche) ;
-            </li>
-            <li>
-              choisissez <strong>Sur l'écran d'accueil</strong> ;
-            </li>
-            <li>rouvrez votre espace depuis sa nouvelle icône, et activez les rappels.</li>
-          </ol>
-        </>
+        <p className={s.texte}>
+          Sur iPhone, les rappels n'arrivent qu'une fois votre espace installé sur l'écran d'accueil
+          — voyez juste au-dessus. Rouvrez-le ensuite depuis son icône : vous pourrez les activer
+          ici.
+        </p>
       ) : null}
 
       {etat === 'refusee' && variante === 'reglage' ? (

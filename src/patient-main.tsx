@@ -19,6 +19,7 @@ import {
 } from './lib/vitrine'
 import { titreDuCabinet, useEnTete } from './lib/enTete'
 import { adresseDuManifeste } from './lib/rappels'
+import { ecouterInstallation } from './patient/installation'
 import { applyTheme, defaultTheme } from './theme/theme'
 import './styles/global.css'
 
@@ -147,6 +148,10 @@ const manifeste = document.getElementById('manifeste')
 if (manifeste instanceof HTMLLinkElement) {
   manifeste.href = adresseDuManifeste(window.location.pathname)
 }
+
+/* Chrome n'annonce qu'une fois qu'il sait installer l'espace, et souvent
+   avant le premier rendu : on écoute avant de monter quoi que ce soit. */
+ecouterInstallation()
 
 const root = document.getElementById('root')
 if (!root) throw new Error('Élément #root introuvable')

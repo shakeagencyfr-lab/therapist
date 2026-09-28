@@ -66,3 +66,23 @@ describe('le manifeste', () => {
     }
   })
 })
+
+/* L'annonce de Chrome ne passe qu'une fois, et souvent avant le premier
+   rendu. Une écoute déplacée après le montage ne casserait rien de visible
+   — le bouton ne s'afficherait simplement jamais sur Android. */
+describe("l'annonce d'installation", () => {
+  const demarrage = readFileSync(join(racine, 'src', 'patient-main.tsx'), 'utf8')
+
+  it('est écoutée avant que l’espace ne soit monté', () => {
+    const ecoute = demarrage.indexOf('ecouterInstallation()')
+    const montage = demarrage.indexOf('createRoot(')
+    expect(ecoute).toBeGreaterThan(-1)
+    expect(ecoute).toBeLessThan(montage)
+  })
+
+  it('retient le bandeau de Chrome pour le remplacer par le bouton', () => {
+    const module = readFileSync(join(racine, 'src', 'patient', 'installation.ts'), 'utf8')
+    expect(module).toMatch(/beforeinstallprompt[\s\S]{0,120}preventDefault\(\)/)
+    expect(module).toMatch(/appinstalled/)
+  })
+})
