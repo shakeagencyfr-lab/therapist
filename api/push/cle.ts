@@ -16,9 +16,14 @@ export default function handler(req: VercelRequest, res: VercelResponse): void {
     return
   }
   try {
+    const cle = clePubliqueDuServeur()
     res.setHeader('Cache-Control', 'public, max-age=3600')
-    res.status(200).json({ cle: clePubliqueDuServeur() })
+    res.status(200).json({ cle })
   } catch (err) {
+    /* LE REFUS NE SE MET PAS EN CACHE. Il n'est vrai que jusqu'à ce que la
+       clé soit posée : gardé une heure par le navigateur, il laisserait une
+       patiente devant « pas encore disponible » bien après que ça l'est. */
+    res.setHeader('Cache-Control', 'no-store')
     const { status, message } = describeError(err)
     res.status(status).json({ message })
   }
