@@ -109,6 +109,12 @@ Relevé du 28 septembre 2026 (base `koytgcbpeorupdklswxd`).
 | `0044_le_suivi_clos_ferme_la_porte.sql` | 20260928195441 | 0044_le_suivi_clos_ferme_la_porte |
 | `0045_retirer_et_rattacher.sql` | 20260928195517 | 0045_retirer_et_rattacher |
 | `0046_l_assiduite_ne_compte_que_les_taches.sql` | 20260928201356 | 0046_l_assiduite_ne_compte_que_les_taches |
+| `0047_la_boutique_rattrape_et_se_ferme.sql` | 20260928213937 | 0047_la_boutique_rattrape_et_se_ferme |
+| `0048_la_vitrine_suit_le_contrat.sql` | 20260928214019 | 0048_la_vitrine_suit_le_contrat |
+| `0049_le_contrat_tient_parole.sql` | 20260928214149 | 0049_le_contrat_tient_parole |
+| `0050_la_base_tient_la_charge.sql` | 20260928214220 | 0050_la_base_tient_la_charge |
+| `0051_chaque_jour_se_coche.sql` | 20260928214258 | 0051_chaque_jour_se_coche |
+| `0052_le_portefeuille_compte_les_jours.sql` | 20260928215828 | 0052_le_portefeuille_compte_les_jours |
 
 Les écarts, et ce qu'ils recouvrent — le contenu, lui, est en place :
 
