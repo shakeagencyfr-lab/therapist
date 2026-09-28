@@ -6,6 +6,15 @@
     <meta name="robots" content="noindex, nofollow" />
     <meta name="theme-color" content="#33291C" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <!-- Installable sur l'écran d'accueil : c'est la condition, sur iPhone,
+         pour recevoir les rappels. Nom et icône neutres — ils s'affichent
+         aussi chez les cabinets en marque blanche. L'adresse du manifeste est
+         ajustée au démarrage (patient-main.tsx) pour que l'espace installé
+         rouvre /son-cabinet/mon, et non la porte générique. -->
+    <meta name="apple-mobile-web-app-title" content="Mon espace" />
+    <link id="manifeste" rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icones/apple-touch-180.png" />
     <title>Klaro — Votre espace</title>
     <!-- Les polices sont servies depuis notre domaine : une page qui va les
          chercher chez un tiers lui signale la visite de chacun. Engendrées

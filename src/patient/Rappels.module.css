@@ -1,0 +1,94 @@
+/* Les rappels sur ce téléphone — une carte comme les autres de l'espace,
+   pour qu'elle se lise comme une proposition et non comme une alerte. */
+
+.carte {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-panel, 16px);
+  padding: 17px 18px 16px;
+}
+
+.titre {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 400;
+  margin: 0 0 8px;
+}
+
+.texte {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--c-text-3);
+  margin: 0 0 12px;
+}
+
+.etapes {
+  margin: 0 0 12px;
+  padding-left: 20px;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--c-text-3);
+}
+
+.bouton {
+  width: 100%;
+  min-height: 48px;
+  border: none;
+  border-radius: 999px;
+  background: var(--c-accent);
+  color: var(--c-surface);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.secondaire {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--c-text-3);
+  font-family: inherit;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.bouton:disabled,
+.secondaire:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* « Plus tard » : une porte de sortie, pas un second bouton qui concurrence
+   le premier. */
+.plusTard {
+  display: block;
+  margin: 10px auto 0;
+  padding: 6px 10px;
+  border: none;
+  background: none;
+  color: var(--c-text-muted);
+  font-family: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.note {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+  margin: 10px 0 0;
+}
+
+.ok {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  background: var(--c-ok-bg);
+  border: 1px solid var(--c-ok-border);
+  color: var(--c-ok-text);
+}

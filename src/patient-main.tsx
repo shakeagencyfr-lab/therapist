@@ -18,6 +18,7 @@ import {
   type Vitrine,
 } from './lib/vitrine'
 import { titreDuCabinet, useEnTete } from './lib/enTete'
+import { adresseDuManifeste } from './lib/rappels'
 import { applyTheme, defaultTheme } from './theme/theme'
 import './styles/global.css'
 
@@ -135,6 +136,16 @@ function Portail() {
   }
 
   return <PatientSpace />
+}
+
+/* L'espace installé doit rouvrir LA porte du cabinet. Le manifeste est le
+   même pour tous, mais lu depuis /son-cabinet/manifest.webmanifest, ses
+   chemins relatifs s'y résolvent : « ./mon » devient /son-cabinet/mon.
+   Posé ici plutôt qu'en dur dans la page, pour valoir aussi derrière une
+   barre oblique finale. */
+const manifeste = document.getElementById('manifeste')
+if (manifeste instanceof HTMLLinkElement) {
+  manifeste.href = adresseDuManifeste(window.location.pathname)
 }
 
 const root = document.getElementById('root')

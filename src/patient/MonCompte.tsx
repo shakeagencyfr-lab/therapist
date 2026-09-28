@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { useAuth, LONGUEUR_MOT_DE_PASSE } from '@/auth/session'
 import { supabase } from '@/lib/supabase'
 import type { PatientIdentity } from '@/auth/session'
+import { Rappels } from './Rappels'
+import { oublierCeTelephone } from './rappelsNavigateur'
 import s from './MonCompte.module.css'
 
 /**
  * Son compte, à elle.
  *
- * Trois gestes, et le troisième demande d'être honnête sur ce qu'il fait.
+ * Quatre gestes, et celui qui supprime demande d'être honnête sur ce qu'il fait.
  *
  * SUPPRIMER SON COMPTE N'EFFACE PAS SON DOSSIER, et l'écran le dit avant de
  * le faire. Le dossier de suivi — les séances, le profil, ce que la
@@ -56,6 +58,9 @@ export function MonCompte({ patient }: { patient: PatientIdentity }) {
         return
       }
       // Le compte n'existe plus : la session qui reste ouverte n'ouvre rien.
+      // Ses inscriptions sont parties avec lui en base ; le navigateur, lui,
+      // garderait la sienne sans ce geste.
+      await oublierCeTelephone()
       await seDeconnecter()
       window.location.replace('/mon')
     } catch {
@@ -79,6 +84,13 @@ export function MonCompte({ patient }: { patient: PatientIdentity }) {
           </div>
         </dl>
       </section>
+
+      <Rappels
+        variante="reglage"
+        patientId={patient.id}
+        cabinet={patient.cabinet_name}
+        accent={patient.branding?.accent}
+      />
 
       <section className={s.carte}>
         <h2 className={s.titre}>Un mot de passe, si vous préférez</h2>
@@ -154,7 +166,14 @@ export function MonCompte({ patient }: { patient: PatientIdentity }) {
         )}
       </section>
 
-      <button type="button" className={s.deconnexion} onClick={() => void seDeconnecter()}>
+      {/* Se déconnecter d'un téléphone, c'est aussi cesser d'y recevoir ses
+          rappels : celui qu'on a prêté, ou celui d'un proche, ne doit plus
+          afficher le mot d'une thérapeute sur son écran verrouillé. */}
+      <button
+        type="button"
+        className={s.deconnexion}
+        onClick={() => void oublierCeTelephone().then(() => seDeconnecter())}
+      >
         Se déconnecter
       </button>
     </div>

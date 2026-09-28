@@ -190,6 +190,8 @@ export interface AppState {
   /** Situations cochées. */
   nSits: Record<string, boolean>
   pushes: PushRecord[]
+  /** Téléphones inscrits aux rappels, par fiche — le nombre, jamais les adresses. */
+  appareils: Record<string, number>
 
   /* Espace patient -------------------------------------------------- */
   pView: PatientView
@@ -342,6 +344,7 @@ export const initialState: AppState = {
   nAdh: 'all',
   nSits: {},
   pushes: [],
+  appareils: {},
 
   pView: 'home',
   pages: JOURNAL_PAGES,

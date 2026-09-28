@@ -233,6 +233,28 @@ export interface PushRecord {
    * soir : la thérapeute croyait son mot arrivé et n'y revenait pas.
    */
   attend: string | null
+  /**
+   * Ce qui est arrivé sur les téléphones — absent en démonstration, où rien
+   * ne part.
+   */
+  telephone?: BilanTelephone
+}
+
+/**
+ * Le sort d'un mot, patiente par patiente, une fois l'heure venue.
+ *
+ * « Sans téléphone » n'est pas un échec : la patiente n'a pas activé les
+ * rappels, elle lira le mot à sa prochaine ouverture — et la thérapeute
+ * peut le lui proposer en séance.
+ */
+export interface BilanTelephone {
+  arrivees: number
+  sansTelephone: number
+  echecs: number
+  /** L'heure était passée depuis plus de deux heures : pas envoyé. */
+  tardives: number
+  /** Pas encore traité — le passage de la minute s'en occupe. */
+  enAttente: number
 }
 
 /* ------------------------------------------------------------------ *

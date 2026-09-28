@@ -15,6 +15,7 @@ import { supprimerCompte } from './compte.js'
 import { appliquerIntegration, etatIntegrations } from './integrations.js'
 import { agirVolet, lireVolet } from './cabinet.js'
 import { demarrerPaiement, verifierPaiement } from './shop.js'
+import { clePubliqueDuServeur, pousserLesRappelsDus } from './push.js'
 
 const PORT = Number(process.env.PORT) || 8787
 const PRODUCTION = process.env.NODE_ENV === 'production'
@@ -141,6 +142,31 @@ app.get('/api/cron/affirmations', async (req: Request, res: Response): Promise<v
   } catch (err) {
     const { status, message } = describeError(err)
     console.error(`[affirmations] lundi — ${status} · ${message}`)
+    res.status(status).json({ message })
+  }
+})
+
+/* Les rappels : la clé publique pour le téléphone qui s'inscrit, et le
+   passage que la base déclenche en production. Même secret, même refus. */
+app.get('/api/push/cle', (_req: Request, res: Response): void => {
+  try {
+    res.json({ cle: clePubliqueDuServeur() })
+  } catch (err) {
+    const { status, message } = describeError(err)
+    res.status(status).json({ message })
+  }
+})
+
+app.all('/api/cron/rappels', async (req: Request, res: Response): Promise<void> => {
+  if (!cronAutorise(req.headers.authorization ?? null)) {
+    res.status(401).json({ message: 'Cette adresse est réservée au planificateur.' })
+    return
+  }
+  try {
+    res.json(await pousserLesRappelsDus())
+  } catch (err) {
+    const { status, message } = describeError(err)
+    console.error(`[rappels] ${status} · ${message}`)
     res.status(status).json({ message })
   }
 })

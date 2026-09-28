@@ -15,6 +15,7 @@ import { supabase } from '@/lib/supabase'
 import { demanderInvitation } from '@/services/invitations'
 import { useStore } from '@/state/store'
 import { durationToSeconds, plural } from '@/lib/format'
+import { bilanTelephone } from '@/lib/rappels'
 import type { CabinetBranding } from '@/types/reseller'
 import type {
   Consigne,
@@ -144,7 +145,7 @@ interface PushRow {
   scheduled_for: string
   scheduled_at: string | null
   created_at: string
-  recipients: Array<{ patient: { display_name: string } | null }>
+  recipients: Array<{ push_status: string | null; patient: { display_name: string } | null }>
 }
 
 /** Un module tout juste créé par l'envoi d'une séance. */
@@ -547,7 +548,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     setErreur('')
     setChargement(true)
 
-    const [fiches, closes, modules, audios, echelles, journal, profils, categories, progs, rdv, bibliotheque, ateliers, affs, reglages, pushes, hypnoses, mouvements, brouillons, quiz] = await Promise.all([
+    const [fiches, closes, modules, audios, echelles, journal, profils, categories, progs, rdv, bibliotheque, ateliers, affs, reglages, pushes, hypnoses, mouvements, brouillons, quiz, telephones] = await Promise.all([
       db.from('patients').select('*').is('archived_at', null).order('created_at'),
       db
         .from('patients')
@@ -569,7 +570,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       db.from('patient_settings').select('patient_id, affirmations_auto'),
       db
         .from('push_notifications')
-        .select('id, title, body, scheduled_for, scheduled_at, created_at, recipients:push_recipients (patient:patients (display_name))')
+        .select('id, title, body, scheduled_for, scheduled_at, created_at, recipients:push_recipients (push_status, patient:patients (display_name))')
         .order('created_at', { ascending: false })
         .limit(30),
       db
@@ -591,6 +592,10 @@ export function useCabinet(cabinetId: string | null): CabinetData {
          répondre — et le badge « Quiz 3 / 4 » de la fiche se nourrissait des
          clics de la thérapeute dans l'aperçu de démonstration. */
       db.from('module_quiz_answers').select('module_id, question_index, answer_index'),
+      /* Qui recevra un rappel sur son téléphone, et qui devra ouvrir son
+         espace pour le lire. Le nombre seulement : une adresse d'envoi
+         permet d'écrire sur un écran verrouillé, elle ne quitte pas la base. */
+      db.rpc('cabinet_appareils', { p_cabinet: cabinetId }),
     ])
 
     /* CE QUI N'A PAS ÉTÉ LU N'EST PAS VIDE.
@@ -628,6 +633,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       ['les mouvements des hypnoses', mouvements],
       ['les brouillons de séance', brouillons],
       ['les réponses aux quiz', quiz],
+      ['les téléphones inscrits aux rappels', telephones],
     ]
 
     if (VITALES.some(([, r]) => r.error)) {
@@ -752,6 +758,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       /* Programmée et pas encore due : depuis 0036, l'espace patient ne la
          voit pas avant l'heure. Le journal doit donc le dire aussi, sans quoi
          la thérapeute lirait « envoyé » d'un mot qui attend encore. */
+      telephone: bilanTelephone(n.recipients.map((r) => r.push_status)),
       attend:
         n.scheduled_at && new Date(n.scheduled_at) > new Date()
           ? new Date(n.scheduled_at).toLocaleString('fr-FR', {
@@ -767,6 +774,12 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       affAuto,
       quizReponses,
       pushes: envois,
+      appareils: Object.fromEntries(
+        ((telephones.data ?? []) as Array<{ patient_id: string; appareils: number }>).map((t) => [
+          t.patient_id,
+          t.appareils,
+        ]),
+      ),
       patients: assemblees,
       patientOrder: ordre,
       patientsReels: true,

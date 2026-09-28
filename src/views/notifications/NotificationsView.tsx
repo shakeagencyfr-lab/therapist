@@ -14,6 +14,7 @@ import { useMaybeAuth } from '@/auth/session'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { useStore } from '@/state/store'
 import type { PushRecord } from '@/types/domain'
+import { phraseTelephone } from '@/lib/rappels'
 import s from './NotificationsView.module.css'
 
 /** Heure d'envoi conservée dans le journal, au format `14:32`. */
@@ -36,6 +37,13 @@ export function NotificationsView() {
   const canSend = recipients.length > 0 && state.nMsg.trim().length > 0
 
   const cabinet = useMaybeCabinet()
+  const cabinetReel = Boolean(cabinet?.reel)
+  /* QUI RECEVRA LE MOT SUR SON TÉLÉPHONE. Sans rappels activés, il attend
+     dans son espace jusqu'à sa prochaine ouverture — c'est un autre mot, et
+     la thérapeute doit le savoir AVANT d'écrire « ce soir, 20 h ». */
+  const aTelephone = (cle: string) => (state.appareils[cle] ?? 0) > 0
+  const sansTelephone = cabinetReel ? recipients.filter((row) => !aTelephone(row.key)) : []
+
   /* L'aperçu porte le nom du cabinet connecté : il montrait « Cabinet Laetitia
      Ollivier » à tout le monde, c'est-à-dire le nom d'un autre cabinet sur
      l'écran d'une praticienne. */
@@ -194,6 +202,11 @@ export function NotificationsView() {
                     <span className={s.name}>{row.name}</span>
                     <span className={s.reason}>{row.reason}</span>
                   </div>
+                  {cabinetReel ? (
+                    <span className={aTelephone(row.key) ? s.telephoneOui : s.telephoneNon}>
+                      {aTelephone(row.key) ? 'Rappels activés' : 'Sans rappels'}
+                    </span>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -223,9 +236,16 @@ export function NotificationsView() {
               rows={4}
               value={state.nMsg}
               onChange={(e) => set({ nMsg: e.target.value })}
-              placeholder="Deux phrases suffisent. Elle le lira en haut de sa journée, à sa prochaine ouverture."
+              placeholder="Deux phrases suffisent."
               aria-label="Message de la notification"
             />
+            {/* Le mot s'affiche sur l'écran verrouillé, sous les yeux de qui
+                tient le téléphone. Le rappel de discrétion vient avant
+                l'envoi, pas dans une charte que personne ne relit. */}
+            <p className={s.discret}>
+              Il peut s'afficher sur l'écran verrouillé de son téléphone : restez discret sur le
+              motif du suivi.
+            </p>
             <div className={s.templates}>
               {NOTIF_TEMPLATES.map((template) => (
                 <button
@@ -330,8 +350,16 @@ export function NotificationsView() {
               <span className={s.sendHint}>
                 {state.pushes.length
                   ? `Dernier envoi : ${plural(state.pushes[0].names.length, 'destinataire', 'destinataires')}.`
-                  : 'Le mot attend dans son espace : il ne sonne pas, il ne réveille personne.'}
+                  : "Il arrive sur le téléphone de qui a activé les rappels, et attend dans l'espace des autres."}
               </span>
+              {sansTelephone.length > 0 ? (
+                <span className={s.sansTelephoneNote}>
+                  {sansTelephone.length === 1
+                    ? `${sansTelephone[0].name} n'a pas activé les rappels : ce mot l'attendra dans son espace.`
+                    : `${sansTelephone.length} destinataires n'ont pas activé les rappels : ce mot les attendra dans leur espace.`}{' '}
+                  Vous pouvez le leur proposer en séance — c'est dans « Mon compte », dans leur espace.
+                </span>
+              ) : null}
             </div>
           </Card>
 
@@ -341,8 +369,8 @@ export function NotificationsView() {
                 <Title>Derniers mots</Title>
               </div>
               <div className={s.logSub}>
-                Chaque mot attend dans son espace : elle le lit en haut de sa journée, à sa
-                prochaine ouverture.
+                Chaque mot part sur le téléphone de qui a activé les rappels, et reste dans son
+                espace dans tous les cas.
               </div>
               <ul className={s.logList}>
                 {state.pushes.map((push, i) => (
@@ -359,6 +387,9 @@ export function NotificationsView() {
                       {plural(push.names.length, 'destinataire', 'destinataires')} ·{' '}
                       {push.names.join(', ')}
                     </div>
+                    {push.telephone && phraseTelephone(push.telephone) ? (
+                      <div className={s.logTelephone}>{phraseTelephone(push.telephone)}</div>
+                    ) : null}
                   </li>
                 ))}
               </ul>

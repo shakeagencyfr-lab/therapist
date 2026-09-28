@@ -10,6 +10,7 @@ import { Journal } from './Journal'
 import { MonCompte } from './MonCompte'
 import { MotAuTherapeute } from './MotAuTherapeute'
 import { Tache } from './Tache'
+import { Rappels } from './Rappels'
 import { IconeOnglet, type Icone } from './IconesOnglets'
 import s from './PatientSpace.module.css'
 
@@ -280,6 +281,19 @@ export function PatientSpace() {
             retourCommande={retour.commande}
             retourAnnule={retour.annule}
             onLivre={recharger}
+          />
+        ) : null}
+
+        {/* LES RAPPELS D'ABORD, tant qu'ils ne sont pas activés : c'est la
+            seule manière pour la thérapeute de joindre sa patiente à l'heure
+            dite. La carte s'efface d'elle-même une fois le geste fait — ou
+            pour une semaine, sur « Plus tard ». */}
+        {courant === 'jour' && !tache ? (
+          <Rappels
+            variante="carte"
+            patientId={patient.id}
+            cabinet={patient.cabinet_name}
+            accent={patient.branding?.accent}
           />
         ) : null}
 
