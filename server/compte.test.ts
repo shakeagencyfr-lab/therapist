@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest'
 import {
   ANCIEN_REQUIS,
   appliquerChangementDeMotDePasse,
+  appliquerSuppression,
   gesteDuCompte,
   lireDemandeMotDePasse,
   type PorteMotDePasse,
+  type PorteSuppression,
 } from './compte'
 import { HttpError } from './errors'
 
@@ -133,5 +135,93 @@ describe('changer son mot de passe', () => {
   it('refuse un geste inconnu', async () => {
     const e = await refus(gesteDuCompte('jeton', { geste: 'effacer-tout' }))
     expect(e.status).toBe(400)
+  })
+})
+
+/** Une base qui note ce qu'on lui demande, et échoue là où on le lui dit. */
+function base(fiche: string | null, echecs: Partial<Record<'journal' | 'fiche' | 'compte' | 'recherche', string>> = {}) {
+  const appels: string[] = []
+  const p: PorteSuppression = {
+    async ficheRattachee(userId) {
+      appels.push(`chercher:${userId}`)
+      if (echecs.recherche) throw new HttpError(502, echecs.recherche)
+      return fiche
+    },
+    async effacerJournal(patientId) {
+      appels.push(`journal:${patientId}`)
+      return echecs.journal ?? null
+    },
+    async detacher(patientId) {
+      appels.push(`detacher:${patientId}`)
+      return echecs.fiche ?? null
+    },
+    async supprimerCompte(userId) {
+      appels.push(`supprimer:${userId}`)
+      return echecs.compte ?? null
+    },
+  }
+  return { p, appels }
+}
+
+describe('supprimer son compte', () => {
+  it('efface le journal, détache la fiche, puis supprime le compte — dans cet ordre', async () => {
+    const { p, appels } = base(null)
+    const r = await appliquerSuppression({ userId: 'u1', patientId: 'p1', autreRole: false }, p)
+    expect(r.message).toMatch(/supprimé/)
+    // La fiche active est connue : inutile de la chercher.
+    expect(appels).toEqual(['journal:p1', 'detacher:p1', 'supprimer:u1'])
+  })
+
+  /* Le défaut d'origine : `my_context` ignore les fiches closes, le geste
+     répondait 403, et le journal restait en base sans que personne puisse
+     l'effacer. */
+  it('retrouve la fiche d’un suivi clos, et l’efface comme une fiche active', async () => {
+    const { p, appels } = base('p-close')
+    const r = await appliquerSuppression({ userId: 'u1', patientId: null, autreRole: false }, p)
+    expect(r.ok).toBe(true)
+    expect(appels).toEqual(['chercher:u1', 'journal:p-close', 'detacher:p-close', 'supprimer:u1'])
+  })
+
+  it('ferme un compte resté sans fiche ni autre rôle', async () => {
+    const { p, appels } = base(null)
+    const r = await appliquerSuppression({ userId: 'u1', patientId: null, autreRole: false }, p)
+    expect(r.message).toBe('Votre compte est supprimé.')
+    expect(appels).toEqual(['chercher:u1', 'supprimer:u1'])
+  })
+
+  it('refuse un compte professionnel sans fiche, sans rien toucher', async () => {
+    const { p, appels } = base(null)
+    const e = await refus(appliquerSuppression({ userId: 'u1', patientId: null, autreRole: true }, p))
+    expect(e.status).toBe(403)
+    expect(appels).toEqual(['chercher:u1'])
+  })
+
+  it('garde le compte qui porte aussi un espace professionnel', async () => {
+    const { p, appels } = base('p-close')
+    const r = await appliquerSuppression({ userId: 'u1', patientId: null, autreRole: true }, p)
+    expect(r.message).toMatch(/reste ouvert/)
+    expect(appels).toEqual(['chercher:u1', 'journal:p-close', 'detacher:p-close'])
+  })
+
+  it('ne détache ni ne supprime rien quand le journal résiste', async () => {
+    const { p, appels } = base(null, { journal: 'boom' })
+    const e = await refus(appliquerSuppression({ userId: 'u1', patientId: 'p1', autreRole: false }, p))
+    expect(e.status).toBe(502)
+    expect(e.message).toMatch(/Rien n'a été supprimé/)
+    expect(appels).toEqual(['journal:p1'])
+  })
+
+  it('ne supprime rien quand la fiche n’a pas pu être cherchée', async () => {
+    const { p, appels } = base(null, { recherche: 'Votre fiche n’a pas pu être retrouvée.' })
+    const e = await refus(appliquerSuppression({ userId: 'u1', patientId: null, autreRole: false }, p))
+    expect(e.status).toBe(502)
+    expect(appels).toEqual(['chercher:u1'])
+  })
+
+  it('dit la vérité quand seul le compte résiste', async () => {
+    const { p } = base('p1', { compte: 'boom' })
+    const e = await refus(appliquerSuppression({ userId: 'u1', patientId: null, autreRole: false }, p))
+    expect(e.status).toBe(502)
+    expect(e.message).toMatch(/journal effacé, mais votre compte n'a pas pu être supprimé/)
   })
 })

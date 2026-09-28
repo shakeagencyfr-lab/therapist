@@ -110,6 +110,10 @@
 .bascule:hover {
   text-decoration: underline;
 }
+/* Deux ou trois voies à la suite : une liste, pas trois paragraphes. */
+.bascule + .bascule {
+  margin-top: 10px;
+}
 
 .oubli {
   display: inline-block;

@@ -109,6 +109,14 @@ async function baseDuCabinet(
 interface LienNeuf {
   /** Le lien, quand il y en a un — et alors LE COMPTE VIENT D'ÊTRE CRÉÉ. */
   lien: string | null
+  /**
+   * Le code à six chiffres qui va avec, quand le service le fournit.
+   *
+   * Il ouvre la même porte que le lien, mais se tape là où l'on en a besoin :
+   * dans l'espace installé sur l'écran d'accueil d'un iPhone, que le lien —
+   * ouvert dans Safari — laisse déconnecté.
+   */
+  code: string | null
   /** Rien à envoyer : la personne était déjà inscrite. Ce n'est pas une panne. */
   existe: boolean
 }
@@ -144,10 +152,10 @@ async function lienDeConnexion(
     // Compte existant : ce n'est pas une panne, c'est le cas qu'on refuse.
     const existe = dejaInscrit(error)
     if (!existe) console.error(`[invitation] lien — ${error.status ?? ''} ${error.message}`)
-    return { lien: null, existe }
+    return { lien: null, code: null, existe }
   }
-  const lien = (data as { properties?: { action_link?: string } } | null)?.properties?.action_link ?? null
-  return { lien, existe: false }
+  const proprietes = (data as { properties?: { action_link?: string; email_otp?: string } } | null)?.properties
+  return { lien: proprietes?.action_link ?? null, code: proprietes?.email_otp || null, existe: false }
 }
 
 /**
@@ -179,7 +187,7 @@ export function courrielNonParti(email: string): InviteResult {
   return {
     status: 502,
     body: {
-      message: `Votre serveur d'envoi n'a pas répondu : le courriel n'est pas parti. Le compte de ${email} est bien ouvert — elle peut se connecter en entrant son adresse sur le site. Vérifiez vos réglages d'envoi dans Marque blanche, puis prévenez-la.`,
+      message: `Votre serveur d'envoi n'a pas répondu : le courriel n'est pas parti. Le compte de ${email} est bien ouvert — il suffit d'entrer cette adresse sur le site pour s'y connecter. Vérifiez vos réglages d'envoi dans Marque blanche, puis prévenez la personne.`,
     },
   }
 }
@@ -196,11 +204,20 @@ export function modeleSelonRole(role: string | null | undefined): Exclude<Invite
   return role === 'owner' ? 'praticienne' : 'consoeur'
 }
 
-/** Le courriel d'invitation, en marque blanche. Rien d'un dossier n'y figure. */
+/**
+ * Le courriel d'invitation, en marque blanche. Rien d'un dossier n'y figure.
+ *
+ * `code` : le code à six chiffres fabriqué avec le lien, quand le service l'a
+ * rendu. Il ouvre la même porte, à la main — c'est la seule qui s'ouvre
+ * depuis l'espace installé sur un iPhone, où le lien mène à Safari et laisse
+ * l'application déconnectée. Le libellé cité est celui de la porte
+ * (src/auth/SignIn.tsx) : l'un ne change pas sans l'autre.
+ */
 export function corpsInvitation(
   kind: InviteKind,
   cabinet: string,
   lien: string,
+  code: string | null = null,
 ): { subject: string; text: string; html: string } {
   /* `cabinet` est le nom du cabinet lui-même. L'objet disait donc « Votre
      cabinet sur Cabinet Claire Fontaine » : son cabinet sur son cabinet. La
@@ -217,11 +234,29 @@ export function corpsInvitation(
       : kind === 'consoeur'
         ? `${cabinet} vous ouvre une place dans son équipe. Ce lien vous connecte à l'espace du cabinet, auprès de celles et ceux qui y exercent déjà.`
         : `${cabinet} est ouvert. Ce lien vous y connecte et vous en rend propriétaire.`
-  const text = `${intro}\n\nVotre lien de connexion :\n${lien}\n\nIl vous connecte directement, sans mot de passe à retenir. Si vous n'attendiez pas ce message, ignorez-le : personne n'a accès à votre espace sans ce lien.`
+  /* Seuls des chiffres passent : le code est inséré tel quel dans le HTML,
+     et rien d'autre que lui ne doit pouvoir s'y glisser. */
+  const chiffres = code && /^\d{4,10}$/.test(code) ? code : null
+  const parCode = chiffres
+    ? `Vous préférez saisir un code — depuis l'application installée sur votre téléphone, par exemple ? Sur la page de connexion, entrez votre adresse, choisissez « J'ai déjà reçu un code », puis tapez :`
+    : ''
+  const sansAcces = chiffres
+    ? "Si vous n'attendiez pas ce message, ignorez-le : personne n'a accès à votre espace sans ce lien ou ce code."
+    : "Si vous n'attendiez pas ce message, ignorez-le : personne n'a accès à votre espace sans ce lien."
+  const text = `${intro}\n\nVotre lien de connexion :\n${lien}\n\nIl vous connecte directement, sans mot de passe à retenir.${
+    chiffres ? `\n\n${parCode} ${chiffres}` : ''
+  }\n\n${sansAcces}`
   const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.6;color:#1b1a17">
   <p>${echapper(intro)}</p>
   <p><a href="${echapper(lien)}" style="display:inline-block;padding:12px 20px;border-radius:10px;background:#1b1a17;color:#fff;text-decoration:none">Ouvrir mon espace</a></p>
-  <p style="font-size:13px;color:#6b6558">Ce lien vous connecte directement, sans mot de passe à retenir. Si vous n'attendiez pas ce message, ignorez-le : personne n'a accès à votre espace sans ce lien.</p>
+  <p style="font-size:13px;color:#6b6558">Ce lien vous connecte directement, sans mot de passe à retenir.</p>${
+    chiffres
+      ? `
+  <p style="font-size:13px;color:#6b6558">${echapper(parCode)}</p>
+  <p style="font-size:24px;letter-spacing:4px;font-weight:600;margin:4px 0 12px">${chiffres}</p>`
+      : ''
+  }
+  <p style="font-size:13px;color:#6b6558">${echapper(sansAcces)}</p>
 </div>`
   return { subject: objet, text, html }
 }
@@ -374,13 +409,13 @@ export async function envoyerInvitation(
       .eq('id', cabinetId)
       .maybeSingle<{ name: string }>()
     const nomCabinet = fiche?.name ?? 'Votre cabinet'
-    const { lien, existe } = await lienDeConnexion(admin, email, base ? destination : undefined)
+    const { lien, code, existe } = await lienDeConnexion(admin, email, base ? destination : undefined)
     if (lien) {
       /* Le compte est ouvert à partir d'ici. Il n'y a plus de repli : ou le
          courriel part de chez elle, ou il ne part pas. */
       let parti = false
       try {
-        const courriel = corpsInvitation(kind, nomCabinet, lien)
+        const courriel = corpsInvitation(kind, nomCabinet, lien, code)
         /* Le booléen n'était pas lu : `envoyerParCabinet` rend faux quand le
            cabinet n'a plus de réglages d'envoi — effacés entre les deux
            lectures — et l'écran annonçait alors un envoi depuis une adresse
@@ -396,7 +431,9 @@ export async function envoyerInvitation(
         status: 200,
         body: {
           ok: true,
-          message: `Invitation envoyée à ${email} depuis ${smtp.from}. Le lien la connectera directement.`,
+          message: `Invitation envoyée à ${email} depuis ${smtp.from}. ${
+            code ? "Son lien, ou le code qui l'accompagne," : 'Son lien'
+          } ouvre l'espace directement.`,
         },
       }
     }
@@ -419,7 +456,7 @@ export async function envoyerInvitation(
         status: 200,
         body: {
           ok: true,
-          message: `${email} a déjà un compte : elle se connecte depuis le site avec cette adresse.`,
+          message: `${email} a déjà un compte : il suffit d'entrer cette adresse sur le site pour s'y connecter.`,
         },
       }
     }
@@ -441,8 +478,8 @@ export async function envoyerInvitation(
     body: {
       ok: true,
       message: replie
-        ? `Invitation envoyée à ${email}, mais depuis nos serveurs : son lien n'a pas pu être préparé pour les vôtres. Il la connectera directement.`
-        : `Invitation envoyée à ${email}. Le lien la connectera directement.`,
+        ? `Invitation envoyée à ${email}, mais depuis nos serveurs : son lien n'a pas pu être préparé pour les vôtres. Il ouvre l'espace directement.`
+        : `Invitation envoyée à ${email}. Son lien ouvre l'espace directement.`,
     },
   }
 }

@@ -78,6 +78,8 @@ export function SignIn({
     setCode('')
     setOubli(false)
     captcha.reinitialiser()
+    // Le refus de la voie quittée ne concerne plus celle qu'on prend.
+    recommencer()
   }
 
   async function soumettre(e: FormEvent) {
@@ -142,20 +144,60 @@ export function SignIn({
         {sent ? (
           <>
             <p className={s.sent}>
-              Le lien est parti vers <span className={s.address}>{sent}</span>.
+              Le courriel est parti vers <span className={s.address}>{sent}</span>.
             </p>
+            {/* Dans l'espace installé, le lien est un piège : il ouvre le
+                navigateur, connecte le navigateur, et laisse l'application
+                à la porte. On le dit avant qu'il soit touché. */}
             <p className={s.intro}>
-              Ouvrez-le depuis cet appareil : il vous connectera directement. Il est valable une
-              heure, et ne fonctionne qu'une fois.
+              {installe
+                ? `Saisissez ici le code à ${LONGUEUR_CODE} chiffres qu'il contient. N'ouvrez pas son lien : il ouvrirait votre navigateur, et vous connecterait là-bas plutôt que dans cette application.`
+                : `Il contient un lien et un code à ${LONGUEUR_CODE} chiffres. Ouvrez le lien depuis cet appareil, ou saisissez le code ci-dessous — plus simple si vous lisez vos courriels ailleurs. L'un comme l'autre vaut une heure, et une seule fois.`}
             </p>
+            <form onSubmit={saisirLeCode}>
+              {champCode}
+              {error ? (
+                <Notice tone="warn" style={{ marginBottom: 14 }}>
+                  {error}
+                </Notice>
+              ) : null}
+              <div className={s.actions}>
+                <Button type="submit" variant="primary" big disabled={envoi || !codeComplet(code)}>
+                  {envoi ? 'Vérification…' : 'Se connecter'}
+                </Button>
+              </div>
+            </form>
             <p className={s.note}>
-              Rien reçu ? Regardez dans les indésirables, puis redemandez un lien.
+              Rien reçu ? Regardez dans les indésirables, puis demandez un nouveau courriel.
             </p>
+            <button
+              type="button"
+              className={s.bascule}
+              onClick={() => {
+                setCode('')
+                recommencer()
+              }}
+            >
+              Changer d'adresse, ou redemander un courriel
+            </button>
           </>
         ) : (
           <>
             <h1 className={s.title}>{titre}</h1>
             <p className={s.intro}>{intro}</p>
+
+            {/* L'ESPACE INSTALLÉ LE DIT D'EMBLÉE. Ouvert depuis l'icône de
+                l'écran d'accueil, un lien reçu par courriel ne ramène pas
+                ici : on propose le code et le mot de passe, et on dit
+                pourquoi — sinon on demande un lien, on le touche, et on se
+                retrouve connecté… dans le navigateur. */}
+            {installe ? (
+              <Notice tone="ok" style={{ marginBottom: 14 }}>
+                Vous êtes dans l'application installée : un lien reçu par courriel s'ouvrirait dans
+                votre navigateur, pas ici. Demandez plutôt un code à {LONGUEUR_CODE} chiffres, à
+                saisir sur cet écran — ou entrez votre mot de passe, si vous en avez choisi un.
+              </Notice>
+            ) : null}
 
             {/* LA PORTE N'ATTEND PLUS LA REPRISE DE SESSION.
                 Elle s'affiche au bout de quatre secondes, même si la
@@ -165,8 +207,8 @@ export function SignIn({
                 pendant que son espace s'apprête à s'ouvrir. */}
             {verificationLente ? (
               <p className={s.note}>
-                La vérification de votre accès est plus longue que d'habitude. Si vous étiez déjà
-                connectée, votre espace s'ouvrira tout seul — inutile de ressaisir quoi que ce soit.
+                La vérification de votre accès est plus longue que d'habitude. Si votre session était
+                déjà ouverte, votre espace s'ouvrira tout seul — inutile de ressaisir quoi que ce soit.
               </p>
             ) : null}
 
@@ -184,7 +226,7 @@ export function SignIn({
                 />
               </div>
 
-              {avecMotDePasse ? (
+              {voie === 'motDePasse' ? (
                 <div className={s.field}>
                   <FieldLabel>Votre mot de passe</FieldLabel>
                   <TextInput
@@ -194,15 +236,15 @@ export function SignIn({
                     onChange={(e) => setMotDePasse(e.target.value)}
                     required
                   />
-                  {/* Pas de page de réinitialisation à part : le lien EST la
-                      réinitialisation. Une fois entrée par lui, « Mon compte »
-                      laisse choisir un nouveau mot de passe sans l'ancien. */}
+                  {/* Pas de page de réinitialisation à part : le courriel EST
+                      la réinitialisation. Une fois entré par lui, « Mon
+                      compte » laisse choisir un nouveau mot de passe sans
+                      l'ancien. */}
                   <button
                     type="button"
                     className={s.oubli}
                     onClick={() => {
-                      setAvecMotDePasse(false)
-                      setMotDePasse('')
+                      prendre('courriel')
                       setOubli(true)
                     }}
                   >
@@ -211,11 +253,13 @@ export function SignIn({
                 </div>
               ) : null}
 
-              {oubli && !avecMotDePasse ? (
+              {voie === 'code' ? champCode : null}
+
+              {oubli && voie === 'courriel' ? (
                 <Notice tone="ok" style={{ marginBottom: 14 }}>
-                  Recevez un lien de connexion. Une fois entrée, ouvrez « Mon compte » (l'onglet
-                  « Moi » dans l'espace patient) : vous pourrez y choisir un nouveau mot de passe
-                  sans l'ancien, pendant 24 heures.
+                  Recevez un courriel de connexion. Une fois dans votre espace, ouvrez « Mon compte »
+                  (l'onglet « Moi » dans l'espace patient) : vous pourrez y choisir un nouveau mot de
+                  passe sans l'ancien, pendant 24 heures.
                 </Notice>
               ) : null}
 
@@ -225,7 +269,7 @@ export function SignIn({
                 </Notice>
               ) : null}
 
-              {captcha.widget}
+              {avecCaptcha ? captcha.widget : null}
 
               <div className={s.actions}>
                 <Button
@@ -235,42 +279,41 @@ export function SignIn({
                   disabled={
                     envoi ||
                     !email.includes('@') ||
-                    (avecMotDePasse && !motDePasse) ||
+                    (voie === 'motDePasse' && !motDePasse) ||
+                    (voie === 'code' && !codeComplet(code)) ||
                     /* Tant que la case n'est pas franchie, le bouton attend :
                        cliquer pour rien et lire un refus est pire que de voir
                        le bouton grisé. */
-                    (captchaConfigure() && !captcha.jeton)
+                    (avecCaptcha && captchaConfigure() && !captcha.jeton)
                   }
                 >
                   {envoi
-                    ? avecMotDePasse
-                      ? 'Connexion…'
-                      : 'Envoi…'
-                    : avecMotDePasse
-                      ? 'Se connecter'
-                      : 'Recevoir mon lien'}
+                    ? voie === 'courriel'
+                      ? 'Envoi…'
+                      : 'Connexion…'
+                    : voie === 'courriel'
+                      ? installe
+                        ? 'Recevoir mon code'
+                        : 'Recevoir mon lien'
+                      : 'Se connecter'}
                 </Button>
               </div>
             </form>
 
-            <button
-              type="button"
-              className={s.bascule}
-              onClick={() => {
-                setAvecMotDePasse(!avecMotDePasse)
-                setMotDePasse('')
-                setOubli(false)
-              }}
-            >
-              {avecMotDePasse
-                ? 'Recevoir plutôt un lien de connexion'
-                : 'Ou se connecter avec un mot de passe'}
-            </button>
+            {autresVoies.map(([v, libelle]) => (
+              <button key={v} type="button" className={s.bascule} onClick={() => prendre(v)}>
+                {libelle}
+              </button>
+            ))}
 
             <p className={s.note}>
-              {avecMotDePasse
-                ? "Le mot de passe se choisit depuis « Mon compte », une fois connectée. Si vous n'en avez pas encore, demandez un lien."
-                : 'Vous recevez un lien qui vous connecte, sans rien à retenir. Se connecter ne donne accès à rien en soi — il faut qu’une fiche ou une invitation vous attende.'}
+              {voie === 'motDePasse'
+                ? "Le mot de passe se choisit depuis « Mon compte », une fois dans votre espace. Si vous n'en avez pas encore, demandez un courriel de connexion."
+                : voie === 'code'
+                  ? `Le code à ${LONGUEUR_CODE} chiffres figure dans votre dernier courriel de connexion ou d'invitation. Il ne sert qu'une fois ; s'il a expiré, demandez-en un nouveau.`
+                  : installe
+                    ? 'Vous recevez un code à saisir ici, sans rien à retenir. Se connecter ne donne accès à rien en soi — il faut qu’une fiche ou une invitation vous attende.'
+                    : 'Vous recevez un lien qui vous connecte — et un code, si vous préférez le saisir —, sans rien à retenir. Se connecter ne donne accès à rien en soi — il faut qu’une fiche ou une invitation vous attende.'}
             </p>
           </>
         )}

@@ -30,33 +30,69 @@ export interface RetourCompte {
   message: string
 }
 
-export async function supprimerCompte(token: string | null): Promise<RetourCompte> {
-  const appelant = await identifier(token)
-  if (!appelant.patientId) {
+/**
+ * Ce que la suppression demande à la base — séparé pour s'éprouver sans elle.
+ *
+ * Chaque écriture rend le motif technique de son échec, ou null : le motif va
+ * au journal du serveur, l'écran reçoit une phrase française.
+ */
+export interface PorteSuppression {
+  /**
+   * La fiche rattachée à ce compte, ACTIVE OU CLOSE, ou null s'il n'en a pas.
+   * Lève si elle n'a pas pu être cherchée : dans le doute, on ne supprime rien.
+   */
+  ficheRattachee(userId: string): Promise<string | null>
+  effacerJournal(patientId: string): Promise<string | null>
+  detacher(patientId: string): Promise<string | null>
+  supprimerCompte(userId: string): Promise<string | null>
+}
+
+/** Qui demande, tel que la base le reconnaît. */
+export interface QuiSupprime {
+  userId: string
+  /** La fiche ACTIVE que `my_context` a vue, ou null. */
+  patientId: string | null
+  /** Le compte porte-t-il aussi un espace de cabinet ou de revendeur ? */
+  autreRole: boolean
+}
+
+/**
+ * La suppression elle-même, une fois l'appelant reconnu.
+ *
+ * UN SUIVI CLOS N'EMPÊCHE PAS DE PARTIR. `my_context` ne voit que les fiches
+ * actives : quand la thérapeute clôt le suivi, l'espace se ferme et le compte
+ * ne « voyait » plus de fiche — le geste répondait 403, et la personne restait
+ * avec un compte et un journal qu'elle ne pouvait plus effacer. La fiche close
+ * reste pourtant rattachée à ce compte, journal compris : on la retrouve par
+ * la clé de service, et on fait le même chemin qu'avec une fiche active.
+ *
+ * Un compte sans aucune fiche ni autre rôle — la fiche a été supprimée par le
+ * cabinet, ou l'adresse n'a jamais été attendue — peut aussi partir : il n'y
+ * a rien à détacher, seulement un compte vide à fermer.
+ */
+export async function appliquerSuppression(qui: QuiSupprime, porte: PorteSuppression): Promise<RetourCompte> {
+  const patientId = qui.patientId ?? (await porte.ficheRattachee(qui.userId))
+
+  // Un compte professionnel sans fiche : ce bouton n'a rien à fermer, et
+  // supprimer le compte emporterait l'espace professionnel.
+  if (!patientId && qui.autreRole) {
     throw new HttpError(403, "Ce geste est réservé à l'espace d'un patient.")
   }
-  const db = clientAdmin()
-  if (!db) {
-    throw new HttpError(503, "Le serveur n'est pas configuré pour ce geste. Prévenez votre cabinet.")
-  }
-  const patientId = appelant.patientId
-  const userId = appelant.userId
 
-  // 1. Son journal, qui est à elle.
-  const { error: eJournal } = await db.from('journal_pages').delete().eq('patient_id', patientId)
-  if (eJournal) {
-    console.error(`[compte] journal — ${eJournal.message}`)
-    throw new HttpError(502, "Votre journal n'a pas pu être effacé. Rien n'a été supprimé ; réessayez.")
-  }
+  if (patientId) {
+    // 1. Son journal, qui est à elle ou à lui.
+    const eJournal = await porte.effacerJournal(patientId)
+    if (eJournal) {
+      console.error(`[compte] journal — ${eJournal}`)
+      throw new HttpError(502, "Votre journal n'a pas pu être effacé. Rien n'a été supprimé ; réessayez.")
+    }
 
-  // 2. La fiche est détachée, pas supprimée : elle reste le dossier du cabinet.
-  const { error: eFiche } = await db
-    .from('patients')
-    .update({ auth_user_id: null })
-    .eq('id', patientId)
-  if (eFiche) {
-    console.error(`[compte] détachement — ${eFiche.message}`)
-    throw new HttpError(502, "Votre compte n'a pas pu être détaché. Réessayez dans un instant.")
+    // 2. La fiche est détachée, pas supprimée : elle reste le dossier du cabinet.
+    const eFiche = await porte.detacher(patientId)
+    if (eFiche) {
+      console.error(`[compte] détachement — ${eFiche}`)
+      throw new HttpError(502, "Votre compte n'a pas pu être détaché. Réessayez dans un instant.")
+    }
   }
 
   // 3. Le compte lui-même, en dernier — SAUF s'il porte un autre rôle.
@@ -67,27 +103,77 @@ export async function supprimerCompte(token: string | null): Promise<RetourCompt
   // appartenance au cabinet — donc l'accès à tous ses dossiers. Ce bouton
   // ferme l'espace PATIENT : on s'arrête à la fiche détachée et au journal
   // effacé, et on le dit.
-  if (appelant.cabinetId || appelant.resellerId) {
+  if (qui.autreRole) {
     return {
       ok: true,
       message:
         "Votre espace patient est refermé et votre journal effacé. Votre compte, lui, reste ouvert : il porte aussi votre espace professionnel.",
     }
   }
-  if (userId) {
-    const { error } = await db.auth.admin.deleteUser(userId)
-    if (error) {
-      // La fiche est déjà détachée : l'espace est fermé, le compte survit.
-      // Mieux vaut le dire que laisser croire à une suppression complète.
-      console.error(`[compte] suppression — ${error.message}`)
-      throw new HttpError(
-        502,
-        "Votre espace est refermé et votre journal effacé, mais votre compte n'a pas pu être supprimé. Prévenez votre cabinet.",
-      )
-    }
+  const eCompte = await porte.supprimerCompte(qui.userId)
+  if (eCompte) {
+    console.error(`[compte] suppression — ${eCompte}`)
+    // La fiche est déjà détachée : l'espace est fermé, le compte survit.
+    // Mieux vaut le dire que laisser croire à une suppression complète.
+    throw new HttpError(
+      502,
+      patientId
+        ? "Votre espace est refermé et votre journal effacé, mais votre compte n'a pas pu être supprimé. Prévenez votre cabinet."
+        : "Votre compte n'a pas pu être supprimé. Réessayez dans un instant.",
+    )
   }
 
-  return { ok: true, message: 'Votre compte est supprimé.' }
+  return {
+    ok: true,
+    message: patientId ? 'Votre compte est supprimé, et votre journal effacé.' : 'Votre compte est supprimé.',
+  }
+}
+
+/** La porte réelle : la clé de service, qui voit aussi les fiches closes. */
+function porteDeSuppression(db: NonNullable<ReturnType<typeof clientAdmin>>): PorteSuppression {
+  return {
+    async ficheRattachee(userId) {
+      // `auth_user_id` est unique : un compte tient une fiche au plus.
+      const { data, error } = await db
+        .from('patients')
+        .select('id')
+        .eq('auth_user_id', userId)
+        .maybeSingle<{ id: string }>()
+      if (error) {
+        console.error(`[compte] recherche de la fiche — ${error.message}`)
+        throw new HttpError(502, "Votre fiche n'a pas pu être retrouvée. Rien n'a été supprimé ; réessayez.")
+      }
+      return data?.id ?? null
+    },
+    async effacerJournal(patientId) {
+      const { error } = await db.from('journal_pages').delete().eq('patient_id', patientId)
+      return error?.message ?? null
+    },
+    async detacher(patientId) {
+      const { error } = await db.from('patients').update({ auth_user_id: null }).eq('id', patientId)
+      return error?.message ?? null
+    },
+    async supprimerCompte(userId) {
+      const { error } = await db.auth.admin.deleteUser(userId)
+      return error?.message ?? null
+    },
+  }
+}
+
+export async function supprimerCompte(token: string | null): Promise<RetourCompte> {
+  const appelant = await identifier(token)
+  const db = clientAdmin()
+  if (!db) {
+    throw new HttpError(503, "Le serveur n'est pas configuré pour ce geste. Prévenez votre cabinet.")
+  }
+  return appliquerSuppression(
+    {
+      userId: appelant.userId,
+      patientId: appelant.patientId,
+      autreRole: Boolean(appelant.cabinetId || appelant.resellerId),
+    },
+    porteDeSuppression(db),
+  )
 }
 
 /* ------------------------------------------------------------------ *
