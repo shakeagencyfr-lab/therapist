@@ -291,17 +291,51 @@
   border-bottom: 1px solid var(--c-neutral-3);
 }
 .fact {
+  display: block;
   background: var(--c-surface-2);
   padding: 13px 24px;
 }
 .factLabel {
+  display: block;
   font-size: 10.5px;
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--c-text-muted);
   margin-bottom: 5px;
 }
-.factValue {
+
+/* Les champs du brouillon se lisent comme le texte qu'ils portent : pas de
+   cadre au repos, un trait à la saisie. Un formulaire à cases ferait oublier
+   que c'est un exercice qu'on relit. */
+.factInput,
+.stepInput,
+.whyInput {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 2px 0;
+  border: none;
+  border-bottom: 1px dashed transparent;
+  border-radius: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  resize: vertical;
+}
+.factInput:hover,
+.stepInput:hover,
+.whyInput:hover {
+  border-bottom-color: var(--c-border);
+}
+.factInput:focus,
+.stepInput:focus,
+.whyInput:focus {
+  outline: none;
+  border-bottom: 1px solid var(--c-accent);
+}
+
+.factInput {
   font-size: 13.5px;
   font-weight: 500;
   line-height: 1.35;
@@ -338,23 +372,55 @@
   font-size: 12px;
   font-weight: 600;
 }
-.stepText {
+.stepInput {
+  flex: 1 1 auto;
   font-family: var(--font-serif);
   font-size: 16.5px;
   line-height: 1.55;
   color: var(--c-text-2);
 }
 
+.stepRemove {
+  flex: none;
+  border: none;
+  background: none;
+  padding: 3px 4px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+.stepRemove:hover {
+  color: var(--c-danger);
+}
+
+.stepAdd {
+  margin-top: 14px;
+  border: none;
+  background: none;
+  padding: 4px 0;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--c-accent-deep);
+  cursor: pointer;
+}
+.stepAdd:hover {
+  text-decoration: underline;
+}
+
 .whyWrap {
   padding: 20px 24px 0;
 }
 .why {
+  display: block;
   background: var(--c-accent-tint);
   border: 1px solid var(--c-accent-soft);
   border-radius: var(--r-lg);
   padding: 15px 17px;
 }
 .whyLabel {
+  display: block;
   font-size: 11px;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -362,7 +428,7 @@
   color: #8a6737;
   margin-bottom: 7px;
 }
-.whyText {
+.whyInput {
   /* Brun chaud du corps de l'encart, sans équivalent dans les jetons. */
   color: #4a4438;
   font-size: 14px;

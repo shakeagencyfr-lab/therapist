@@ -56,6 +56,28 @@ export function messageEnvoiLien(err: ErreurAuth | null | undefined): string {
   return "L'envoi a échoué. Réessayez dans un instant ; si cela persiste, prévenez votre revendeur."
 }
 
+/**
+ * Ce qu'on dit à qui n'a pas pu entrer par le code reçu.
+ *
+ * Le service répond la même chose (403, `otp_expired`) pour un code faux, un
+ * code périmé et un code remplacé par un plus récent : il ne sait pas les
+ * distinguer sans révéler quelque chose, et nous non plus. On dit donc les
+ * trois, et le geste qui les règle tous — le dernier courriel, ou un code
+ * neuf.
+ */
+export function messageCode(err: ErreurAuth | null | undefined): string {
+  if (!err) return ''
+  // Trop d'essais : le service suspend les vérifications un moment. Retaper
+  // tout de suite ne ferait que prolonger l'attente.
+  if (err.status === 429 || err.code === 'over_request_rate_limit') {
+    return "Trop d'essais en peu de temps. Patientez quelques minutes avant de saisir de nouveau votre code."
+  }
+  if (err.status === 403 || err.status === 400 || err.status === 422 || err.code === 'otp_expired') {
+    return "Ce code ne fonctionne pas : il est inexact, a expiré, ou un code plus récent l'a remplacé. Reprenez le dernier courriel reçu, ou demandez un nouveau code."
+  }
+  return "La vérification du code a échoué. Réessayez dans un instant ; si cela persiste, demandez un nouveau code."
+}
+
 /** Ce qu'on dit à qui n'a pas pu entrer par son mot de passe. */
 export function messageConnexionMotDePasse(err: ErreurAuth | null | undefined): string {
   if (!err) return ''

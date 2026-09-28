@@ -1,8 +1,9 @@
 /**
  * Session et rôle du compte connecté.
  *
- * L'accès se fait par lien magique — ou par mot de passe, pour qui en a
- * choisi un depuis « Mon compte ». Après la connexion, deux appels :
+ * L'accès se fait par le courriel de connexion — son lien, ou le code à six
+ * chiffres qu'il porte aussi — ou par mot de passe, pour qui en a choisi un
+ * depuis « Mon compte ». Après la connexion, deux appels :
  *   claim_access()  rattache le compte à la fiche ou à l'invitation qui
  *                   l'attendait — se connecter ne donne aucun accès en soi ;
  *   my_context()    dit quel espace ouvrir.
@@ -18,7 +19,9 @@ import {
   type ReactNode,
 } from 'react'
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
-import { messageConnexionMotDePasse, messageEnvoiLien } from '@/lib/messageAuth'
+import { oublierLesBrouillons } from '@/lib/brouillon'
+import { normaliserCode } from '@/lib/codeConnexion'
+import { messageCode, messageConnexionMotDePasse, messageEnvoiLien } from '@/lib/messageAuth'
 import { refusDuNouveau } from '@/lib/motDePasse'
 import { isConfigured, supabase } from '@/lib/supabase'
 import type { CabinetBranding } from '@/types/reseller'
@@ -84,6 +87,17 @@ export interface AuthState {
    */
   verificationLente: boolean
   envoyerLien: (email: string, captchaToken?: string) => Promise<void>
+  /**
+   * Entrer avec le code à six chiffres du courriel — celui de connexion comme
+   * celui d'invitation.
+   *
+   * C'est la seule voie qui marche depuis l'espace installé sur un iPhone :
+   * le lien, lui, s'ouvre dans Safari, dont la session n'est pas celle de
+   * l'application.
+   */
+  connecterParCode: (email: string, code: string) => Promise<void>
+  /** Revenir à la porte après un envoi : autre adresse, ou nouveau courriel. */
+  recommencer: () => void
   /** Connexion classique, pour qui a posé un mot de passe. */
   connecterParMotDePasse: (email: string, motDePasse: string, captchaToken?: string) => Promise<void>
   /**
@@ -344,6 +358,45 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [])
 
   /**
+   * Le code du courriel, vérifié par le service.
+   *
+   * `type: 'email'` couvre les deux codes qu'on peut avoir reçus : celui d'un
+   * courriel de connexion, et celui d'une invitation — le service les cherche
+   * l'un après l'autre. La session ouverte arrive ensuite par
+   * `onAuthStateChange`, comme après un lien : rattachement, rôle, espace.
+   *
+   * PAS DE CAPTCHA ICI, et ce n'est pas un oubli. Le service ne le vérifie
+   * que sur les routes qui ENVOIENT un courriel ou éprouvent un mot de passe
+   * (/otp, /token, /signup…) ; /verify ne le lit pas, il est borné par sa
+   * propre limite d'essais. Le code, lui, n'est parti qu'après la case
+   * franchie : demander une seconde case pour le saisir n'arrêterait
+   * personne et ferait tout recommencer à la patiente.
+   */
+  const connecterParCode = useCallback(async (email: string, code: string) => {
+    const db = supabase()
+    if (!db) {
+      setError("L'application n'est pas reliée à sa base de données.")
+      return
+    }
+    setError('')
+    const { error: err } = await db.auth.verifyOtp({
+      email: email.trim(),
+      token: normaliserCode(code),
+      type: 'email',
+    })
+    if (err) {
+      setError(messageCode(err))
+      return
+    }
+    setSent('')
+  }, [])
+
+  const recommencer = useCallback(() => {
+    setSent('')
+    setError('')
+  }, [])
+
+  /**
    * La porte de secours.
    *
    * Le lien magique reste la voie normale, et la meilleure : rien à retenir,
@@ -424,6 +477,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
        comme tel : `deconnecterAilleurs`. */
     await supabase()?.auth.signOut({ scope: 'local' })
     setSent('')
+    /* Les brouillons de l'espace patient partent avec la session : un
+       appareil prêté ne garde pas une page de journal inachevée pour la
+       personne suivante. */
+    oublierLesBrouillons()
   }, [])
 
   const value = useMemo<AuthState>(
@@ -436,6 +493,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       lecture,
       verificationLente,
       envoyerLien,
+      connecterParCode,
+      recommencer,
       connecterParMotDePasse,
       changerMotDePasse,
       deconnecterAilleurs,
@@ -451,6 +510,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       lecture,
       verificationLente,
       envoyerLien,
+      connecterParCode,
+      recommencer,
       connecterParMotDePasse,
       changerMotDePasse,
       deconnecterAilleurs,

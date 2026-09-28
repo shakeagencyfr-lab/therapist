@@ -1,13 +1,32 @@
 import { useState, type FormEvent } from 'react'
 import { Button, FieldLabel, Marque, Notice, TextInput } from '@/components/ui'
+import { codeComplet, LONGUEUR_CODE, normaliserCode } from '@/lib/codeConnexion'
+import { estInstallee } from '@/patient/installation'
 import { useAuth } from './session'
 import { captchaConfigure, useCaptcha } from './Captcha'
 import s from './SignIn.module.css'
 
 /**
+ * Les trois façons d'entrer.
+ *
+ *   courriel     on demande un courriel, qui porte un lien ET un code ;
+ *   code         on a déjà un code — d'un courriel de connexion ou d'une
+ *                invitation — et on le saisit sans rien redemander ;
+ *   motDePasse   pour qui en a choisi un depuis « Mon compte ».
+ */
+type Voie = 'courriel' | 'code' | 'motDePasse'
+
+/**
  * Une seule porte pour les trois rôles : on entre son adresse, on reçoit un
- * lien. Aucun mot de passe — sur une application qu'un patient ouvre deux
- * minutes par jour, c'est le premier motif d'abandon.
+ * courriel. Aucun mot de passe imposé — sur une application qu'un patient
+ * ouvre deux minutes par jour, c'est le premier motif d'abandon.
+ *
+ * LE COURRIEL PORTE UN LIEN ET UN CODE. Le lien suffit à qui lit ses
+ * courriels sur l'appareil où il veut entrer. Le code sert partout ailleurs,
+ * et d'abord dans l'espace installé sur l'écran d'accueil d'un iPhone : sa
+ * session vit à part de celle de Safari, et le lien du courriel s'ouvre dans
+ * Safari. Sans code, l'application installée — la seule qui reçoit les
+ * rappels — restait à la porte.
  *
  * Avant la connexion, on ne sait pas qui arrive : l'écran porte donc
  * l'identité du produit, jamais celle d'un cabinet. La marque du cabinet
@@ -29,30 +48,85 @@ export function SignIn({
   cabinet?: string
   tagline?: string
 }) {
-  const { envoyerLien, connecterParMotDePasse, error, sent, verificationLente } = useAuth()
+  const { envoyerLien, connecterParCode, recommencer, connecterParMotDePasse, error, sent, verificationLente } =
+    useAuth()
+  /* L'espace installé, ouvert depuis son icône ? Lu une fois : on n'en sort
+     pas sans le rouvrir. */
+  const [installe] = useState(estInstallee)
   const [email, setEmail] = useState('')
   const [envoi, setEnvoi] = useState(false)
   /**
-   * Le lien reste la voie par défaut : rien à retenir, rien à voler. Le mot
-   * de passe est la porte de secours, repliée — pour la praticienne qui a
-   * un patient en face d'elle et ne peut pas attendre un courriel.
+   * Le courriel reste la voie par défaut : rien à retenir, rien à voler. Le
+   * mot de passe est la porte de secours — pour la praticienne qui a un
+   * patient en face d'elle et ne peut pas attendre un courriel.
    */
-  const [avecMotDePasse, setAvecMotDePasse] = useState(false)
+  const [voie, setVoie] = useState<Voie>('courriel')
   const [motDePasse, setMotDePasse] = useState('')
-  /** Arrivée ici par « Mot de passe oublié ? » : le lien est la réponse. */
+  const [code, setCode] = useState('')
+  /** Arrivée ici par « Mot de passe oublié ? » : le courriel est la réponse. */
   const [oubli, setOubli] = useState(false)
   const captcha = useCaptcha()
+
+  /* Le CAPTCHA garde ce qui ENVOIE un courriel ou éprouve un mot de passe —
+     les seules routes où le service le vérifie. Saisir un code n'envoie
+     rien : une case de plus ne protégerait rien. */
+  const avecCaptcha = voie !== 'code'
+
+  function prendre(suivante: Voie) {
+    setVoie(suivante)
+    setMotDePasse('')
+    setCode('')
+    setOubli(false)
+    captcha.reinitialiser()
+  }
 
   async function soumettre(e: FormEvent) {
     e.preventDefault()
     if (!email.includes('@')) return
     setEnvoi(true)
-    if (avecMotDePasse) await connecterParMotDePasse(email, motDePasse, captcha.jeton)
+    if (voie === 'motDePasse') await connecterParMotDePasse(email, motDePasse, captcha.jeton)
+    else if (voie === 'code') await connecterParCode(email, code)
     else await envoyerLien(email, captcha.jeton)
     setEnvoi(false)
     // Un jeton ne vaut qu'une fois : le suivant se regagne.
-    captcha.reinitialiser()
+    if (avecCaptcha) captcha.reinitialiser()
   }
+
+  /** Le code du courriel qui vient de partir, saisi sur l'écran d'attente. */
+  async function saisirLeCode(e: FormEvent) {
+    e.preventDefault()
+    if (!codeComplet(code)) return
+    setEnvoi(true)
+    await connecterParCode(sent, code)
+    setEnvoi(false)
+  }
+
+  const champCode = (
+    <div className={s.field}>
+      <FieldLabel>Le code reçu par courriel</FieldLabel>
+      {/* `one-time-code` : iOS propose de lui-même le code lu dans Mail ou
+          Messages, au-dessus du clavier. */}
+      <TextInput
+        type="text"
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        value={code}
+        onChange={(e) => setCode(normaliserCode(e.target.value))}
+        placeholder={'0'.repeat(LONGUEUR_CODE)}
+        aria-label={`Code à ${LONGUEUR_CODE} chiffres`}
+        required
+      />
+    </div>
+  )
+
+  /** Les autres voies, proposées sous le formulaire. */
+  const autresVoies: Array<[Voie, string]> = (
+    [
+      ['courriel', installe ? 'Recevoir plutôt un code par courriel' : 'Recevoir plutôt un lien de connexion'],
+      ['code', "J'ai déjà reçu un code"],
+      ['motDePasse', 'Se connecter avec un mot de passe'],
+    ] as Array<[Voie, string]>
+  ).filter(([v]) => v !== voie)
 
   return (
     <div className={s.page}>

@@ -15,7 +15,8 @@ import s from './Affirmations.module.css'
  */
 export function etatDesAffirmations(prenom: string, publiees: number, enAttente: boolean): string {
   if (enAttente) {
-    const lues = publiees === 0 ? 'aucune phrase' : publiees === 1 ? 'la phrase précédente' : `les ${publiees} phrases précédentes`
+    if (publiees === 0) return `Corrections non envoyées. Rien n'est encore visible chez ${prenom}.`
+    const lues = publiees === 1 ? 'la phrase précédente' : `les ${publiees} phrases précédentes`
     return `Corrections non envoyées. ${prenom} lit encore ${lues}.`
   }
   return publiees
@@ -131,8 +132,12 @@ export function Affirmations() {
   }
 
   async function propose() {
-    // Une seule génération à la fois, tous patients confondus.
-    if (state.affGen) return
+    // Une seule génération à la fois, tous patients confondus — et le refus
+    // se dit : le bouton d'une autre fiche, lui, ne paraît pas occupé.
+    if (state.affGen) {
+      setRetour({ ton: 'warn', texte: "Des affirmations s'écrivent déjà pour une autre fiche : attendez qu'elles arrivent." })
+      return
+    }
     set({ affGen: key })
     setRetour(null)
     setAVider(false)
@@ -323,7 +328,11 @@ export function Affirmations() {
         </div>
       ) : null}
 
-      {retour?.ton === 'warn' ? <Notice tone="warn">{retour.texte}</Notice> : null}
+      {retour?.ton === 'warn' ? (
+        <Notice tone="warn" style={{ marginTop: 12 }}>
+          {retour.texte}
+        </Notice>
+      ) : null}
       <p className={s.status} role="status">
         {retour?.ton === 'ok' ? retour.texte : status}
       </p>

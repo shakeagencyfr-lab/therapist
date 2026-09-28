@@ -112,8 +112,12 @@ export function PsychProfile() {
   const [echec, setEchec] = useState('')
 
   async function refresh() {
-    // Une seule actualisation à la fois, tous patients confondus.
-    if (state.profGen) return
+    // Une seule actualisation à la fois, tous patients confondus — et le
+    // refus se dit : le bouton d'une autre fiche, lui, ne paraît pas occupé.
+    if (state.profGen) {
+      if (state.profGen !== key) setEchec("Un autre profil s'actualise en ce moment : attendez qu'il soit prêt.")
+      return
+    }
     set({ profGen: key })
     setEchec('')
     try {

@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Button, Card, Overline, SquareCheck, TextArea, TextInput, Title } from '@/components/ui'
 import { ATELIER_SEEDS, ATELIER_SEED_BRIEFS, ATELIER_TYPES } from '@/data/atelier'
 import { plural } from '@/lib/format'
-import { AiError, generateModule } from '@/services/aiClient'
+import { preparerModule } from '@/lib/moduleAtelier'
+import { generateModule, messageDEchec } from '@/services/aiClient'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { useStore } from '@/state/store'
 import type { AppState } from '@/state/state'
@@ -82,15 +83,36 @@ function QuizItem({ question }: { question: QuizQuestion }) {
  * Atelier de modules : un brief à gauche, le module rédigé par l'IA à droite.
  * Rien ne part chez un patient tant que la consigne n'a pas été relue et les
  * destinataires cochés.
+ *
+ * LE BROUILLON EST MODIFIABLE, POUR DE BON. L'écran annonçait « Brouillon,
+ * modifiable » et « Vous corrigez, puis vous assignez » ; seul le titre
+ * l'était. Une étape maladroite partait telle quelle chez le patient, ou
+ * obligeait à régénérer tout le module — et à le repayer. Durée, moment,
+ * chaque étape et le « pourquoi » se corrigent maintenant sur place ; le quiz,
+ * qui ne se montre qu'à l'assignation, reste tel que proposé.
  */
 export function AtelierView() {
   const { state, set } = useStore()
   const cabinet = useMaybeCabinet()
   /** Assignation en cours : le bouton ne se reclique pas. */
   const [assignation, setAssignation] = useState(false)
+  /* Un refus d'assigner se dit à côté du bouton d'assignation : dans la
+     colonne du brief, à l'autre bout de l'écran, il passait inaperçu. */
+  const [refus, setRefus] = useState('')
   const mod = state.aMod
   const rows = libraryRows(state)
   const selected = state.patientOrder.filter((key) => state.aAssign[key])
+
+  /** Corrige le brouillon affiché, champ par champ. */
+  function corriger(patch: Partial<CustomModule>) {
+    set((prev) => ({ aMod: prev.aMod ? { ...prev.aMod, ...patch } : prev.aMod }))
+  }
+
+  function corrigerEtape(i: number, texte: string) {
+    set((prev) =>
+      prev.aMod ? { aMod: { ...prev.aMod, steps: prev.aMod.steps.map((e, j) => (j === i ? texte : e)) } } : {},
+    )
+  }
 
   async function generate() {
     const intent = state.aIntent.trim()
@@ -105,8 +127,14 @@ export function AtelierView() {
       const generated = await generateModule({ intent, type, quiz: state.aQuiz })
       set({ aMod: { ...generated, type }, aGen: false, aAssign: {}, aLastAssigned: '' })
     } catch (error) {
-      const reason = error instanceof AiError ? error.message : "le serveur n'a pas répondu"
-      set({ aGen: false, aNotice: `La génération a échoué : ${reason}. Réessayez.` })
+      /* Le message du serveur, tel quel : c'est déjà une phrase complète,
+         qui dit la cause et le remède. L'enrober dans « La génération a
+         échoué : ….. Réessayez. » doublait le point et invitait à réessayer
+         une praticienne dont la clé manque. */
+      set({
+        aGen: false,
+        aNotice: messageDEchec(error, "Le module n'a pas pu être écrit. Votre brief est intact : relancez la génération."),
+      })
     }
   }
 
@@ -115,10 +143,14 @@ export function AtelierView() {
        deuxième fois au parcours : deux lignes pour le même patient, parfois
        à la même position, et cocher l'une cochait l'autre. */
     if (!mod || !selected.length || assignation || state.aGen) return
-    const title = mod.titre || 'Module sur mesure'
-    const duree = mod.duree || 'Quelques minutes'
-    const quand = mod.quand || 'Comme indiqué sur le module'
-    const entry: CustomModule = { ...mod, titre: title, duree, quand }
+    const preparation = preparerModule(mod)
+    if (!preparation.ok) {
+      setRefus(preparation.message)
+      return
+    }
+    setRefus('')
+    const entry = preparation.module
+    const { titre: title, duree, quand } = entry
 
     // Cabinet réel : bibliothèque et parcours s'écrivent en base, puis la
     // fiche est rechargée depuis là.
@@ -127,8 +159,10 @@ export function AtelierView() {
       set({ aNotice: '' })
       const r = await cabinet.assignerModule(entry, selected)
       setAssignation(false)
+      setRefus(r.ok ? '' : r.message || "Le module n'a pas pu être assigné.")
       set({
-        aNotice: r.ok ? '' : r.message,
+        // L'écran montre ce qui est parti : les étapes vidées n'y sont plus.
+        aMod: r.ok ? entry : state.aMod,
         aAssign: r.ok ? {} : state.aAssign,
         aLastAssigned: r.ok ? selected.map((key) => state.patients[key]?.name ?? '').filter(Boolean).join(', ') : '',
       })
@@ -146,6 +180,7 @@ export function AtelierView() {
       const known = list.some((made) => made.titre === title)
       return {
         extra,
+        aMod: entry,
         customs: {
           ...prev.customs,
           [entry.type]: known
@@ -159,6 +194,7 @@ export function AtelierView() {
   }
 
   function reopen(made: CustomModule) {
+    setRefus('')
     set({ aMod: made, aAssign: {}, aLastAssigned: '', aNotice: '' })
   }
 
@@ -174,8 +210,9 @@ export function AtelierView() {
       <h1 className={s.h1}>Créer un module sur mesure</h1>
       <p className={s.intro}>
         Décrivez ce que vous voulez faire travailler entre deux séances. L'IA propose une consigne
-        en trois temps, un « pourquoi » destiné au patient et, si vous le souhaitez, un court quiz
-        de compréhension. Vous corrigez, puis vous assignez le module aux patients concernés.
+        pas à pas, en quatre à six étapes, un « pourquoi » destiné au patient et, si vous le
+        souhaitez, un court quiz de compréhension. Vous corrigez chaque étape sur place, puis vous
+        assignez le module aux patients concernés.
       </p>
 
       <div className={s.grid}>
@@ -276,28 +313,33 @@ export function AtelierView() {
               <div className={s.moduleTop}>
                 <div className={s.moduleTags}>
                   <span className={s.kind}>{mod.type}</span>
-                  <span className={s.draft}>Brouillon, modifiable</span>
+                  <span className={s.draft}>Brouillon, modifiable avant assignation</span>
                 </div>
                 <TextInput
                   className={s.moduleTitle}
                   value={mod.titre}
                   aria-label="Titre du module"
-                  onChange={(e) => {
-                    const titre = e.target.value
-                    set((prev) => ({ aMod: prev.aMod ? { ...prev.aMod, titre } : prev.aMod }))
-                  }}
+                  onChange={(e) => corriger({ titre: e.target.value })}
                 />
               </div>
 
               <div className={s.facts}>
-                <div className={s.fact}>
-                  <div className={s.factLabel}>Durée</div>
-                  <div className={s.factValue}>{mod.duree}</div>
-                </div>
-                <div className={s.fact}>
-                  <div className={s.factLabel}>Quand</div>
-                  <div className={s.factValue}>{mod.quand}</div>
-                </div>
+                <label className={s.fact}>
+                  <span className={s.factLabel}>Durée</span>
+                  <input
+                    className={s.factInput}
+                    value={mod.duree}
+                    onChange={(e) => corriger({ duree: e.target.value })}
+                  />
+                </label>
+                <label className={s.fact}>
+                  <span className={s.factLabel}>Quand</span>
+                  <input
+                    className={s.factInput}
+                    value={mod.quand}
+                    onChange={(e) => corriger({ quand: e.target.value })}
+                  />
+                </label>
               </div>
 
               <div className={s.steps}>
@@ -305,25 +347,53 @@ export function AtelierView() {
                   <Overline>La consigne</Overline>
                 </div>
                 <ol className={s.stepList}>
+                  {/* La clé est la place de l'étape, pas son texte : une clé
+                      qui change à chaque frappe remonterait le champ, et le
+                      curseur en sortirait. */}
                   {mod.steps.map((step, i) => (
-                    <li key={step} className={s.step}>
+                    <li key={i} className={s.step}>
                       <span className={s.stepNum} aria-hidden>
                         {i + 1}
                       </span>
-                      <span className={s.stepText}>{step}</span>
+                      <textarea
+                        className={s.stepInput}
+                        value={step}
+                        rows={Math.max(2, Math.ceil(step.length / 60))}
+                        aria-label={`Étape ${i + 1} de la consigne`}
+                        onChange={(e) => corrigerEtape(i, e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        className={s.stepRemove}
+                        aria-label={`Retirer l'étape ${i + 1}`}
+                        onClick={() => corriger({ steps: mod.steps.filter((_, j) => j !== i) })}
+                      >
+                        ✕
+                      </button>
                     </li>
                   ))}
                 </ol>
+                <button
+                  type="button"
+                  className={s.stepAdd}
+                  onClick={() => corriger({ steps: mod.steps.concat(['']) })}
+                >
+                  + Ajouter une étape
+                </button>
               </div>
 
-              {mod.pourquoi ? (
-                <div className={s.whyWrap}>
-                  <div className={s.why}>
-                    <div className={s.whyLabel}>Pourquoi cet exercice</div>
-                    <div className={s.whyText}>{mod.pourquoi}</div>
-                  </div>
-                </div>
-              ) : null}
+              <div className={s.whyWrap}>
+                <label className={s.why}>
+                  <span className={s.whyLabel}>Pourquoi cet exercice</span>
+                  <textarea
+                    className={s.whyInput}
+                    value={mod.pourquoi}
+                    rows={Math.max(3, Math.ceil(mod.pourquoi.length / 70))}
+                    placeholder="Ce que le patient lira pour comprendre à quoi sert l'exercice."
+                    onChange={(e) => corriger({ pourquoi: e.target.value })}
+                  />
+                </label>
+              </div>
 
               {mod.quiz.length > 0 && (
                 <div className={s.quiz}>
@@ -395,6 +465,7 @@ export function AtelierView() {
                     : 'Le module rejoint aussi la bibliothèque du cabinet.'}
                 </span>
               </div>
+              {refus ? <div className={s.notice}>{refus}</div> : null}
             </Card>
           </div>
         ) : (
