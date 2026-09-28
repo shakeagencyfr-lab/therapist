@@ -1,10 +1,10 @@
 /**
  * Adaptateur des fonctions serverless Vercel vers server/ai.ts.
  *
- * Chaque fichier api/ai/*.ts est une fonction distincte — Vercel les déploie
- * séparément, et une seule est réveillée par appel. Elles ne contiennent que
- * le nom de leur route : toute la logique reste dans server/ai.ts, partagée
- * avec l'enveloppe Express du développement local.
+ * Une seule fonction, api/ai/[route].ts, sert les cinq analyses : l'offre
+ * gratuite de Vercel plafonne un déploiement à douze fonctions, et cinq
+ * fichiers d'une ligne en prenaient cinq. Toute la logique reste dans
+ * server/ai.ts, partagée avec l'enveloppe Express du développement local.
  *
  * L'adaptateur vit ici plutôt que dans api/ : ce dossier est un espace de
  * routage pour Vercel, pas un endroit où ranger du code partagé.
@@ -41,5 +41,24 @@ export function aiFunction(route: AiRoute) {
       }
       res.status(status).json({ error: message })
     }
+  }
+}
+
+/**
+ * La route demandée, lue dans le segment dynamique — et, à défaut, dans
+ * l'adresse elle-même.
+ *
+ * Deux sources plutôt qu'une : si la plateforme cessait un jour de poser le
+ * segment dans la requête, les cinq analyses tomberaient ensemble, en
+ * production, sur l'outil que les cabinets paient.
+ */
+export function routeDeLAppel(segment: unknown, adresse: string | undefined): string {
+  const lu = Array.isArray(segment) ? segment[0] : segment
+  if (typeof lu === 'string' && lu) return lu
+  try {
+    const chemin = new URL(adresse ?? '', 'http://interne').pathname
+    return decodeURIComponent(chemin.split('/').filter(Boolean).pop() ?? '')
+  } catch {
+    return ''
   }
 }
