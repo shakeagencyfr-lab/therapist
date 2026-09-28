@@ -108,7 +108,11 @@ export function AppHeader() {
           <>
             <Segmented
               options={VUES}
-              value={REGLAGES.some((r) => r.value === state.mode) || state.mode === 'patient' ? ('' as ViewMode) : state.mode}
+              value={
+                REGLAGES.some((r) => r.value === state.mode) || state.mode === 'patient' || state.mode === 'compte'
+                  ? ('' as ViewMode)
+                  : state.mode
+              }
               onChange={(mode) => set({ mode })}
             />
             <MenuReglages vues={REGLAGES} vue={state.mode} onVue={(mode) => set({ mode })} />
@@ -127,6 +131,7 @@ export function AppHeader() {
         email={identite?.email ?? null}
         role={reseller ? marqueRevendeur : cabinet.name}
         seDeconnecter={auth?.seDeconnecter}
+        onCompte={() => set({ mode: 'compte' })}
       />
 
       {/* Téléphone : neuf pilules dans une rangée qui défile, ce sont huit
@@ -141,6 +146,8 @@ export function AppHeader() {
         onVue={(mode) => set({ mode })}
         onEspace={(space) => set({ space })}
         seDeconnecter={auth?.seDeconnecter}
+        onCompte={() => set({ mode: 'compte' })}
+        compteOuvert={state.mode === 'compte'}
       />
     </header>
   )
@@ -222,6 +229,8 @@ function MenuMobile({
   onVue,
   onEspace,
   seDeconnecter,
+  onCompte,
+  compteOuvert,
 }: {
   vues: Array<{ value: ViewMode; label: string }>
   vue: ViewMode
@@ -232,6 +241,8 @@ function MenuMobile({
   onVue: (v: ViewMode) => void
   onEspace: (e: Space) => void
   seDeconnecter?: () => Promise<void>
+  onCompte: () => void
+  compteOuvert: boolean
 }) {
   const [ouvert, setOuvert] = useState(false)
   const courante = vues.find((v) => v.value === vue)
@@ -245,7 +256,7 @@ function MenuMobile({
         aria-expanded={ouvert}
         onClick={() => setOuvert((o) => !o)}
       >
-        <span className={s.burgerLabel}>{courante?.label ?? 'Menu'}</span>
+        <span className={s.burgerLabel}>{compteOuvert ? 'Mon compte' : (courante?.label ?? 'Menu')}</span>
         <span className={ouvert ? `${s.burgerTrait} ${s.burgerTraitOn}` : s.burgerTrait} aria-hidden>
           <i />
           <i />
@@ -327,6 +338,18 @@ function MenuMobile({
                 <button
                   type="button"
                   role="menuitem"
+                  className={compteOuvert ? `${s.panneauItem} ${s.panneauItemOn}` : s.panneauItem}
+                  aria-current={compteOuvert ? 'page' : undefined}
+                  onClick={() => {
+                    setOuvert(false)
+                    onCompte()
+                  }}
+                >
+                  Mon compte
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
                   className={s.panneauItem}
                   onClick={() => {
                     setOuvert(false)
@@ -357,12 +380,14 @@ function Compte({
   email,
   role,
   seDeconnecter,
+  onCompte,
 }: {
   initiales: string
   logoUrl?: string | null
   email: string | null
   role: string
   seDeconnecter?: () => Promise<void>
+  onCompte: () => void
 }) {
   const [ouvert, setOuvert] = useState(false)
 
@@ -394,6 +419,17 @@ function Compte({
               <span className={s.menuRole}>{role}</span>
               {email ? <span className={s.menuMail}>{email}</span> : null}
             </div>
+            <button
+              type="button"
+              className={s.menuItem}
+              role="menuitem"
+              onClick={() => {
+                setOuvert(false)
+                onCompte()
+              }}
+            >
+              Mon compte
+            </button>
             <button
               type="button"
               className={s.menuItem}

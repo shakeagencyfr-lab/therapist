@@ -16,6 +16,7 @@ import { BoutiqueView } from '@/views/boutique/BoutiqueView'
 import { SiteView } from '@/views/site/SiteView'
 import { MarqueView } from '@/views/marque/MarqueView'
 import { ProgrammesView } from '@/views/programmes/ProgrammesView'
+import { CompteView } from '@/views/compte/CompteView'
 
 /**
  * Deux espaces, deux métiers : la thérapeute suit ses patients, le revendeur
@@ -34,7 +35,7 @@ export function App() {
     return (
       <div>
         <AppHeader />
-        <ResellerSpace />
+        {mode === 'compte' ? <CompteView /> : <ResellerSpace />}
       </div>
     )
   }
@@ -65,6 +66,7 @@ export function App() {
       {mode === 'marque' && <MarqueView />}
       {mode === 'site' && <SiteView />}
       {mode === 'integrations' && <IntegrationsView />}
+      {mode === 'compte' && <CompteView />}
     </div>
   )
 }

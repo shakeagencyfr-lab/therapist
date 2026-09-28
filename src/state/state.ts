@@ -44,6 +44,8 @@ export type ViewMode =
   | 'marque'
   | 'site'
   | 'integrations'
+  /** Mon compte : mot de passe, appareils. Ouvert depuis le menu du compte, dans les deux espaces. */
+  | 'compte'
 
 /** Vue interne de la maquette téléphone. */
 export type PatientView = 'home' | 'journal'

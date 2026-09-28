@@ -11,7 +11,7 @@ import { AI_ROUTES, currentMode, describeError, handleAi, type AiRoute } from '.
 import { jetonDe } from './auth.js'
 import { envoyerInvitation } from './invitations.js'
 import { cronAutorise, publierLesAffirmationsDeLaSemaine } from './affirmationsHebdo.js'
-import { supprimerCompte } from './compte.js'
+import { gesteDuCompte } from './compte.js'
 import { appliquerIntegration, etatIntegrations } from './integrations.js'
 import { agirVolet, lireVolet } from './cabinet.js'
 import { demarrerPaiement, verifierPaiement } from './shop.js'
@@ -113,12 +113,9 @@ app.post('/api/invitations', async (req: Request, res: Response): Promise<void> 
 app.post('/api/compte', async (req: Request, res: Response): Promise<void> => {
   const token = jetonDe(req.headers.authorization)
   const geste = (req.body as { geste?: string } | undefined)?.geste
+  res.setHeader('Cache-Control', 'no-store')
   try {
-    if (geste !== 'supprimer') {
-      res.status(400).json({ message: 'Geste inconnu.' })
-      return
-    }
-    res.json(await supprimerCompte(token))
+    res.json(await gesteDuCompte(token, req.body))
   } catch (err) {
     const { status, message } = describeError(err)
     console.error(`[compte] ${geste ?? '?'} — ${status} · ${message}`)

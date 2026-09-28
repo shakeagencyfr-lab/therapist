@@ -1,8 +1,8 @@
 /**
  * Session et rôle du compte connecté.
  *
- * L'accès se fait par lien magique : pas de mot de passe, donc rien à
- * stocker ni à réinitialiser. Après la connexion, deux appels :
+ * L'accès se fait par lien magique — ou par mot de passe, pour qui en a
+ * choisi un depuis « Mon compte ». Après la connexion, deux appels :
  *   claim_access()  rattache le compte à la fiche ou à l'invitation qui
  *                   l'attendait — se connecter ne donne aucun accès en soi ;
  *   my_context()    dit quel espace ouvrir.
@@ -18,6 +18,7 @@ import {
 } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { messageEnvoiLien } from '@/lib/messageAuth'
+import { refusDuNouveau } from '@/lib/motDePasse'
 import { isConfigured, supabase } from '@/lib/supabase'
 import type { CabinetBranding } from '@/types/reseller'
 
@@ -83,8 +84,15 @@ export interface AuthState {
   envoyerLien: (email: string, captchaToken?: string) => Promise<void>
   /** Connexion classique, pour qui a posé un mot de passe. */
   connecterParMotDePasse: (email: string, motDePasse: string, captchaToken?: string) => Promise<void>
-  /** Pose ou remplace le mot de passe du compte connecté. */
-  definirMotDePasse: (motDePasse: string) => Promise<{ ok: boolean; message: string }>
+  /**
+   * Pose ou remplace le mot de passe du compte connecté, par le serveur.
+   *
+   * `ancien` est vide quand on n'en a pas, ou qu'on vient d'entrer par un
+   * lien : le serveur décide si cela suffit (src/lib/motDePasse.ts).
+   */
+  changerMotDePasse: (ancien: string, nouveau: string) => Promise<{ ok: boolean; message: string }>
+  /** Ferme toutes les sessions du compte, sauf celle-ci. */
+  deconnecterAilleurs: () => Promise<{ ok: boolean; message: string }>
   seDeconnecter: () => Promise<void>
   /**
    * Relit le rôle et la marque du compte connecté.
@@ -99,15 +107,8 @@ export interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null)
 
-/**
- * La longueur minimale d'un mot de passe, et le SEUL endroit qui la décide.
- *
- * Elle était écrite trois fois : dix ici, huit dans le placeholder de l'espace
- * patient, huit dans la garde de son bouton. Le patient tapait donc neuf
- * caractères, le bouton s'activait, l'enregistrement était refusé — et le
- * champ était vidé au passage, sans qu'il puisse relire ce qu'il avait mis.
- */
-export const LONGUEUR_MOT_DE_PASSE = 10
+/** La longueur minimale : décidée dans src/lib/motDePasse.ts, et là seulement. */
+export { LONGUEUR_MOT_DE_PASSE } from '@/lib/motDePasse'
 
 /**
  * Au-delà de ce délai, l'écran cesse d'attendre.
@@ -275,27 +276,51 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const definirMotDePasse = useCallback(
-    async (motDePasse: string): Promise<{ ok: boolean; message: string }> => {
+  const changerMotDePasse = useCallback(
+    async (ancien: string, nouveau: string): Promise<{ ok: boolean; message: string }> => {
       const db = supabase()
       if (!db) return { ok: false, message: "L'application n'est pas reliée à sa base." }
-      if (motDePasse.length < LONGUEUR_MOT_DE_PASSE) {
-        return { ok: false, message: 'Choisissez un mot de passe d’au moins dix caractères.' }
-      }
-      const { error: err } = await db.auth.updateUser({ password: motDePasse })
-      if (err) {
-        return {
-          ok: false,
-          message:
-            err.message && /weak|password/i.test(err.message)
-              ? 'Ce mot de passe est trop faible. Allongez-le, ou mélangez-y des mots sans rapport.'
-              : "Le mot de passe n'a pas pu être enregistré. Réessayez.",
+      const refus = refusDuNouveau(nouveau, session?.user.email)
+      if (refus) return { ok: false, message: refus }
+      /* PAR LE SERVEUR, PLUS PAR LE NAVIGATEUR. `updateUser` acceptait le
+         changement de n'importe quelle session ouverte, sans rien demander :
+         un ordinateur de cabinet resté allumé suffisait à prendre le compte.
+         Le serveur exige l'ancien mot de passe, ou une entrée par lien toute
+         récente — et déconnecte les autres appareils une fois le changement
+         fait. */
+      const { data } = await db.auth.getSession()
+      const jeton = data.session?.access_token
+      if (!jeton) return { ok: false, message: 'Votre session a expiré. Reconnectez-vous.' }
+      try {
+        const reponse = await fetch('/api/compte', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jeton}` },
+          body: JSON.stringify({ geste: 'mot-de-passe', ancien, nouveau }),
+        })
+        const lu = (await reponse.json().catch(() => ({}))) as { message?: string }
+        if (!reponse.ok) {
+          return { ok: false, message: lu.message ?? "Le mot de passe n'a pas pu être enregistré. Réessayez." }
         }
+        return { ok: true, message: lu.message ?? 'Mot de passe enregistré.' }
+      } catch {
+        return { ok: false, message: 'Le serveur est injoignable. Réessayez dans un instant.' }
       }
-      return { ok: true, message: '' }
     },
-    [],
+    [session],
   )
+
+  const deconnecterAilleurs = useCallback(async (): Promise<{ ok: boolean; message: string }> => {
+    const db = supabase()
+    if (!db) return { ok: false, message: "L'application n'est pas reliée à sa base." }
+    const { error: err } = await db.auth.signOut({ scope: 'others' })
+    return err
+      ? { ok: false, message: "Les autres appareils n'ont pas pu être déconnectés. Réessayez." }
+      : {
+          ok: true,
+          message:
+            'Vos autres appareils sont déconnectés. Ils vous redemanderont un lien ou votre mot de passe.',
+        }
+  }, [])
 
   const seDeconnecter = useCallback(async () => {
     await supabase()?.auth.signOut()
@@ -313,7 +338,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       verificationLente,
       envoyerLien,
       connecterParMotDePasse,
-      definirMotDePasse,
+      changerMotDePasse,
+      deconnecterAilleurs,
       seDeconnecter,
       rafraichir: charger,
     }),
@@ -327,7 +353,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       verificationLente,
       envoyerLien,
       connecterParMotDePasse,
-      definirMotDePasse,
+      changerMotDePasse,
+      deconnecterAilleurs,
       seDeconnecter,
       charger,
     ],

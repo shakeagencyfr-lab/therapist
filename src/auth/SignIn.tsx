@@ -39,6 +39,8 @@ export function SignIn({
    */
   const [avecMotDePasse, setAvecMotDePasse] = useState(false)
   const [motDePasse, setMotDePasse] = useState('')
+  /** Arrivée ici par « Mot de passe oublié ? » : le lien est la réponse. */
+  const [oubli, setOubli] = useState(false)
   const captcha = useCaptcha()
 
   async function soumettre(e: FormEvent) {
@@ -118,7 +120,29 @@ export function SignIn({
                     onChange={(e) => setMotDePasse(e.target.value)}
                     required
                   />
+                  {/* Pas de page de réinitialisation à part : le lien EST la
+                      réinitialisation. Une fois entrée par lui, « Mon compte »
+                      laisse choisir un nouveau mot de passe sans l'ancien. */}
+                  <button
+                    type="button"
+                    className={s.oubli}
+                    onClick={() => {
+                      setAvecMotDePasse(false)
+                      setMotDePasse('')
+                      setOubli(true)
+                    }}
+                  >
+                    Mot de passe oublié ?
+                  </button>
                 </div>
+              ) : null}
+
+              {oubli && !avecMotDePasse ? (
+                <Notice tone="ok" style={{ marginBottom: 14 }}>
+                  Recevez un lien de connexion. Une fois entrée, ouvrez « Mon compte » (l'onglet
+                  « Moi » dans l'espace patient) : vous pourrez y choisir un nouveau mot de passe
+                  sans l'ancien, pendant 24 heures.
+                </Notice>
               ) : null}
 
               {error ? (
@@ -161,6 +185,7 @@ export function SignIn({
               onClick={() => {
                 setAvecMotDePasse(!avecMotDePasse)
                 setMotDePasse('')
+                setOubli(false)
               }}
             >
               {avecMotDePasse
@@ -170,7 +195,7 @@ export function SignIn({
 
             <p className={s.note}>
               {avecMotDePasse
-                ? "Le mot de passe se pose depuis votre espace, une fois connectée. Si vous n'en avez pas encore, demandez un lien."
+                ? "Le mot de passe se choisit depuis « Mon compte », une fois connectée. Si vous n'en avez pas encore, demandez un lien."
                 : 'Vous recevez un lien qui vous connecte, sans rien à retenir. Se connecter ne donne accès à rien en soi — il faut qu’une fiche ou une invitation vous attende.'}
             </p>
           </>

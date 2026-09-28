@@ -50,7 +50,7 @@ function rendu(label: string, initial: Partial<AppState>): string {
 // 1. Les six vues du cabinet rendent.
 const MODES: ViewMode[] = [
   'therapist', 'patient', 'session', 'atelier', 'audios', 'notif', 'boutique', 'programmes', 'marque',
-  'site', 'integrations',
+  'site', 'integrations', 'compte',
 ]
 for (const mode of MODES) {
   const html = rendu(`cabinet/${mode}`, { space: 'cabinet', mode })
@@ -480,6 +480,17 @@ try {
 } catch (err) {
   console.error(`✗ vitrine/publiee : ${(err as Error).message}`)
   echecs++
+}
+
+// 1 sexies. « Mon compte » s'ouvre aussi depuis l'espace revendeur, qui n'a
+// pas de vues à pilules : sans ce cas, le revendeur n'aurait aucun écran pour
+// changer son mot de passe.
+const compteRevendeur = rendu('revendeur/compte', { space: 'reseller', mode: 'compte' })
+if (compteRevendeur && !compteRevendeur.includes('Mon compte')) {
+  console.error("✗ revendeur/compte : l'écran du compte ne s'ouvre pas dans l'espace revendeur")
+  echecs++
+} else if (compteRevendeur) {
+  console.log(`✓ revendeur/compte ${String(compteRevendeur.length).padStart(6)} octets`)
 }
 
 // 2. Les quatre vues du revendeur rendent, et ne montrent aucun patient.

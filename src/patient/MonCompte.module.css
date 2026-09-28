@@ -169,3 +169,9 @@
   color: var(--c-text-3);
   cursor: pointer;
 }
+
+/* Sous un geste, la réponse ne colle pas au bouton. */
+.carte > .noticeOk,
+.carte > .noticeErreur {
+  margin-top: 12px;
+}

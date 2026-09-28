@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { supprimerCompte } from '../server/compte.js'
+import { jetonDe } from '../server/auth.js'
+import { gesteDuCompte } from '../server/compte.js'
 import { describeError } from '../server/ai.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
@@ -8,15 +9,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     res.status(405).json({ message: 'Méthode non autorisée.' })
     return
   }
-  const auth = req.headers.authorization ?? ''
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null
-  const geste = String((req.body as { geste?: string } | undefined)?.geste ?? '')
-  if (geste !== 'supprimer') {
-    res.status(400).json({ message: 'Geste inconnu.' })
-    return
-  }
+  // Un mot de passe traverse cette route : aucune réponse n'est gardée.
+  res.setHeader('Cache-Control', 'no-store')
   try {
-    res.status(200).json(await supprimerCompte(token))
+    res.status(200).json(await gesteDuCompte(jetonDe(req.headers.authorization), req.body))
   } catch (err) {
     const { status, message } = describeError(err)
     res.status(status).json({ message })

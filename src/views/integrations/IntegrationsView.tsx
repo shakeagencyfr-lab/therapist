@@ -8,7 +8,6 @@ import {
   type EtatIntegrations,
 } from '@/services/integrations'
 import { adresseSansPage } from '@/lib/reservation'
-import { MotDePasse } from './MotDePasse'
 import s from './IntegrationsView.module.css'
 
 /** « 1 septembre 2026 » */
@@ -134,7 +133,6 @@ export function IntegrationsView() {
               <CleAnthropic etat={etat} enCours={enCours} onAgir={agir} />
               <CleStripe etat={etat} enCours={enCours} onAgir={agir} />
               <RendezVous etat={etat} enCours={enCours} onAgir={agir} />
-              <MotDePasse />
             </div>
           ) : null}
         </>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { useAuth, LONGUEUR_MOT_DE_PASSE } from '@/auth/session'
+import { useAuth } from '@/auth/session'
+import { entreeParLienRecente, lireEntrees, LONGUEUR_MOT_DE_PASSE, refusDuNouveau } from '@/lib/motDePasse'
 import { supabase } from '@/lib/supabase'
 import type { PatientIdentity } from '@/auth/session'
 import { Installer } from './Installer'
@@ -23,21 +24,46 @@ import s from './MonCompte.module.css'
  * Le journal, en revanche, est à elle : il part avec le compte.
  */
 export function MonCompte({ patient }: { patient: PatientIdentity }) {
-  const { definirMotDePasse, seDeconnecter } = useAuth()
+  const { changerMotDePasse, deconnecterAilleurs, seDeconnecter, session } = useAuth()
+  const [ancien, setAncien] = useState('')
   const [motDePasse, setMotDePasse] = useState('')
+  const [confirmation, setConfirmation] = useState('')
   const [enCours, setEnCours] = useState('')
   const [notice, setNotice] = useState<{ ton: 'ok' | 'erreur'; texte: string } | null>(null)
+  const [appareils, setAppareils] = useState<{ ton: 'ok' | 'erreur'; texte: string } | null>(null)
+  const [echecSuppression, setEchecSuppression] = useState('')
   const [confirme, setConfirme] = useState(false)
 
+  /* L'ancien mot de passe n'est pas demandé juste après une entrée par lien :
+     c'est la voie de qui l'a oublié, ou n'en a jamais choisi. Le serveur le
+     vérifie de son côté ; l'écran ne fait que ne pas poser une question
+     inutile. */
+  const parLien = entreeParLienRecente(lireEntrees(session?.access_token), Date.now())
+  const refus = motDePasse ? refusDuNouveau(motDePasse, session?.user.email) : null
+  const identiques = motDePasse === confirmation
+  const pret = Boolean(motDePasse) && !refus && identiques && (parLien || ancien.length > 0) && enCours === ''
+
   async function poserMotDePasse() {
-    if (motDePasse.length < LONGUEUR_MOT_DE_PASSE || enCours) return
+    if (!pret) return
     setEnCours('mdp')
-    const r = await definirMotDePasse(motDePasse)
+    const r = await changerMotDePasse(parLien ? '' : ancien, motDePasse)
     setEnCours('')
-    // On ne vide le champ qu'en cas de succès : sur un refus, effacer ce qui
+    // On ne vide les champs qu'en cas de succès : sur un refus, effacer ce qui
     // vient d'être tapé oblige à tout retaper sans savoir ce qui clochait.
-    if (r.ok) setMotDePasse('')
+    if (r.ok) {
+      setAncien('')
+      setMotDePasse('')
+      setConfirmation('')
+    }
     setNotice({ ton: r.ok ? 'ok' : 'erreur', texte: r.message })
+  }
+
+  async function fermerLesAutres() {
+    if (enCours) return
+    setEnCours('appareils')
+    const r = await deconnecterAilleurs()
+    setEnCours('')
+    setAppareils({ ton: r.ok ? 'ok' : 'erreur', texte: r.message })
   }
 
   async function supprimer() {
@@ -55,7 +81,7 @@ export function MonCompte({ patient }: { patient: PatientIdentity }) {
       const lu = (await reponse.json().catch(() => ({}))) as { message?: string }
       if (!reponse.ok) {
         setEnCours('')
-        setNotice({ ton: 'erreur', texte: lu.message ?? "La suppression n'a pas abouti. Réessayez." })
+        setEchecSuppression(lu.message ?? "La suppression n'a pas abouti. Réessayez.")
         return
       }
       // Le compte n'existe plus : la session qui reste ouverte n'ouvre rien.
@@ -66,7 +92,7 @@ export function MonCompte({ patient }: { patient: PatientIdentity }) {
       window.location.replace('/mon')
     } catch {
       setEnCours('')
-      setNotice({ ton: 'erreur', texte: 'Le serveur est injoignable. Réessayez dans un instant.' })
+      setEchecSuppression('Le serveur est injoignable. Réessayez dans un instant.')
     }
   }
 
@@ -96,38 +122,100 @@ export function MonCompte({ patient }: { patient: PatientIdentity }) {
       />
 
       <section className={s.carte}>
-        <h2 className={s.titre}>Un mot de passe, si vous préférez</h2>
+        <h2 className={s.titre}>Votre mot de passe</h2>
         <p className={s.texte}>
           Le lien reçu par courriel reste la voie normale, et vous n'avez rien à retenir. Un mot de
-          passe vous évite d'attendre le courriel quand vous ouvrez votre espace souvent.
+          passe vous évite d'attendre le courriel quand vous ouvrez votre espace souvent. Une fois
+          changé, vos autres appareils sont déconnectés.
         </p>
-        <input
-          className={s.champ}
-          type="password"
-          value={motDePasse}
-          onChange={(e) => setMotDePasse(e.target.value)}
-          placeholder={`Au moins ${LONGUEUR_MOT_DE_PASSE} caractères`}
-          autoComplete="new-password"
-          aria-label="Nouveau mot de passe"
-        />
-        <p className={s.aide}>
-          Trois mots sans rapport font un bon mot de passe : plus long à casser qu'un mot court
-          hérissé de symboles, et plus facile à retenir.
-        </p>
-        <button
-          type="button"
-          className={s.bouton}
-          style={{ background: patient.branding?.accent }}
-          disabled={motDePasse.length < LONGUEUR_MOT_DE_PASSE || enCours !== ''}
-          onClick={() => void poserMotDePasse()}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            void poserMotDePasse()
+          }}
         >
-          {enCours === 'mdp' ? 'Enregistrement…' : 'Enregistrer ce mot de passe'}
-        </button>
+          {/* L'identifiant, caché : le gestionnaire de mots de passe du
+              téléphone sait ainsi pour quel compte il enregistre. */}
+          <input type="email" autoComplete="username" value={session?.user.email ?? ''} readOnly hidden />
+          {parLien ? (
+            <p className={s.aide}>
+              Vous venez d'entrer par un lien reçu par courriel : votre mot de passe actuel ne vous
+              est pas demandé.
+            </p>
+          ) : (
+            <>
+              <input
+                className={s.champ}
+                type="password"
+                value={ancien}
+                onChange={(e) => setAncien(e.target.value)}
+                placeholder="Mot de passe actuel"
+                autoComplete="current-password"
+                aria-label="Mot de passe actuel"
+              />
+              <p className={s.aide}>
+                Oublié, ou jamais choisi ? Déconnectez-vous et entrez par un lien reçu par
+                courriel : pendant 24 heures, il ne vous sera pas demandé.
+              </p>
+            </>
+          )}
+          <input
+            className={s.champ}
+            type="password"
+            value={motDePasse}
+            onChange={(e) => setMotDePasse(e.target.value)}
+            placeholder={`Nouveau — au moins ${LONGUEUR_MOT_DE_PASSE} caractères`}
+            autoComplete="new-password"
+            aria-label="Nouveau mot de passe"
+            aria-invalid={refus ? true : undefined}
+          />
+          <p className={s.aide}>
+            {refus ??
+              "Trois mots sans rapport font un bon mot de passe : plus long à casser qu'un mot court hérissé de symboles, et plus facile à retenir."}
+          </p>
+          <input
+            className={s.champ}
+            type="password"
+            value={confirmation}
+            onChange={(e) => setConfirmation(e.target.value)}
+            placeholder="Le même, une seconde fois"
+            autoComplete="new-password"
+            aria-label="Confirmation du nouveau mot de passe"
+          />
+          <p className={s.aide} aria-live="polite">
+            {confirmation && !identiques ? 'Les deux saisies diffèrent.' : '\u00a0'}
+          </p>
+          <button
+            type="submit"
+            className={s.bouton}
+            style={{ background: patient.branding?.accent }}
+            disabled={!pret}
+          >
+            {enCours === 'mdp' ? 'Enregistrement…' : 'Enregistrer ce mot de passe'}
+          </button>
+        </form>
+        {notice ? (
+          <p className={notice.ton === 'ok' ? s.noticeOk : s.noticeErreur} aria-live="polite">
+            {notice.texte}
+          </p>
+        ) : null}
       </section>
 
-      {notice ? (
-        <p className={notice.ton === 'ok' ? s.noticeOk : s.noticeErreur}>{notice.texte}</p>
-      ) : null}
+      <section className={s.carte}>
+        <h2 className={s.titre}>Vos appareils</h2>
+        <p className={s.texte}>
+          Un téléphone perdu, un ordinateur prêté : fermez d'un geste votre espace partout ailleurs.
+          Il reste ouvert ici.
+        </p>
+        <button type="button" className={s.lienDanger} disabled={enCours !== ''} onClick={() => void fermerLesAutres()}>
+          {enCours === 'appareils' ? 'Déconnexion…' : 'Déconnecter mes autres appareils'}
+        </button>
+        {appareils ? (
+          <p className={appareils.ton === 'ok' ? s.noticeOk : s.noticeErreur} aria-live="polite">
+            {appareils.texte}
+          </p>
+        ) : null}
+      </section>
 
       <section className={s.carte}>
         <h2 className={s.titre}>Fermer mon espace</h2>
@@ -167,6 +255,11 @@ export function MonCompte({ patient }: { patient: PatientIdentity }) {
             Supprimer mon compte
           </button>
         )}
+        {echecSuppression ? (
+          <p className={s.noticeErreur} role="alert">
+            {echecSuppression}
+          </p>
+        ) : null}
       </section>
 
       {/* Se déconnecter d'un téléphone, c'est aussi cesser d'y recevoir ses
