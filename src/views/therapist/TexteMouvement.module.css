@@ -1,0 +1,62 @@
+/* Un mouvement d'hypnose, à lire et à corriger. La typographie du texte est
+   celle de l'écran qui l'accueille ; ce fichier ne porte que la correction. */
+
+.tete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+}
+
+.tete > h3 {
+  min-width: 0;
+}
+
+/* Discret : c'est un geste d'exception, pas une invitation à tout reprendre. */
+.corriger {
+  flex: none;
+  border: none;
+  background: none;
+  padding: 4px 2px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--c-text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.corriger:hover {
+  color: var(--c-accent);
+  text-decoration: underline;
+}
+
+.edition {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 72ch;
+}
+
+/* Le texte se relit comme il se lira : même interligne généreux que la
+   lecture, et une zone qui s'allonge plutôt qu'un ascenseur de dix lignes. */
+.zone {
+  width: 100%;
+  min-height: 260px;
+  resize: vertical;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.aide {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+}
+
+.gestes {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}

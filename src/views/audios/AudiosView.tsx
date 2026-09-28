@@ -372,7 +372,8 @@ export function AudiosView() {
             <div className={s.catalogueHead}>
               <h2 className={s.catalogueTitle}>Catalogue</h2>
               <span className={s.catalogueCount}>
-                {state.lib.length} audios · {state.cats.length} catégories
+                {plural(state.lib.length, 'audio', 'audios')} ·{' '}
+                {plural(state.cats.length, 'catégorie', 'catégories')}
               </span>
             </div>
 

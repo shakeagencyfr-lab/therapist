@@ -251,6 +251,22 @@
   flex: 1 1 260px;
 }
 
+/* Ce qui reste d'une écriture interrompue : une information, pas une alerte
+   — l'alerte, c'est le message d'échec, affiché au-dessus. */
+.bilan {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--c-text-2);
+}
+
+.gestes {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 /* Chaque ligne porte son dépliant et sa suppression. */
 .ligne {
   display: flex;

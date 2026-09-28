@@ -170,7 +170,11 @@ async function contexteDe(admin: SupabaseClient, fiche: FicheAuto): Promise<Pati
     totalSessions: fiche.sessions_total ?? 0,
     adherence: 0,
     scaleLabel: fiche.scale_label ?? '',
+    // Les affirmations ne citent que le libellé de l'échelle : ni sa
+    // question ni ses notes ne leur servent, on ne les lit pas.
+    scaleQuestion: '',
     scaleDelta: fiche.scale_delta ?? '',
+    echelle: [],
     modules: ((modules.data ?? []) as Array<{ title: string; done_at: string | null }>).map((m) => ({
       title: m.title,
       done: Boolean(m.done_at),

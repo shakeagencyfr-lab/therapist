@@ -4,9 +4,9 @@ import { useMaybeCabinet } from '@/cabinet/context'
 import { dateDuJour, plural } from '@/lib/format'
 import { momentDuMessage } from '@/lib/seance'
 import {
-  AiError,
   buildPatientContext,
   derniereReponseEstMaquette as derniereEstMaquette,
+  messageDEchec,
   refreshProfile,
 } from '@/services/aiClient'
 import { nouvelleSeance, profileOf } from '@/state/selectors'
@@ -349,9 +349,12 @@ export function DraftStep() {
         }
       }
     } catch (error) {
-      const message = error instanceof AiError ? error.message : "le serveur n'a pas répondu"
+      // Le message du serveur, tel quel : il dit déjà la cause et le remède.
       set({ profGen: '' })
-      setProfil({ ton: 'warn', texte: `L'actualisation a échoué : ${message}. Réessayez.` })
+      setProfil({
+        ton: 'warn',
+        texte: messageDEchec(error, "L'actualisation a échoué : le serveur n'a pas répondu. Le profil en place n'a pas bougé, réessayez."),
+      })
     }
   }
 

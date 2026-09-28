@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { Button, Notice, Title } from '@/components/ui'
 import { MOUVEMENTS_HYPNOSE, NOM_MOUVEMENT } from '@/services/aiClient'
+import { useMaybeCabinet } from '@/cabinet/context'
 import { useEcritureHypnose } from '@/cabinet/useEcritureHypnose'
+import { bilanHypnose, libelleReprise } from '@/lib/texteHypnose'
 import { useStore } from '@/state/store'
+import { TexteMouvement } from '@/views/therapist/TexteMouvement'
 import { HypnoseToggle } from './HypnoseToggle'
 import s from './HypnoseCard.module.css'
 
@@ -17,7 +20,12 @@ import s from './HypnoseCard.module.css'
  * L'ÉCRITURE SE VOIT. Quatre appels séparés, un par mouvement, et l'écran
  * dit lequel s'écrit : trois minutes de rond qui tourne feraient croire à
  * une panne. Chaque mouvement est conservé dès qu'il arrive — une écriture
- * interrompue au troisième laisse les deux premiers acquis.
+ * interrompue au troisième laisse les deux premiers acquis, et l'écran
+ * propose d'en repartir, ou de fermer. Il restait figé sur deux coches,
+ * sans un bouton.
+ *
+ * CHAQUE MOUVEMENT SE CORRIGE. Le texte est lu à voix haute : une tournure
+ * qui ne passe pas se reprend avant la séance, sans tout réécrire.
  *
  * ELLE NE S'OUVRE PAS TOUJOURS. C'est une option que la thérapeute règle
  * patient par patient : tous n'en ont pas besoin, et elle coûte plus
@@ -39,13 +47,31 @@ export function HypnoseCard() {
    * réactif — et laisse la démonstration fonctionner sans base.
    */
   const [ouverteIci, setOuverteIci] = useState<boolean | null>(null)
-  const { ecriture, enCours, ecrits, erreur, fini, conservee, ecrire } = useEcritureHypnose()
+  const cabinet = useMaybeCabinet()
+  const {
+    ecriture,
+    enCours,
+    ecrits,
+    erreur,
+    fini,
+    conservee,
+    aReprendre,
+    aEnregistrer,
+    ecrire,
+    reprendre,
+    corriger,
+    reinitialiser,
+  } = useEcritureHypnose()
 
   if (!patient) return null
 
   const prenom = patient.name.split(' ')[0] ?? patient.name
   const ouverte = ouverteIci ?? patient.hypnoseActivee
   const draft = state.draft
+  const bilan = bilanHypnose(
+    { fini, conservee, ecrits: ecrits.length, interrompue: !!erreur, reel: !!cabinet?.reel },
+    prenom,
+  )
 
   return (
     <section className={s.card}>
@@ -65,7 +91,9 @@ export function HypnoseCard() {
             approfondissement, travail, retour. C'est un texte à dire, pas à donner.
           </p>
 
-          {!ecriture && ecrits.length === 0 ? (
+          {/* Masqué tant qu'une écriture est à l'écran — en cours, finie ou
+              interrompue : elle se reprend ou se ferme d'abord. */}
+          {!ecriture && ecrits.length === 0 && !erreur ? (
             <div className={s.lancement}>
               <label className={s.champ}>
                 <span className={s.label}>Ce que vous voulez travailler (facultatif)</span>
@@ -113,24 +141,45 @@ export function HypnoseCard() {
           ) : null}
 
           {ecrits.map((e) => (
-            <article key={e.mouvement} className={s.mouvement}>
-              <h3 className={s.mouvementTitre}>
-                {NOM_MOUVEMENT[e.mouvement]} · {e.titre}
-              </h3>
-              {e.texte.split('\n').filter(Boolean).map((para, i) => (
-                <p key={i} className={s.para}>
-                  {para}
-                </p>
-              ))}
-            </article>
+            <TexteMouvement
+              key={e.mouvement}
+              ecrit={e}
+              classes={{ article: s.mouvement, titre: s.mouvementTitre, para: s.para }}
+              onCorriger={ecriture ? undefined : (texte) => corriger(e.mouvement, texte)}
+            />
           ))}
 
-          {fini ? (
-            <Notice tone="ok">
-              {conservee
-                ? `Hypnose écrite et conservée. Vous la retrouverez sur la fiche de ${prenom}.`
-                : `Hypnose écrite, mais NON conservée : elle n'a pas pu rejoindre le dossier de ${prenom}. Copiez-la maintenant — elle disparaîtra au prochain chargement.`}
-            </Notice>
+          {/* Le bilan ne dit « conservée » que si la base l'a reçue ; après
+              un échec, il dit ce qui est gardé et d'où repartir. */}
+          {!ecriture && (fini || erreur) ? (
+            <div className={s.bilanLigne}>
+              {bilan ? (
+                bilan.ton === 'neutre' ? (
+                  <p className={s.bilan}>{bilan.texte}</p>
+                ) : (
+                  <Notice tone={bilan.ton}>{bilan.texte}</Notice>
+                )
+              ) : null}
+              <span className={s.gestes}>
+                {aReprendre ? (
+                  <Button variant="primary" onClick={() => void reprendre()}>
+                    {libelleReprise(aReprendre)}
+                  </Button>
+                ) : null}
+                {aEnregistrer ? (
+                  <Button variant="primary" onClick={() => void reprendre()}>
+                    Réessayer de l'enregistrer
+                  </Button>
+                ) : null}
+                {/* Fermer ne défait rien : ce qui est en base y reste, et
+                    une hypnose interrompue se reprend depuis la fiche. */}
+                {!fini ? (
+                  <Button variant="ghost" onClick={reinitialiser}>
+                    Fermer
+                  </Button>
+                ) : null}
+              </span>
+            </div>
           ) : null}
         </>
       )}

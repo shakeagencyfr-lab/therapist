@@ -3,6 +3,7 @@ import { initialState } from './state'
 import {
   axisBand,
   moduleProgress,
+  notifRows,
   nouvelleSeance,
   profilePrecision,
   riskColor,
@@ -102,5 +103,53 @@ describe('profilePrecision — le compteur de séances', () => {
     expect(profilePrecision(fiche(8, 0), 'camille').maturity).toBe('Consolidé')
     expect(profilePrecision(fiche(8, 8), 'camille').maturity).toBe('Stabilisé')
     expect(profilePrecision(fiche(5, 8), 'camille').maturity).toBe('Consolidé')
+  })
+})
+
+/**
+ * L'assiduité ne compte que ce que le patient peut faire.
+ *
+ * Constaté en production : deux modules « Audio » et deux « Échelle », issus
+ * de séances, jamais cochés — l'espace du patient ne les montre pas comme des
+ * tâches. Comptés, ils faisaient baisser l'assiduité et déclenchaient
+ * l'alerte de décrochage.
+ */
+describe('moduleProgress — des tâches seulement', () => {
+  const camille = initialState.patients['camille']!
+  const etat = {
+    ...initialState,
+    extra: {},
+    done: {},
+    patients: {
+      ...initialState.patients,
+      camille: {
+        ...camille,
+        modules: [
+          { title: 'Trois respirations', meta: '', kind: 'Exercice' as const, done: true },
+          { title: 'Retour au calme', meta: '', kind: 'Audio' as const, done: false },
+          { title: 'Note du soir', meta: '', kind: 'Échelle' as const, done: false },
+          { title: 'Trois lignes', meta: '', kind: 'Écriture' as const, done: false },
+        ],
+      },
+    },
+  }
+
+  it('ni l’audio ni l’échelle ne comptent, faits ou non', () => {
+    expect(moduleProgress(etat, 'camille')).toEqual({ done: 1, total: 2 })
+  })
+
+  it('une fiche n’est pas « en décrochage » pour ce qu’elle ne pouvait pas faire', () => {
+    // 1 sur 4 si l'on comptait tout : décrochage. 1 sur 2 : pas encore.
+    expect(slippingPatients(etat)).not.toContain('camille')
+  })
+
+  it('une case cochée localement garde son rang dans la liste entière', () => {
+    // Le rang 3 est « Trois lignes » : le filtre ne décale pas les clés.
+    expect(moduleProgress({ ...etat, done: { 'camille:3': true } }, 'camille')).toEqual({ done: 2, total: 2 })
+  })
+
+  it('les modules en retard des notifications ne comptent que les tâches', () => {
+    const ligne = notifRows(etat).find((r) => r.key === 'camille')
+    expect(ligne?.reason).toContain('1 module en retard')
   })
 })

@@ -293,6 +293,16 @@ async function callClaude<T>({ route, schema, system, prompt, maxTokens, cle }: 
         "Votre clé Anthropic a été refusée : elle a peut-être expiré, ou son crédit est épuisé. Reprenez-la dans Réglages › Intégrations. Rien n'a été analysé.",
       )
     }
+    /* UN CRÉDIT ÉPUISÉ N'EST PAS UN RÉGLAGE DU SERVEUR. Le service le dit
+       par un 400 ordinaire, pas par un refus de clé : il tombait dans le cas
+       générique, qui envoyait la thérapeute prévenir son revendeur pour une
+       facture qui se règle chez elle, en deux minutes. */
+    if (cle?.source === 'cabinet' && err instanceof Anthropic.BadRequestError && /credit balance/i.test(err.message)) {
+      throw new HttpError(
+        402,
+        "Le crédit de votre clé Anthropic est épuisé. Rechargez-le depuis votre compte Anthropic (rubrique Billing), puis relancez : rien n'a été analysé.",
+      )
+    }
     throw err
   }
 

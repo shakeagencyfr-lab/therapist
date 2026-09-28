@@ -16,11 +16,17 @@ export function ScaleChart() {
   // La courbe n'est montée qu'avec un patient.
   if (!p) return null
 
+  /* L'écart est calculé à l'assemblage de la fiche, depuis les notes datées
+     (src/lib/echelle.ts) : « 8 → 3 en 3 semaines ». Il restait vide en
+     production — la colonne qui devait le porter n'était écrite par aucun
+     code. Sans note, l'en-tête le dit au lieu de laisser un blanc. */
+  const ecart = p.scaleDelta || (points.length ? '' : "Aucune note du soir pour l'instant")
+
   return (
     <Card padded={false} className={s.card}>
       <div className={s.head}>
         <Title>{p.scaleLabel}</Title>
-        <span className={s.delta}>{p.scaleDelta}</span>
+        {ecart ? <span className={s.delta}>{ecart}</span> : null}
       </div>
       {/* Le sous-titre porte la QUESTION que le patient lit chaque soir : elle
           dit ce que la courbe mesure, là où « échelle de 0 à 10 » ne disait
@@ -36,7 +42,7 @@ export function ScaleChart() {
         className={s.chart}
         viewBox="0 0 300 90"
         role="img"
-        aria-label={`${p.scaleLabel} — ${p.scaleDelta}`}
+        aria-label={ecart ? `${p.scaleLabel} — ${ecart}` : p.scaleLabel}
       >
         <line className={s.base} x1="0" y1="89" x2="300" y2="89" />
         <line className={s.mid} x1="0" y1="45" x2="300" y2="45" />

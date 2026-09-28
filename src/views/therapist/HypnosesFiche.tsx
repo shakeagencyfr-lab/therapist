@@ -2,12 +2,15 @@ import { useState } from 'react'
 import { Button, Card, Notice, Overline, Title } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { useEcritureHypnose } from '@/cabinet/useEcritureHypnose'
-import { MOUVEMENTS_HYPNOSE, NOM_MOUVEMENT } from '@/services/aiClient'
+import { MOUVEMENTS_HYPNOSE, NOM_MOUVEMENT, pointDeReprise } from '@/services/aiClient'
+import { plural } from '@/lib/format'
 import { telechargerHypnose } from '@/lib/hypnosePdf'
+import { bilanHypnose, libelleReprise, rangDuMouvement } from '@/lib/texteHypnose'
 import { patientOf } from '@/state/selectors'
 import { useAppState } from '@/state/store'
 import { useMaybeAuth } from '@/auth/session'
-import type { Hypnose } from '@/types/domain'
+import type { Hypnose, HypnoseMouvement } from '@/types/domain'
+import { TexteMouvement } from './TexteMouvement'
 import s from './HypnosesFiche.module.css'
 
 /** « 2 septembre 2026 » */
@@ -27,6 +30,13 @@ function dateLongue(iso: string): string {
  * synthèse qu'elle porte, on n'écrirait plus qu'à partir du dossier — et on
  * perdrait la matière la plus précieuse, les mots du patient. La fiche
  * charge donc ce brouillon avec le reste, et le dit quand il manque.
+ *
+ * UNE ÉCRITURE INTERROMPUE SE REPREND, ICI COMME DANS LA LISTE. Après un
+ * échec au deuxième, troisième ou quatrième mouvement, l'écran restait figé :
+ * le bloc de relance masqué par les mouvements déjà écrits, aucun bouton pour
+ * fermer, aucun pour repartir du mouvement manquant. Il dit maintenant ce qui
+ * est gardé, reprend au premier manquant, ou se ferme ; et une hypnose restée
+ * interrompue en base se reprend depuis sa ligne.
  */
 export function HypnosesFiche() {
   const state = useAppState()
@@ -37,7 +47,20 @@ export function HypnosesFiche() {
   const [intention, setIntention] = useState('')
   const [aSupprimer, setASupprimer] = useState('')
   const [notice, setNotice] = useState('')
-  const { ecriture, enCours, ecrits, erreur, fini, ecrire, reinitialiser } = useEcritureHypnose()
+  const {
+    ecriture,
+    enCours,
+    ecrits,
+    erreur,
+    fini,
+    conservee,
+    aReprendre,
+    aEnregistrer,
+    ecrire,
+    reprendre,
+    reprendreHypnose,
+    reinitialiser,
+  } = useEcritureHypnose()
   /** L'hypnose dont le PDF se fabrique : jsPDF se charge à la demande. */
   const [pdf, setPdf] = useState('')
 
@@ -66,6 +89,33 @@ export function HypnosesFiche() {
     if (r && !r.ok) setNotice(r.message)
   }
 
+  /**
+   * Corrige un mouvement d'une hypnose déjà en base. L'écriture remplace le
+   * mouvement (même hypnose, même rang) ; le dossier est relu ensuite pour
+   * que la fiche — et le PDF — lisent le texte corrigé.
+   */
+  async function corrigerEnBase(h: Hypnose, m: HypnoseMouvement, texte: string) {
+    if (!cabinet?.reel) {
+      return { ok: false, message: 'En démonstration, aucune correction ne s’enregistre.' }
+    }
+    const r = await cabinet.ajouterMouvement(h.id, { ...m, texte }, rangDuMouvement(m.mouvement))
+    if (!r.ok) {
+      return { ok: false, message: "La correction n'a pas pu être enregistrée : le dossier garde le texte d'avant." }
+    }
+    await cabinet.recharger()
+    return { ok: true, message: '' }
+  }
+
+  function fermer() {
+    reinitialiser()
+    setIntention('')
+  }
+
+  const bilan = bilanHypnose(
+    { fini, conservee, ecrits: ecrits.length, interrompue: !!erreur, reel: !!cabinet?.reel },
+    prenom,
+  )
+
   return (
     <Card className={s.card}>
       <div className={s.head}>
@@ -73,25 +123,25 @@ export function HypnosesFiche() {
           Hypnoses de {prenom}
         </Title>
         {hypnoses.length ? (
-          <span className={s.compte}>
-            {hypnoses.length} {hypnoses.length > 1 ? 'séances écrites' : 'séance écrite'}
-          </span>
+          <span className={s.compte}>{plural(hypnoses.length, 'séance écrite', 'séances écrites')}</span>
         ) : null}
       </div>
 
       {notice ? <Notice tone="warn">{notice}</Notice> : null}
       {erreur ? <Notice tone="warn">{erreur}</Notice> : null}
 
-      {hypnoses.length === 0 && !ecriture && ecrits.length === 0 ? (
+      {hypnoses.length === 0 && !ecriture && ecrits.length === 0 && !erreur ? (
         <p className={s.vide}>
           L'hypnose est activée pour {prenom}. Elle s'écrira à sa prochaine séance — ou dès
           maintenant, à partir de la dernière.
         </p>
       ) : null}
 
-      {/* Écrire, ou réécrire autrement. Une hypnose ratée ne se corrige pas :
-          on en refait une, avec une autre intention. */}
-      {!ecriture && ecrits.length === 0 ? (
+      {/* Écrire, ou réécrire autrement. Une hypnose qui ne convient pas se
+          refait avec une autre intention ; une tournure qui ne passe pas se
+          corrige dans le texte. Masqué tant qu'une écriture est à l'écran —
+          en cours, finie, ou interrompue : elle se ferme d'abord. */}
+      {!ecriture && ecrits.length === 0 && !erreur ? (
         <div className={s.relance}>
           <label className={s.champ}>
             <span className={s.label}>Ce que vous voulez travailler (facultatif)</span>
@@ -120,8 +170,9 @@ export function HypnosesFiche() {
         </p>
       ) : null}
 
-      {/* L'écriture en cours, annoncée dès le clic. */}
-      {ecriture || ecrits.length > 0 ? (
+      {/* L'écriture en cours, annoncée dès le clic — et, après, ce qu'elle a
+          donné : finie, ou interrompue avec de quoi reprendre. */}
+      {ecriture || ecrits.length > 0 || erreur ? (
         <div className={s.progression}>
           {enCours ? (
             <p className={s.encours}>
@@ -140,18 +191,30 @@ export function HypnosesFiche() {
               )
             })}
           </ol>
-          {fini ? (
+          {!ecriture && (fini || erreur) ? (
             <div className={s.finiLigne}>
-              <Notice tone="ok">Hypnose écrite et conservée.</Notice>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  reinitialiser()
-                  setIntention('')
-                }}
-              >
-                Fermer
-              </Button>
+              {bilan ? (
+                bilan.ton === 'neutre' ? (
+                  <p className={s.bilan}>{bilan.texte}</p>
+                ) : (
+                  <Notice tone={bilan.ton}>{bilan.texte}</Notice>
+                )
+              ) : null}
+              <span className={s.gestes}>
+                {aReprendre ? (
+                  <Button variant="primary" onClick={() => void reprendre()}>
+                    {libelleReprise(aReprendre)}
+                  </Button>
+                ) : null}
+                {aEnregistrer ? (
+                  <Button variant="primary" onClick={() => void reprendre()}>
+                    Réessayer de l'enregistrer
+                  </Button>
+                ) : null}
+                <Button variant="ghost" onClick={fermer}>
+                  Fermer
+                </Button>
+              </span>
             </div>
           ) : null}
         </div>
@@ -164,6 +227,10 @@ export function HypnosesFiche() {
             const minutes = Math.round(
               h.mouvements.reduce((n, m) => n + m.texte.split(/\s+/).filter(Boolean).length, 0) / 100,
             )
+            /* Où reprendre une hypnose restée interrompue en base. Toutes ses
+               lignes peuvent être là (seule la fermeture a échoué) : la
+               reprise ne réécrit alors rien, elle referme. */
+            const manquant = h.complete ? null : (pointDeReprise(h.mouvements).restants[0] ?? null)
             return (
               <li key={h.id} className={s.item}>
                 <div className={s.ligne}>
@@ -180,9 +247,24 @@ export function HypnosesFiche() {
                         ? minutes > 0
                           ? ` · ≈ ${minutes} min de lecture`
                           : ''
-                        : ` · interrompue, ${h.mouvements.length} mouvement${h.mouvements.length > 1 ? 's' : ''} sur 4`}
+                        : ` · interrompue, ${plural(h.mouvements.length, 'mouvement', 'mouvements')} sur 4`}
                     </span>
                   </button>
+
+                  {/* Reprendre là où l'écriture s'est arrêtée, plutôt que tout
+                      repayer. Il faut la matière d'une séance, comme pour en
+                      écrire une. */}
+                  {!h.complete ? (
+                    <button
+                      type="button"
+                      className={s.pdf}
+                      disabled={ecriture || !brouillon || !cabinet?.reel}
+                      onClick={() => brouillon && void reprendreHypnose(cle, brouillon, h)}
+                      title={brouillon ? undefined : 'Il faut une séance analysée pour reprendre l’écriture.'}
+                    >
+                      {manquant ? libelleReprise(manquant) : 'Terminer'}
+                    </button>
+                  ) : null}
 
                   {/* Une hypnose interrompue ou en double n'a aucune valeur :
                       elle s'efface sans cérémonie. Une confirmation en un clic
@@ -230,19 +312,14 @@ export function HypnosesFiche() {
                       </p>
                     ) : null}
                     {h.mouvements.map((m) => (
-                      <article key={m.mouvement} className={s.mouvement}>
-                        <h3 className={s.mouvementTitre}>
-                          {NOM_MOUVEMENT[m.mouvement]} · {m.titre}
-                        </h3>
-                        {m.texte
-                          .split('\n')
-                          .filter(Boolean)
-                          .map((para, i) => (
-                            <p key={i} className={s.para}>
-                              {para}
-                            </p>
-                          ))}
-                      </article>
+                      <TexteMouvement
+                        key={m.mouvement}
+                        ecrit={m}
+                        classes={{ article: s.mouvement, titre: s.mouvementTitre, para: s.para }}
+                        onCorriger={
+                          cabinet?.reel && !ecriture ? (texte) => corrigerEnBase(h, m, texte) : undefined
+                        }
+                      />
                     ))}
                   </div>
                 ) : null}

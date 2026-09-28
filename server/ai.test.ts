@@ -1,5 +1,16 @@
+import Anthropic from '@anthropic-ai/sdk'
 import { describe, expect, it } from 'vitest'
-import { AI_ROUTES, coutCentimes, currentMode, profilCreux, reglageDe } from './ai.js'
+import {
+  AI_ROUTES,
+  HttpError,
+  briefDuModule,
+  coutCentimes,
+  currentMode,
+  describeError,
+  profilCreux,
+  reglageDe,
+} from './ai.js'
+import { modulePrompt } from './prompts.js'
 
 describe('coutCentimes — au tarif du modèle', () => {
   it('Opus 5 : 5 $ / 25 $ le million', () => {
@@ -97,5 +108,113 @@ describe('profilCreux — ce que le modèle a oublié', () => {
      vides. `undefined` doit compter comme manquant, sans lever. */
   it('traite une clé absente comme un tableau vide', () => {
     expect(profilCreux({})).toBe("les axes, les leviers, les points d'attention")
+  })
+})
+
+/**
+ * La route « module » et le dossier du patient.
+ *
+ * Le brief était recomposé champ par champ — intention, type, quiz — et le
+ * contexte n'y était pas recopié : les consignes écrites après une séance
+ * partaient avec le dossier de la personne, et l'IA écrivait un exercice de
+ * manuel. Le brief se lit maintenant sans appel au modèle : on vérifie ici
+ * que le dossier survit jusqu'au prompt.
+ */
+describe('briefDuModule — le dossier arrive jusqu’au prompt', () => {
+  const INTENTION = 'Installer un geste d’ancrage à reprendre quand l’envie monte.'
+  /** Un dossier tel qu'un onglet resté sur l'ancienne version l'envoie : sans échelle datée. */
+  const DOSSIER = {
+    name: 'Camille Laurent',
+    program: 'Programme Liberté',
+    subtitle: 'Arrêt du tabac',
+    weekLabel: '3 séances sur 6',
+    sessions: 3,
+    totalSessions: 6,
+    adherence: 67,
+    scaleLabel: 'Envie de fumer',
+    scaleDelta: '',
+    modules: [{ title: 'Trois respirations', done: true }],
+    journal: [{ date: 'lundi 7 sept.', text: 'La pause de 10 h a été la plus dure.' }],
+    shared: '',
+    profile: { updated: '', portrait: 'Avance par petites victoires.', axes: [], levers: [], care: [] },
+  }
+
+  it('garde le dossier, et le prompt écrit pour la personne', () => {
+    const brief = briefDuModule({ intent: INTENTION, type: 'Exercice', quiz: false, context: DOSSIER })
+    expect(brief.context?.name).toBe('Camille Laurent')
+    const prompt = modulePrompt(brief)
+    expect(prompt).toContain('Camille Laurent')
+    expect(prompt).toContain('Avance par petites victoires.')
+    expect(prompt).toContain('La pause de 10 h a été la plus dure.')
+  })
+
+  it('sans dossier, un module générique : l’atelier en fabrique aussi', () => {
+    const brief = briefDuModule({ intent: INTENTION, type: 'Journal' })
+    expect(brief.context).toBeUndefined()
+    expect(brief.quiz).toBe(true)
+    expect(modulePrompt(brief)).not.toContain('Personne :')
+  })
+
+  it('complète un dossier ancien plutôt que de lever au milieu du prompt', () => {
+    const brief = briefDuModule({ intent: INTENTION, type: 'Exercice', context: DOSSIER })
+    expect(brief.context?.echelle).toEqual([])
+    expect(brief.context?.scaleQuestion).toBe('')
+  })
+
+  it('refuse un dossier d’un mauvais type, en le disant', () => {
+    expect(() =>
+      briefDuModule({ intent: INTENTION, type: 'Exercice', context: { ...DOSSIER, modules: 'trois' } }),
+    ).toThrow(/Rechargez la page/)
+  })
+
+  it('refuse d’écrire la consigne d’un module qui ne se fait pas', () => {
+    for (const type of ['Audio', 'Échelle']) {
+      let erreur: unknown
+      try {
+        briefDuModule({ intent: INTENTION, type, context: DOSSIER })
+      } catch (e) {
+        erreur = e
+      }
+      expect(erreur, type).toBeInstanceOf(HttpError)
+      expect((erreur as HttpError).status).toBe(400)
+    }
+  })
+
+  it('refuse un type inconnu, un brief vide et un brief démesuré', () => {
+    expect(() => briefDuModule({ intent: INTENTION, type: 'Podcast' })).toThrow(/n'existe pas/)
+    expect(() => briefDuModule({ intent: 'court' })).toThrow(/une phrase ou deux/)
+    expect(() => briefDuModule({ intent: 'x'.repeat(5000) })).toThrow(/trop long/)
+  })
+})
+
+/**
+ * Ce que l'écran lit quand le service d'analyse refuse.
+ *
+ * « Réessayez » n'a de sens que pour une panne passagère. Un refus de la
+ * demande échouera pareil au prochain essai : le dire autrement.
+ */
+describe('describeError — un message qui dit quoi faire', () => {
+  const erreur = (status: number) => Anthropic.APIError.generate(status, undefined, 'x', new Headers())
+
+  it('une panne du service invite à réessayer', () => {
+    expect(describeError(erreur(529))).toEqual({
+      status: 502,
+      message: "Le service d'analyse est momentanément saturé. Réessayez dans un instant.",
+    })
+    expect(describeError(erreur(500)).message).toMatch(/Réessayez dans un instant/)
+  })
+
+  it('un refus de la demande ne renvoie pas tourner en rond', () => {
+    const { status, message } = describeError(erreur(400))
+    expect(status).toBe(400)
+    expect(message).not.toMatch(/Réessayez/)
+    expect(message).toMatch(/Rien n'a été produit/)
+  })
+
+  it('une HttpError passe telle quelle', () => {
+    expect(describeError(new HttpError(400, 'Le brief est trop long.'))).toEqual({
+      status: 400,
+      message: 'Le brief est trop long.',
+    })
   })
 })

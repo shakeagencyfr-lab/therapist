@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { Card, Notice, Overline } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
 import {
   buildPatientContext,
   derniereReponseEstMaquette as derniereEstMaquette,
+  messageDEchec,
   refreshProfile,
 } from '@/services/aiClient'
 import { axisBand, profileOf, profilePrecision } from '@/state/selectors'
@@ -87,6 +89,11 @@ function Courbe({ suite, titre }: { suite: number[]; titre: string }) {
  *
  * La bande se resserre à chaque séance : la règle de précision (marge et
  * palier de maturité) vit dans `profilePrecision`.
+ *
+ * UN ÉCHEC SE DIT, EN ALERTE, AVEC SA CAUSE. Le message du serveur (clé
+ * Anthropic absente, refusée, service saturé) était remplacé par « Réessayez »
+ * et affiché dans l'encadré vert du résumé — à la place du résumé, comme une
+ * réussite. Il a maintenant son encadré, et le résumé n'y est pas mêlé.
  */
 export function PsychProfile() {
   const { state, set } = useStore()
@@ -99,11 +106,16 @@ export function PsychProfile() {
      — il vient d'être produit — mais celui du dossier ne se perd plus : la
      colonne était écrite à chaque version et relue par personne. */
   const resume = state.profNote[key] || profile?.resume
+  /* L'échec de la dernière actualisation, propre à cette fiche : la carte
+     porte la clé du patient, et l'échec de l'un ne s'affiche pas chez
+     l'autre. */
+  const [echec, setEchec] = useState('')
 
   async function refresh() {
     // Une seule actualisation à la fois, tous patients confondus.
     if (state.profGen) return
     set({ profGen: key })
+    setEchec('')
     try {
       /* La séance en mémoire est celle de l'écran Séance, et elle n'est pas
          effacée en changeant de fiche. L'envoyer sans vérifier à qui elle
@@ -157,12 +169,9 @@ export function PsychProfile() {
           resume: result.resume ?? '',
         })
         if (!r.ok) {
-          set((prev) => ({
-            profNote: {
-              ...prev.profNote,
-              [key]: "Profil actualisé à l'écran, mais pas conservé : réessayez pour l'enregistrer.",
-            },
-          }))
+          setEchec(
+            `${r.message || "Le profil n'a pas pu être enregistré."} Il reste affiché, mais la fiche ne le retrouvera pas au prochain chargement : actualisez de nouveau pour l'enregistrer.`,
+          )
         } else {
           /* Écrit : le dossier fait foi. On relit et on retire la version
              d'écran, sans quoi elle masquerait pour le reste de la session ce
@@ -175,11 +184,9 @@ export function PsychProfile() {
           })
         }
       }
-    } catch {
-      set((prev) => ({
-        profGen: '',
-        profNote: { ...prev.profNote, [key]: "L'actualisation a échoué. Réessayez." },
-      }))
+    } catch (error) {
+      set({ profGen: '' })
+      setEchec(messageDEchec(error, "L'actualisation a échoué. Le profil en place n'a pas bougé."))
     }
   }
 
@@ -299,6 +306,7 @@ export function PsychProfile() {
               : ''}
           </div>
 
+          {echec ? <Notice tone="warn">{echec}</Notice> : null}
           {resume ? <Notice tone="ok">{resume}</Notice> : null}
         </div>
 

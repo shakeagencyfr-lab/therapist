@@ -18,6 +18,8 @@ import { useStore } from '@/state/store'
 import { durationToSeconds, plural } from '@/lib/format'
 import { bilanTelephone } from '@/lib/rappels'
 import { DELAI_PURGE_JOURS } from '@/lib/seance'
+import { ecartEchelle, mesuresDatees } from '@/lib/echelle'
+import { seFaitParLePatient } from '@/lib/typesDeModules'
 import type { CabinetBranding } from '@/types/reseller'
 import type {
   Consigne,
@@ -304,13 +306,21 @@ function assembler(
   const retires = siens
     .filter((m) => m.archived_at)
     .sort((a, b) => (b.archived_at ?? '').localeCompare(a.archived_at ?? ''))
-  const faits = mods.filter((m) => m.done_at).length
+  /* L'ASSIDUITÉ NE COMPTE QUE CE QUI SE FAIT. Un module « Audio » ou
+     « Échelle » ne s'affiche jamais comme une tâche chez le patient
+     (src/lib/typesDeModules.ts) : compté, il restait « non fait » pour
+     toujours, et l'assiduité baissait jusqu'à signaler un décrochage. */
+  const taches = mods.filter((m) => seFaitParLePatient(m.kind))
+  const faits = taches.filter((m) => m.done_at).length
 
   const auds = audios.filter((a) => a.patient_id === p.id)
-  const serie = echelles
+  /* L'ÉCHELLE SE LIT DANS LE TEMPS. `scale_delta` n'a jamais été écrit par
+     aucun code : l'écart se déduit des notes, ici, à chaque chargement — une
+     phrase stockée vieillirait dès la note suivante. */
+  const notes = echelles
     .filter((e) => e.patient_id === p.id)
-    .sort((a, b) => a.recorded_at.localeCompare(b.recorded_at))
-    .map((e) => e.value)
+    .map((e) => ({ valeur: e.value, le: e.recorded_at }))
+  const mesures = mesuresDatees(notes)
 
   return {
     name: p.display_name,
@@ -322,14 +332,15 @@ function assembler(
     subtitle: p.subtitle || sousTitre(p),
     weekLabel: p.week_label || libelleSemaine(p),
     nextSession: p.next_session ?? 'Aucune séance planifiée',
-    adherence: mods.length ? Math.round((faits / mods.length) * 100) : 0,
+    adherence: taches.length ? Math.round((faits / taches.length) * 100) : 0,
     listens: auds.reduce((n, a) => n + a.listens, 0),
     sessions: p.sessions_done,
     totalSessions: p.sessions_total,
     scaleLabel: p.scale_label || 'Auto-évaluation',
     scaleQuestion: p.scale_question,
-    scaleDelta: p.scale_delta ?? '',
-    scale: serie,
+    scaleDelta: ecartEchelle(notes),
+    scale: mesures.map((m) => m.valeur),
+    mesures,
     hypnoseActivee: Boolean(p.hypnose_activee),
     dernierBrouillon: brouillon,
     hypnoses: hypnoses

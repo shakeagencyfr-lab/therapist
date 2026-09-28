@@ -185,8 +185,12 @@
   background: var(--c-accent);
   color: var(--c-surface);
 }
-.publish:hover {
+.publish:hover:not(:disabled) {
   background: var(--c-accent-hover);
+}
+.publish:disabled {
+  cursor: wait;
+  opacity: 0.7;
 }
 
 .status {
@@ -194,4 +198,28 @@
   line-height: 1.5;
   color: var(--c-text-muted);
   margin: 11px 0 0;
+}
+
+/* Tout retirer : la confirmation se tient sous les boutons, là où l'œil
+   vient de cliquer. */
+.vider {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-sm);
+  background: var(--c-surface-2);
+}
+
+.viderTexte {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--c-text-2);
+}
+
+.viderGestes {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
 }

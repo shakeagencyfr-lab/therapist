@@ -88,7 +88,10 @@ export function TherapistView() {
                     <ScaleChart />
                     <SharedJournal />
                     <PatientAudios />
-                    <Affirmations />
+                    {/* La clé de la fiche : le retour du dernier envoi (« 3
+                        affirmations envoyées à Nadia ») ne suit pas sur la
+                        fiche de Camille. */}
+                    <Affirmations key={`affirmations-${state.sel}`} />
                   </div>
                 </div>
               </>
@@ -119,9 +122,10 @@ export function TherapistView() {
               <p className={s.emptyText}>{cabinet.erreur}</p>
             ) : cabinet?.chargement ? null : (
               <p className={s.emptyText}>
-                Aucun patient pour l'instant. Ajoutez la première depuis la colonne de gauche :
-                son nom, son adresse, et ce que vous suivez avec elle. Elle recevra son espace en
-                se connectant avec cette adresse, sans mot de passe.
+                Aucun patient pour l'instant. Ouvrez votre première fiche depuis la colonne de
+                gauche : un nom et une adresse suffisent. Le programme, ce que vous suivez et la
+                question du soir se règlent ensuite depuis la fiche. Son espace s'ouvrira avec
+                cette adresse, sans mot de passe.
               </p>
             )}
           </div>

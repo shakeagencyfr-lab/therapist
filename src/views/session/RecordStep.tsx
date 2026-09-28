@@ -5,10 +5,10 @@ import { lireIntegrations } from '@/services/integrations'
 import { NOTE_TAGS, NOTE_TAG_PREFIXES } from '@/data/session'
 import { clock, euro, plural } from '@/lib/format'
 import {
-  AiError,
   buildPatientContext,
   derniereReponseEstMaquette,
   draftSessionNote,
+  messageDEchec,
 } from '@/services/aiClient'
 import { PLAFOND_SORTIE, TARIF, estimationBrouillon } from '@/lib/coutIA'
 import { CADENCE_SAUVEGARDE_MS, aSauver, type Instantane } from '@/lib/seance'
@@ -248,8 +248,17 @@ export function RecordStep() {
         }
       }
     } catch (error) {
-      const message = error instanceof AiError ? error.message : "le serveur n'a pas répondu"
-      set({ generating: false, notice: `La génération a échoué : ${message}. Réessayez.` })
+      /* Le message du serveur, tel quel : il dit la cause et le remède (clé
+         manquante, séance trop longue, service saturé). Enrobé dans « La
+         génération a échoué : …. Réessayez. », il prenait un double point et
+         envoyait réessayer une praticienne dont la clé manque. */
+      set({
+        generating: false,
+        notice: messageDEchec(
+          error,
+          "Le brouillon n'a pas pu être écrit : le serveur n'a pas répondu. Vos notes et la transcription sont intactes, réessayez.",
+        ),
+      })
     }
   }
 
