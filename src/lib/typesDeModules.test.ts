@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { TYPES_PROPOSABLES, seFaitParLePatient, typeDeModule } from './typesDeModules'
+import { ATELIER_TYPES } from '@/data/atelier'
+import { DEFINITION_DU_TYPE, TYPES_PROPOSABLES, seFaitParLePatient, typeDeModule } from './typesDeModules'
 
 /**
  * Ce qu'un module demande au patient.
@@ -55,5 +56,13 @@ describe('typeDeModule — une valeur reçue de l’extérieur', () => {
     expect(typeDeModule('toString')).toBeNull()
     expect(typeDeModule(42)).toBeNull()
     expect(typeDeModule(undefined)).toBeNull()
+  })
+})
+
+describe('DEFINITION_DU_TYPE — ce que la thérapeute lit sous les puces', () => {
+  it('chaque type de l’atelier a sa phrase', () => {
+    for (const type of ATELIER_TYPES) {
+      expect({ [type]: (DEFINITION_DU_TYPE[type] ?? '').length > 40 }).toEqual({ [type]: true })
+    }
   })
 })

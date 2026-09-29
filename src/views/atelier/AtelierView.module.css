@@ -118,6 +118,21 @@
   color: var(--c-accent-deep);
 }
 
+/* Ce que le type choisi produit : lu avant de générer, pas deviné après. */
+.typeHint {
+  margin: 10px 0 0;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: var(--c-surface-2);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--c-text-4);
+}
+.typeHintNom {
+  font-weight: 600;
+  color: var(--c-accent-deep);
+}
+
 .quizToggle {
   display: flex;
   align-items: flex-start;

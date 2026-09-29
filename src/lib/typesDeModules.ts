@@ -66,3 +66,22 @@ export function seFaitParLePatient(kind: ModuleKind): boolean {
  * l'un ou l'autre n'ajoutait qu'une case impossible à cocher.
  */
 export const TYPES_PROPOSABLES = ['Exercice', 'Journal', 'Écriture'] as const satisfies readonly ModuleKind[]
+
+/**
+ * Ce que chaque type d'atelier produit, en une phrase.
+ *
+ * Dit deux fois, dans les mêmes mots : à la thérapeute, sous les puces de
+ * l'atelier, pour qu'elle choisisse sans deviner ; à l'IA qui rédige, pour
+ * que le type choisi change vraiment ce qui est écrit. Sans cette phrase,
+ * l'IA ne recevait que le mot « Journal » et l'interprétait à sa façon.
+ */
+export const DEFINITION_DU_TYPE: Partial<Record<ModuleKind, string>> = {
+  Exercice:
+    'Une pratique à faire, avec le corps ou l’attention : une respiration, un ancrage, un geste à répéter dans une situation précise.',
+  Journal:
+    'Quelques lignes à noter plusieurs jours de suite : ce qui s’est passé, à quel moment, ce qui l’a déclenché. Un relevé, pas un récit.',
+  Écriture:
+    'Un texte à écrire une fois, plus personnel : une lettre qu’on n’envoie pas, une scène réussie racontée au présent.',
+  Visualisation:
+    'Quelques minutes les yeux fermés, à imaginer ou revivre une scène en détail. Le plus proche de l’autohypnose, sans audio.',
+}

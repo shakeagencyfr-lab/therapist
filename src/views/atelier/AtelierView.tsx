@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button, Card, Overline, SquareCheck, TextArea, TextInput, Title } from '@/components/ui'
 import { ATELIER_SEEDS, ATELIER_SEED_BRIEFS, ATELIER_TYPES } from '@/data/atelier'
+import { DEFINITION_DU_TYPE } from '@/lib/typesDeModules'
 import { plural } from '@/lib/format'
 import { preparerModule } from '@/lib/moduleAtelier'
 import { generateModule, messageDEchec } from '@/services/aiClient'
@@ -257,6 +258,11 @@ export function AtelierView() {
                 </button>
               ))}
             </div>
+            {DEFINITION_DU_TYPE[state.aType] ? (
+              <p className={s.typeHint} aria-live="polite">
+                <strong className={s.typeHintNom}>{state.aType}</strong> — {DEFINITION_DU_TYPE[state.aType]}
+              </p>
+            ) : null}
 
             <div className={s.quizToggle}>
               <SquareCheck

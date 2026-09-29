@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { DEFINITION_DU_TYPE } from '../src/lib/typesDeModules.js'
 import {
   SESSION_DRAFT_SYSTEM,
   hasSpeakerLabels,
@@ -154,5 +155,14 @@ describe('ligneEchelle — les notes du soir, avec leur question', () => {
     const p = modulePrompt({ intent: 'Un geste.', type: 'Exercice', quiz: false, context: dossier({ journal }) })
     expect(p).toContain('entrée 8')
     expect(p).not.toContain('entrée 1')
+  })
+
+  /* L'IA ne recevait que le mot « Journal » : le type choisi dans l'atelier
+     ne changeait rien de sûr à ce qui était écrit. */
+  it('le type demandé arrive avec sa définition, celle que l’atelier affiche', () => {
+    for (const type of ['Exercice', 'Journal', 'Écriture', 'Visualisation'] as const) {
+      const p = modulePrompt({ intent: 'Un geste.', type, quiz: false, context: undefined })
+      expect(p).toContain(`Type de module demandé : ${type}. ${DEFINITION_DU_TYPE[type]}`)
+    }
   })
 })
