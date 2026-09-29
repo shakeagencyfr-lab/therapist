@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '@/auth/session'
 import { plural } from '@/lib/format'
-import { entreeParLienRecente, lireEntrees, LONGUEUR_MOT_DE_PASSE, refusDuNouveau } from '@/lib/motDePasse'
+import { CONSIGNE_MOT_DE_PASSE, entreeParLienRecente, lireEntrees, LONGUEUR_MOT_DE_PASSE, refusDuNouveau } from '@/lib/motDePasse'
 import { supabase } from '@/lib/supabase'
 import type { PatientIdentity } from '@/auth/session'
 import { journalEnTexte, nomDuFichierJournal, type PageExportee } from './exportJournal'
@@ -221,8 +221,7 @@ export function MonCompte({
             aria-invalid={refus ? true : undefined}
           />
           <p className={s.aide}>
-            {refus ??
-              "Trois mots sans rapport font un bon mot de passe : plus long à casser qu'un mot court hérissé de symboles, et plus facile à retenir."}
+            {refus ?? CONSIGNE_MOT_DE_PASSE}
           </p>
           <input
             className={s.champ}

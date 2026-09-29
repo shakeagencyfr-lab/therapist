@@ -255,6 +255,38 @@ export function BoutiqueView() {
     illisible.audios ? 'votre bibliothèque d’audios' : '',
   ])
 
+  /* LES VENTES RESTENT, MÊME BOUTIQUE HORS OFFRE. Retirer la boutique de
+     l'offre ferme la vente aux patients ; l'argent déjà encaissé, lui, a
+     toujours ses reçus, ses remboursements et son livre des recettes — le
+     serveur les sert sans regarder le levier (server/shop.ts). */
+  const ventesDuCabinet = (
+    <>
+      {/* LE TOTAL DIT SUR QUOI IL PORTE. Il s'annonçait « encaissés »
+          alors qu'il ne sommait que les vingt dernières ventes : la
+          liste le dit, et renvoie au livre des recettes, qui les
+          compte toutes. Une vente remboursée reste à sa place, marquée,
+          et ne compte plus dans l'encaissé. */}
+      <VueVentes
+        etat={illisible.ventes ? 'illisible' : 'pret'}
+        ventes={ventes}
+        limite={VENTES_LUES}
+        peutRembourser={contexte?.role === 'owner'}
+        aConfirmer={aConfirmer}
+        enCours={geste}
+        retour={retourVente}
+        onRecu={(id) => void recu(id)}
+        onDemander={(id) => {
+          setAConfirmer(id)
+          setRetourVente(null)
+        }}
+        onConfirmer={(id) => void rembourser(id)}
+        onAnnuler={() => setAConfirmer(null)}
+      />
+
+      <ExportVentes />
+    </>
+  )
+
   return (
     <div className={s.wrap}>
       <div className={s.head}>
@@ -282,13 +314,18 @@ export function BoutiqueView() {
           <p className={s.muted}>Fiches de démonstration. Connectez-vous à votre cabinet pour vendre.</p>
         </Card>
       ) : !ouvert(droits, 'shop') ? (
-        <Card>
-          <p className={s.muted}>
-            La boutique en ligne ne fait pas partie de votre offre
-            {droits?.droits?.offre ? ` « ${droits.droits.offre} »` : ''}. Votre revendeur peut
-            l'ouvrir depuis son espace ; vos produits, s'il y en a, sont conservés.
-          </p>
-        </Card>
+        <>
+          <Card>
+            <p className={s.muted}>
+              La boutique en ligne ne fait pas partie de votre offre
+              {droits?.droits?.offre ? ` « ${droits.droits.offre} »` : ''}. Votre revendeur peut
+              l'ouvrir depuis son espace ; vos produits, s'il y en a, sont conservés. Vos ventes
+              passées restent ci-dessous, avec leurs reçus et votre livre des recettes.
+            </p>
+          </Card>
+          {notice ? <Notice tone={notice.tone}>{notice.text}</Notice> : null}
+          {chargement ? null : <div className={s.grid}>{ventesDuCabinet}</div>}
+        </>
       ) : chargement ? (
         <Card>
           <p className={s.muted}>Lecture de la boutique…</p>
@@ -422,29 +459,7 @@ export function BoutiqueView() {
               </Card>
             ) : null}
 
-            {/* LE TOTAL DIT SUR QUOI IL PORTE. Il s'annonçait « encaissés »
-                alors qu'il ne sommait que les vingt dernières ventes : la
-                liste le dit, et renvoie au livre des recettes, qui les
-                compte toutes. Une vente remboursée reste à sa place, marquée,
-                et ne compte plus dans l'encaissé. */}
-            <VueVentes
-              etat={illisible.ventes ? 'illisible' : 'pret'}
-              ventes={ventes}
-              limite={VENTES_LUES}
-              peutRembourser={contexte?.role === 'owner'}
-              aConfirmer={aConfirmer}
-              enCours={geste}
-              retour={retourVente}
-              onRecu={(id) => void recu(id)}
-              onDemander={(id) => {
-                setAConfirmer(id)
-                setRetourVente(null)
-              }}
-              onConfirmer={(id) => void rembourser(id)}
-              onAnnuler={() => setAConfirmer(null)}
-            />
-
-            <ExportVentes />
+            {ventesDuCabinet}
           </div>
         </>
       )}

@@ -3,6 +3,7 @@ import webpush from 'web-push'
 import { afterEach, describe, expect, it } from 'vitest'
 import { MOT_MASQUE, SOIR_MASQUE } from '../src/lib/discretion.js'
 import {
+  appareilDuCompte,
   clePubliqueDe,
   clesVapid,
   contenuDuRappel,
@@ -11,7 +12,7 @@ import {
   pousserLesRappels,
   serviceDePushConnu,
   statutDeLEnvoi,
-  type Appareil,
+  type AppareilLu,
   type CleVapid,
   type Envoyeur,
 } from './push.js'
@@ -148,7 +149,7 @@ type ErreurBase = { code?: string; message: string }
 
 function fausseBase(
   lots: Reclame[][],
-  appareils: Appareil[],
+  appareils: AppareilLu[],
   soirs: Array<SoirReclame[] | ErreurBase> = [],
   { statutEnPanne = false } = {},
 ) {
@@ -213,8 +214,17 @@ function fausseBase(
 const CLES: CleVapid = { publique: 'pub', privee: 'priv', sujet: 'https://klaroweb.site' }
 const figee = () => 1_700_000_000_000
 
-function appareil(id: string, patient: string, endpoint = `https://fcm.googleapis.com/fcm/send/${id}`): Appareil {
-  return { id, patient_id: patient, endpoint, p256dh: 'k', auth: 'a', chemin: '/mon' }
+function appareil(
+  id: string,
+  patient: string,
+  endpoint = `https://fcm.googleapis.com/fcm/send/${id}`,
+  compte = `compte-${patient}`,
+): AppareilLu {
+  return {
+    id, patient_id: patient, endpoint, p256dh: 'k', auth: 'a', chemin: '/mon',
+    user_id: compte,
+    patients: { auth_user_id: `compte-${patient}` },
+  }
 }
 
 /** Un envoyeur qui garde ce qu'il aurait posé sur chaque téléphone. */
@@ -259,6 +269,28 @@ describe('un passage', () => {
         expect.objectContaining({ push_id: 'n1', patient_id: 'bea', push_status: 'sans_appareil' }),
       ]),
     )
+  })
+
+  /* Une fiche détachée garde, le temps d'un passage, le téléphone de
+     l'ancien compte : il ne reçoit plus rien, et la fiche est « sans
+     téléphone » tant que le nouveau compte n'en a pas inscrit. */
+  it('ne pousse rien vers le téléphone d’un compte qui ne tient plus la fiche', async () => {
+    const { admin, journal } = fausseBase(
+      [[{ push_id: 'n1', patient_id: 'anna', titre: 't', corps: 'c', masque: false }]],
+      [appareil('tel-ancien', 'anna', undefined, 'compte-parti')],
+    )
+    const envois: string[] = []
+    const bilan = await pousserLesRappels(admin, CLES, async (a) => (envois.push(a.id), 201), figee)
+    expect(envois).toEqual([])
+    expect(bilan).toEqual({ ...BILAN_VIDE, reclames: 1, sansAppareil: 1 })
+    expect(journal.statuts).toEqual([expect.objectContaining({ patient_id: 'anna', push_status: 'sans_appareil' })])
+  })
+
+  it('ne reconnaît un téléphone qu’au compte rattaché à sa fiche', () => {
+    expect(appareilDuCompte(appareil('t', 'anna'))).toBe(true)
+    expect(appareilDuCompte(appareil('t', 'anna', undefined, 'autre'))).toBe(false)
+    expect(appareilDuCompte({ ...appareil('t', 'anna'), patients: { auth_user_id: null } })).toBe(false)
+    expect(appareilDuCompte({ ...appareil('t', 'anna'), patients: null })).toBe(false)
   })
 
   it('écrit un échec quand tous ses téléphones refusent', async () => {

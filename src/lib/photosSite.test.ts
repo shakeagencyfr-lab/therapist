@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { cheminStockage, deplacer, mettreEnCouverture, photosRetirees } from './photosSite'
+import {
+  cheminStockage,
+  copiesGoogleOubliees,
+  deplacer,
+  GARDE_DES_COPIES_GOOGLE_MS,
+  mettreEnCouverture,
+  photosRetirees,
+} from './photosSite'
 
 const BASE = 'https://projet.supabase.co'
 const CAB = '11111111-2222-3333-4444-555555555555'
@@ -41,6 +48,32 @@ describe('photosRetirees', () => {
 
   it("ne propose rien pour une photo simplement déplacée", () => {
     expect(photosRetirees([a, b], [b, a], BASE, CAB)).toEqual([])
+  })
+})
+
+describe('copiesGoogleOubliees', () => {
+  const MAINTENANT = Date.UTC(2026, 8, 29, 12)
+  const VIEILLE = new Date(MAINTENANT - GARDE_DES_COPIES_GOOGLE_MS - 60_000).toISOString()
+  const RECENTE = new Date(MAINTENANT - 60_000).toISOString()
+  const copie = (n: number) => `google-0000000${n}-aaaa-bbbb-cccc-dddddddddddd.jpg`
+  const url = (nom: string) => `${BASE}/storage/v1/object/public/sites/${CAB}/site/${nom}`
+
+  it('efface la copie ancienne que la page ne montre pas, et elle seule', () => {
+    const fichiers = [
+      { name: copie(1), created_at: VIEILLE },
+      { name: copie(2), created_at: VIEILLE },
+      { name: copie(3), created_at: RECENTE },
+      { name: 'photo-deposee.jpg', created_at: VIEILLE },
+      { name: copie(4), created_at: null },
+    ]
+    expect(copiesGoogleOubliees(fichiers, [{ url: url(copie(2)) }], BASE, CAB, MAINTENANT)).toEqual([
+      `${CAB}/site/${copie(1)}`,
+    ])
+  })
+
+  it('ne touche à rien sans copie ancienne', () => {
+    expect(copiesGoogleOubliees([], [], BASE, CAB, MAINTENANT)).toEqual([])
+    expect(copiesGoogleOubliees([{ name: 'google-1.jpg', created_at: VIEILLE }], [], BASE, CAB, MAINTENANT)).toEqual([])
   })
 })
 

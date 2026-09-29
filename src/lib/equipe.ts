@@ -12,6 +12,8 @@
  */
 import { dateLongue, plural } from './format'
 
+export { motifExact } from './motifExact'
+
 /** Trente jours : ce que pose la base par défaut, et ce que pose une relance. */
 export const DUREE_INVITATION_JOURS = 30
 
@@ -49,16 +51,6 @@ export function adressePlausible(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())
 }
 
-/**
- * Un motif `ilike` qui ne vaut que pour cette adresse.
- *
- * `_` et `%` sont des jokers : « jean_dupont@… » aurait aussi désigné
- * « jeanXdupont@… ». L'adresse sert à retrouver l'invitation qui bloque une
- * nouvelle écriture ; elle doit désigner celle-là et aucune autre.
- */
-export function motifExact(email: string): string {
-  return email.replace(/[\\%_]/g, (c) => `\\${c}`)
-}
 
 /**
  * Pourquoi la base a refusé d'écrire une invitation.

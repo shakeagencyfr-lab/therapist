@@ -42,7 +42,7 @@ import { THEME_DEFAUT, resoudreTheme, type ThemeVitrine } from '../src/lib/theme
 /* Des TYPES seulement : ficheGoogle.ts importe d'autres modules du
    navigateur sans extension, que Node ne résoudrait pas à l'exécution. */
 import type { FicheImportee } from '../src/lib/ficheGoogle.js'
-import { photosRetirees } from '../src/lib/photosSite.js'
+import { copiesGoogleOubliees, photosRetirees } from '../src/lib/photosSite.js'
 
 /* ------------------------------------------------------------------ *
  * La bibliothèque de modèles
@@ -442,7 +442,33 @@ export async function enregistrerSite(token: string | null, raw: unknown): Promi
   }
 
   await effacerPhotos(appelant.client, photosRetirees(avant?.photos ?? [], ligne.photos, STOCKAGE, cabinetId))
+  await menageDesCopiesGoogle(appelant.client, cabinetId, ligne.photos)
   return etatSite(token)
+}
+
+/**
+ * Effacer les copies de photos Google qu'aucun enregistrement n'a gardées.
+ *
+ * `photosRetirees` ne voit que ce que la page montrait AVANT : une copie
+ * versée à un brouillon jamais enregistré n'y figure pas, et restait en
+ * ligne. On liste donc le dossier, et l'on efface les copies de plus de
+ * sept jours que la page enregistrée ne montre pas (copiesGoogleOubliees).
+ * Sous la RLS de l'appelante, comme le reste du ménage ; un échec se dit au
+ * journal sans faire échouer le geste.
+ */
+async function menageDesCopiesGoogle(
+  client: SupabaseClient,
+  cabinetId: string,
+  gardees: Array<{ url: string }>,
+): Promise<void> {
+  const { data, error } = await client.storage
+    .from('sites')
+    .list(`${cabinetId}/site`, { limit: 1000, search: 'google-' })
+  if (error) {
+    console.error(`[site] liste des copies Google — ${error.message}`)
+    return
+  }
+  await effacerPhotos(client, copiesGoogleOubliees(data ?? [], gardees, STOCKAGE, cabinetId, Date.now()))
 }
 
 /**
@@ -909,7 +935,8 @@ async function recopierPhoto(cabinetId: string, nom: string): Promise<string | n
      fixe faisait qu'un réimport remplaçait en place la photo d'une page déjà
      publiée : la page changeait d'image sans que personne ait rien relu ni
      enregistré. Les copies qui ne sont finalement pas gardées sont effacées
-     au retrait (éditeur) ou à l'enregistrement suivant. */
+     au retrait (éditeur), à l'enregistrement suivant, ou — brouillon
+     abandonné — par le ménage des copies Google (menageDesCopiesGoogle). */
   const chemin = `${cabinetId}/site/google-${randomUUID()}.${extension}`
   const { error } = await client.storage
     .from('sites')
@@ -964,6 +991,13 @@ export async function importerFicheGoogle(token: string | null, raw: unknown): P
      fichiers que la fusion écarterait aussitôt. */
   const photos: PhotoSite[] = []
   if (body.avecPhotos === true) {
+    // Avant d'en déposer de nouvelles : les copies des imports abandonnés partent.
+    const { data: enregistree } = await appelant.client
+      .from('cabinet_sites')
+      .select('photos')
+      .eq('cabinet_id', cabinetId)
+      .maybeSingle<{ photos: Array<{ url: string }> | null }>()
+    await menageDesCopiesGoogle(appelant.client, cabinetId, enregistree?.photos ?? [])
     for (const [rang, reference] of fiche.images.entries()) {
       const url = await recopierPhoto(cabinetId, reference)
       if (!url) continue

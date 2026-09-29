@@ -5,6 +5,8 @@ import {
   appliquerSuppression,
   gesteDuCompte,
   lireDemandeMotDePasse,
+  refusDuService,
+  sessionDejaFermee,
   type PorteMotDePasse,
   type PorteSuppression,
 } from './compte'
@@ -32,7 +34,7 @@ function porte(verdict: 'ok' | 'faux' | 'trop' | 'inconnu' = 'ok', refus: string
       appels.push(`remplacer:${userId}:${mdp}`)
       return refus
     },
-    async fermerLesAutres(j) {
+    async fermerLesSessions(j) {
       appels.push(`fermer:${j === '' ? 'vide' : 'jeton'}`)
       return fermes
     },
@@ -51,14 +53,15 @@ async function refus(promesse: Promise<unknown>): Promise<HttpError> {
 }
 
 const QUI = (j: string) => ({ userId: 'u1', email: 'lea@exemple.fr', jeton: j })
-const NOUVEAU = 'cheval agrafe batterie'
+const NOUVEAU = 'Cheval-agrafe-7'
 
 describe('changer son mot de passe', () => {
-  it("change avec l'ancien, puis ferme les autres appareils", async () => {
+  it("change avec l'ancien, puis ferme toutes les sessions, et le dit", async () => {
     const { p, appels } = porte('ok')
     const r = await appliquerChangementDeMotDePasse(QUI(PAR_MOT_DE_PASSE), { ancien: 'ancien mot de passe', nouveau: NOUVEAU }, p, MAINTENANT)
     expect(r.ok).toBe(true)
-    expect(r.message).toMatch(/autres appareils ont été déconnectés/)
+    expect(r.deconnecte).toBe(true)
+    expect(r.message).toMatch(/tous vos appareils sont déconnectés, celui-ci compris/)
     expect(appels).toEqual(['verifier:u1:ancien mot de passe', `remplacer:u1:${NOUVEAU}`, 'fermer:jeton'])
   })
 
@@ -121,10 +124,35 @@ describe('changer son mot de passe', () => {
     expect(appels).not.toContain('fermer:jeton')
   })
 
-  it('dit la vérité quand les autres appareils restent ouverts', async () => {
+  it('dit la vérité quand les autres appareils restent peut-être ouverts', async () => {
     const { p } = porte('ok', null, false)
     const r = await appliquerChangementDeMotDePasse(QUI(PAR_MOT_DE_PASSE), { ancien: 'ancien', nouveau: NOUVEAU }, p, MAINTENANT)
-    expect(r.message).toMatch(/n'ont pas pu être déconnectés/)
+    expect(r.deconnecte).toBe(true)
+    expect(r.message).toMatch(/n'ont peut-être pas été déconnectés/)
+  })
+
+  /* Le refus réellement reçu en production le 28 septembre : le service
+     exige les quatre classes de caractères. */
+  it('traduit le refus du service avec sa vraie raison', () => {
+    const regle = refusDuService({
+      code: 'weak_password',
+      message:
+        'Password should contain at least one character of each: abcdefghijklmnopqrstuvwxyz, ABCDEFGHIJKLMNOPQRSTUVWXYZ, 0123456789',
+      reasons: ['characters'],
+    })
+    expect(regle).toMatch(/une minuscule, une majuscule, un chiffre et un symbole/)
+    expect(refusDuService({ code: 'weak_password', message: 'Password is known to be weak and easy to guess', reasons: ['pwned'] })).toMatch(
+      /fuites/,
+    )
+    expect(refusDuService({ code: 'unexpected_failure', message: 'Database error' })).toBeNull()
+  })
+
+  /* Le service a déjà fermé la session en changeant le mot de passe : sa
+     « session introuvable » est le résultat voulu, pas une panne. */
+  it('prend « session introuvable » pour une session déjà fermée', () => {
+    expect(sessionDejaFermee({ name: 'AuthSessionMissingError', message: 'Auth session missing!' })).toBe(true)
+    expect(sessionDejaFermee({ code: 'session_not_found', message: 'Session from session_id claim in JWT does not exist' })).toBe(true)
+    expect(sessionDejaFermee({ name: 'AuthApiError', message: 'Internal error' })).toBe(false)
   })
 
   it('lit le corps sans lui faire confiance', () => {

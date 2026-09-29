@@ -1,4 +1,4 @@
-import { readdirSync, statSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -54,5 +54,40 @@ describe('la route des analyses', () => {
   it('ne devine rien de ce qui n’est pas une adresse', () => {
     expect(routeDeLAppel(undefined, undefined)).toBe('')
     expect(routeDeLAppel(undefined, '/')).toBe('')
+  })
+})
+
+/**
+ * LES MODULES PARTAGÉS QUE LE SERVEUR CHARGE.
+ *
+ * Le serveur est un module ES, exécuté tel que transpilé : un import
+ * relatif sans extension (`from './format'`), que Vite résout sans rien
+ * dire, fait tomber la fonction entière au chargement en production
+ * (ERR_MODULE_NOT_FOUND) — aucune épreuve locale ne le voit, puisque Vitest
+ * le résout aussi. Un module de src/lib chargé par le serveur (hors
+ * `import type`, effacé à la compilation) n'importe donc rien, ou avec
+ * l'extension `.js`.
+ */
+describe('les modules partagés', () => {
+  const importsExecutes = (source: string) =>
+    [...source.matchAll(/^import\s+(?!type\b)[^;]*?from\s+'([^']+)'/gm)].map((m) => m[1] as string)
+
+  it('se chargent sans résolution à la Vite', () => {
+    const serveur = readdirSync(join(racine, 'server')).filter((n) => n.endsWith('.ts') && !n.endsWith('.test.ts'))
+    const partages = new Set<string>()
+    for (const nom of serveur) {
+      for (const cible of importsExecutes(readFileSync(join(racine, 'server', nom), 'utf8'))) {
+        if (cible.startsWith('../src/')) partages.add(join(racine, 'server', cible.replace(/\.js$/, '.ts')))
+      }
+    }
+    expect(partages.size).toBeGreaterThan(0)
+    const fautifs: string[] = []
+    for (const module of partages) {
+      for (const cible of importsExecutes(readFileSync(module, 'utf8'))) {
+        if (cible.startsWith('.') && !cible.endsWith('.js')) fautifs.push(`${relative(racine, module)} → ${cible}`)
+        if (cible.startsWith('@/')) fautifs.push(`${relative(racine, module)} → ${cible} (alias de Vite)`)
+      }
+    }
+    expect(fautifs).toEqual([])
   })
 })

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button, Card, Notice, TextInput, Title } from '@/components/ui'
 import { useAuth } from '@/auth/session'
-import { entreeParLienRecente, lireEntrees, LONGUEUR_MOT_DE_PASSE, refusDuNouveau } from '@/lib/motDePasse'
+import { CONSIGNE_MOT_DE_PASSE, entreeParLienRecente, lireEntrees, refusDuNouveau } from '@/lib/motDePasse'
 import s from './MotDePasse.module.css'
 
 /**
@@ -116,8 +116,7 @@ export function MotDePasse() {
             aria-invalid={refus ? true : undefined}
           />
           <span className={s.hint}>
-            {refus ??
-              `Au moins ${LONGUEUR_MOT_DE_PASSE} caractères. Trois mots sans rapport entre eux valent mieux qu'un mot court hérissé de symboles.`}
+            {refus ?? CONSIGNE_MOT_DE_PASSE}
           </span>
         </label>
 

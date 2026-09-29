@@ -85,6 +85,8 @@ export interface AuthState {
   error: string
   /** Le lien magique vient d'être envoyé à cette adresse. */
   sent: string
+  /** Ce que la porte d'entrée dit en s'ouvrant (après un changement de mot de passe), ou ''. */
+  avisPorte: string
   /** Le compte a-t-il une application d'authentification reliée ? */
   secondFacteur: EtatSecondFacteur
   /** Le niveau de la session : « aal2 » une fois le code donné. */
@@ -221,6 +223,12 @@ export function SessionProvider({
   const [context, setContext] = useState<AccountContext | null>(null)
   const [error, setError] = useState('')
   const [sent, setSent] = useState('')
+  /** Ce que la porte d'entrée doit dire en s'ouvrant — après un changement de mot de passe. */
+  const [avisPorte, setAvisPorte] = useState('')
+  // Une fois reconnecté, l'avis a servi : il ne revient pas à la déconnexion suivante.
+  useEffect(() => {
+    if (session) setAvisPorte('')
+  }, [session])
   /** La lecture du rôle a-t-elle abouti ? « echec » n'est pas « aucun accès ». */
   const [lecture, setLecture] = useState<'attente' | 'faite' | 'echec'>('attente')
   /** La reprise de session a-t-elle dépassé son délai ? */
@@ -558,11 +566,22 @@ export function SessionProvider({
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jeton}` },
           body: JSON.stringify({ geste: 'mot-de-passe', ancien, nouveau }),
         })
-        const lu = (await reponse.json().catch(() => ({}))) as { message?: string }
+        const lu = (await reponse.json().catch(() => ({}))) as { message?: string; deconnecte?: boolean }
         if (!reponse.ok) {
           return { ok: false, message: lu.message ?? "Le mot de passe n'a pas pu être enregistré. Réessayez." }
         }
-        return { ok: true, message: lu.message ?? 'Mot de passe enregistré.' }
+        const message = lu.message ?? 'Mot de passe enregistré.'
+        /* Le service a fermé toutes les sessions du compte, celle-ci
+           comprise : elle tomberait à la prochaine relève du jeton, au
+           milieu d'une saisie. On sort tout de suite, et la porte dit
+           pourquoi. */
+        if (lu.deconnecte) {
+          setAvisPorte(message)
+          await db.auth.signOut({ scope: 'local' })
+          setSent('')
+          oublierLesBrouillons()
+        }
+        return { ok: true, message }
       } catch {
         return { ok: false, message: 'Le serveur est injoignable. Réessayez dans un instant.' }
       }
@@ -604,6 +623,7 @@ export function SessionProvider({
       context,
       error,
       sent,
+      avisPorte,
       secondFacteur,
       niveau,
       relireSecondFacteur,
@@ -624,6 +644,7 @@ export function SessionProvider({
       context,
       error,
       sent,
+      avisPorte,
       secondFacteur,
       niveau,
       relireSecondFacteur,

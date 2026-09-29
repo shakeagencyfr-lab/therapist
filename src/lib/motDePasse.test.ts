@@ -3,8 +3,10 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
+  CONSIGNE_MOT_DE_PASSE,
   FRAICHEUR_LIEN_MS,
   LONGUEUR_MOT_DE_PASSE,
+  classesManquantes,
   entreeParLienRecente,
   lireEntrees,
   refusDuNouveau,
@@ -68,12 +70,29 @@ describe('le nouveau mot de passe', () => {
   it('refuse le trop court, et le dit avec le vrai chiffre', () => {
     expect(refusDuNouveau('a'.repeat(LONGUEUR_MOT_DE_PASSE - 1))).toContain(String(LONGUEUR_MOT_DE_PASSE))
     expect(refusDuNouveau(' '.repeat(20))).not.toBeNull()
-    expect(refusDuNouveau('cheval agrafe batterie')).toBeNull()
+    expect(refusDuNouveau('Cheval-agrafe-7')).toBeNull()
+  })
+
+  /* Le service d'authentification du projet exige les quatre classes : le
+     dire avant lui, et nommer ce qui manque plutôt que « trop faible ». */
+  it('exige minuscule, majuscule, chiffre et symbole, et dit ce qui manque', () => {
+    expect(refusDuNouveau('cheval agrafe batterie')).toBe(
+      'Il manque à ce mot de passe une majuscule, un chiffre et un symbole (! ? # - . …).',
+    )
+    expect(refusDuNouveau('Chevalagrafe7')).toMatch(/un symbole/)
+    expect(refusDuNouveau('CHEVAL-AGRAFE-7')).toMatch(/^Il manque à ce mot de passe une minuscule\.$/)
+    // Une lettre accentuée ne compte pas comme minuscule, pour le service non plus.
+    expect(classesManquantes('ÉÉÉ-7ééé')).toContain('une minuscule')
+    for (const symbole of '!@#$%^&*()_+-=[]{};\'\\:"|<>?,./`~') {
+      expect(classesManquantes(`Abcdefghi1${symbole}`), symbole).toEqual([])
+    }
+    expect(classesManquantes('Abcdefghi1 €')).toEqual(['un symbole (! ? # - . …)'])
+    expect(CONSIGNE_MOT_DE_PASSE).toContain(String(LONGUEUR_MOT_DE_PASSE))
   })
 
   it('refuse ce que bcrypt tronquerait sans rien dire', () => {
-    expect(refusDuNouveau('a'.repeat(72))).toBeNull()
-    expect(refusDuNouveau('a'.repeat(73))).not.toBeNull()
+    expect(refusDuNouveau(`Aa1-${'a'.repeat(68)}`)).toBeNull()
+    expect(refusDuNouveau(`Aa1-${'a'.repeat(69)}`)).not.toBeNull()
     // 40 « é » font 80 octets : trop, malgré 40 caractères.
     expect(refusDuNouveau('é'.repeat(40))).not.toBeNull()
   })

@@ -23,7 +23,7 @@ export interface RetourDePaiement {
   payee: boolean
   title: string | null
   livre: boolean
-  attente: 'reglement' | 'abandon' | 'echec' | null
+  attente: 'reglement' | 'abandon' | 'echec' | 'rembourse' | null
 }
 
 /** Ce que la reprise rend (voir `verifierEnAttente`). */
@@ -64,6 +64,9 @@ export function annonceDuRetour(r: RetourDePaiement): Annonce {
         'quelques jours. Il reste ci-dessous, en attente, et il est vérifié à chacune de vos ' +
         'visites dans la boutique.',
     }
+  }
+  if (r.attente === 'rembourse') {
+    return { tone: 'warn', text: `Cet achat vous a été remboursé${deQuoi(r.title)}.` }
   }
   if (r.attente === 'echec') {
     return { tone: 'hot', text: `Votre banque a refusé ce paiement${deQuoi(r.title)} : rien n'a été débité.` }

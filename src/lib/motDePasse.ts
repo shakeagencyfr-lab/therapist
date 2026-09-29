@@ -13,6 +13,8 @@
  * et celle de qui n'en a jamais choisi : c'est la même porte.
  */
 
+import { chargeDuJeton } from './jeton.js'
+
 /**
  * La longueur minimale, et le SEUL endroit qui la décide.
  *
@@ -21,6 +23,37 @@
  * caractères, le bouton s'activait, l'enregistrement était refusé.
  */
 export const LONGUEUR_MOT_DE_PASSE = 10
+
+/**
+ * Ce que le service d'authentification exige, EN PLUS de la longueur.
+ *
+ * Réglé sur le projet (Authentication › Password requirements : minuscules,
+ * majuscules, chiffres et symboles). L'écran conseillait « trois mots sans
+ * rapport » ; le service les refusait, faute de majuscule et de symbole, et
+ * la personne lisait « trop faible ». Ce sont ses ensembles, tels qu'il les
+ * compte : une lettre accentuée n'y est ni minuscule ni majuscule, une
+ * espace n'y est pas un symbole.
+ */
+export const CLASSES_EXIGEES: ReadonlyArray<{ nom: string; motif: RegExp }> = [
+  { nom: 'une minuscule', motif: /[a-z]/ },
+  { nom: 'une majuscule', motif: /[A-Z]/ },
+  { nom: 'un chiffre', motif: /[0-9]/ },
+  { nom: 'un symbole (! ? # - . …)', motif: /[!@#$%^&*()_+\-=[\]{};'\\:"|<>?,./`~]/ },
+]
+
+/** La consigne, telle que les deux écrans la montrent. */
+export const CONSIGNE_MOT_DE_PASSE = `Au moins ${LONGUEUR_MOT_DE_PASSE} caractères, dont une minuscule, une majuscule, un chiffre et un symbole.`
+
+/** Ce qui manque au mot de passe, parmi les classes exigées. */
+export function classesManquantes(motDePasse: string): string[] {
+  return CLASSES_EXIGEES.filter((c) => !c.motif.test(motDePasse)).map((c) => c.nom)
+}
+
+/** « une majuscule », « une majuscule et un chiffre », « a, b et c ». */
+function enUnePhrase(noms: string[]): string {
+  if (noms.length <= 1) return noms.join('')
+  return `${noms.slice(0, -1).join(', ')} et ${noms[noms.length - 1]}`
+}
 
 /**
  * Au-delà, bcrypt ne lit plus rien : deux mots de passe qui ne diffèrent
@@ -61,24 +94,15 @@ export interface Entree {
  * décide que de l'affichage — le serveur tranchera de toute façon.
  */
 export function lireEntrees(jeton: string | null | undefined): Entree[] {
-  if (!jeton) return []
-  const partie = jeton.split('.')[1]
-  if (!partie) return []
-  try {
-    const base64 = partie.replace(/-/g, '+').replace(/_/g, '/')
-    const complet = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
-    const charge = JSON.parse(atob(complet)) as { amr?: unknown }
-    if (!Array.isArray(charge.amr)) return []
-    return charge.amr.filter(
-      (e): e is Entree =>
-        typeof e === 'object' &&
-        e !== null &&
-        typeof (e as Entree).method === 'string' &&
-        typeof (e as Entree).timestamp === 'number',
-    )
-  } catch {
-    return []
-  }
+  const amr = chargeDuJeton(jeton)?.amr
+  if (!Array.isArray(amr)) return []
+  return amr.filter(
+    (e): e is Entree =>
+      typeof e === 'object' &&
+      e !== null &&
+      typeof (e as Entree).method === 'string' &&
+      typeof (e as Entree).timestamp === 'number',
+  )
 }
 
 /**
@@ -113,6 +137,8 @@ export function refusDuNouveau(nouveau: string, email?: string | null): string |
   if (octets(nouveau) > OCTETS_MAX_MOT_DE_PASSE) {
     return 'Ce mot de passe est trop long : 72 caractères au plus (moins avec des accents).'
   }
+  const manque = classesManquantes(nouveau)
+  if (manque.length) return `Il manque à ce mot de passe ${enUnePhrase(manque)}.`
   if (email && nouveau.trim().toLowerCase() === email.trim().toLowerCase()) {
     return "Votre adresse courriel ne peut pas servir de mot de passe : c'est la première chose qu'on essaierait."
   }

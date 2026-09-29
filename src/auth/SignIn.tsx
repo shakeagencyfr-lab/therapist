@@ -56,8 +56,9 @@ export function SignIn({
    */
   avis?: string | null
 }) {
-  const { envoyerLien, connecterParCode, recommencer, connecterParMotDePasse, error, sent, verificationLente } =
+  const { envoyerLien, connecterParCode, recommencer, connecterParMotDePasse, error, sent, verificationLente, avisPorte } =
     useAuth()
+  const avisAffiche = avisPorte || avis || null
   /* L'espace installé, ouvert depuis son icône ? Lu une fois : on n'en sort
      pas sans le rouvrir. */
   const [installe] = useState(estInstallee)
@@ -194,9 +195,9 @@ export function SignIn({
             <h1 className={s.title}>{titre}</h1>
             <p className={s.intro}>{intro}</p>
 
-            {avis ? (
+            {avisAffiche ? (
               <Notice tone="ok" style={{ marginBottom: 14 }}>
-                {avis}
+                {avisAffiche}
               </Notice>
             ) : null}
 

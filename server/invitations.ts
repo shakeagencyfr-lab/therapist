@@ -20,6 +20,7 @@ import { exigerDeuxiemeFacteur } from './auth.js'
 import { envoyerParCabinet, smtpDuCabinet } from './courriel.js'
 import { HttpError } from './errors.js'
 import { levierDuCabinet } from './droits.js'
+import { motifExact } from '../src/lib/motifExact.js'
 
 const URL = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? ''
 const PUBLISHABLE = process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? ''
@@ -378,7 +379,7 @@ export async function envoyerInvitation(
       .eq('cabinet_id', cabinetId)
       .is('accepted_at', null)
       // `_` et `%` sont des jokers de `ilike` : l'adresse doit désigner la sienne, et elle seule.
-      .ilike('email', email.replace(/[\\%_]/g, (c) => `\\${c}`))
+      .ilike('email', motifExact(email))
       .maybeSingle<{ email: string; role: string; expires_at: string }>()
     if (!invitation) {
       return { status: 409, body: { message: "Aucune invitation en attente pour cette adresse." } }
@@ -400,7 +401,8 @@ export async function envoyerInvitation(
       .from('patients')
       .select('id')
       .eq('cabinet_id', cabinetId)
-      .ilike('email', email)
+      // Même garde que plus haut : « a_b@x.fr » ne doit pas trouver « axb@x.fr ».
+      .ilike('email', motifExact(email))
       .maybeSingle()
     if (error || !data) {
       return { status: 403, body: { message: "Aucune fiche à cette adresse dans votre cabinet." } }
@@ -543,7 +545,7 @@ async function inviterCollaborateur(
     .select('reseller_id, expires_at')
     .is('accepted_at', null)
     // `_` et `%` sont des jokers de `ilike` : l'adresse doit désigner la sienne, et elle seule.
-    .ilike('email', email.replace(/[\\%_]/g, (c) => `\\${c}`))
+    .ilike('email', motifExact(email))
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle<{ reseller_id: string; expires_at: string }>()

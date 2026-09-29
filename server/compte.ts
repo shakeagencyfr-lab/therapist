@@ -21,13 +21,18 @@
  * — donc un dossier que plus personne ne peut ouvrir, et que la thérapeute ne
  * pourrait pas rendre à sa patiente.
  */
-import { entreeParLienRecente, lireEntrees, refusDuNouveau } from '../src/lib/motDePasse.js'
+import { CONSIGNE_MOT_DE_PASSE, entreeParLienRecente, lireEntrees, refusDuNouveau } from '../src/lib/motDePasse.js'
 import { clientAdmin, identifier, identifierPourGesteSensible } from './auth.js'
 import { HttpError } from './errors.js'
 
 export interface RetourCompte {
   ok: true
   message: string
+  /**
+   * Toutes les sessions du compte sont fermées, celle de l'écran comprise :
+   * l'écran se déconnecte et montre `message` à la porte d'entrée.
+   */
+  deconnecte?: boolean
 }
 
 /**
@@ -189,8 +194,18 @@ export interface PorteMotDePasse {
   verifier(userId: string, motDePasse: string): Promise<'ok' | 'faux' | 'trop' | 'inconnu'>
   /** Pose le nouveau mot de passe ; rend un refus lisible, ou null. */
   remplacer(userId: string, motDePasse: string): Promise<string | null>
-  /** Ferme toutes les sessions du compte sauf celle qui porte ce jeton. */
-  fermerLesAutres(jeton: string): Promise<boolean>
+  /**
+   * Ferme toutes les sessions du compte, celle qui porte ce jeton comprise.
+   *
+   * POURQUOI TOUTES. Le service d'authentification ferme de lui-même toutes
+   * les sessions d'un compte dont l'administration change le mot de passe :
+   * il n'a pas de session « à garder ». On demandait ensuite de fermer « les
+   * autres » ; la nôtre n'existait déjà plus, la demande échouait (« Auth
+   * session missing! »), et l'écran annonçait que les autres appareils
+   * restaient ouverts — pendant que le sien allait tomber à la prochaine
+   * relève du jeton. On le dit donc tel quel, et on le demande pour tout.
+   */
+  fermerLesSessions(jeton: string): Promise<boolean>
 }
 
 export interface DemandeMotDePasse {
@@ -250,13 +265,50 @@ export async function appliquerChangementDeMotDePasse(
   const refusDuService = await porte.remplacer(qui.userId, demande.nouveau)
   if (refusDuService) throw new HttpError(422, refusDuService)
 
-  const fermes = await porte.fermerLesAutres(qui.jeton)
+  const fermes = await porte.fermerLesSessions(qui.jeton)
   return {
     ok: true,
+    deconnecte: true,
     message: fermes
-      ? 'Mot de passe enregistré. Vos autres appareils ont été déconnectés.'
-      : "Mot de passe enregistré. Vos autres appareils n'ont pas pu être déconnectés : faites-le depuis cet écran.",
+      ? 'Mot de passe enregistré. Par sécurité, tous vos appareils sont déconnectés, celui-ci compris : reconnectez-vous avec le nouveau mot de passe.'
+      : "Mot de passe enregistré. Reconnectez-vous avec le nouveau. Vos autres appareils n'ont peut-être pas été déconnectés : une fois reconnecté, fermez-les depuis « Mon compte ».",
   }
+}
+
+/** Ce que le service d'authentification rend quand il refuse un mot de passe. */
+export interface ErreurDuService {
+  code?: string | null
+  message: string
+  /** `AuthWeakPasswordError` : 'length', 'characters', 'pwned'. */
+  reasons?: string[] | null
+}
+
+/**
+ * Le refus du service, dit en français et avec sa vraie raison — ou null si
+ * ce n'est pas un refus du mot de passe (une panne, alors).
+ *
+ * « Trop faible » ne disait rien : la personne avait suivi le conseil de
+ * l'écran (trois mots sans rapport), et le service exigeait une majuscule,
+ * un chiffre et un symbole.
+ */
+export function refusDuService(erreur: ErreurDuService): string | null {
+  const raisons = erreur.reasons ?? []
+  const message = erreur.message ?? ''
+  const faible = erreur.code === 'weak_password' || raisons.length > 0 || /weak|pwned|leaked|characters/i.test(message)
+  if (!faible) return null
+  if (raisons.includes('pwned') || /pwned|leaked/i.test(message)) {
+    return 'Ce mot de passe circule déjà dans des fuites de données connues : choisissez-en un autre.'
+  }
+  return `Ce mot de passe ne suit pas la règle du service : ${CONSIGNE_MOT_DE_PASSE.charAt(0).toLowerCase()}${CONSIGNE_MOT_DE_PASSE.slice(1)}`
+}
+
+/** « Session introuvable » : elle est déjà fermée, ce qu'on voulait. */
+export function sessionDejaFermee(erreur: { name?: string; code?: string | null; message?: string }): boolean {
+  return (
+    erreur.name === 'AuthSessionMissingError' ||
+    erreur.code === 'session_not_found' ||
+    /session missing|session not found|session_not_found/i.test(erreur.message ?? '')
+  )
 }
 
 /** La porte réelle : la fonction SQL réservée au serveur, et l'API d'administration. */
@@ -277,15 +329,15 @@ function porteDe(db: NonNullable<ReturnType<typeof clientAdmin>>): PorteMotDePas
       const { error } = await db.auth.admin.updateUserById(userId, { password: motDePasse })
       if (!error) return null
       console.error(`[compte] mot de passe — ${error.status ?? '?'} ${error.code ?? ''} ${error.message}`)
-      if (error.code === 'weak_password' || /weak|pwned|leaked|characters/i.test(error.message)) {
-        return 'Ce mot de passe est trop faible, ou il circule déjà dans des fuites connues. Allongez-le, ou assemblez trois mots sans rapport.'
-      }
+      const lisible = refusDuService(error as ErreurDuService)
+      if (lisible) return lisible
       throw new HttpError(502, "Le mot de passe n'a pas pu être enregistré. Réessayez dans un instant.")
     },
-    async fermerLesAutres(jeton) {
-      const { error } = await db.auth.admin.signOut(jeton, 'others')
-      if (error) console.error(`[compte] déconnexion des autres — ${error.message}`)
-      return !error
+    async fermerLesSessions(jeton) {
+      const { error } = await db.auth.admin.signOut(jeton, 'global')
+      if (!error || sessionDejaFermee(error)) return true
+      console.error(`[compte] déconnexion des sessions — ${error.message}`)
+      return false
     },
   }
 }

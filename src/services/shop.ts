@@ -54,7 +54,7 @@ export interface Verification {
   /** Ce qui a été acheté est arrivé. Faux : la livraison sera reprise. */
   livre: boolean
   /** Non payée : un prélèvement en cours, une page abandonnée, un refus de la banque. */
-  attente: 'reglement' | 'abandon' | 'echec' | null
+  attente: 'reglement' | 'abandon' | 'echec' | 'rembourse' | null
 }
 
 /** Au retour de Stripe : le paiement est-il confirmé, et qu'a-t-on acheté ? */

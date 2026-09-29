@@ -36,6 +36,12 @@ describe('annonceDuRetour — ce que le patient lit en revenant de Stripe', () =
     expect(annonceDuRetour({ payee: false, title: null, livre: false, attente: 'abandon' }).text).toContain(
       "n'a pas été mené à son terme",
     )
+    expect(annonceDuRetour({ payee: false, title: 'A', livre: false, attente: 'rembourse' }).text).toMatch(
+      /remboursé/,
+    )
+    expect(annonceDuRetour({ payee: false, title: 'A', livre: false, attente: 'rembourse' }).text).not.toMatch(
+      /confirmé/,
+    )
     expect(annonceDuRetour({ payee: false, title: 'A', livre: false, attente: 'echec' }).text).toContain(
       'Votre banque a refusé',
     )

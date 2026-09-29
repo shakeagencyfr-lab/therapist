@@ -13,7 +13,8 @@
  * vraiment été encaissé pendant cette période, ce que la comptabilité de
  * trésorerie d'une praticienne demande.
  */
-import { jourDeParis } from './assiduite'
+import { instantDeParis, jourValide } from './agenda'
+import { decalerJour, jourDeParis } from './assiduite'
 import { plural } from './format'
 import { segmentDeFichier } from './pdfTexte'
 
@@ -102,15 +103,6 @@ export const PERIODES: Array<{ value: ChoixPeriode; label: string }> = [
   { value: 'libre', label: 'Autre période' },
 ]
 
-const JOUR = /^\d{4}-\d{2}-\d{2}$/
-
-function jourValide(jour: string): boolean {
-  if (!JOUR.test(jour)) return false
-  const [a, m, j] = jour.split('-').map(Number)
-  const d = new Date(Date.UTC(a, m - 1, j))
-  return d.getUTCFullYear() === a && d.getUTCMonth() === m - 1 && d.getUTCDate() === j
-}
-
 function deuxChiffres(n: number): string {
   return String(n).padStart(2, '0')
 }
@@ -138,41 +130,15 @@ export function periodePredefinie(
   }
 }
 
-/** Ce que Paris affiche à l'instant `t`, moins `t` : +1 h l'hiver, +2 h l'été. */
-function decalageDeParis(t: number): number {
-  const p: Record<string, number> = {}
-  for (const x of new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Europe/Paris',
-    hourCycle: 'h23',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).formatToParts(new Date(t))) {
-    if (x.type !== 'literal') p[x.type] = Number(x.value)
-  }
-  const mur = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second)
-  return mur - Math.floor(t / 1000) * 1000
-}
-
 /**
- * L'instant où commence un jour de Paris, en ISO. Minuit n'est jamais dans
- * le trou du passage à l'heure d'été (il a lieu à 2 h) : une correction
- * suffit.
+ * L'instant où commence un jour de Paris, en ISO. Même calcul que l'heure
+ * d'une séance (agenda.ts), qui tient les deux changements d'heure ; un
+ * jour impossible est refusé plus haut (refusPeriode), et lève ici.
  */
 export function minuitAParis(jour: string): string {
-  const [a, m, j] = jour.split('-').map(Number)
-  const utc = Date.UTC(a, m - 1, j)
-  const approche = utc - decalageDeParis(utc)
-  return new Date(utc - decalageDeParis(approche)).toISOString()
-}
-
-/** Le lendemain d'un jour « AAAA-MM-JJ », sans que l'heure d'été s'en mêle. */
-function lendemain(jour: string): string {
-  const [a, m, j] = jour.split('-').map(Number)
-  return new Date(Date.UTC(a, m - 1, j + 1)).toISOString().slice(0, 10)
+  const instant = instantDeParis(jour, '00:00')
+  if (!instant) throw new RangeError(`Jour illisible : ${jour}`)
+  return instant.toISOString()
 }
 
 /**
@@ -180,7 +146,7 @@ function lendemain(jour: string): string {
  * au minuit suivant le dernier jour, exclu. Ce sont eux que la base compare.
  */
 export function bornesDeLaPeriode(du: string, au: string): { debut: string; fin: string } {
-  return { debut: minuitAParis(du), fin: minuitAParis(lendemain(au)) }
+  return { debut: minuitAParis(du), fin: minuitAParis(decalerJour(au, 1)) }
 }
 
 /** Ce qui empêche d'exporter une période, dit comme l'écran le dira ; vide sinon. */

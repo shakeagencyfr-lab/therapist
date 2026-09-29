@@ -284,13 +284,36 @@ interface Retours {
   livres: Set<string>
 }
 
+/** Un téléphone tel que la base le rend, avec le compte rattaché à sa fiche. */
+export interface AppareilLu extends Appareil {
+  user_id: string
+  /* Une fiche par téléphone ; selon le client, rendue seule ou en liste d'une. */
+  patients: { auth_user_id: string | null } | Array<{ auth_user_id: string | null }> | null
+}
+
+/**
+ * Le téléphone appartient-il au compte QUI TIENT LA FICHE AUJOURD'HUI ?
+ *
+ * Une fiche se détache (nouvelle adresse, compte supprimé d'une personne qui
+ * est aussi praticienne) ; 0062 efface alors les téléphones de l'ancien
+ * compte. Ce filtre le redit ici : si l'effacement manquait, le rappel d'un
+ * suivi ne partirait pas pour autant vers quelqu'un qui n'y a plus accès.
+ */
+export function appareilDuCompte(a: AppareilLu): boolean {
+  const fiche = Array.isArray(a.patients) ? a.patients[0] : a.patients
+  const compte = fiche?.auth_user_id
+  return Boolean(compte) && a.user_id === compte
+}
+
 async function appareilsDe(admin: SupabaseClient, patientes: string[]): Promise<Appareil[]> {
   const { data, error } = await admin
     .from('push_subscriptions')
-    .select('id, patient_id, endpoint, p256dh, auth, chemin')
+    .select('id, patient_id, user_id, endpoint, p256dh, auth, chemin, patients!inner(auth_user_id)')
     .in('patient_id', [...new Set(patientes)])
   if (error) throw new HttpError(502, `Les téléphones inscrits n'ont pas pu être lus : ${error.message}`)
-  return ((data ?? []) as Appareil[]).filter((a) => serviceDePushConnu(a.endpoint))
+  return ((data ?? []) as unknown as AppareilLu[])
+    .filter((a) => serviceDePushConnu(a.endpoint) && appareilDuCompte(a))
+    .map(({ id, patient_id, endpoint, p256dh, auth, chemin }) => ({ id, patient_id, endpoint, p256dh, auth, chemin }))
 }
 
 /**

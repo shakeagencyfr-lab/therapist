@@ -14,6 +14,8 @@
  * même règle de son côté (0056, is_cabinet_member).
  */
 
+import { chargeDuJeton } from './jeton.js'
+
 /** Le niveau d'assurance d'une session. */
 export type Niveau = 'aal1' | 'aal2'
 
@@ -24,28 +26,6 @@ export interface FacteurLu {
   factor_type?: string
   created_at?: string
   updated_at?: string
-}
-
-/**
- * La charge d'un jeton, lue sans être vérifiée.
- *
- * On ne VÉRIFIE rien ici. Côté serveur, le jeton a déjà été éprouvé par la
- * base avant qu'on en lise une ligne (server/auth.ts, identifier) ; côté
- * écran, ce qu'on lit ne décide que de l'affichage — la base et le serveur
- * trancheront de toute façon.
- */
-function chargeDuJeton(jeton: string | null | undefined): Record<string, unknown> | null {
-  if (!jeton) return null
-  const partie = jeton.split('.')[1]
-  if (!partie) return null
-  try {
-    const base64 = partie.replace(/-/g, '+').replace(/_/g, '/')
-    const complet = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
-    const charge = JSON.parse(atob(complet)) as unknown
-    return charge && typeof charge === 'object' ? (charge as Record<string, unknown>) : null
-  } catch {
-    return null
-  }
 }
 
 /**

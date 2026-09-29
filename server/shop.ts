@@ -72,7 +72,7 @@ interface OrderRow {
   patient_id: string
   product_id: string | null
   title: string
-  status: 'en_attente' | 'payee' | 'annulee'
+  status: 'en_attente' | 'payee' | 'annulee' | 'remboursee'
   /** Null sur une commande payée : la livraison est à reprendre (0047). */
   livree_at: string | null
 }
@@ -331,9 +331,10 @@ export interface Verification {
   /**
    * Non payée : pourquoi. `reglement` — validé, la banque n'a pas encore
    * confirmé (prélèvement) ; `abandon` — la page de paiement n'a pas été
-   * menée au bout, rien n'est débité ; `echec` — la banque a refusé.
+   * menée au bout, rien n'est débité ; `echec` — la banque a refusé ;
+   * `rembourse` — payée puis remboursée par le cabinet.
    */
-  attente: 'reglement' | 'abandon' | 'echec' | null
+  attente: 'reglement' | 'abandon' | 'echec' | 'rembourse' | null
 }
 
 export async function verifierPaiement(token: string | null, raw: unknown): Promise<Verification> {
@@ -365,6 +366,10 @@ export async function verifierPaiement(token: string | null, raw: unknown): Prom
      lui répondait que tout allait bien. `livree_at` dit si c'est fait. */
   if (commande.status === 'payee') return reponse(true, await livrer(commande, false))
   if (commande.status === 'annulee') return reponse(false, false, 'echec')
+  /* Remboursée : c'est fini. Elle tombait jusqu'à Stripe, dont la session
+     dit toujours « payée » : le patient lisait « Paiement confirmé » d'un
+     achat qu'on venait de lui rembourser, et `livrer` était rappelée. */
+  if (commande.status === 'remboursee') return reponse(false, false, 'rembourse')
 
   const stripe = await stripeDuCabinet(cabinetId)
   let lue: SessionLue
@@ -606,7 +611,10 @@ interface LigneReprise extends OrderRow {
  */
 export async function verifierEnAttente(token: string | null, raw: unknown): Promise<Reprise> {
   const body = (raw && typeof raw === 'object' ? raw : {}) as Partial<RepriseBody>
-  const appelant = await identifier(token)
+  /* Le côté cabinet lit des noms de patients et leurs achats par la clé de
+     service : il exige le second facteur, comme la base l'exige pour toute
+     lecture du dossier (0056). Sans cela, un mot de passe seul suffisait. */
+  const appelant = body.cote === 'cabinet' ? await identifierPourGesteSensible(token) : await identifier(token)
   let cabinetId: string
   let patientId: string | null = null
   if (body.cote === 'cabinet') {
@@ -1024,7 +1032,8 @@ export async function recuDeCommande(token: string | null, raw: unknown): Promis
   const commandeId = String(body.commandeId ?? '').trim()
   if (!commandeId) throw new HttpError(400, 'Achat manquant.')
   if (!estIdentifiant(commandeId)) throw new HttpError(404, 'Achat introuvable.')
-  const appelant = await identifier(token)
+  // Même règle que la reprise : le reçu côté cabinet nomme un patient.
+  const appelant = body.cote === 'cabinet' ? await identifierPourGesteSensible(token) : await identifier(token)
   let colonne: 'cabinet_id' | 'patient_id'
   let valeur: string
   if (body.cote === 'cabinet') {

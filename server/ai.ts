@@ -16,7 +16,7 @@
  */
 import Anthropic from '@anthropic-ai/sdk'
 import { HttpError } from './errors.js'
-import { baseConfiguree, clientAdmin, identifier, type Appelant } from './auth.js'
+import { baseConfiguree, clientAdmin, identifierPourGesteSensible, type Appelant } from './auth.js'
 import { cleAnthropicDuCabinet } from './integrations.js'
 import { abonnementEnRegle } from './droits.js'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
@@ -733,7 +733,10 @@ export async function handleAi(route: AiRoute, raw: unknown, token: string | nul
 
   let appelant: Appelant | null = null
   if (baseConfiguree()) {
-    appelant = await identifier(token)
+    /* Une analyse dépense la clé du cabinet sur un dossier de santé : elle
+       exige le second facteur quand le compte en a un, comme la base pour
+       lire ce dossier (0056). */
+    appelant = await identifierPourGesteSensible(token)
     if (!appelant.cabinetId) {
       throw new HttpError(403, "Les fonctions d'analyse sont réservées à l'espace d'un cabinet.")
     }
