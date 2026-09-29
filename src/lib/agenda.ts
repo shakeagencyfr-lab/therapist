@@ -168,6 +168,19 @@ export function libelleProchaineSeance(
 }
 
 /**
+ * « Prochaine séance : demain, 14 h 30 » — le fait que l'en-tête de la fiche
+ * affiche à côté du programme. Seule, une date ne dit pas de quoi elle est
+ * la date. Calculé au rendu : « demain » y reste juste d'un jour sur l'autre.
+ * Sans séance datée à venir, le libellé que la fiche porte déjà.
+ */
+export function libelleEnTete(fiche: SeanceDeFiche, maintenant: Date = new Date()): string {
+  if (fiche.prochaineSeanceLe && jourEtHeure(fiche.prochaineSeanceLe).jour >= jourDeParis(maintenant)) {
+    return `Prochaine séance : ${libelleSeanceProche(fiche.prochaineSeanceLe, maintenant)}`
+  }
+  return fiche.nextSession
+}
+
+/**
  * Ce que « Ma journée » montre au patient : la séance datée si elle vient,
  * sinon le texte d'avant — `null` quand il n'y a rien à dire.
  */

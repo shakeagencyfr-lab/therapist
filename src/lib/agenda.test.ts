@@ -12,6 +12,7 @@ import {
   instantDeParis,
   jourEtHeure,
   jourValide,
+  libelleEnTete,
   libelleProchaineSeance,
   libelleSeance,
   libelleSeanceProche,
@@ -90,6 +91,16 @@ describe('les libellés', () => {
     expect(libelleProchaineSeance(iso('2026-09-28', '14:00'), 'Jeudi 14 h', MARDI_10H)).toBe(SANS_SEANCE)
     expect(libelleProchaineSeance(null, '  Jeudi 14 h ', MARDI_10H)).toBe('Jeudi 14 h')
     expect(libelleProchaineSeance(null, '', MARDI_10H)).toBe(SANS_SEANCE)
+  })
+
+  it("l'en-tête dit de quoi la date est la date", () => {
+    expect(libelleEnTete({ prochaineSeanceLe: iso('2026-09-30', '14:30'), nextSession: 'x' }, MARDI_10H)).toBe(
+      'Prochaine séance : demain, 14 h 30',
+    )
+    expect(libelleEnTete({ prochaineSeanceLe: iso('2026-09-20', '14:30'), nextSession: SANS_SEANCE }, MARDI_10H)).toBe(
+      SANS_SEANCE,
+    )
+    expect(libelleEnTete({ nextSession: 'Prochaine séance jeudi 14 h' }, MARDI_10H)).toBe('Prochaine séance jeudi 14 h')
   })
 
   it('« Ma journée » montre la séance datée à venir, sinon le texte d’avant', () => {

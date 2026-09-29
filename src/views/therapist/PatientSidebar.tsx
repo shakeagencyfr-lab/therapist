@@ -5,7 +5,7 @@ import { placesRestantes, useDroits } from '@/cabinet/droits'
 import { ContactRevendeur } from '@/components/layout/BandeauContrat'
 import { plural } from '@/lib/format'
 import { libelleNonLus } from '@/lib/fil'
-import { sansProchaineSeance, seanceAVenir, seancesDuJour } from '@/lib/agenda'
+import { capitale, libelleSeanceProche, sansProchaineSeance, seanceAVenir, seancesDuJour } from '@/lib/agenda'
 import { riskColor, sidebarPatients, slippingPatients } from '@/state/selectors'
 import { useStore } from '@/state/store'
 import type { Patient } from '@/types/domain'
@@ -50,7 +50,9 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
    * filtre « sans prochaine séance », le texte d'avant qui reste à dater.
    */
   function sousLigne(p: Patient): string {
-    if (state.pParSeance && seanceAVenir(p.prochaineSeanceLe, maintenant)) return p.nextSession
+    if (state.pParSeance && p.prochaineSeanceLe && seanceAVenir(p.prochaineSeanceLe, maintenant)) {
+      return capitale(libelleSeanceProche(p.prochaineSeanceLe, maintenant))
+    }
     if (state.pSansSeance && !p.prochaineSeanceLe && p.prochaineSeanceTexte?.trim()) {
       return `À dater : « ${p.prochaineSeanceTexte.trim()} »`
     }

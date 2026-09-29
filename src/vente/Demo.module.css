@@ -154,6 +154,33 @@
   flex: none;
 }
 
+/* Au plus étroit, les cinq teintes tiennent sur une ligne : le nom de
+   chacune reste lu par le lecteur d'écran, la pastille suffit à l'œil. */
+@media (max-width: 439px) {
+  .pastilles {
+    flex-wrap: nowrap;
+    gap: 10px;
+  }
+  .pastille {
+    padding: 8px;
+    min-height: 40px;
+    min-width: 40px;
+    justify-content: center;
+  }
+  .pastilleCouleur {
+    width: 22px;
+    height: 22px;
+  }
+  .pastilleNom {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
 /* Le suivi, côté thérapeute -------------------------------------------- */
 
 .suivi {
@@ -285,7 +312,10 @@
   width: 100%;
   height: auto;
   aspect-ratio: 300 / 90;
-  max-height: 220px;
+  max-height: 180px;
+}
+.fiche svg circle {
+  r: 1.8px;
 }
 .fiche svg line,
 .fiche svg polyline {
@@ -313,9 +343,9 @@
   background: var(--c-app);
   border: 1px solid var(--c-border);
   border-radius: var(--r-panel);
-  padding: 16px;
+  padding: 12px;
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 @media (min-width: 720px) {
   .note {
@@ -401,6 +431,13 @@
 .notePaire {
   display: grid;
   gap: 12px;
+}
+/* Au plus étroit, les mots de la séance suffisent : le fil rouge est dit
+   dans le texte qui présente le brouillon. */
+@media (max-width: 559px) {
+  .notePaire > :nth-child(2) {
+    display: none;
+  }
 }
 @media (min-width: 560px) {
   .notePaire {

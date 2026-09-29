@@ -245,8 +245,7 @@ export const PARCOURS: Etape[] = typographie([
 export function pointsDeLaNote(): string[] {
   const c = coutsIA()
   return typographie([
-    'Rédigé à partir de la transcription et de vos notes de séance, quand vous lancez l’analyse.',
-    'Vous corrigez, décochez ce qui ne convient pas, et validez : rien ne part chez votre patient avant.',
+    'Rédigé à partir de la transcription et de vos notes, quand vous lancez l’analyse. Vous corrigez, décochez, validez : rien ne part chez votre patient avant.',
     `L’analyse est payée à l’usage à Anthropic, avec la clé de votre cabinet : de ${c.noteMin} à ${c.noteMax} environ par note. L’écran l’estime avant de lancer.`,
     'Sans clé Anthropic, l’espace patient et le suivi fonctionnent, mais aucune note n’est rédigée.',
   ])
@@ -470,12 +469,6 @@ function questionsBrutes(): Question[] {
       question: 'Les données sont-elles hébergées selon la norme HDS ?',
       reponse:
         'Non. Klaro n’est pas certifié HDS (hébergement de données de santé), et ne le prétend pas. La base et le serveur sont à Paris ; l’analyse du texte se fait aux États-Unis. Si votre cadre d’exercice l’exige, Klaro ne remplit pas cette condition aujourd’hui : parlez-en avec nous avant de commencer.',
-    },
-    {
-      id: 'voix',
-      question: 'Que devient la voix ?',
-      reponse:
-        'Elle ne nous parvient pas. Le navigateur transcrit la parole en l’envoyant chez son éditeur (Google, Microsoft ou Apple selon le navigateur) ; Klaro ne reçoit que le texte, jamais le son. Ce texte sert à rédiger le brouillon, puis il est effacé à l’envoi de la note — ou au bout de 7 jours si la note n’est jamais validée.',
     },
     {
       id: 'installer',

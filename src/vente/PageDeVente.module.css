@@ -332,7 +332,7 @@
 }
 
 .section {
-  padding: 56px var(--marge);
+  padding: 48px var(--marge);
   scroll-margin-top: var(--entete);
 }
 .section > * {
@@ -342,8 +342,8 @@
 }
 @media (min-width: 960px) {
   .section {
-    padding-top: 88px;
-    padding-bottom: 88px;
+    padding-top: 76px;
+    padding-bottom: 76px;
   }
 }
 
@@ -489,11 +489,11 @@
   scroll-margin-top: var(--entete);
   /* La hauteur de l'écran du téléphone (Demo.module.css) : sur un portable,
      téléphone, teintes et légende tiennent dans le premier écran. */
-  --ecran-demo: 470px;
+  --ecran-demo: 420px;
 }
 @media (min-width: 960px) {
   .heroApercu {
-    --ecran-demo: clamp(400px, calc(100vh - 400px), 540px);
+    --ecran-demo: clamp(400px, calc(100vh - 370px), 560px);
   }
 }
 
@@ -522,7 +522,8 @@
 
 .legende {
   margin: 12px auto 0;
-  max-width: 440px;
+  max-width: 470px;
+  text-wrap: balance;
   font-size: 13px;
   line-height: 1.5;
   color: var(--c-text-muted);
@@ -630,6 +631,50 @@
   font-size: 15px;
   line-height: 1.6;
   color: var(--c-text-3);
+}
+/* Sur un téléphone, la carte dit l'essentiel — titre, repère, lien vers son
+   aperçu : le détail de chaque étape est dit, en plus complet, dans la
+   section vers laquelle elle mène. Quatre cartes pleines faisaient deux
+   écrans. */
+@media (max-width: 719px) {
+  .etape {
+    grid-row: auto;
+    grid-template-rows: none;
+    grid-template-columns: 40px minmax(0, 1fr);
+    column-gap: 14px;
+    padding: 16px 16px 12px;
+  }
+  .etape > * {
+    grid-column: 2;
+  }
+  .etapeHaut {
+    display: contents;
+  }
+  .pictoCadre {
+    grid-column: 1;
+    grid-row: 1 / span 4;
+    align-self: start;
+  }
+  .numero {
+    margin-bottom: 2px;
+  }
+  .etapeTitre {
+    font-size: 20px;
+    margin-bottom: 4px;
+  }
+  .etapeTexte {
+    display: none;
+  }
+  .etapeDetail {
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+  .etapeVoir {
+    margin-top: 4px;
+  }
+  .etapes {
+    gap: 10px;
+  }
 }
 .etapeDetail {
   margin: 14px 0 0;
@@ -870,7 +915,12 @@
 .engagement {
   background: var(--v-sombre-carte);
   border-radius: var(--r-lg);
-  padding: 20px 20px 18px;
+  padding: 16px 16px 14px;
+}
+@media (min-width: 720px) {
+  .engagement {
+    padding: 20px 20px 18px;
+  }
 }
 .engagementTitre {
   margin: 0 0 8px;

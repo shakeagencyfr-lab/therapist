@@ -1,4 +1,5 @@
 import { Button, Pill } from '@/components/ui'
+import { libelleEnTete } from '@/lib/agenda'
 import { seanceEnCours } from '@/lib/seance'
 import { nouvelleSeance, patientOf } from '@/state/selectors'
 import { useStore } from '@/state/store'
@@ -49,7 +50,8 @@ export function PatientHeader() {
           {p.program ? <Pill tone="accent">{p.program}</Pill> : null}
           <span className={s.fact}>{p.weekLabel}</span>
           <span className={s.sep} aria-hidden />
-          <span className={s.fact}>{p.nextSession}</span>
+          {/* Datée (0059) : « Prochaine séance : demain, 14 h 30 » — une date seule ne dit pas de quoi. */}
+          <span className={s.fact}>{libelleEnTete(p)}</span>
         </div>
       </div>
 

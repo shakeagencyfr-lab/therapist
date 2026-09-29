@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button, Card, Notice, TextArea, TextInput, Title } from '@/components/ui'
 import type { EtatParcoursTypes } from '@/cabinet/useParcoursTypes'
-import { plural } from '@/lib/format'
 import {
   LIMITE_CONSIGNE,
   MAX_EXERCICES,
@@ -239,8 +238,8 @@ export function VueParcoursType({
             </Button>
           ) : null}
           {!modifie && exercices.length > 0 && suiveurs > 0 ? (
-            <Button variant="ghost" onClick={onProposer}>
-              Le proposer à {plural(suiveurs, 'personne qui suit', 'personnes qui suivent')} ce programme
+            <Button variant="ghost" className={s.boutonLong} onClick={onProposer}>
+              {suiveurs === 1 ? 'Le proposer à la personne qui le suit' : `Le proposer aux ${suiveurs} personnes qui le suivent`}
             </Button>
           ) : null}
         </div>

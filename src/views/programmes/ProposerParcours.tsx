@@ -89,7 +89,8 @@ export function VueProposerParcours({ programme, exercices, personnes, onAjouter
   return (
     <Card className={s.carte}>
       <Title large as="h2">
-        Proposer le parcours de « {programme} »
+        {/* Espaces insécables : un « ne reste pas seul en bout de ligne. */}
+        Proposer le parcours de «{' '}{programme}{' '}»
       </Title>
       <p className={s.intro}>
         Cochez, pour chaque personne, les exercices à ajouter. Ils arrivent à la suite de son
@@ -175,7 +176,12 @@ export function VueProposerParcours({ programme, exercices, personnes, onAjouter
       </div>
 
       <div className={s.actions}>
-        <Button variant={restants === 0 ? 'secondary' : 'ghost'} disabled={enCours !== ''} onClick={onFermer}>
+        <Button
+          variant={restants === 0 ? 'secondary' : 'ghost'}
+          className={s.boutonLong}
+          disabled={enCours !== ''}
+          onClick={onFermer}
+        >
           {restants === 0 ? 'Terminer' : 'Fermer sans rien ajouter de plus'}
         </Button>
       </div>

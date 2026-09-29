@@ -1,4 +1,5 @@
 import { Avatar, Button, Card } from '@/components/ui'
+import { libelleEnTete } from '@/lib/agenda'
 import { nouvelleSeance, riskColor } from '@/state/selectors'
 import { useStore } from '@/state/store'
 import s from './PatientPick.module.css'
@@ -57,7 +58,7 @@ export function PatientPick() {
                 <span className={s.sub}>{patient.subtitle}</span>
               </span>
               <span className={s.facts}>
-                <span className={s.fact}>{patient.nextSession}</span>
+                <span className={s.fact}>{libelleEnTete(patient)}</span>
                 <span
                   className={s.dot}
                   style={{ background: riskColor(patient.adherence) }}

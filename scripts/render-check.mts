@@ -1503,7 +1503,7 @@ try {
     if (!plein.includes('Monter l&#x27;exercice 2') || !plein.includes('Retirer l&#x27;exercice 1 « Respiration carrée »')) {
       manque.push('les gestes d’un exercice ne se disent pas aux lecteurs d’écran')
     }
-    if (!plein.includes('Le proposer à 2 personnes qui suivent ce programme')) manque.push('le parcours ne se propose pas aux personnes déjà suivies')
+    if (!plein.includes('Le proposer aux 2 personnes qui le suivent')) manque.push('le parcours ne se propose pas aux personnes déjà suivies')
     if (!parcours({ exercices: [] }).includes('Aucun exercice pour l&#x27;instant')) manque.push('le parcours vide ne dit pas quoi faire')
     if (!parcours({ etat: 'chargement', exercices: [] }).includes('Lecture du parcours')) manque.push('la lecture du parcours ne se dit pas')
     if (!parcours({ etat: 'echec' }).includes('n&#x27;a pas pu être lu')) manque.push('un parcours illisible passe pour un parcours vide')
@@ -1529,7 +1529,7 @@ try {
     )
   try {
     const choix = proposer({})
-    if (!choix.includes('Proposer le parcours de « Sommeil »')) manque.push('la proposition ne se titre pas')
+    if (!choix.includes('Proposer le parcours de « Sommeil »')) manque.push('la proposition ne se titre pas')
     if (!choix.includes('déjà dans son parcours')) manque.push('ce que la personne a déjà ne se dit pas')
     if (!/aria-checked="false"[^>]*aria-label="Ajouter « Respiration carrée »/.test(choix)) {
       manque.push('un exercice déjà là est coché d’office')

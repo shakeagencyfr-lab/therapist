@@ -42,6 +42,14 @@
   margin-top: 14px;
 }
 
+/* Un bouton au libellé long passe à la ligne plutôt que de sortir de la
+   carte sur un téléphone. */
+.boutonLong {
+  white-space: normal;
+  text-align: left;
+  max-width: 100%;
+}
+
 /* L'édition ------------------------------------------------------------- */
 
 .liste {
