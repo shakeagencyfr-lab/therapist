@@ -29,8 +29,14 @@ import type { Cabinet, CabinetId, PlanCode, Subscription } from '@/types/reselle
  */
 export type Space = 'cabinet' | 'reseller'
 
-/** Vue de l'espace revendeur. */
-export type ResellerView = 'portfolio' | 'brand' | 'plans'
+/**
+ * Vue de l'espace revendeur.
+ *
+ * `fiche` : la fiche du cabinet `rSel`, ouverte depuis le portefeuille — elle
+ * n'a pas d'onglet à elle, c'est l'onglet Cabinets qui reste allumé.
+ * `equipe` : l'équipe du revendeur et ses coordonnées de support (0057).
+ */
+export type ResellerView = 'portfolio' | 'brand' | 'plans' | 'demandes' | 'fiche' | 'equipe'
 
 /** Vue affichée par le commutateur de l'en-tête. Une seule à la fois. */
 export type ViewMode =

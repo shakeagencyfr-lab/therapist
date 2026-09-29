@@ -13,17 +13,21 @@
 --
 -- LA RÈGLE. Un compte qui a inscrit et vérifié un facteur n'est membre de son
 -- cabinet, aux yeux de la base, que dans une session qui a donné son code
--- (jeton « aal2 »). Un compte sans facteur ne voit rien changer.
+-- (jeton « aal2 »). Un compte sans facteur ne voit rien changer. Un facteur
+-- « unverified » ne compte pas : c'est une inscription abandonnée avant le
+-- premier code, qui n'a jamais protégé quoi que ce soit. Un jeton sans
+-- `aal` vaut « aal1 » (documentation de Supabase Auth).
 --
 -- POURQUOI DANS is_cabinet_member() PLUTÔT QU'EN POLITIQUES RESTRICTIVES.
 -- La documentation de Supabase propose une politique `as restrictive` par
 -- table. Ici, elle laisserait trois trous et en ouvrirait un quatrième :
 --
 --   - les fonctions `security definer` du cabinet ne passent pas par la RLS.
---     `cabinet_changer_adresse()` (détacher le compte d'un patient),
---     `equipe_du_cabinet()` (les adresses de l'équipe),
---     `cabinet_repondre_a_la_page()`, `cabinet_emettre_note_honoraires()`,
---     `cabinet_appareils()`… s'ouvriraient encore à une session « aal1 » ;
+--     `cabinet_changer_adresse()` resterait ouverte en « aal1 » : changer
+--     l'adresse d'un patient pour la sienne, puis entrer dans SON espace —
+--     journal compris. De même `equipe_du_cabinet()` (les adresses de
+--     l'équipe), `cabinet_repondre_a_la_page()` (écrire à un patient au nom
+--     de la praticienne), `cabinet_appareils()`, les notes d'honoraires… ;
 --   - les compartiments de stockage (audios, logos, photos du site) ont leurs
 --     propres politiques ;
 --   - chaque table de santé ajoutée plus tard devrait penser à la sienne ;
@@ -34,9 +38,19 @@
 --
 -- Toutes les politiques et fonctions du CÔTÉ CABINET, stockage compris,
 -- passent par `is_cabinet_member()` — ou, pour l'équipe, par
--- `est_titulaire_du_cabinet()`. Les deux reçoivent la condition : une seule
--- définition couvre tout, et le côté patient (`is_patient_record()`, la
+-- `est_titulaire_du_cabinet()`. Les deux reçoivent la condition : deux
+-- définitions couvrent tout, et le côté patient (`is_patient_record()`, la
 -- politique « le patient lit sa fiche ») reste tel quel.
+--
+-- CE QUE CELA COÛTE, MESURÉ (production, bloc annulé, 20 000 lignes d'un
+-- même cabinet comptées d'un coup sous la RLS) : 0,77 s avant ; 1,33 s en
+-- « aal1 » sans facteur ; 1,13 s en « aal2 ». Soit 25 µs environ par ligne
+-- examinée — une requête de l'application, bornée à 1 000 lignes, paie au
+-- pire une vingtaine de millisecondes. La condition est ÉCRITE dans le
+-- corps : l'appel d'une fonction `security definer` imbriquée, essayé
+-- d'abord, coûtait huit fois plus (5,7 s), et une version PL/pgSQL, 1,6 s.
+-- Le niveau du jeton est lu avant la recherche de facteur : en « aal2 »,
+-- elle n'a pas lieu.
 --
 -- CE QUI RESTE HORS DE PORTÉE, VOLONTAIREMENT.
 --   - `my_context()` et `claim_access()` répondent en « aal1 » : c'est ce qui
@@ -48,54 +62,21 @@
 --
 -- À QUI REDÉFINIT CES FONCTIONS PLUS TARD. `is_cabinet_member()` et
 -- `est_titulaire_du_cabinet()` sont centrales ; une migration qui les
--- réécrit doit garder l'appel à `second_facteur_satisfait()`.
+-- réécrit — pour fermer un cabinet, par exemple — doit repartir de CETTE
+-- définition et garder sa seconde condition.
 -- supabase/tests/double_authentification.sql échoue sinon.
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
--- 1. Le jeton a-t-il le niveau que le compte demande ?
+-- 1. Membre du cabinet — en « aal2 » quand le compte a un facteur
 -- ----------------------------------------------------------------------------
 --
--- `security definer` : le rôle authentifié ne lit pas auth.mfa_factors, et
--- n'a pas à le lire. La fonction ne rend qu'un booléen sur l'appelant
--- lui-même — jamais le facteur, jamais le secret.
+-- Définition de production (0001, relue par pg_get_functiondef) ; la seconde
+-- condition est nouvelle. L'appartenance est cherchée d'abord : pour les
+-- lignes d'un autre cabinet, la recherche de facteur n'a pas lieu.
 --
--- Un jeton sans `aal` vaut « aal1 » (documentation de Supabase Auth). Un
--- facteur « unverified » ne compte pas : c'est une inscription abandonnée
--- avant le premier code, qui n'a jamais protégé quoi que ce soit.
---
--- Le niveau est lu d'abord : en « aal2 », aucune recherche de facteur.
-create or replace function public.second_facteur_satisfait()
-returns boolean
-language sql
-stable
-security definer
-set search_path = ''
-as $$
-  select coalesce(auth.jwt() ->> 'aal', 'aal1') = 'aal2'
-      or not exists (
-        select 1
-          from auth.mfa_factors f
-         where f.user_id = auth.uid()
-           and f.status = 'verified'
-      );
-$$;
-
-comment on function public.second_facteur_satisfait() is
-  'Vrai si le jeton est aal2, ou si le compte n''a aucun facteur vérifié. Appelée par is_cabinet_member() et est_titulaire_du_cabinet() (0056).';
-
--- Rien pour anon ; le rôle authentifié peut s'interroger sur lui-même —
--- une politique qui l'appellerait directement en aura besoin.
-revoke all on function public.second_facteur_satisfait() from public, anon;
-grant execute on function public.second_facteur_satisfait() to authenticated, service_role;
-
--- ----------------------------------------------------------------------------
--- 2. Membre du cabinet — en « aal2 » quand le compte a un facteur
--- ----------------------------------------------------------------------------
---
--- Définition de production (0001, relue par pg_get_functiondef) ; seule la
--- dernière ligne est nouvelle. L'appartenance est cherchée d'abord : pour
--- les lignes d'un autre cabinet, la seconde condition n'est pas évaluée.
+-- `security definer` couvre aussi auth.mfa_factors, que le rôle authentifié
+-- ne lit pas et n'a pas à lire : la fonction ne rend qu'un booléen.
 create or replace function public.is_cabinet_member(p_cabinet uuid)
 returns boolean
 language sql
@@ -107,17 +88,23 @@ as $$
     select 1 from public.cabinet_members m
     where m.cabinet_id = p_cabinet and m.user_id = auth.uid()
   )
-  and public.second_facteur_satisfait();
+  and (
+    coalesce(auth.jwt() ->> 'aal', 'aal1') = 'aal2'
+    or not exists (
+      select 1 from auth.mfa_factors f
+       where f.user_id = auth.uid() and f.status = 'verified'
+    )
+  );
 $$;
 
 -- ----------------------------------------------------------------------------
--- 3. Titulaire du cabinet — l'équipe, gardée de même
+-- 2. Titulaire du cabinet — l'équipe, gardée de même
 -- ----------------------------------------------------------------------------
 --
 -- Inviter, relancer, annuler une invitation, retirer une consœur
 -- (`retirer_du_cabinet()`) : tout passe par elle (0042). Sans la condition,
 -- une session « aal1 » pouvait s'adjoindre une complice, qui aurait ensuite
--- lu les dossiers avec son propre compte.
+-- lu les dossiers avec son propre compte. Même condition, même ordre.
 create or replace function public.est_titulaire_du_cabinet(p_cabinet uuid)
 returns boolean
 language sql
@@ -131,5 +118,11 @@ as $$
        and m.user_id = auth.uid()
        and m.role = 'owner'
   )
-  and public.second_facteur_satisfait();
+  and (
+    coalesce(auth.jwt() ->> 'aal', 'aal1') = 'aal2'
+    or not exists (
+      select 1 from auth.mfa_factors f
+       where f.user_id = auth.uid() and f.status = 'verified'
+    )
+  );
 $$;

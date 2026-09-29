@@ -18,6 +18,7 @@ import { problemeIdentifiant } from '@/lib/identifiant'
 import { demanderInvitation } from '@/services/invitations'
 import { annulerInvitation as annulerEcriture, poserInvitation, relancerInvitation as relancerEcriture } from '@/services/equipe'
 import { etiquetteEquipe } from '@/lib/equipe'
+import { messageFermeture, separerFermes } from '@/lib/revendeur'
 import { CABINETS, CABINET_STATS, PLANS, SUBSCRIPTIONS } from '@/data/reseller'
 import { slugify } from '@/state/resellerSelectors'
 import type { CabinetBranding, Plan, PlanCode, PortfolioRow } from '@/types/reseller'
@@ -54,6 +55,8 @@ interface OverviewRow {
   patients_active: number
   adherence_avg: number | null
   sessions_30d: number
+  /** Dépense d'analyse du mois civil, en centimes décimaux (payée par le cabinet). */
+  ai_spend_cents_month?: number | string | null
   plan_code: PlanCode | null
   plan_label: string | null
   status: string | null
@@ -70,6 +73,8 @@ interface CabinetRow {
   tagline: string
   branding: CabinetBranding
   created_at: string
+  /** Posé par la base à la fermeture (0057) ; null tant que le cabinet tourne. */
+  archived_at?: string | null
 }
 
 /** Une ligne de `journal_des_contrats()` (0049). */
@@ -161,7 +166,10 @@ export interface ReglageContrat {
 }
 
 export interface ResellerData {
+  /** Les cabinets qui tournent. Les fermés sont à part : ils ne comptent nulle part. */
   rows: PortfolioRow[]
+  /** Les cabinets fermés par le revendeur (0057), qui se rouvrent depuis leur fiche. */
+  fermes: PortfolioRow[]
   /** Le catalogue, tel qu'il est en base — ou celui de démonstration. */
   offres: Plan[]
   praticiennes: Praticienne[]
@@ -194,6 +202,10 @@ export interface ResellerData {
   reglerExceptions: (cabinetId: string, champs: Exceptions) => Promise<Resultat>
   /** Pose le statut du contrat, et les dates que le revendeur a choisies. */
   reglerContrat: (cabinetId: string, reglage: ReglageContrat) => Promise<Resultat>
+  /** Ferme un cabinet (`fermer` vrai) ou le rouvre. Réservé au propriétaire (0057). */
+  fermerCabinet: (cabinetId: string, fermer: boolean) => Promise<Resultat>
+  /** L'historique du contrat d'UN cabinet, fermetures comprises, le plus récent d'abord. */
+  lireJournalDuCabinet: (cabinetId: string) => Promise<{ entrees: EntreeJournal[]; erreur: string }>
 }
 
 /** Les cinq états d'un contrat, tels que la base les connaît. */
@@ -276,12 +288,15 @@ function versPortfolio(
       // L'horodatage brut s'affichait tel quel sous le nom du cabinet.
       since: `Depuis le ${dateLongue(o.created_at)}`,
       archived: o.archived,
+      fermeLe: fiche?.archived_at ?? null,
     },
     stats: {
       therapists: Number(o.therapists ?? 0),
       patientsActive: Number(o.patients_active ?? 0),
       adherenceAvg: o.adherence_avg === null ? null : Number(o.adherence_avg),
       sessions30d: Number(o.sessions_30d ?? 0),
+      // numeric arrive en texte par PostgREST : Number() le lit dans les deux cas.
+      analyseCentsMois: Number(o.ai_spend_cents_month ?? 0) || 0,
     },
     subscription: {
       cabinetId: o.cabinet_id,
@@ -328,6 +343,7 @@ export function useReseller(): ResellerData {
      session. Sans base du tout, on le sait d'emblée : la démonstration est
      servie dès le premier rendu, banc de rendu compris. */
   const [rows, setRows] = useState<PortfolioRow[]>(() => (supabase() ? [] : portefeuilleFictif()))
+  const [fermes, setFermes] = useState<PortfolioRow[]>([])
   const [offres, setOffres] = useState<Plan[]>(() => (supabase() ? [] : PLANS))
   const [praticiennes, setPraticiennes] = useState<Praticienne[]>([])
   const [invitations, setInvitations] = useState<InvitationEnAttente[]>([])
@@ -341,6 +357,7 @@ export function useReseller(): ResellerData {
     const db = supabase()
     if (!db) {
       setRows(portefeuilleFictif())
+      setFermes([])
       setOffres(PLANS)
       setReel(false)
       setChargement(false)
@@ -352,6 +369,7 @@ export function useReseller(): ResellerData {
     const { data: auth } = await db.auth.getSession()
     if (!auth.session) {
       setRows(portefeuilleFictif())
+      setFermes([])
       setOffres(PLANS)
       setReel(false)
       setChargement(false)
@@ -363,7 +381,7 @@ export function useReseller(): ResellerData {
 
     const [apercu, fiches, membres, invits, catalogue, exceptions, lignesJournal, anciens] = await Promise.all([
       db.rpc('reseller_cabinet_overview'),
-      db.from('cabinets').select('id, name, slug, tagline, branding, created_at'),
+      db.from('cabinets').select('id, name, slug, tagline, branding, created_at, archived_at'),
       db.from('cabinet_members').select('cabinet_id, display_name, role'),
       db
         .from('cabinet_invitations')
@@ -381,6 +399,7 @@ export function useReseller(): ResellerData {
     if (apercu.error) {
       // Une lecture ratée ne laisse rien à l'écran — surtout pas l'ancien état.
       setRows([])
+      setFermes([])
       setErreur("Votre portefeuille n'a pas pu être chargé. Réessayez dans un instant.")
       setChargement(false)
       return
@@ -429,7 +448,12 @@ export function useReseller(): ResellerData {
       return row
     })
 
-    setRows(lignes)
+    /* Les cabinets fermés sortent du portefeuille (0057) : ils ne sont plus en
+       règle par construction, et les y laisser allumait « Contrats en
+       défaut » et faussait les fiches vendues pour un geste voulu. */
+    const { ouverts, fermes: clos } = separerFermes(lignes)
+    setRows(ouverts)
+    setFermes(clos)
     setPraticiennes(equipes)
     setInvitations(attente)
     setChargement(false)
@@ -546,16 +570,16 @@ export function useReseller(): ResellerData {
 
       await recharger()
 
-      /* « Reprenez-la depuis sa fiche » : il n'y a pas de fiche de cabinet
-         chez le revendeur — cliquer la ligne ouvre l'éditeur de marque. On
-         nomme donc l'endroit où le geste se refait vraiment. */
+      /* On nomme l'endroit où le geste se refait vraiment. Depuis 0057, la
+         ligne du portefeuille ouvre la fiche du cabinet, où l'invitation se
+         reprend comme sur la ligne elle-même. */
       if (eSub || eInv) {
         return {
           ok: true,
           partiel: true,
           message: eSub
             ? `${cabinet.name} est ouvert, mais son offre n'a pas pu être enregistrée. Posez-la depuis l'onglet Offres : le cabinet partira en essai de quatorze jours.`
-            : `${cabinet.name} est ouvert, mais l'invitation n'a pas pu être enregistrée. Reprenez-la depuis sa ligne, ici dans le portefeuille.`,
+            : `${cabinet.name} est ouvert, mais l'invitation n'a pas pu être enregistrée. Reprenez-la depuis sa ligne du portefeuille, ou depuis sa fiche.`,
         }
       }
       if (!input.email.trim()) {
@@ -879,8 +903,63 @@ export function useReseller(): ResellerData {
     [recharger, reel],
   )
 
+  /**
+   * Fermer un cabinet, ou le rouvrir.
+   *
+   * La base date le geste, le réserve au propriétaire et l'inscrit au journal
+   * (0057) ; ici on ne fait que le demander et dire ce qu'elle a répondu.
+   */
+  const fermerCabinet = useCallback(
+    async (cabinetId: string, fermer: boolean): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !reel) {
+        return {
+          ok: false,
+          message: fermer ? 'Connectez-vous pour fermer un cabinet.' : 'Connectez-vous pour rouvrir un cabinet.',
+        }
+      }
+      const nom = [...rows, ...fermes].find((r) => r.cabinet.id === cabinetId)?.cabinet.name ?? 'Le cabinet'
+      const { data, error } = await db.rpc('revendeur_fermer_cabinet', { p_cabinet: cabinetId, p_fermer: fermer })
+      await recharger()
+      if (error) return messageFermeture(null, nom, fermer)
+      return messageFermeture(typeof data === 'string' ? data : null, nom, fermer)
+    },
+    [fermes, recharger, reel, rows],
+  )
+
+  /**
+   * L'historique d'un cabinet, pour sa fiche.
+   *
+   * Le journal général s'arrête aux cinquante derniers gestes, tous cabinets
+   * confondus : celui d'un cabinet se lit donc à part (`journal_du_cabinet`).
+   * En démonstration, on filtre le journal chargé — vide, le plus souvent.
+   */
+  const lireJournalDuCabinet = useCallback(
+    async (cabinetId: string): Promise<{ entrees: EntreeJournal[]; erreur: string }> => {
+      const db = supabase()
+      if (!db || !reel) return { entrees: journal.filter((e) => e.cabinetId === cabinetId), erreur: '' }
+      const { data, error } = await db.rpc('journal_du_cabinet', { p_cabinet: cabinetId, p_limite: 100 })
+      if (error) return { entrees: [], erreur: "L'historique de ce cabinet n'a pas pu être lu. Réessayez dans un instant." }
+      return {
+        entrees: ((data ?? []) as JournalRow[]).map((l) => ({
+          quand: l.quand,
+          action: l.action,
+          cabinetId: l.cabinet_id,
+          cabinet: l.cabinet,
+          meta: l.meta ?? {},
+          auteur: l.auteur,
+        })),
+        erreur: '',
+      }
+    },
+    [journal, reel],
+  )
+
   return {
     rows,
+    fermes,
+    fermerCabinet,
+    lireJournalDuCabinet,
     offres,
     praticiennes,
     invitations,

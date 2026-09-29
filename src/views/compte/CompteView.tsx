@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Button, Card, Notice, Overline, Title } from '@/components/ui'
 import { useMaybeAuth } from '@/auth/session'
 import { useStore } from '@/state/store'
+import { DeconnexionAuto } from './DeconnexionAuto'
+import { DoubleAuthentification } from './DoubleAuthentification'
 import { MotDePasse } from './MotDePasse'
 import s from './CompteView.module.css'
 
@@ -12,6 +14,9 @@ import s from './CompteView.module.css'
  * l'agenda : personne ne va chercher son mot de passe parmi les services
  * reliés au cabinet. Il a ici sa page, que la thérapeute et le revendeur
  * ouvrent du même geste — le menu de leur compte, en haut à droite.
+ *
+ * La sécurité du compte y vit aussi : la double authentification, et la
+ * déconnexion automatique d'un poste partagé.
  */
 export function CompteView() {
   const auth = useMaybeAuth()
@@ -48,8 +53,8 @@ export function CompteView() {
       <Overline>Votre compte</Overline>
       <h1 className={s.h1}>Mon compte</h1>
       <p className={s.intro}>
-        Ce qui vous appartient à vous, et non au cabinet : votre adresse, votre mot de passe, les
-        appareils où vous êtes connectée.
+        Ce qui vous appartient à vous, et non au cabinet : votre adresse, votre mot de passe, la
+        protection de vos connexions, et les appareils où votre session est ouverte.
       </p>
 
       {!auth?.session ? (
@@ -86,6 +91,10 @@ export function CompteView() {
           </Card>
 
           <MotDePasse />
+
+          <DoubleAuthentification />
+
+          <DeconnexionAuto />
 
           <Card className={s.bloc}>
             <Title large as="h2">

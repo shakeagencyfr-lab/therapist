@@ -635,7 +635,9 @@ export function PatientSpace() {
           />
         ) : null}
 
-        {courant === 'moi' ? <MonCompte patient={patient} /> : null}
+        {/* Boutique fermée, pas d'onglet : les reçus des achats passés se
+            retrouvent dans « Moi » (0058). */}
+        {courant === 'moi' ? <MonCompte patient={patient} achatsIci={!shopEnabled} /> : null}
 
         {/* En dernier dans la journée : on lui écrit une fois le reste
             regardé — les exercices faits, la note du soir posée — parce que

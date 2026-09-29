@@ -30,7 +30,9 @@ import {
   phrasePremierEnvoi,
   phrasePremierSoir,
   phraseProchainEnvoi,
+  preferencesDepuisLigne,
   prochainEnvoi,
+  rappelsDepuisLignes,
   rappelsOrdonnes,
   refusRappel,
   type RappelRegulier,
@@ -174,6 +176,50 @@ describe('le prochain envoi', () => {
   })
 })
 
+describe('la lecture des rappels du cabinet', () => {
+  it('met les lignes de la base à la forme de l’écran', () => {
+    const lus = rappelsDepuisLignes([
+      {
+        id: 'r1',
+        title: 'Respiration',
+        body: 'Trois respirations.',
+        jour_semaine: 1,
+        heure: '09:30:00',
+        fin_le: '2026-10-27',
+        created_at: '2026-09-20T08:00:00Z',
+        annule_le: null,
+        destinataires: [
+          { patient_id: 'b', patient: { display_name: 'Bea', archived_at: '2026-09-25T08:00:00Z' } },
+          { patient_id: 'a', patient: { display_name: 'Anna', archived_at: null } },
+        ],
+      },
+    ])
+    expect(lus).toEqual([
+      {
+        id: 'r1',
+        titre: 'Respiration',
+        texte: 'Trois respirations.',
+        jourSemaine: 1,
+        heure: '09:30',
+        finLe: '2026-10-27',
+        creeLe: '2026-09-20T08:00:00Z',
+        annuleLe: null,
+        destinataires: [
+          { id: 'a', nom: 'Anna', clos: false },
+          { id: 'b', nom: 'Bea', clos: true },
+        ],
+      },
+    ])
+  })
+
+  it('écarte une ligne à l’heure illisible, et tient sans destinataires', () => {
+    const base = { id: 'r', title: 't', body: 'b', jour_semaine: null, fin_le: '2026-10-27', created_at: 'x', annule_le: null }
+    expect(rappelsDepuisLignes([{ ...base, heure: 'n’importe' }])).toEqual([])
+    expect(rappelsDepuisLignes([{ ...base, heure: '20:00:00', destinataires: null }])[0].destinataires).toEqual([])
+    expect(rappelsDepuisLignes(null)).toEqual([])
+  })
+})
+
 describe('les destinataires', () => {
   it('nomme les premiers, compte les autres, et dit les suivis clos', () => {
     const d = (nom: string, clos = false) => ({ id: nom, nom, clos })
@@ -233,6 +279,23 @@ describe('la saisie', () => {
 })
 
 describe('le rappel du soir', () => {
+  /* Une réponse vide est un refus, pas des réglages vierges ; un réglage
+     illisible vaut masqué. */
+  it('lit les réglages de la base sans rien supposer de rassurant', () => {
+    expect(preferencesDepuisLigne([{ masquer_contenu: false, soir_actif: true, soir_heure: '21:15' }])).toEqual({
+      masquerContenu: false,
+      soirActif: true,
+      soirHeure: '21:15',
+    })
+    expect(preferencesDepuisLigne([{ masquer_contenu: null, soir_actif: null, soir_heure: null }])).toEqual({
+      masquerContenu: true,
+      soirActif: false,
+      soirHeure: '20:30',
+    })
+    expect(preferencesDepuisLigne([])).toBeNull()
+    expect(preferencesDepuisLigne(null)).toBeNull()
+  })
+
   it('annonce le premier soir selon l’heure qu’il est à Paris', () => {
     expect(phrasePremierSoir('20:30', MARDI_10H)).toBe("Premier rappel aujourd'hui à 20 h 30, sauf si votre note est déjà prise.")
     expect(phrasePremierSoir('08:00', MARDI_10H)).toMatch(/^Premier rappel demain à 8 h/)

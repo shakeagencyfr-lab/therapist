@@ -4,6 +4,7 @@ import type { GestesDossier } from '@/cabinet/dossier'
 import { jourDeParis } from '@/lib/assiduite'
 import {
   MENTIONS_TVA,
+  MENTION_PAR_DEFAUT,
   PRESTATION_PAR_DEFAUT,
   centimesDepuisSaisie,
   jourLisible,
@@ -21,8 +22,8 @@ import s from './NoteHonoraires.module.css'
 type ChoixMention = MentionTva | 'aucune'
 
 const CHOIX_MENTION: Array<{ value: ChoixMention; label: string }> = [
-  { value: 'art-261-4-1', label: MENTIONS_TVA['art-261-4-1'] },
   { value: 'art-293-b', label: MENTIONS_TVA['art-293-b'] },
+  { value: 'art-261-4-1', label: MENTIONS_TVA['art-261-4-1'] },
   { value: 'aucune', label: 'Aucune mention' },
 ]
 
@@ -66,13 +67,13 @@ export function NoteHonorairesForm({
     praticien: '',
     adresse: '',
     numeroPro: '',
-    mentionTva: 'art-261-4-1',
+    mentionTva: MENTION_PAR_DEFAUT,
   })
   const [editionIdentite, setEditionIdentite] = useState(false)
   const [date, setDate] = useState(dateSeance ?? jourDeParis())
   const [prestation, setPrestation] = useState(PRESTATION_PAR_DEFAUT)
   const [montant, setMontant] = useState('')
-  const [mention, setMention] = useState<ChoixMention>('art-261-4-1')
+  const [mention, setMention] = useState<ChoixMention>(MENTION_PAR_DEFAUT)
   const [envoi, setEnvoi] = useState(false)
   const [refus, setRefus] = useState('')
 

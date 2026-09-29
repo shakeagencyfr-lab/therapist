@@ -30,6 +30,10 @@ export interface Droits {
   finEssai?: string | null
   /** À qui parler de son contrat : le nom du revendeur, et son adresse s'il en a laissé une. */
   revendeur?: { nom: string; courriel: string | null } | null
+  /** Fermé par son revendeur (0057) : la vraie cause du bandeau, quel que soit le contrat. */
+  ferme?: boolean
+  /** Depuis quand. */
+  fermeLe?: string | null
 }
 
 /* ---- Le domaine --------------------------------------------------------- */

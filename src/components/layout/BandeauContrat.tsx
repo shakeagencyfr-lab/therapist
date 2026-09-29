@@ -52,6 +52,22 @@ export function BandeauContrat() {
   // seconde, coûte plus cher que le silence.
   if (!d) return null
 
+  /* LE CABINET FERMÉ PAR SON REVENDEUR (0057). Il n'est plus en règle quel
+     que soit son contrat, et le bandeau disait alors « Votre abonnement a
+     pris fin » — ou rien de juste si le contrat courait encore. On dit la
+     vraie cause, ce qui reste (ses dossiers) et ce qui est coupé (l'espace
+     de ses patients d'abord). */
+  if (d.ferme) {
+    return (
+      <Notice tone="hot" style={{ margin: '12px 20px 0' }}>
+        Votre cabinet a été fermé par votre revendeur{d.fermeLe ? ` le ${dateLongue(d.fermeLe)}` : ''}. Vos
+        dossiers restent consultables et exportables. Les espaces de vos patients, votre page publique
+        et {CE_QUI_EST_SUSPENDU} sont arrêtés jusqu'à sa réouverture.{' '}
+        <ContactRevendeur revendeur={d.revendeur} pour="pour le rouvrir" />
+      </Notice>
+    )
+  }
+
   if (d.enRegle) {
     const finEssai = d.finEssai ?? null
     const jours = essaiBientotFini({ statut: d.statut, enRegle: d.enRegle, finEssai })

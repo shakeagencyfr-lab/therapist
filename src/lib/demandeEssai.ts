@@ -130,12 +130,12 @@ export function validerDemande(brut: unknown): Verdict {
     erreurs.email = 'Indiquez une adresse électronique complète, par exemple vous@cabinet.fr.'
   }
   if (telephone && (!longueur(telephone, BORNES.telephone) || !telephoneValide(telephone))) {
-    erreurs.telephone = 'Ce numéro ne se lit pas : des chiffres, et éventuellement + ( ) . -'
+    erreurs.telephone = 'Ce numéro ne se lit pas : des chiffres, et éventuellement + ( ) . -'
   }
   if (!longueur(cabinet, BORNES.cabinet) || !sansControle(cabinet)) erreurs.cabinet = 'Indiquez le nom de votre cabinet.'
   if (!longueur(ville, BORNES.ville) || !sansControle(ville)) erreurs.ville = 'Indiquez la ville du cabinet.'
   if (!FOURCHETTES.some((f) => f.valeur === patients)) erreurs.patients = 'Choisissez une fourchette.'
-  if (!OFFRES_DEMANDEES.some((o) => o.valeur === offre)) erreurs.offre = 'Choisissez une offre, ou « Je ne sais pas encore ».'
+  if (!OFFRES_DEMANDEES.some((o) => o.valeur === offre)) erreurs.offre = 'Choisissez une offre, ou « Je ne sais pas encore ».'
   if (message.length > BORNES.message[1]) {
     erreurs.message = `Le message tient en ${BORNES.message[1]} caractères au plus.`
   }
@@ -198,17 +198,17 @@ export function reponseAuRefus(motif: string | undefined): { status: number; mes
       return {
         status: 429,
         message:
-          'Nous avons déjà bien reçu vos demandes de la journée pour cette adresse : inutile de renvoyer, nous revenons vers vous.',
+          'Nous avons déjà bien reçu vos demandes de la journée pour cette adresse : inutile de renvoyer, nous revenons vers vous.',
       }
     case 'heure':
       return {
         status: 429,
-        message: 'Beaucoup de demandes nous arrivent en ce moment. Réessayez dans une heure : rien n’a été enregistré.',
+        message: 'Beaucoup de demandes nous arrivent en ce moment. Réessayez dans une heure : rien n’a été enregistré.',
       }
     case 'fermee':
       return {
         status: 503,
-        message: 'Les demandes ne sont pas ouvertes pour le moment. Réessayez un peu plus tard : rien n’a été enregistré.',
+        message: 'Les demandes ne sont pas ouvertes pour le moment. Réessayez un peu plus tard : rien n’a été enregistré.',
       }
     default:
       return { status: 400, message: 'Un champ n’a pas été accepté. Relisez le formulaire, puis renvoyez-le.' }
@@ -216,7 +216,8 @@ export function reponseAuRefus(motif: string | undefined): { status: number; mes
 }
 
 /** Le message de confirmation : honnête, sans délai promis qu'on ne tiendrait pas. */
-export function confirmation(demande: Pick<DemandePropre, 'nom' | 'email'>): string {
-  const prenom = demande.nom.split(/\s+/)[0] ?? ''
-  return `Merci${prenom ? `, ${prenom}` : ''}. Votre demande est bien arrivée : nous revenons vers vous rapidement, à l’adresse ${demande.email}.`
+export function confirmation(demande: Pick<DemandePropre, 'nom' | 'email'> | null): string {
+  const prenom = demande?.nom.split(/\s+/)[0] ?? ''
+  const adresse = demande?.email ? `, à l’adresse ${demande.email}` : ''
+  return `Merci${prenom ? `, ${prenom}` : ''}. Votre demande est bien arrivée : nous revenons vers vous rapidement${adresse}.`
 }

@@ -11,11 +11,19 @@ import { AI_ROUTES, currentMode, describeError, handleAi, type AiRoute } from '.
 import { jetonDe } from './auth.js'
 import { journaliserRefus } from './errors.js'
 import { envoyerInvitation } from './invitations.js'
+import { deposerDemande, estUneDemande, ipDuVisiteur } from './demandes.js'
 import { cronAutorise, publierLesAffirmationsDeLaSemaine } from './affirmationsHebdo.js'
 import { gesteDuCompte } from './compte.js'
 import { appliquerIntegration, etatIntegrations } from './integrations.js'
 import { agirVolet, lireVolet } from './cabinet.js'
-import { demarrerPaiement, hoteDeLaRequete, verifierEnAttente, verifierPaiement } from './shop.js'
+import {
+  demarrerPaiement,
+  hoteDeLaRequete,
+  recuDeCommande,
+  rembourserCommande,
+  verifierEnAttente,
+  verifierPaiement,
+} from './shop.js'
 import { clePubliqueDuServeur, pousserLesRappelsDus } from './push.js'
 
 const PORT = Number(process.env.PORT) || 8787
@@ -83,7 +91,7 @@ app.post('/api/cabinet', async (req: Request, res: Response): Promise<void> => {
   }
 })
 
-/** Boutique : démarrer un paiement, le vérifier au retour, reprendre ce qui attend. */
+/** Boutique : démarrer un paiement, le vérifier au retour, reprendre ce qui attend, rembourser, imprimer un reçu. */
 app.post('/api/shop', async (req: Request, res: Response): Promise<void> => {
   const token = jetonDe(req.headers.authorization)
   const action = (req.body as { action?: string } | undefined)?.action
@@ -91,6 +99,8 @@ app.post('/api/shop', async (req: Request, res: Response): Promise<void> => {
     if (action === 'demarrer') res.json(await demarrerPaiement(token, req.body, hoteDeLaRequete(req.headers)))
     else if (action === 'verifier') res.json(await verifierPaiement(token, req.body))
     else if (action === 'verifier-en-attente') res.json(await verifierEnAttente(token, req.body))
+    else if (action === 'rembourser') res.json(await rembourserCommande(token, req.body))
+    else if (action === 'recu') res.json(await recuDeCommande(token, req.body))
     else res.status(400).json({ error: 'Action inconnue.' })
   } catch (err) {
     const { status, message } = describeError(err)
@@ -100,6 +110,18 @@ app.post('/api/shop', async (req: Request, res: Response): Promise<void> => {
 })
 
 app.post('/api/invitations', async (req: Request, res: Response): Promise<void> => {
+  // La demande d'essai de la page d'accueil, comme en production (api/invitations.ts).
+  if (estUneDemande(req.body)) {
+    res.setHeader('Cache-Control', 'no-store')
+    try {
+      const { status, body } = await deposerDemande(req.body, ipDuVisiteur(req.headers))
+      res.status(status).json(body)
+    } catch (err) {
+      console.error('[demande-essai] exception —', (err as Error).message)
+      res.status(500).json({ message: 'Votre demande n’a pas pu être enregistrée. Réessayez dans un instant.' })
+    }
+    return
+  }
   try {
     const auth = req.headers.authorization ?? ''
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : null

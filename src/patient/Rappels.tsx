@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { plusTardEncoreValable, type EtatRappels } from '@/lib/rappels'
 import { activer, desactiver, lireEtat } from './rappelsNavigateur'
+import { ProposerLeSoir, ReglagesRappels } from './ReglagesRappels'
 import s from './Proposition.module.css'
 
 const CLE_PLUS_TARD = 'klaro.rappels.plusTard'
@@ -103,9 +104,12 @@ export function Rappels({ patientId, cabinet, accent, variante, onPresence }: Pr
 
   if (variante === 'carte') {
     if (reussi) {
+      /* Le téléphone vient d'accepter les rappels : c'est le moment où
+         proposer celui du soir a un sens (0055). Proposé, jamais posé. */
       return (
         <section className={s.carte} aria-live="polite">
           <p className={s.ok}>{message}</p>
+          <ProposerLeSoir patientId={patientId} accent={accent} />
         </section>
       )
     }
@@ -114,74 +118,88 @@ export function Rappels({ patientId, cabinet, accent, variante, onPresence }: Pr
 
   const bouton = { background: accent ?? undefined }
 
+  /* LES RÉGLAGES, DANS « MOI » (0055) : le rappel du soir et la discrétion
+     sur l'écran verrouillé. Ils valent pour tous ses téléphones, et restent
+     lisibles depuis un appareil où les rappels ne sont pas activés — pas
+     là où le serveur n'en envoie aucun : régler ce qui ne partira pas, ce
+     serait une promesse de plus. */
+  const reglages =
+    variante === 'reglage' && etat !== 'lecture' && etat !== 'fermee' ? (
+      <ReglagesRappels patientId={patientId} accent={accent} telephoneActif={etat === 'active'} />
+    ) : null
+
   return (
-    <section className={s.carte} aria-live="polite">
-      <h2 className={s.titre}>Les rappels sur ce téléphone</h2>
+    <>
+      <section className={s.carte} aria-live="polite">
+        <h2 className={s.titre}>Les rappels sur ce téléphone</h2>
 
-      {etat === 'lecture' ? <p className={s.texte}>Vérification…</p> : null}
+        {etat === 'lecture' ? <p className={s.texte}>Vérification…</p> : null}
 
-      {etat === 'inactive' ? (
-        <>
+        {etat === 'inactive' ? (
+          <>
+            <p className={s.texte}>
+              {qui} vous envoyer un rappel à l'heure qui compte — un exercice, l'audio du soir. Sans
+              cela, vous ne le verrez qu'en ouvrant votre espace. Sur l'écran verrouillé, son contenu
+              reste masqué tant que vous ne choisissez pas de l'afficher.
+            </p>
+            <button type="button" className={s.bouton} style={bouton} disabled={enCours} onClick={() => void allumer()}>
+              {enCours ? 'Activation…' : 'Activer les rappels'}
+            </button>
+          </>
+        ) : null}
+
+        {etat === 'a-installer' ? (
           <p className={s.texte}>
-            {qui} vous envoyer un rappel à l'heure qui compte — un exercice, l'audio du soir. Sans
-            cela, vous ne le verrez qu'en ouvrant votre espace.
+            Sur iPhone, les rappels n'arrivent qu'une fois votre espace installé sur l'écran d'accueil
+            — voyez juste au-dessus. Rouvrez-le ensuite depuis son icône : vous pourrez les activer
+            ici.
           </p>
-          <button type="button" className={s.bouton} style={bouton} disabled={enCours} onClick={() => void allumer()}>
-            {enCours ? 'Activation…' : 'Activer les rappels'}
+        ) : null}
+
+        {etat === 'refusee' && variante === 'reglage' ? (
+          <p className={s.texte}>
+            Les notifications sont bloquées pour cet espace. Pour recevoir les rappels, autorisez-les
+            dans les réglages de votre téléphone (Réglages → Notifications), puis revenez ici.
+          </p>
+        ) : null}
+
+        {etat === 'fermee' && variante === 'reglage' ? (
+          <p className={s.texte}>Les rappels sur le téléphone ne sont pas encore disponibles sur cet espace.</p>
+        ) : null}
+
+        {etat === 'indisponible' && variante === 'reglage' ? (
+          <p className={s.texte}>
+            Ce navigateur ne sait pas recevoir de rappels. Ouvrez votre espace dans Safari ou Chrome, à
+            jour.
+          </p>
+        ) : null}
+
+        {etat === 'active' && variante === 'reglage' ? (
+          <>
+            <p className={s.texte}>Les rappels de votre thérapeute arrivent sur ce téléphone.</p>
+            <button type="button" className={s.secondaire} disabled={enCours} onClick={() => void eteindre()}>
+              {enCours ? 'Un instant…' : 'Ne plus les recevoir ici'}
+            </button>
+          </>
+        ) : null}
+
+        {message && !reussi ? <p className={s.note}>{message}</p> : null}
+        {message && reussi && variante === 'reglage' ? <p className={s.ok}>{message}</p> : null}
+
+        {variante === 'carte' ? (
+          <button
+            type="button"
+            className={s.plusTard}
+            onClick={() => {
+              poserPlusTard()
+              setPlusTard(true)
+            }}
+          >
+            Plus tard
           </button>
-        </>
-      ) : null}
-
-      {etat === 'a-installer' ? (
-        <p className={s.texte}>
-          Sur iPhone, les rappels n'arrivent qu'une fois votre espace installé sur l'écran d'accueil
-          — voyez juste au-dessus. Rouvrez-le ensuite depuis son icône : vous pourrez les activer
-          ici.
-        </p>
-      ) : null}
-
-      {etat === 'refusee' && variante === 'reglage' ? (
-        <p className={s.texte}>
-          Les notifications sont bloquées pour cet espace. Pour recevoir les rappels, autorisez-les
-          dans les réglages de votre téléphone (Réglages → Notifications), puis revenez ici.
-        </p>
-      ) : null}
-
-      {etat === 'fermee' && variante === 'reglage' ? (
-        <p className={s.texte}>Les rappels sur le téléphone ne sont pas encore disponibles sur cet espace.</p>
-      ) : null}
-
-      {etat === 'indisponible' && variante === 'reglage' ? (
-        <p className={s.texte}>
-          Ce navigateur ne sait pas recevoir de rappels. Ouvrez votre espace dans Safari ou Chrome, à
-          jour.
-        </p>
-      ) : null}
-
-      {etat === 'active' && variante === 'reglage' ? (
-        <>
-          <p className={s.texte}>Les rappels de votre thérapeute arrivent sur ce téléphone.</p>
-          <button type="button" className={s.secondaire} disabled={enCours} onClick={() => void eteindre()}>
-            {enCours ? 'Un instant…' : 'Ne plus les recevoir ici'}
-          </button>
-        </>
-      ) : null}
-
-      {message && !reussi ? <p className={s.note}>{message}</p> : null}
-      {message && reussi && variante === 'reglage' ? <p className={s.ok}>{message}</p> : null}
-
-      {variante === 'carte' ? (
-        <button
-          type="button"
-          className={s.plusTard}
-          onClick={() => {
-            poserPlusTard()
-            setPlusTard(true)
-          }}
-        >
-          Plus tard
-        </button>
-      ) : null}
-    </section>
+        ) : null}
+      </section>
+      {reglages}
+    </>
   )
 }

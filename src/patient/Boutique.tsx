@@ -9,6 +9,7 @@ import {
   verifierPaiement,
   type CommandeEnAttente,
 } from '@/services/shop'
+import { COLONNES_ACHAT, VosAchats, type AchatAffiche } from './VosAchats'
 import s from './PatientSpace.module.css'
 
 interface Produit {
@@ -18,13 +19,6 @@ interface Produit {
   kind: 'audio' | 'seance' | 'programme' | 'autre'
   price_cents: number
   currency: string
-}
-
-interface Achat {
-  id: string
-  title: string
-  amount_cents: number
-  paid_at: string | null
 }
 
 const GENRES: Record<Produit['kind'], string> = {
@@ -71,7 +65,7 @@ export function Boutique({
      dans la vitrine de sa thérapeute. */
   const cabinetId = useMaybeAuth()?.context?.patient?.cabinet_id ?? null
   const [produits, setProduits] = useState<Produit[]>([])
-  const [achats, setAchats] = useState<Achat[]>([])
+  const [achats, setAchats] = useState<AchatAffiche[]>([])
   /** Ce qui attend encore la confirmation de la banque, selon le serveur. */
   const [enAttente, setEnAttente] = useState<CommandeEnAttente[]>([])
   const [chargement, setChargement] = useState(true)
@@ -98,11 +92,13 @@ export function Boutique({
          du cabinet. Un compte qui est à la fois membre du cabinet ET titulaire
          d'une fiche — il en existe un en production — voyait donc tout le
          carnet de commandes du cabinet sous une étiquette « Vos achats ». */
+      /* Payés, et payés puis remboursés (0058) : un achat remboursé a eu
+         lieu, il garde sa ligne et son reçu. */
       db
         .from('orders')
-        .select('id, title, amount_cents, paid_at')
+        .select(COLONNES_ACHAT)
         .eq('patient_id', patientId)
-        .eq('status', 'payee')
+        .in('status', ['payee', 'remboursee'])
         .order('paid_at', { ascending: false }),
     ])
     /* UNE PANNE N'EST PAS UNE VITRINE VIDE. Les deux erreurs étaient tues :
@@ -113,7 +109,7 @@ export function Boutique({
     if (a.error) console.warn('[patient] achats illisibles', a.error.message)
     setIllisible(Boolean(p.error || a.error))
     if (!p.error) setProduits((p.data ?? []) as Produit[])
-    if (!a.error) setAchats((a.data ?? []) as Achat[])
+    if (!a.error) setAchats((a.data ?? []) as AchatAffiche[])
     setChargement(false)
   }, [patientId, cabinetId])
 
@@ -262,24 +258,7 @@ export function Boutique({
         </section>
       ) : null}
 
-      {achats.length > 0 ? (
-        <section className={s.section}>
-          <div className={s.sectionHead}>
-            <span className={s.sectionTitle}>Vos achats</span>
-          </div>
-          {achats.map((a) => (
-            <div key={a.id} className={s.achat}>
-              <span className={s.produitTitle}>{a.title}</span>
-              <span className={s.count}>
-                {prix(a.amount_cents, 'eur')}
-                {a.paid_at
-                  ? ` · ${new Date(a.paid_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`
-                  : ''}
-              </span>
-            </div>
-          ))}
-        </section>
-      ) : null}
+      <VosAchats achats={achats} />
     </>
   )
 }

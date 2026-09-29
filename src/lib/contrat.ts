@@ -284,6 +284,12 @@ export function phraseDuJournal(e: EntreeJournal, nomOffre: (code: string) => st
       })
       return `Offre ${offre(m.code)} réglée — ${parties.join(' ; ')}.`
     }
+    /* La fermeture entre au journal avec 0057 : elle coupe l'espace des
+       patients, et son histoire compte autant que celle du contrat. */
+    case 'cabinet.ferme':
+      return `${qui} : cabinet fermé.`
+    case 'cabinet.rouvert':
+      return `${qui} : cabinet rouvert.`
     default:
       return `${qui} : ${e.action}.`
   }

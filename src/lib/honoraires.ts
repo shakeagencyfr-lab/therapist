@@ -14,18 +14,18 @@ export type MentionTva = 'art-261-4-1' | 'art-293-b'
 /**
  * Les deux mentions d'exonération que la note sait porter.
  *
- * 261-4-1° : les soins dispensés par les professions médicales et
- * paramédicales réglementées. 293 B : la franchise en base, celle de la
- * plupart des praticiennes et praticiens en hypnose, profession non
- * réglementée. La première est proposée d'office, comme demandé ; c'est à
- * chacune de choisir celle qui la concerne — le produit ne le sait pas.
+ * 293 B : la franchise en base, celle de la plupart des praticiennes et
+ * praticiens en hypnose, profession non réglementée — c'est elle qui est
+ * proposée d'office. 261-4-1° : les soins dispensés par les professions
+ * médicales et paramédicales réglementées, pour qui l'est. C'est à chacune
+ * de choisir celle qui la concerne : le produit ne le sait pas.
  */
 export const MENTIONS_TVA: Record<MentionTva, string> = {
   'art-261-4-1': 'TVA non applicable, art. 261-4-1° du CGI',
   'art-293-b': 'TVA non applicable, art. 293 B du CGI',
 }
 
-export const MENTION_PAR_DEFAUT: MentionTva = 'art-261-4-1'
+export const MENTION_PAR_DEFAUT: MentionTva = 'art-293-b'
 
 export const PRESTATION_PAR_DEFAUT = 'Séance d’hypnose'
 

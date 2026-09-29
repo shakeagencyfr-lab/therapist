@@ -1,10 +1,12 @@
 -- ============================================================================
 -- 0056 éprouvée contre la vraie base : le second facteur garde le dossier.
 --
---   structure     is_cabinet_member() et est_titulaire_du_cabinet() appellent
---                 second_facteur_satisfait() — une migration qui les
---                 réécrirait sans elle rouvrirait le dossier en « aal1 » ;
---                 anon ne l'appelle pas
+--   structure     is_cabinet_member() et est_titulaire_du_cabinet() lisent
+--                 le niveau du jeton et les facteurs du compte — une
+--                 migration qui les réécrirait sans cette condition
+--                 rouvrirait le dossier en « aal1 » ; le rôle authentifié
+--                 garde le droit de les appeler (les politiques en ont
+--                 besoin)
 --   facteur vérifié, aal1   la praticienne n'est plus membre : aucune fiche,
 --                 aucune séance, aucune écriture, ni équipe, ni invitation,
 --                 ni changement d'adresse d'un patient
@@ -34,15 +36,16 @@ declare
 begin
   -- ── 0. Structure ────────────────────────────────────────────────────────
   v_def := pg_get_functiondef('public.is_cabinet_member(uuid)'::regprocedure);
-  if v_def !~ 'second_facteur_satisfait' then
+  if v_def !~ 'auth\.mfa_factors' or v_def !~ 'aal2' then
     raise exception 'ECHEC 0a : is_cabinet_member() n''exige plus le second facteur';
   end if;
   v_def := pg_get_functiondef('public.est_titulaire_du_cabinet(uuid)'::regprocedure);
-  if v_def !~ 'second_facteur_satisfait' then
+  if v_def !~ 'auth\.mfa_factors' or v_def !~ 'aal2' then
     raise exception 'ECHEC 0b : est_titulaire_du_cabinet() n''exige plus le second facteur';
   end if;
-  if has_function_privilege('anon', 'public.second_facteur_satisfait()', 'execute') then
-    raise exception 'ECHEC 0c : anon peut appeler second_facteur_satisfait()';
+  if not has_function_privilege('authenticated', 'public.is_cabinet_member(uuid)', 'execute')
+     or not has_function_privilege('authenticated', 'public.est_titulaire_du_cabinet(uuid)', 'execute') then
+    raise exception 'ECHEC 0c : le rôle authentifié a perdu le droit d''appeler les fonctions d''appartenance';
   end if;
 
   -- ── Ce qu'il faut pour éprouver ─────────────────────────────────────────
@@ -167,16 +170,6 @@ begin
   if public.is_cabinet_member(v_cab) then
     raise exception 'ECHEC 5c : le patient passe pour membre du cabinet';
   end if;
-
-  -- ── 6. Anonyme : la fonction ne lui répond pas ──────────────────────────
-  perform set_config('role', 'anon', true);
-  perform set_config('request.jwt.claims', json_build_object('role', 'anon')::text, true);
-  v_ok := false;
-  begin
-    perform public.second_facteur_satisfait();
-  exception when insufficient_privilege then v_ok := true;
-  end;
-  if not v_ok then raise exception 'ECHEC 6 : anon appelle second_facteur_satisfait()'; end if;
 
   perform set_config('role', 'postgres', true);
   raise exception 'REUSSITE : un facteur vérifié ferme le cabinet en aal1 — fiches, séances, équipe, invitations, adresses — et le rouvre en aal2 ; sans facteur, ou côté patient, rien ne change';

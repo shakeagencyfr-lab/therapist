@@ -21,7 +21,7 @@
  */
 import { promises as dns } from 'node:dns'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { adminConfigure, clientAdmin, exigerCabinet, identifier } from './auth.js'
+import { adminConfigure, clientAdmin, exigerCabinet, identifier, identifierPourGesteSensible } from './auth.js'
 import { droitsDuCabinet, exigerDroit } from './droits.js'
 import { HttpError } from './errors.js'
 
@@ -289,7 +289,9 @@ async function enregistrer(
  * détient déjà.
  */
 export async function poserDomaine(token: string | null, raw: unknown): Promise<EtatDomaine> {
-  const appelant = await identifier(token)
+  /* Le domaine porte les liens envoyés aux patients : le déplacer est un
+     geste sensible, en « aal2 » pour un compte protégé. */
+  const appelant = await identifierPourGesteSensible(token)
   const cabinetId = exigerCabinet(appelant)
   const droits = await droitsDuCabinet(cabinetId, appelant.client)
   exigerDroit(droits, 'marqueBlanche')
@@ -458,7 +460,7 @@ export async function pointeIci(domaine: string): Promise<{ ok: boolean; message
 
 /** Retirer le domaine : chez l'hébergeur d'abord, en base ensuite. */
 export async function retirerDomaine(token: string | null): Promise<EtatDomaine> {
-  const appelant = await identifier(token)
+  const appelant = await identifierPourGesteSensible(token)
   const cabinetId = exigerCabinet(appelant)
 
   const { data } = await appelant.client

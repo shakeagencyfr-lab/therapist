@@ -14,6 +14,12 @@
  *     secrets d'intégration), jamais à lire pour le compte de quelqu'un.
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import {
+  aUnFacteurVerifie,
+  niveauDuJeton,
+  refusSansCode,
+  type FacteurLu,
+} from '../src/lib/doubleAuthentification.js'
 import { HttpError } from './errors.js'
 
 const URL = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? ''
@@ -102,6 +108,65 @@ export async function identifier(token: string | null): Promise<Appelant> {
     patientCabinetId: ctx.patient?.cabinet_id ?? null,
     client,
   }
+}
+
+/* ------------------------------------------------------------------ *
+ * La double authentification, pour les gestes sensibles
+ * ------------------------------------------------------------------ */
+
+/** Ce que la garde demande au service d'authentification — séparé pour s'éprouver sans lui. */
+export interface LecteurDeFacteurs {
+  auth: {
+    getUser(jwt?: string): Promise<{
+      data: { user: { factors?: FacteurLu[] } | null }
+      error: { status?: number } | null
+    }>
+  }
+}
+
+/**
+ * Refuse un geste sensible à une session qui n'a pas donné son code.
+ *
+ * Poser une clé, régler l'envoi de courriels ou le domaine, inviter
+ * quelqu'un, changer de mot de passe : pour un compte qui a activé la double
+ * authentification, ces gestes ne se font qu'en « aal2 ». Sans cette garde,
+ * le mot de passe seul — ou la boîte aux lettres — suffisait à remplacer la
+ * clé Stripe du cabinet, puisque ces routes écrivent avec la clé de service
+ * après avoir seulement reconnu l'appelant.
+ *
+ * Le niveau est lu dans le jeton. On ne le VÉRIFIE pas ici : identifier()
+ * l'a fait éprouver par la base juste avant, et la signature couvre la
+ * charge entière. Un jeton « aal2 » passe sans autre appel ; un jeton
+ * « aal1 » demande au service si le compte a un facteur vérifié — un appel
+ * de plus, sur des gestes rares.
+ *
+ * Dans le doute — le service ne répond pas —, on refuse : on ne pose pas une
+ * clé sans savoir si le compte exigeait un code.
+ */
+export async function exigerDeuxiemeFacteur(client: LecteurDeFacteurs, jeton: string): Promise<void> {
+  const niveau = niveauDuJeton(jeton)
+  if (niveau === 'aal2') return
+  const { data, error } = await client.auth.getUser(jeton)
+  if (error || !data.user) {
+    if (error?.status === 401 || error?.status === 403) {
+      throw new HttpError(401, 'Votre session a expiré. Reconnectez-vous.')
+    }
+    throw new HttpError(502, "Votre compte n'a pas pu être vérifié. Réessayez dans un instant.")
+  }
+  const refus = refusSansCode(niveau, aUnFacteurVerifie(data.user.factors))
+  if (refus) throw new HttpError(403, refus)
+}
+
+/**
+ * Identifie l'appelant d'un geste sensible : identifier(), puis la garde du
+ * second facteur. Une route sensible remplace l'un par l'autre, et rien de
+ * plus.
+ */
+export async function identifierPourGesteSensible(token: string | null): Promise<Appelant> {
+  const appelant = await identifier(token)
+  // identifier() a refusé tout appel sans jeton : il est là.
+  await exigerDeuxiemeFacteur(appelant.client, token as string)
+  return appelant
 }
 
 /** Le cabinet de l'appelant, ou 403 : cette fonction est celle d'un cabinet. */

@@ -41,7 +41,10 @@ export interface Cabinet {
   therapist: string
   email: string
   since: string
+  /** Fermé par son revendeur (0057) : ses patients n'ont plus d'espace. */
   archived: boolean
+  /** Depuis quand, tel que la base l'a daté. Absent pour la démonstration. */
+  fermeLe?: string | null
 }
 
 /**
@@ -51,15 +54,19 @@ export interface Cabinet {
  * ou deux patients, une moyenne est un chiffre individuel. La base applique
  * déjà cette règle ; l'interface la répète pour pouvoir l'expliquer.
  *
- * La consommation d'analyse n'y figure pas : chaque cabinet branche sa propre
- * clé Anthropic et paie ses appels. Le revendeur ne la facture pas, donc il
- * n'a pas à la lire — l'afficher laisserait croire qu'elle lui est imputée.
+ * La consommation d'analyse n'entre pas dans le portefeuille : chaque cabinet
+ * branche sa propre clé et paie ses appels, et une colonne de plus à côté du
+ * revenu laisserait croire qu'elle est imputée au revendeur. La fiche d'un
+ * cabinet la montre seule, avec cette précision écrite à côté — c'est ce qui
+ * répond au « pourquoi l'analyse coûte-t-elle si cher ? » d'une praticienne.
  */
 export interface CabinetStats {
   therapists: number
   patientsActive: number
   adherenceAvg: number | null
   sessions30d: number
+  /** Dépense d'analyse du mois civil en cours, en centimes (payée par le cabinet). */
+  analyseCentsMois?: number
 }
 
 /**

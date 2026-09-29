@@ -15,6 +15,8 @@ import { useMaybeCabinet } from '@/cabinet/context'
 import { useStore } from '@/state/store'
 import type { PushRecord } from '@/types/domain'
 import { phraseTelephone } from '@/lib/rappels'
+import { MOT_MASQUE } from '@/lib/discretion'
+import { RappelsReguliers } from './RappelsReguliers'
 import s from './NotificationsView.module.css'
 
 /** Heure d'envoi conservée dans le journal, au format `14:32`. */
@@ -266,12 +268,14 @@ export function NotificationsView() {
               placeholder="Deux phrases suffisent."
               aria-label="Message de la notification"
             />
-            {/* Le mot s'affiche sur l'écran verrouillé, sous les yeux de qui
-                tient le téléphone. Le rappel de discrétion vient avant
-                l'envoi, pas dans une charte que personne ne relit. */}
+            {/* Le mot peut s'afficher sur l'écran verrouillé, sous les yeux
+                de qui tient le téléphone. Depuis 0055 il y arrive masqué par
+                défaut ; certaines personnes choisissent de l'afficher. Le
+                rappel de discrétion vient avant l'envoi, pas dans une charte
+                que personne ne relit. */}
             <p className={s.discret}>
-              Il peut s'afficher sur l'écran verrouillé de son téléphone : restez discret sur le
-              motif du suivi.
+              Sur l'écran verrouillé, il s'affiche « {MOT_MASQUE.titre} » — sauf pour qui a choisi
+              d'en montrer le contenu. Restez discret sur le motif du suivi.
             </p>
             <div className={s.templates}>
               {NOTIF_TEMPLATES.map((template) => (
@@ -507,6 +511,11 @@ export function NotificationsView() {
           )}
         </div>
       </div>
+
+      {/* Les rappels qui reviennent (0055) : sous le mot unique, parce qu'on
+          les écrit moins souvent — et qu'un groupe composé plus haut se
+          reprend d'un geste. */}
+      <RappelsReguliers groupe={recipients.map((row) => row.key)} />
     </div>
   )
 }

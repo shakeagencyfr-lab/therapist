@@ -1,0 +1,196 @@
+/* L'onglet « Demandes » de l'espace revendeur : la liste, et la demande
+   ouverte à côté — l'une sous l'autre sur un téléphone. */
+
+.demo {
+  font-size: 12px;
+  color: var(--c-text-muted);
+  margin: 0 0 16px;
+}
+
+.grille {
+  display: grid;
+  gap: 18px;
+  align-items: start;
+}
+@media (min-width: 900px) {
+  .grille {
+    grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.2fr);
+  }
+}
+
+.liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.liste li + li {
+  border-top: 1px solid var(--c-border-light);
+}
+
+.ligne {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  text-align: left;
+  color: var(--c-text);
+  cursor: pointer;
+}
+.ligne:hover {
+  background: var(--c-surface-2);
+}
+.ligne:focus-visible {
+  outline: 3px solid var(--c-accent-deep);
+  outline-offset: -3px;
+}
+.ligneOn {
+  background: var(--c-accent-tint);
+}
+
+.ligneNoms {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ligneNom {
+  font-size: 14px;
+  font-weight: 500;
+}
+.nouvelle {
+  font-weight: 700;
+}
+.ligneSous {
+  font-size: 12.5px;
+  color: var(--c-text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ligneDate {
+  font-size: 12px;
+  color: var(--c-text-muted);
+}
+
+.detail {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  padding: 20px 20px 18px;
+  min-width: 0;
+}
+
+.detailTete {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.detailNom {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 26px;
+  line-height: 1.15;
+}
+.detailSous {
+  margin: 4px 0 0;
+  font-size: 13.5px;
+  color: var(--c-text-3);
+}
+
+.fiche {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px 18px;
+  margin: 0 0 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--c-border-light);
+  border-bottom: 1px solid var(--c-border-light);
+}
+.fiche dt {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+  margin-bottom: 3px;
+}
+.fiche dd {
+  margin: 0;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.message {
+  margin-bottom: 16px;
+}
+.messageTexte {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: var(--c-surface-2);
+  font-size: 14px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.etiquette {
+  display: block;
+  margin: 0 0 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--c-text-2);
+}
+.date {
+  font-weight: 400;
+  color: var(--c-text-muted);
+}
+
+.bloc {
+  margin-bottom: 16px;
+}
+.bloc > div[role='group'] {
+  overflow-x: auto;
+}
+
+.actionsNote {
+  margin-top: 8px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--c-border-light);
+}
+
+.confirmation {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--c-text-2);
+}
+
+.lienBouton {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--c-accent-deep);
+  text-decoration: underline;
+  cursor: pointer;
+}

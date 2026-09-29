@@ -114,8 +114,8 @@ describe('l’identité', () => {
 })
 
 describe('la mention de TVA', () => {
-  it('261-4-1° est proposée d’office, 293 B au choix, et la base connaît les deux mêmes', () => {
-    expect(MENTION_PAR_DEFAUT).toBe('art-261-4-1')
+  it('293 B (franchise en base) est proposée d’office, 261-4-1° au choix, et la base connaît les deux mêmes', () => {
+    expect(MENTION_PAR_DEFAUT).toBe('art-293-b')
     expect(MENTIONS_TVA['art-261-4-1']).toBe('TVA non applicable, art. 261-4-1° du CGI')
     expect(MENTIONS_TVA['art-293-b']).toBe('TVA non applicable, art. 293 B du CGI')
     expect(migration).toMatch(/mention_tva in \('art-261-4-1', 'art-293-b'\)/)

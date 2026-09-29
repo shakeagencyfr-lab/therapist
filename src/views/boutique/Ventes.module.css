@@ -1,0 +1,267 @@
+/* Les ventes du cabinet et le livre des recettes (0058). Même gabarit que
+   la boutique : des lignes séparées par un filet, des gestes discrets à
+   droite, qui passent dessous sur un téléphone. */
+
+.bloc {
+  border-radius: var(--r-xl);
+}
+
+.tete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.compte {
+  font-size: 12px;
+  color: var(--c-text-muted);
+}
+
+.muted {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--c-text-muted);
+}
+
+.liste {
+  display: flex;
+  flex-direction: column;
+}
+
+.vente {
+  border-bottom: 1px solid var(--c-border-light);
+  padding: 12px 0;
+}
+.vente:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.ligne {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.texte {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.titre {
+  font-size: 14px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.detail {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--c-text-muted);
+}
+
+.marque {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: var(--r-pill);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+  color: var(--c-text-muted);
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border-light);
+}
+
+.prix {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* L'argent reparti : le montant se lit encore, il ne compte plus. */
+.prixRendu {
+  color: var(--c-text-muted);
+  text-decoration: line-through;
+}
+
+.gestes {
+  display: flex;
+  gap: 4px;
+  flex: none;
+}
+
+/* La confirmation se déplie sous la vente qu'elle concerne. */
+.confirmation {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--c-border);
+  background: var(--c-surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.question {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.explication {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--c-text-2);
+}
+
+.boutons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.retour {
+  margin-top: 10px;
+}
+
+.lien {
+  display: inline-block;
+  margin-top: 6px;
+  color: var(--c-accent);
+  font-weight: 500;
+  text-decoration: underline;
+}
+
+.pied {
+  margin: 14px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+}
+
+/* Le livre des recettes */
+
+.livre {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.intro {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--c-text-2);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.dates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 200px));
+  gap: 12px;
+}
+
+.champ {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+
+.date {
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid var(--c-border);
+  background: var(--c-field);
+  color: var(--c-text);
+  font: inherit;
+  font-size: 13.5px;
+  min-width: 0;
+}
+
+.periode {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--c-text);
+}
+
+.refus {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--c-danger);
+}
+
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.option input {
+  margin-top: 3px;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--c-accent);
+  flex: none;
+}
+
+.optionTexte {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.optionAide {
+  font-size: 12px;
+  color: var(--c-text-muted);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .ligne {
+    flex-wrap: wrap;
+    gap: 8px 14px;
+  }
+  /* Sur un téléphone, les gestes passent sous la vente, à gauche, et
+     gardent une vraie cible de doigt. */
+  .gestes {
+    order: 3;
+    flex-basis: 100%;
+    margin-left: -10px;
+  }
+  .dates {
+    grid-template-columns: 1fr 1fr;
+  }
+}

@@ -1,0 +1,241 @@
+/* La fiche d'un cabinet : l'en-tête qui dit qui il est et où il en est, les
+   chiffres, puis deux colonnes — ce qui se lit (contrat, historique) et ce
+   qui se fait (praticiennes, fermeture). Même gabarit que le portefeuille. */
+
+.retour {
+  margin: -6px 0 14px;
+}
+
+.hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+  margin: 0 0 14px;
+}
+
+.tete {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  padding: 16px 20px;
+  margin-bottom: 18px;
+}
+
+.marque {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-serif);
+  font-size: 17px;
+  color: var(--c-surface);
+  overflow: hidden;
+}
+
+.identite {
+  min-width: 0;
+}
+
+.nom {
+  font-family: var(--font-serif);
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 1.15;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.sous {
+  font-size: 12px;
+  color: var(--c-text-muted);
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.etat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.chiffres {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+}
+
+.note {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+  margin: 8px 0 18px;
+  max-width: 80ch;
+}
+
+.grille {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.colonne {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.panel {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  padding: 18px 20px;
+  min-width: 0;
+}
+
+.titreLigne {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.titre {
+  font-family: var(--font-serif);
+  font-size: 19px;
+  font-weight: 400;
+  margin: 0 0 10px;
+}
+
+.compte {
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+}
+
+.echue {
+  font-size: 11.5px;
+  color: var(--c-warn-text-2);
+}
+
+.aide {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--c-text-3);
+  margin: 0 0 12px;
+}
+
+/* Les faits du contrat, en deux colonnes qui passent en une sur téléphone. */
+.faits {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px 18px;
+  margin: 0 0 12px;
+}
+
+.faits dt {
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+
+.faits dd {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--c-text);
+}
+
+.liste {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+
+.ligne {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+  padding: 9px 0;
+  border-top: 1px solid var(--c-border-light);
+  font-size: 13px;
+}
+
+.ligne:first-child {
+  border-top: none;
+}
+
+.qui {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.journal {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.journalLigne {
+  display: grid;
+  grid-template-columns: 128px minmax(0, 1fr);
+  gap: 12px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--c-text-2);
+}
+
+.journalQuand {
+  color: var(--c-text-muted);
+}
+
+.journalAuteur {
+  color: var(--c-text-muted);
+}
+
+.invite {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.champ {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
+  .grille {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .tete {
+    grid-template-columns: 46px minmax(0, 1fr);
+  }
+  .etat {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+  .journalLigne {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+}

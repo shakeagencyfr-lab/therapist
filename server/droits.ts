@@ -49,6 +49,14 @@ export interface Droits {
    * revendeur » sans dire qui il était, ni comment le joindre.
    */
   revendeur: Revendeur | null
+  /**
+   * Le cabinet est-il fermé par son revendeur (0057) ? Il n'est alors plus en
+   * règle, quel que soit son contrat : le bandeau doit dire la vraie cause,
+   * pas « votre abonnement a pris fin ». Absent avant 0057.
+   */
+  ferme?: boolean
+  /** Depuis quand, daté par la base. */
+  fermeLe?: string | null
 }
 
 /** Les coordonnées que le revendeur a laissées pour ses cabinets. */
@@ -72,6 +80,8 @@ interface DroitsRow {
   fin_essai?: string | null
   revendeur?: string | null
   revendeur_courriel?: string | null
+  ferme?: boolean | null
+  ferme_le?: string | null
 }
 
 /** Ce que l'écran doit lire quand un levier est fermé. */
@@ -100,6 +110,8 @@ function versDroits(brut: unknown): Droits {
     finEssai: row.fin_essai ?? null,
     // Avant 0049 la fonction ne rendait pas ces clés : on n'invente rien.
     revendeur: row.revendeur ? { nom: row.revendeur, courriel: row.revendeur_courriel ?? null } : null,
+    ferme: row.ferme === true,
+    fermeLe: row.ferme_le ?? null,
   }
 }
 

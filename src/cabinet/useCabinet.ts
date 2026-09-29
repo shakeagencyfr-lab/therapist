@@ -25,6 +25,7 @@ import { couleursInvalides } from '@/lib/couleurs'
 import { refusDeReouverture, type DroitsLus } from '@/lib/contrat'
 import { effacerDuStockage } from '@/lib/stockage'
 import { gestesDossier, type GestesDossier } from './dossier'
+import { gestesRappels, type GestesRappels } from './rappelsReguliers'
 import {
   marquerLue,
   messageRefusReponse,
@@ -680,6 +681,11 @@ export interface CabinetData {
    * trace d'un export. Hors du rechargement général — voir src/cabinet/dossier.ts.
    */
   dossier: GestesDossier
+  /**
+   * Les rappels qui reviennent (0055), lus et programmés À LA DEMANDE par
+   * l'écran des notifications — voir src/cabinet/rappelsReguliers.ts.
+   */
+  rappels: GestesRappels
 }
 
 export function useCabinet(cabinetId: string | null): CabinetData {
@@ -697,6 +703,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
   /* Un seul objet par cabinet : les écrans qui en dépendent ne relisent pas
      le dossier à chaque rendu. */
   const dossier = useMemo(() => gestesDossier(cabinetId), [cabinetId])
+  const rappels = useMemo(() => gestesRappels(cabinetId), [cabinetId])
 
   const recharger = useCallback(async () => {
     const db = supabase()
@@ -2489,6 +2496,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     supprimerPatiente,
     supprimerHypnose,
     dossier,
+    rappels,
   }
 }
 

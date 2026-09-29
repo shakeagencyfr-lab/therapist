@@ -5,15 +5,21 @@
  * une session Stripe Checkout avec la clé de la thérapeute, puis y envoie le
  * patient. Au retour, il demande au serveur de vérifier le paiement — jamais
  * il ne se déclare payé lui-même.
+ *
+ * Et, une fois l'argent encaissé (0058) : le reçu, des deux côtés, et le
+ * remboursement, côté cabinet. Le navigateur ne rembourse rien lui-même : la
+ * clé Stripe du cabinet ne le quitte jamais, c'est le serveur qui s'en sert.
  */
 import { supabase } from '@/lib/supabase'
+import type { DonneesRecu, IssueRemboursement } from '@/lib/ventes'
 
 async function jeton(): Promise<string> {
   const db = supabase()
   if (!db) throw new Error("L'application n'est pas reliée à sa base.")
   const { data } = await db.auth.getSession()
   const token = data.session?.access_token
-  if (!token) throw new Error('Connectez-vous pour acheter.')
+  // Le même appel sert au patient qui achète et au cabinet qui rembourse.
+  if (!token) throw new Error('Votre session a expiré. Reconnectez-vous pour continuer.')
   return token
 }
 
@@ -84,4 +90,17 @@ export interface Reprise {
  */
 export function verifierEnAttente(cote: 'patient' | 'cabinet'): Promise<Reprise> {
   return appel({ action: 'verifier-en-attente', cote })
+}
+
+/**
+ * Rembourse une vente, en entier, avec la clé Stripe du cabinet. Réservé à
+ * la personne titulaire ; le serveur le vérifie, comme le second facteur.
+ */
+export function rembourserVente(commandeId: string): Promise<IssueRemboursement> {
+  return appel({ action: 'rembourser', commandeId })
+}
+
+/** De quoi imprimer le reçu d'un achat : le même pour le patient et pour le cabinet. */
+export function lireRecu(commandeId: string, cote: 'patient' | 'cabinet'): Promise<DonneesRecu> {
+  return appel({ action: 'recu', commandeId, cote })
 }

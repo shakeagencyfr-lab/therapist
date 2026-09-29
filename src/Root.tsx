@@ -2,10 +2,15 @@ import { useEffect, useState } from 'react'
 import { App } from './App'
 import { CabinetProvider } from './cabinet/context'
 import { DroitsProvider } from './cabinet/droits'
+import { DeuxiemeFacteur } from './auth/DeuxiemeFacteur'
+import { GardeInactivite, prendreNoteDeSortie } from './auth/Inactivite'
 import { SignIn } from './auth/SignIn'
 import { SessionProvider, useAuth } from './auth/session'
 import { Button } from './components/ui'
 import { variablesDeMarque } from './lib/couleurs'
+import { codeADemander } from './lib/doubleAuthentification'
+import { lireDelai, phraseDeSortie, type DelaiInactivite } from './lib/inactivite'
+import { verifierCodeDeConnexion } from './services/securiteDuCompte'
 import { cheminEspacePatient } from './lib/domaine'
 import { cheminSousIdentifiant } from './lib/identifiant'
 import { DOSSIER_AVANT_LECTURE } from './state/state'
@@ -20,6 +25,7 @@ import {
   type Vitrine,
 } from './lib/vitrine'
 import { VitrinePage } from './views/vitrine/VitrinePage'
+import { pageDeVenteIci, PortePraticienne, surLaPorte, useQuitterLaPorte, VenteOuPorte } from './vente/Porte'
 import s from './Root.module.css'
 
 /**
@@ -128,8 +134,25 @@ function Message({
 }
 
 function Portail() {
-  const { phase, context, seDeconnecter, lecture } = useAuth()
+  const { phase, context, seDeconnecter, lecture, session, secondFacteur, niveau } = useAuth()
   const { vitrine, site, cherche } = useVitrine()
+  // Connecté sur /connexion : l'adresse redevient la racine (src/vente/Porte.tsx).
+  useQuitterLaPorte(phase)
+
+  /* POURQUOI ON REVIENT À LA PORTE. Quand la session vient de se fermer pour
+     inactivité, la porte le dit — sinon, on croit à une panne. La note est
+     lue au passage à « déconnecté » (et au chargement d'une page déjà
+     déconnectée), puis oubliée à la connexion suivante. */
+  const [sortie, setSortie] = useState<DelaiInactivite | null>(null)
+  useEffect(() => {
+    if (phase === 'deconnecte') {
+      const note = prendreNoteDeSortie()
+      if (note) setSortie(note)
+    } else if (phase === 'connecte') {
+      setSortie(null)
+    }
+  }, [phase])
+  const avis = sortie ? phraseDeSortie(sortie) : null
 
   // Sans base configurée, l'application tourne sur ses données de
   // démonstration : c'est ce qui permet de montrer les écrans sans compte.
@@ -176,15 +199,50 @@ function Portail() {
             logoUrl={b?.logoUrl}
             cabinet={vitrine.name}
             tagline={vitrine.tagline || 'Espace thérapie'}
+            avis={avis}
           />
         </div>
       )
     }
-    return (
+    /* LA PORTE DES PRATICIENNES, ET LA PAGE DE VENTE (src/vente/Porte.tsx).
+       /connexion est la porte titrée « Espace praticien » ; la racine de la
+       plateforme, sans personne de connecté, montre la page de vente. */
+    if (surLaPorte()) return <PortePraticienne avis={avis} />
+    const porte = (
       <SignIn
         titre="Entrer dans votre espace"
         intro="Cet espace est réservé à la praticienne et à son cabinet. Entrez l'adresse qui a reçu votre invitation : vous recevrez un lien de connexion."
+        avis={avis}
       />
+    )
+    if (pageDeVenteIci()) return <VenteOuPorte porte={porte} />
+    return porte
+  }
+
+  /* LA DOUBLE AUTHENTIFICATION. Tant qu'on ne sait pas si le compte a relié
+     une application, rien ne s'ouvre ; s'il en a une et que la session n'a
+     pas donné son code, on le demande AVANT l'espace. Rien du dossier n'est
+     chargé derrière cet écran — et la base, de toute façon, n'en rendrait
+     rien à une session « aal1 » (0056). */
+  if (secondFacteur === 'attente') return <Attente />
+  if (codeADemander(niveau, secondFacteur === 'inscrit')) {
+    // La marque du cabinet quand on la connaît déjà ; celle du produit sinon.
+    const b = context?.cabinet?.branding ?? vitrine?.branding
+    return (
+      <div style={variablesDeMarque(b)}>
+        <DeuxiemeFacteur
+          email={context?.email ?? session?.user.email ?? null}
+          verifier={async (code) => {
+            const r = await verifierCodeDeConnexion(code)
+            return r.ok ? null : r.message
+          }}
+          seDeconnecter={() => void seDeconnecter()}
+          marque={b?.logo ?? 'KL'}
+          logoUrl={b?.logoUrl}
+          cabinet={context?.cabinet?.name ?? vitrine?.name ?? 'Klaro'}
+          tagline={context?.cabinet?.tagline || vitrine?.tagline || 'Suivi entre les séances'}
+        />
+      </div>
     )
   }
 
@@ -242,13 +300,20 @@ function Portail() {
           <App />
         </DroitsProvider>
       </CabinetProvider>
+      {/* Un poste de cabinet est souvent partagé : la session se ferme sur
+          cet appareil après le délai choisi dans « Mon compte ». Sous le
+          magasin d'état, pour savoir si le micro d'une séance est ouvert. */}
+      <GardeInactivite
+        delaiMinutes={lireDelai(session?.user.user_metadata)}
+        onExpire={() => void seDeconnecter()}
+      />
     </AppStoreProvider>
   )
 }
 
 export function Root() {
   return (
-    <SessionProvider>
+    <SessionProvider doubleAuthentification>
       <Portail />
     </SessionProvider>
   )

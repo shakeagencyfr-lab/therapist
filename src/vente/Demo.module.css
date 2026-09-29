@@ -1,0 +1,237 @@
+/* L'aperçu vivant de la page de vente : les vrais écrans, posés dans la page.
+   Les composants gardent leurs propres styles ; on ne règle ici que le cadre
+   qui les accueille. */
+
+.telephone {
+  width: 100%;
+  max-width: 412px;
+  margin-inline: auto;
+}
+
+/* Le cadre du téléphone réserve 844 pixels d'écran (PhoneFrame) : ici,
+   l'écran défile à hauteur fixe, le cadre épouse donc son contenu. */
+.telephone > div > div {
+  min-height: 0;
+}
+
+/* L'écran défile à l'intérieur du téléphone, à hauteur fixe : la page ne
+   saute pas quand on ouvre une tâche ou le journal. Focalisable, pour qu'on
+   puisse le faire défiler au clavier. */
+.ecran {
+  height: 560px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  background: var(--c-surface);
+}
+.ecran:focus-visible {
+  outline: 3px solid var(--c-accent-deep);
+  outline-offset: -3px;
+}
+
+@media (min-width: 960px) {
+  .ecran {
+    height: 620px;
+  }
+}
+
+/* Les couleurs à essayer ------------------------------------------------ */
+
+.teintes {
+  border: 0;
+  margin: 18px auto 0;
+  padding: 0;
+  min-width: 0;
+  max-width: 412px;
+  text-align: center;
+}
+
+.teintesTitre {
+  padding: 0;
+  margin: 0 auto 10px;
+  font-size: 13px;
+  color: var(--c-text-3);
+}
+
+.pastilles {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.pastille {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px 7px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-pill);
+  background: var(--c-surface);
+  font-size: 13px;
+  color: var(--c-text-2);
+  cursor: pointer;
+  min-height: 36px;
+}
+
+/* Le bouton radio reste le vrai contrôle : invisible, mais focalisable et lu. */
+.pastilleChoix {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.pastille:has(.pastilleChoix:checked) {
+  border-color: var(--c-text-2);
+  box-shadow: inset 0 0 0 1px var(--c-text-2);
+}
+.pastille:has(.pastilleChoix:focus-visible) {
+  outline: 3px solid var(--c-accent-deep);
+  outline-offset: 2px;
+}
+
+.pastilleCouleur {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  flex: none;
+}
+
+/* Le suivi, côté praticienne ------------------------------------------- */
+
+.suivi {
+  display: grid;
+  gap: 18px;
+}
+
+@media (min-width: 900px) {
+  .suivi {
+    grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.liste {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  padding: 16px 12px 10px;
+}
+
+.listeTitre {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+  margin: 0 8px 10px;
+}
+
+.patients {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.patient {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  color: var(--c-text);
+  cursor: pointer;
+  min-height: 48px;
+}
+.patient:hover {
+  background: var(--c-surface-2);
+}
+.patient:focus-visible {
+  outline: 3px solid var(--c-accent-deep);
+  outline-offset: 1px;
+}
+.patientChoisi {
+  background: var(--c-accent-tint);
+}
+
+.pastilleRisque {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.patientNoms {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.patientNom {
+  font-size: 14px;
+  font-weight: 600;
+}
+.patientSous {
+  font-size: 12px;
+  color: var(--c-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.patientDroite {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex: none;
+}
+.assiduite {
+  font-family: var(--font-serif);
+  font-size: 17px;
+}
+.decroche {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--c-danger);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.fiche {
+  min-width: 0;
+}
+.ficheTitre {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  margin: 0 0 12px;
+}
+
+/* Les quatre compteurs de la fiche, deux par deux sur un téléphone : l'écran
+   de la praticienne les aligne sur un bureau, où il a la place. */
+.fiche > div:first-of-type {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+@media (min-width: 1100px) {
+  .fiche > div:first-of-type {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Les écrans de démonstration ne bougent pas pour qui ne le souhaite pas. */
+@media (prefers-reduced-motion: reduce) {
+  .telephone *,
+  .suivi * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -1,0 +1,240 @@
+/* Les rappels qui reviennent : programmer à gauche, ceux en cours à droite.
+   Une colonne sous 1100 px, comme le reste de l'écran. */
+
+.carte {
+  border-radius: var(--r-xl);
+  padding: 22px 24px;
+  margin-top: 18px;
+}
+
+.tete {
+  margin-bottom: 18px;
+}
+
+.intro {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--c-text-3);
+  max-width: 70ch;
+  margin: 6px 0 0;
+}
+
+.grille {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.formulaire {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.bloc {
+  margin-top: 8px;
+}
+
+.rangee {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.champ {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--c-text-3);
+}
+
+.discret {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+  margin: 0;
+}
+
+/* Les destinataires : une liste à cocher, qui défile au-delà d'une dizaine. */
+.personnesTete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.raccourcis {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.raccourci {
+  border: none;
+  background: none;
+  padding: 4px 0;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--c-accent);
+  cursor: pointer;
+}
+.raccourci:hover {
+  text-decoration: underline;
+}
+.raccourci:disabled {
+  color: var(--c-text-muted);
+  cursor: default;
+  text-decoration: none;
+}
+
+.personnes {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--c-border-light);
+  border-radius: var(--r-sm);
+}
+
+.personne {
+  border-bottom: 1px solid var(--c-border-light);
+}
+.personne:last-child {
+  border-bottom: none;
+}
+
+.personne label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 6px 12px;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.personne input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--c-accent);
+  flex: none;
+}
+
+.personneNom {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.sansTelephone {
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+  white-space: nowrap;
+}
+
+.resume {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--c-text-3);
+  margin: 4px 0 0;
+}
+
+.envoi {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+/* La liste ------------------------------------------------------------------ */
+
+.liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rappel {
+  border: 1px solid var(--c-border-light);
+  border-radius: var(--r-md, 12px);
+  padding: 13px 15px;
+  background: var(--c-surface);
+}
+.rappelFini {
+  background: var(--c-surface-2);
+}
+
+.rappelTete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rappelTitre {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--c-text);
+  overflow-wrap: anywhere;
+}
+
+.rappelQuand {
+  font-size: 12.5px;
+  color: var(--c-accent-deep);
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+.rappelTexte {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--c-text-3);
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.rappelMeta {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+  margin: 6px 0 0;
+}
+
+.voirFinis {
+  margin-top: 10px;
+}
+
+@media (max-width: 1100px) {
+  .grille {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .carte {
+    padding: 18px 16px;
+  }
+}
+
+/* Sous 16 px, le navigateur d'un téléphone zoome à la mise au point. */
+@media (max-width: 700px) {
+  .saisie {
+    font-size: 16px;
+  }
+}

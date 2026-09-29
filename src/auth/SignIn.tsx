@@ -40,6 +40,7 @@ export function SignIn({
   logoUrl = null,
   cabinet = 'Klaro',
   tagline = 'Suivi entre les séances',
+  avis = null,
 }: {
   titre: string
   intro: string
@@ -47,6 +48,12 @@ export function SignIn({
   logoUrl?: string | null
   cabinet?: string
   tagline?: string
+  /**
+   * Pourquoi on revient à la porte, quand ce n'est pas un choix : la
+   * session s'est fermée après un temps sans activité (src/auth/Inactivite).
+   * Sans cette phrase, la praticienne croirait à une panne.
+   */
+  avis?: string | null
 }) {
   const { envoyerLien, connecterParCode, recommencer, connecterParMotDePasse, error, sent, verificationLente } =
     useAuth()
@@ -185,6 +192,12 @@ export function SignIn({
           <>
             <h1 className={s.title}>{titre}</h1>
             <p className={s.intro}>{intro}</p>
+
+            {avis ? (
+              <Notice tone="ok" style={{ marginBottom: 14 }}>
+                {avis}
+              </Notice>
+            ) : null}
 
             {/* L'ESPACE INSTALLÉ LE DIT D'EMBLÉE. Ouvert depuis l'icône de
                 l'écran d'accueil, un lien reçu par courriel ne ramène pas

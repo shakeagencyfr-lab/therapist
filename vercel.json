@@ -219,6 +219,16 @@
           "value": "SAMEORIGIN"
         }
       ]
+    },
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "klaroweb.site" }],
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://klaroweb.site/>; rel=\"canonical\""
+        }
+      ]
     }
   ],
   "redirects": [

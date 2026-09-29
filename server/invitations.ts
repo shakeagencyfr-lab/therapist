@@ -16,7 +16,9 @@
  * connexion dans les deux cas : seule l'enveloppe change.
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { exigerDeuxiemeFacteur } from './auth.js'
 import { envoyerParCabinet, smtpDuCabinet } from './courriel.js'
+import { HttpError } from './errors.js'
 import { levierDuCabinet } from './droits.js'
 
 const URL = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? ''
@@ -295,6 +297,11 @@ export async function envoyerInvitation(
      quelques heures : on l'accepte, plutôt que de traiter sa patiente comme
      une praticienne et de l'envoyer sur le mauvais espace. */
   const demande = String(body.kind ?? '')
+  /* Un membre de l'équipe du REVENDEUR (0057) : pas de cabinet, un autre
+     droit, un autre courriel — voir `inviterCollaborateur`. Le geste entre
+     dans cette fonction plutôt que dans une nouvelle : l'hébergement plafonne
+     leur nombre (server/fonctions.test.ts). */
+  const collaborateur = demande === 'collaborateur'
   /* `let` : pour une invitation de cabinet, le modèle du courriel se corrige
      plus bas d'après le rôle que porte l'invitation en base. */
   let kind: InviteKind =
@@ -303,16 +310,30 @@ export async function envoyerInvitation(
   if (!adresseValide(email)) {
     return { status: 400, body: { message: "Cette adresse ne ressemble pas à une adresse électronique." } }
   }
-  if (!cabinetId) {
+  if (!cabinetId && !collaborateur) {
     return { status: 400, body: { message: 'Cabinet manquant.' } }
   }
 
   // ---- Le droit d'inviter, vérifié sous la RLS de l'appelant --------------
   const appelant = clientAppelant(token)
+
+  /* Un compte protégé par la double authentification n'invite personne
+     depuis une session qui n'a pas donné son code : une invitée de trop, et
+     c'est une complice qui lit ensuite les dossiers avec son propre compte.
+     La base refuse déjà d'écrire l'invitation d'équipe en « aal1 » (0056) ;
+     ici, on ne l'envoie pas non plus. */
+  try {
+    await exigerDeuxiemeFacteur(appelant, token)
+  } catch (err) {
+    if (err instanceof HttpError) return { status: err.status, body: { message: err.message } }
+    throw err
+  }
   /* La clé de service ne sert QU'À ENVOYER : elle lit l'identifiant public du
      cabinet et son domaine, jamais un dossier. Le droit d'inviter, lui, est
      vérifié plus bas avec le jeton de l'appelant, sous la RLS. */
   const admin = clientAdmin()
+
+  if (collaborateur) return inviterCollaborateur(appelant, admin, email)
 
   /**
    * L'identifiant public du cabinet.
@@ -323,13 +344,19 @@ export async function envoyerInvitation(
    * porte du produit alors que son cabinet a une marque.
    */
   let slugCabinet: string | null = null
+  /* Un cabinet fermé par son revendeur (0057) n'accepte personne :
+     claim_access ne rattacherait ni la praticienne ni le patient invités, et
+     le lien mènerait à une porte qui ne s'ouvre plus. Dit après le contrôle du
+     droit, plus bas, pour ne rien apprendre à qui n'a pas affaire au cabinet. */
+  let ferme = false
   {
     const { data } = await admin
       .from('cabinets')
-      .select('slug')
+      .select('slug, archived_at')
       .eq('id', cabinetId)
-      .maybeSingle<{ slug: string | null }>()
+      .maybeSingle<{ slug: string | null; archived_at: string | null }>()
     slugCabinet = data?.slug ?? null
+    ferme = Boolean(data?.archived_at)
   }
 
   if (kind !== 'patient') {
@@ -377,6 +404,16 @@ export async function envoyerInvitation(
       .maybeSingle()
     if (error || !data) {
       return { status: 403, body: { message: "Aucune fiche à cette adresse dans votre cabinet." } }
+    }
+  }
+
+  if (ferme) {
+    return {
+      status: 409,
+      body: {
+        message:
+          "Ce cabinet est fermé : personne ne peut y entrer tant que son revendeur ne l'a pas rouvert. L'invitation attendra sa réouverture.",
+      },
     }
   }
 
@@ -481,5 +518,77 @@ export async function envoyerInvitation(
         ? `Invitation envoyée à ${email}, mais depuis nos serveurs : son lien n'a pas pu être préparé pour les vôtres. Il ouvre l'espace directement.`
         : `Invitation envoyée à ${email}. Son lien ouvre l'espace directement.`,
     },
+  }
+}
+
+/**
+ * Un membre de l'équipe du revendeur (0057), invité par un propriétaire.
+ *
+ * Le droit se lit sous le jeton de l'appelant, comme pour un cabinet : une
+ * invitation EN ATTENTE à cette adresse doit lui être visible, et il doit
+ * être propriétaire du revendeur qui la porte. La base refuse déjà d'écrire
+ * l'invitation à qui ne l'est pas ; ici, on n'envoie pas non plus.
+ *
+ * Le courriel part toujours du service de la plateforme : un revendeur n'a
+ * pas de serveur d'envoi à lui, et l'espace revendeur vit à la racine du
+ * site. Rien d'un cabinet ni d'un dossier n'y figure.
+ */
+async function inviterCollaborateur(
+  appelant: SupabaseClient,
+  admin: SupabaseClient,
+  email: string,
+): Promise<InviteResult> {
+  const { data: invitation } = await appelant
+    .from('reseller_invitations')
+    .select('reseller_id, expires_at')
+    .is('accepted_at', null)
+    // `_` et `%` sont des jokers de `ilike` : l'adresse doit désigner la sienne, et elle seule.
+    .ilike('email', email.replace(/[\\%_]/g, (c) => `\\${c}`))
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle<{ reseller_id: string; expires_at: string }>()
+  if (!invitation) {
+    return { status: 409, body: { message: 'Aucune invitation en attente pour cette adresse dans votre équipe.' } }
+  }
+  const { data: proprietaire } = await appelant.rpc('is_reseller_owner', { p_reseller: invitation.reseller_id })
+  if (proprietaire !== true) {
+    return { status: 403, body: { message: "Seul un propriétaire du compte revendeur invite dans l'équipe." } }
+  }
+  if (Date.parse(invitation.expires_at) <= Date.now()) {
+    return {
+      status: 409,
+      body: { message: 'Cette invitation a expiré. Relancez-la pour lui redonner trente jours, puis renvoyez le courriel.' },
+    }
+  }
+
+  const { error } = await admin.auth.admin.inviteUserByEmail(email, {
+    redirectTo: SITE ? `${SITE}/` : undefined,
+  })
+  if (error) {
+    // Un compte existe déjà : il rejoindra l'équipe à sa prochaine connexion.
+    if (dejaInscrit(error)) {
+      return {
+        status: 200,
+        body: {
+          ok: true,
+          message: `${email} a déjà un compte : l'espace revendeur s'ouvrira à sa prochaine connexion avec cette adresse.`,
+        },
+      }
+    }
+    // Journal technique seulement : ni adresse, ni contenu.
+    console.error(`[invitation] collaborateur — ${error.status ?? ''} ${error.message}`)
+    const trop = error.status === 429
+    return {
+      status: trop ? 429 : 502,
+      body: {
+        message: trop
+          ? "Trop de courriels envoyés dans l'heure. Réessayez plus tard : l'invitation, elle, est enregistrée."
+          : "L'invitation est enregistrée, mais le courriel n'a pas pu partir. La personne peut se connecter en entrant son adresse sur le site.",
+      },
+    }
+  }
+  return {
+    status: 200,
+    body: { ok: true, message: `Invitation envoyée à ${email}. Son lien ouvre l'espace revendeur directement.` },
   }
 }

@@ -1,0 +1,196 @@
+/* L'onglet Équipe : même gabarit que le portefeuille (une colonne large, une
+   colonne de réglages), pour que l'espace revendeur reste d'une pièce. */
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.colonne {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.panel {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  padding: 18px 20px;
+}
+
+.panelHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.panelTitle {
+  font-family: var(--font-serif);
+  font-size: 19px;
+  font-weight: 400;
+  margin: 0 0 4px;
+}
+
+.panelSub {
+  font-size: 12px;
+  color: var(--c-text-muted);
+  line-height: 1.5;
+  margin: 0 0 14px;
+}
+
+.compte {
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+}
+
+.demo {
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+  margin: 0 0 18px;
+}
+
+.muted {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--c-text-muted);
+}
+
+/* Une ligne par personne : qui, à gauche ; son rôle et les gestes, à droite. */
+.liste {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+
+.ligne {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 12px;
+  flex-wrap: wrap;
+  padding: 12px 0;
+  border-top: 1px solid var(--c-border-light);
+}
+
+.ligne:first-child {
+  border-top: none;
+}
+
+.qui {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.nom {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--c-text);
+  overflow-wrap: anywhere;
+}
+
+.vous {
+  font-weight: 400;
+  color: var(--c-text-muted);
+}
+
+.detail {
+  font-size: 12px;
+  color: var(--c-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.echue {
+  color: var(--c-warn-text-2);
+}
+
+.gestes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.avertissement {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--c-warn-text-2);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.champ {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.aide {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+  margin: 0;
+}
+
+.probleme {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--c-warn-text-2);
+  margin: 0;
+}
+
+/* La phrase que lira la praticienne : citée, pour qu'on la relise avant. */
+.apercu {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--r-md, 10px);
+  background: var(--c-surface-2);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--c-text-2);
+  overflow-wrap: anywhere;
+}
+
+.roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.lecture {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--c-text-2);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1100px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

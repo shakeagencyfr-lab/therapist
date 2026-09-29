@@ -117,6 +117,7 @@ Relevé du 28 septembre 2026 (base `koytgcbpeorupdklswxd`).
 | `0052_le_portefeuille_compte_les_jours.sql` | 20260928215828 | 0052_le_portefeuille_compte_les_jours |
 | `0053_le_dossier_se_relit_et_se_facture.sql` | 20260929005253 | 0053_le_dossier_se_relit_et_se_facture |
 | `0054_le_mot_lu_et_repondu.sql` | 20260929005345 | 0054_le_mot_lu_et_repondu |
+| `0060_les_demandes_d_essai.sql` | 20260929010836 | 0060_les_demandes_d_essai |
 
 Les écarts, et ce qu'ils recouvrent — le contenu, lui, est en place :
 
@@ -160,7 +161,56 @@ persiste, et le message dit ce qui a été vérifié.
   `lu_le` n'est posé que par `cabinet_marquer_page_lue()` et
   `cabinet_repondre_a_la_page()`. Une colonne ajoutée plus tard que l'espace
   patient doit écrire devra être accordée nommément.
+- **Un rappel arrive masqué sur l'écran verrouillé tant que la personne n'a
+  pas choisi de l'afficher** (`0055`). `rappels_a_pousser()` rend lui-même le
+  texte neutre (« Un nouveau mot dans votre espace ») : le contenu masqué ne
+  quitte pas la base, et le serveur le masque encore si la colonne `masque`
+  manque. `preferences_rappels` (discrétion, rappel du soir) n'a aucune
+  politique ni droit pour `authenticated` : la personne la lit et la règle
+  par `patient_preferences_rappels()` / `patient_regler_rappels()`, le cabinet
+  n'y a pas accès. Les rappels qui reviennent (`rappels_recurrents`) se
+  programment et s'arrêtent par deux fonctions ; la base écrit le mot du
+  jour dans le passage de la minute, une fois par jour et par rappel
+  (contrainte `push_notifications_occurrence_unique`). `0055` redéfinit
+  `declencher_rappels()`, `rappels_a_pousser()` et `patient_mots()` : une
+  migration postérieure qui y touche part de ces définitions.
 - **`audit_log` est en ajout seul** : `update` et `delete` sont révoqués.
+- **Un compte à double authentification n'est membre de son cabinet qu'en
+  `aal2`** (`0056`). `is_cabinet_member()` et `est_titulaire_du_cabinet()`
+  exigent, pour un compte qui a un facteur vérifié dans `auth.mfa_factors`,
+  un jeton `aal2` ; un compte sans facteur ne voit rien changer, le côté
+  patient non plus. La condition est écrite dans le corps des deux fonctions
+  — pas en politiques restrictives, qui laisseraient ouvertes les fonctions
+  `security definer` et le stockage. Une migration qui redéfinit l'une des
+  deux doit repartir de `0056` : `tests/double_authentification.sql` échoue
+  sinon.
+- **Un cabinet fermé ferme la porte de ses patients, pas celle de sa
+  praticienne** (`0057`). `cabinets.archived_at` ne se pose et ne s'efface
+  que par le propriétaire du revendeur (`revendeur_fermer_cabinet()`, ou
+  écriture directe gardée par un déclencheur), daté par la base et inscrit au
+  journal (`cabinet.ferme`, `cabinet.rouvert`). Fermé, le cabinet n'est plus
+  en règle (`abonnement_en_regle()`), `is_patient_record()` et « le patient
+  lit sa fiche » exigent `cabinet_ouvert()`, `my_context()` ne rend plus la
+  fiche, `cabinet_vitrine()` ne répond plus et `claim_access()` n'y rattache
+  personne ; `is_cabinet_member()` n'est pas touchée. Les fonctions de rappels
+  de `0055` filtrent sur `patients.archived_at` seulement : une migration qui
+  y touche ajoute `and public.cabinet_ouvert(p.cabinet_id)`. L'équipe du
+  revendeur : seul un propriétaire invite, relance, annule et retire
+  (`retirer_du_revendeur()`), la base signe l'invitation, et `claim_access()`
+  n'honore que celle d'un propriétaire en place ou de la plateforme. Le
+  navigateur ne met à jour que `resellers.name` et `resellers.support_email`,
+  pour le propriétaire.
+- **Une demande d'essai ne s'écrit que par le serveur** (`0060`). La page
+  d'accueil envoie le formulaire à `api/invitations` (geste
+  `demande-essai`), qui vérifie le CAPTCHA quand `HCAPTCHA_SECRET` est posé,
+  puis appelle `deposer_demande_essai()` avec la clé de service — la seule à
+  pouvoir l'exécuter : ouverte à `anon`, elle aurait rendu le CAPTCHA
+  contournable. La fonction relit chaque champ, exige le consentement, et
+  borne à trois demandes par adresse et par jour, trente par heure sur la
+  plateforme. `demandes_essai` n'a aucun droit pour `anon` ; les membres du
+  revendeur qui l'accueille (`resellers.accueille_demandes`, un seul à la
+  fois) la lisent, l'effacent, et n'en changent que `statut` et
+  `note_interne`.
 - **Une note d'honoraires ne s'écrit que par la base** (`0053`). Le rôle
   authentifié n'a que `select` sur `notes_honoraires` ; il émet par
   `cabinet_emettre_note_honoraires()` — numéro = plus grand du cabinet + 1,
@@ -169,6 +219,17 @@ persiste, et le message dit ce qui a été vérifié.
   fiche détache ses notes (`patient_id` nul) sans les effacer : ce sont des
   pièces comptables. L'anamnèse (`dossier_anamneses`) et les notes datées
   (`dossier_notes`) suivent la fiche, et ne se lisent qu'au cabinet.
+- **Une vente ne se rembourse que par le serveur, et le reste** (`0058`).
+  `orders` n'a toujours aucune politique d'écriture : `api/shop` (geste
+  `rembourser`, réservé à la titulaire, second facteur compris) rembourse avec
+  la clé Stripe du cabinet puis note `status = 'remboursee'`, `rembourse_at`,
+  `stripe_refund_id`. Un déclencheur empêche une vente remboursée de
+  redevenir payée ou d'être réécrite. Rembourser ne retire rien au patient ;
+  la garde de `0045` ne tenant que les ventes payées, la praticienne peut
+  ensuite retirer l'audio depuis la fiche. Le livre des recettes se lit par
+  dates d'encaissement et de remboursement (deux index partiels). Les ventes
+  d'une fiche supprimée partent avec elle (`on delete cascade` de `0010`,
+  inchangé) : l'écran invite à exporter avant.
 - **Un solde de crédits ne s'écrit pas, il se somme.** `credit_ledger` est en
   ajout seul, et `insert`, `update`, `delete` y sont révoqués pour le rôle
   authentifié : seul le serveur y écrit. Une thérapeute ne peut donc pas se

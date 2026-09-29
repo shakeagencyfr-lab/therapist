@@ -173,3 +173,20 @@ export const BRAND_PRESETS: Array<{ label: string; accent: string; accentHover: 
   { label: 'Ardoise', accent: '#4E6A82', accentHover: '#41586C', accentDeep: '#354859', dark: '#232E37' },
   { label: 'Terre', accent: '#8A5A2B', accentHover: '#734A24', accentDeep: '#5E3D1E', dark: '#2F2519' },
 ]
+
+/**
+ * L'équipe de démonstration du revendeur : deux comptes et une invitation.
+ *
+ * Des adresses du domaine réservé aux exemples : aucune ne mène à personne.
+ * Dans le produit réel, l'onglet Équipe lit `equipe_du_revendeur()` (0057).
+ */
+export const EQUIPE_DEMO = {
+  organisation: { id: 'demo', nom: 'Shake', courriel: 'support@exemple.fr' },
+  membres: [
+    { reseller_id: 'demo', user_id: 'demo-1', email: 'direction@exemple.fr', role: 'owner', created_at: '2025-11-03T09:00:00Z', moi: true },
+    { reseller_id: 'demo', user_id: 'demo-2', email: 'commercial@exemple.fr', role: 'staff', created_at: '2026-02-16T09:00:00Z', moi: false },
+  ],
+  invitations: [
+    { id: 'demo-inv', reseller_id: 'demo', email: 'accompagnement@exemple.fr', role: 'staff', expires_at: '2026-10-24T09:00:00Z', created_at: '2026-09-24T09:00:00Z' },
+  ],
+}

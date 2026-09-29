@@ -313,7 +313,8 @@ function CleStripe({ etat, enCours, onAgir }: BlocProps) {
             />
             <span className={s.hint}>
               Tableau de bord Stripe → Développeurs → Clés d'API. Une clé restreinte suffit si elle
-              peut lire le compte et créer des paiements.
+              peut lire le compte et créer des paiements — et des remboursements, pour rembourser
+              une vente depuis la boutique.
             </span>
           </label>
           <Button variant="primary" type="submit" disabled={!etat.chiffrement || occupe || !cle.trim()}>

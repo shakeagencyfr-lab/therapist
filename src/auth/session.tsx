@@ -7,6 +7,11 @@
  *   claim_access()  rattache le compte à la fiche ou à l'invitation qui
  *                   l'attendait — se connecter ne donne aucun accès en soi ;
  *   my_context()    dit quel espace ouvrir.
+ *
+ * Pour la praticienne et le revendeur, une troisième question : le compte
+ * a-t-il activé la double authentification ? Si oui, et tant que la session
+ * n'a pas donné le code de l'application, la porte (Root.tsx) le demande
+ * avant d'ouvrir l'espace. L'espace patient ne pose pas la question.
  */
 import {
   createContext,
@@ -21,6 +26,7 @@ import {
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 import { oublierLesBrouillons } from '@/lib/brouillon'
 import { normaliserCode } from '@/lib/codeConnexion'
+import { aUnFacteurVerifie, niveauDuJeton, type Niveau } from '@/lib/doubleAuthentification'
 import { messageCode, messageConnexionMotDePasse, messageEnvoiLien } from '@/lib/messageAuth'
 import { refusDuNouveau } from '@/lib/motDePasse'
 import { isConfigured, supabase } from '@/lib/supabase'
@@ -62,6 +68,15 @@ export interface AccountContext {
 
 export type AuthPhase = 'chargement' | 'deconnecte' | 'connecte' | 'sans-base'
 
+/**
+ * La double authentification du compte, telle que le service la dit.
+ *
+ * « attente » tant qu'on ne sait pas : la porte n'ouvre rien pendant ce
+ * temps. Dans l'espace patient, qui ne pose pas la question, c'est
+ * « absent » d'emblée.
+ */
+export type EtatSecondFacteur = 'attente' | 'absent' | 'inscrit'
+
 export interface AuthState {
   phase: AuthPhase
   session: Session | null
@@ -70,6 +85,15 @@ export interface AuthState {
   error: string
   /** Le lien magique vient d'être envoyé à cette adresse. */
   sent: string
+  /** Le compte a-t-il une application d'authentification reliée ? */
+  secondFacteur: EtatSecondFacteur
+  /** Le niveau de la session : « aal2 » une fois le code donné. */
+  niveau: Niveau
+  /**
+   * Relit au service si le compte a une application reliée — après l'avoir
+   * activée ou désactivée depuis « Mon compte ».
+   */
+  relireSecondFacteur: () => Promise<void>
   /**
    * La lecture du rôle a-t-elle abouti ?
    *
@@ -167,13 +191,31 @@ const DELAI_LECTURE_MS = 8_000
 const MESSAGE_LECTURE =
   "Vos accès n'ont pas pu être lus — ce n'est pas votre adresse qui est en cause. Rechargez la page dans un instant."
 
+/**
+ * Au-delà de ce délai, on cesse d'attendre le service pour savoir si le
+ * compte a une application reliée : on se fie à ce que la session gardée en
+ * dit. La porte ne reste pas fermée sur une question.
+ */
+const DELAI_SECOND_FACTEUR_MS = 5_000
+
 /** Ce que rend une lecture du rôle, réussie ou non. */
 interface LectureRole {
   data: unknown
   error: { message: string } | null
 }
 
-export function SessionProvider({ children }: { children: ReactNode }) {
+export function SessionProvider({
+  children,
+  doubleAuthentification = false,
+}: {
+  children: ReactNode
+  /**
+   * Demander, pour cet espace, si le compte a activé la double
+   * authentification. Vrai pour l'espace de la praticienne et du revendeur ;
+   * l'espace patient ne le passe pas, et n'en fait aucun appel de plus.
+   */
+  doubleAuthentification?: boolean
+}) {
   const [phase, setPhase] = useState<AuthPhase>(isConfigured() ? 'chargement' : 'sans-base')
   const [session, setSession] = useState<Session | null>(null)
   const [context, setContext] = useState<AccountContext | null>(null)
@@ -183,6 +225,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [lecture, setLecture] = useState<'attente' | 'faite' | 'echec'>('attente')
   /** La reprise de session a-t-elle dépassé son délai ? */
   const [verificationLente, setVerificationLente] = useState(false)
+  const facteurInitial: EtatSecondFacteur = doubleAuthentification ? 'attente' : 'absent'
+  const [secondFacteur, setSecondFacteur] = useState<EtatSecondFacteur>(facteurInitial)
+  /* Lisibles hors rendu : la session courante, pour relire sur demande, et
+     l'état déjà su, pour ne pas l'oublier sur une relecture qui échoue. */
+  const sessionCourante = useRef<Session | null>(null)
+  const facteurSu = useRef<EtatSecondFacteur>(facteurInitial)
+  const derniereLectureFacteur = useRef(0)
 
   /* Le compte dont le rôle est lu, ou en cours de lecture. C'est à lui qu'on
      compare chaque session reçue pour décider s'il faut relire. */
@@ -197,6 +246,50 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     contexteLu.current = c
     setContext(c)
   }, [])
+
+  const poserSecondFacteur = useCallback((e: EtatSecondFacteur) => {
+    facteurSu.current = e
+    setSecondFacteur(e)
+  }, [])
+
+  /**
+   * Le compte a-t-il une application reliée ? On le demande au service.
+   *
+   * La session gardée par le navigateur le dit aussi, mais elle peut dater :
+   * une application activée depuis un autre appareil n'y figure pas. Le
+   * jeton est passé explicitement : la lecture ne prend pas le verrou de la
+   * session, et peut partir de l'écouteur d'événements sans rien bloquer.
+   *
+   * `garderSiEchec` : sur une relecture (retour sur l'onglet), une réponse
+   * manquée garde ce qu'on savait ; sur une première lecture, on retombe sur
+   * ce que dit la session gardée — la porte ne reste pas fermée.
+   */
+  const lireSecondFacteur = useCallback(
+    async (courante: Session | null, garderSiEchec: boolean): Promise<void> => {
+      const db = supabase()
+      if (!doubleAuthentification || !db || !courante) return
+      const numero = ++derniereLectureFacteur.current
+      const repli: EtatSecondFacteur = aUnFacteurVerifie(courante.user.factors) ? 'inscrit' : 'absent'
+      let lu: EtatSecondFacteur | null = null
+      try {
+        const issue = await avantDelai(db.auth.getUser(courante.access_token), DELAI_SECOND_FACTEUR_MS)
+        if (issue.aTemps && !issue.valeur.error && issue.valeur.data.user) {
+          lu = aUnFacteurVerifie(issue.valeur.data.user.factors) ? 'inscrit' : 'absent'
+        }
+      } catch {
+        lu = null
+      }
+      if (numero !== derniereLectureFacteur.current) return
+      if (lu) poserSecondFacteur(lu)
+      else if (!garderSiEchec || facteurSu.current === 'attente') poserSecondFacteur(repli)
+    },
+    [doubleAuthentification, poserSecondFacteur],
+  )
+
+  const relireSecondFacteur = useCallback(
+    () => lireSecondFacteur(sessionCourante.current, false),
+    [lireSecondFacteur],
+  )
 
   /** Rattache puis lit le rôle. Les deux vont ensemble. */
   const charger = useCallback(async (): Promise<void> => {
@@ -291,10 +384,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (!vivant) return
       tranche()
       setSession(suivante)
+      sessionCourante.current = suivante
       const utilisateur = suivante?.user.id ?? null
       const decision = decisionRelecture(evenement, utilisateur, lu.current)
 
       if (decision === 'oublier') {
+        derniereLectureFacteur.current++
+        poserSecondFacteur(doubleAuthentification ? 'attente' : 'absent')
         lu.current = null
         // Une lecture en cours ne rouvrira pas l'espace d'un compte parti.
         derniereLecture.current++
@@ -308,7 +404,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       /* Même compte, session seulement rafraîchie — le retour sur l'onglet,
          le jeton de l'heure. Le rôle lu reste le bon, et la phase n'est pas
          touchée : si une lecture court encore, c'est elle qui la posera. */
-      if (decision === 'garder') return
+      if (decision === 'garder') {
+        if (doubleAuthentification && suivante) {
+          /* Une application reliée depuis, que la session nouvelle porte (le
+             code d'activation vient d'être donné) : on le sait tout de suite. */
+          if (aUnFacteurVerifie(suivante.user.factors)) poserSecondFacteur('inscrit')
+          /* Au retour sur l'onglet, on redemande au service : une application
+             activée depuis un autre appareil doit fermer celui-ci aussi. */
+          if (evenement === 'SIGNED_IN') void lireSecondFacteur(suivante, true)
+        }
+        return
+      }
 
       if (utilisateur !== lu.current) {
         /* Un autre compte : le rôle du précédent ne doit ni s'afficher une
@@ -317,6 +423,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         poserContexte(null)
         setLecture('attente')
         setPhase((p) => (p === 'connecte' ? 'chargement' : p))
+        /* Le second facteur d'un autre compte ne vaut rien pour celui-ci :
+           on le redemande, sans attendre — la porte patiente sur « attente ». */
+        if (doubleAuthentification) {
+          poserSecondFacteur('attente')
+          void lireSecondFacteur(suivante, false)
+        }
       }
       await charger()
       if (vivant && lu.current === utilisateur) setPhase('connecte')
@@ -331,7 +443,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       window.clearTimeout(minuteur)
       sub.subscription.unsubscribe()
     }
-  }, [charger, poserContexte])
+  }, [charger, poserContexte, doubleAuthentification, lireSecondFacteur, poserSecondFacteur])
+
+  const niveau = useMemo(() => niveauDuJeton(session?.access_token), [session])
 
   const envoyerLien = useCallback(async (email: string, captchaToken?: string) => {
     const db = supabase()
@@ -490,6 +604,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       context,
       error,
       sent,
+      secondFacteur,
+      niveau,
+      relireSecondFacteur,
       lecture,
       verificationLente,
       envoyerLien,
@@ -507,6 +624,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       context,
       error,
       sent,
+      secondFacteur,
+      niveau,
+      relireSecondFacteur,
       lecture,
       verificationLente,
       envoyerLien,

@@ -8,12 +8,22 @@
  */
 import { supabase } from '@/lib/supabase'
 
-export interface DemandeInvitation {
-  email: string
-  cabinetId: string
-  /** `consoeur` : un membre d'équipe invité par la titulaire (écran Équipe). */
-  kind: 'praticienne' | 'consoeur' | 'patient'
-}
+export type DemandeInvitation =
+  | {
+      email: string
+      cabinetId: string
+      /** `consoeur` : un membre d'équipe invité par la titulaire (écran Équipe). */
+      kind: 'praticienne' | 'consoeur' | 'patient'
+    }
+  | {
+      email: string
+      /**
+       * Un membre de l'équipe du REVENDEUR (0057), invité par un propriétaire
+       * depuis l'onglet Équipe. Pas de cabinet : le serveur retrouve le
+       * revendeur par l'invitation en attente, sous le jeton de l'appelant.
+       */
+      kind: 'collaborateur'
+    }
 
 export interface RetourInvitation {
   ok: boolean

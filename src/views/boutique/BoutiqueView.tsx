@@ -1,18 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button, Card, Chip, Notice, Overline, TextInput, Title } from '@/components/ui'
+import { useMaybeAuth } from '@/auth/session'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { ouvert, useDroits } from '@/cabinet/droits'
-import {
-  annonceDeLaRepriseAuCabinet,
-  phraseDeLecture,
-  saisieDuPrix,
-  totalDesVentes,
-  type Annonce,
-} from '@/lib/boutique'
+import { annonceDeLaRepriseAuCabinet, phraseDeLecture, saisieDuPrix, type Annonce } from '@/lib/boutique'
+import { telechargerRecu } from '@/lib/recuPdf'
 import { supabase } from '@/lib/supabase'
+import { annonceDuRemboursement } from '@/lib/ventes'
 import { lireIntegrations, type EtatIntegrations } from '@/services/integrations'
-import { verifierEnAttente, type CommandeEnAttente } from '@/services/shop'
+import { lireRecu, rembourserVente, verifierEnAttente, type CommandeEnAttente } from '@/services/shop'
 import { useSetState } from '@/state/store'
+import { ExportVentes } from './ExportVentes'
+import { VueVentes, type RetourVente, type VenteAffichee } from './VentesDuCabinet'
 import s from './BoutiqueView.module.css'
 
 /** Les ventes lues à l'ouverture : les plus récentes. */
@@ -37,12 +36,31 @@ interface AudioDispo {
   title: string
 }
 
-interface Vente {
+/** Une vente telle que la base la rend, avant d'être mise en forme pour la liste. */
+interface LigneVente {
   id: string
   title: string
   amount_cents: number
+  currency: string
+  status: 'payee' | 'remboursee'
   paid_at: string | null
+  rembourse_at: string | null
   patient: { display_name: string } | null
+  produit: { kind: string } | null
+}
+
+function venteAffichee(l: LigneVente): VenteAffichee {
+  return {
+    id: l.id,
+    title: l.title,
+    amount_cents: l.amount_cents,
+    currency: l.currency,
+    status: l.status,
+    paid_at: l.paid_at,
+    rembourse_at: l.rembourse_at,
+    patient: l.patient?.display_name ?? null,
+    genre: l.produit?.kind ?? null,
+  }
 }
 
 const GENRES: Array<{ value: Genre; label: string }> = [
@@ -77,11 +95,16 @@ export function centimesDe(saisie: string): number {
  */
 export function BoutiqueView() {
   const cabinet = useMaybeCabinet()
+  const contexte = useMaybeAuth()?.context?.cabinet ?? null
   const droits = useDroits()
   const set = useSetState()
   const [produits, setProduits] = useState<Produit[]>([])
   const [audios, setAudios] = useState<AudioDispo[]>([])
-  const [ventes, setVentes] = useState<Vente[]>([])
+  const [ventes, setVentes] = useState<VenteAffichee[]>([])
+  /** La vente dont on confirme le remboursement, le geste en cours, et ce qu'il a donné. */
+  const [aConfirmer, setAConfirmer] = useState<string | null>(null)
+  const [geste, setGeste] = useState('')
+  const [retourVente, setRetourVente] = useState<RetourVente | null>(null)
   const [enAttente, setEnAttente] = useState<CommandeEnAttente[]>([])
   /** Ce qui n'a pas pu être lu — à dire, plutôt qu'afficher une boutique vide. */
   const [illisible, setIllisible] = useState<{ produits: boolean; ventes: boolean; audios: boolean }>({
@@ -95,9 +118,20 @@ export function BoutiqueView() {
   /** Le produit en cours de modification. */
   const [edition, setEdition] = useState<string | null>(null)
 
+  const cabinetId = contexte?.id ?? null
   const charger = useCallback(async () => {
     const db = supabase()
     if (!db) return
+    /* Les ventes DU cabinet, nommément : un compte à la fois membre et
+       patient d'un autre cabinet lirait sinon ses propres achats parmi elles
+       (les deux politiques de lecture s'additionnent). */
+    let lectureVentes = db
+      .from('orders')
+      .select(
+        'id, title, amount_cents, currency, status, paid_at, rembourse_at, patient:patients (display_name), produit:products (kind)',
+      )
+      .in('status', ['payee', 'remboursee'])
+    if (cabinetId) lectureVentes = lectureVentes.eq('cabinet_id', cabinetId)
     const [p, a, v] = await Promise.all([
       db
         .from('products')
@@ -106,12 +140,7 @@ export function BoutiqueView() {
         .order('position')
         .order('created_at'),
       db.from('audio_library').select('id, title').order('title'),
-      db
-        .from('orders')
-        .select('id, title, amount_cents, paid_at, patient:patients (display_name)')
-        .eq('status', 'payee')
-        .order('paid_at', { ascending: false })
-        .limit(VENTES_LUES),
+      lectureVentes.order('paid_at', { ascending: false }).limit(VENTES_LUES),
     ])
     /* UNE PANNE N'EST PAS UNE BOUTIQUE VIDE. Les erreurs étaient tues : une
        lecture ratée affichait « Aucun produit pour l'instant » et faisait
@@ -122,14 +151,14 @@ export function BoutiqueView() {
     setIllisible({ produits: Boolean(p.error), ventes: Boolean(v.error), audios: Boolean(a.error) })
     if (!p.error) setProduits((p.data ?? []) as Produit[])
     if (!a.error) setAudios((a.data ?? []) as AudioDispo[])
-    if (!v.error) setVentes((v.data ?? []) as unknown as Vente[])
+    if (!v.error) setVentes(((v.data ?? []) as unknown as LigneVente[]).map(venteAffichee))
     try {
       setEtat(await lireIntegrations())
     } catch {
       setEtat(null)
     }
     setChargement(false)
-  }, [])
+  }, [cabinetId])
 
   /* La reprise, après la première lecture : Stripe peut prendre quelques
      secondes, la page n'a pas à les attendre. Si quelque chose a bougé, on
@@ -183,11 +212,43 @@ export function BoutiqueView() {
     await charger()
   }
 
-  /* LE TOTAL DIT SUR QUOI IL PORTE. Il s'annonçait « encaissés » alors qu'il
-     ne sommait que les vingt dernières ventes : au-delà, la thérapeute lisait
-     un chiffre d'affaires faux. Toutes les ventes tiennent à l'écran : c'est
-     le vrai total. Sinon, l'écran le dit. */
-  const total = totalDesVentes(ventes, VENTES_LUES)
+  /* Le reçu d'une vente : le même que celui du patient, relu par le serveur
+     — le nom du cabinet et son identité de facturation compris. */
+  async function recu(id: string) {
+    if (geste) return
+    setGeste(`recu:${id}`)
+    setRetourVente(null)
+    try {
+      const nom = await telechargerRecu(await lireRecu(id, 'cabinet'))
+      setRetourVente({ commandeId: id, tone: 'ok', text: `Reçu téléchargé : ${nom}.`, lien: null })
+    } catch (err) {
+      setRetourVente({ commandeId: id, tone: 'warn', text: (err as Error).message, lien: null })
+    }
+    setGeste('')
+  }
+
+  /* Le remboursement, confirmé sous la vente. Le serveur rembourse avec la
+     clé du cabinet ; quand il ne le peut pas, il dit pourquoi, et l'écran
+     ouvre le paiement dans le tableau de bord Stripe. */
+  async function rembourser(id: string) {
+    const vente = ventes.find((v) => v.id === id)
+    if (!vente || geste) return
+    setGeste(`remboursement:${id}`)
+    setRetourVente(null)
+    try {
+      const issue = await rembourserVente(id)
+      const annonce = annonceDuRemboursement(issue, vente)
+      setRetourVente({ commandeId: id, ...annonce })
+      if (issue.rembourse) {
+        setAConfirmer(null)
+        await charger()
+      }
+    } catch (err) {
+      setRetourVente({ commandeId: id, tone: 'warn', text: (err as Error).message, lien: null })
+    }
+    setGeste('')
+  }
+
   const lecture = phraseDeLecture([
     illisible.produits ? 'vos produits' : '',
     illisible.ventes ? 'vos ventes' : '',
@@ -212,7 +273,8 @@ export function BoutiqueView() {
       <p className={s.intro}>
         Ce que vos patients peuvent acheter depuis leur espace : un audio, une séance, un
         programme. Le paiement arrive directement sur votre compte Stripe. Un audio acheté entre
-        dans la bibliothèque du patient dès que Stripe confirme le paiement.
+        dans la bibliothèque du patient dès que Stripe confirme le paiement. Chaque vente a son
+        reçu, se rembourse d’ici, et entre dans votre livre des recettes, à exporter en bas de page.
       </p>
 
       {!cabinet?.reel ? (
@@ -360,34 +422,29 @@ export function BoutiqueView() {
               </Card>
             ) : null}
 
-            {ventes.length > 0 ? (
-              <Card className={s.bloc}>
-                <div className={s.blocHead}>
-                  <Title large as="h2">
-                    Dernières ventes
-                  </Title>
-                  <span className={s.compte}>
-                    {total.complet
-                      ? `${prix(total.cents)} encaissés`
-                      : `${prix(total.cents)} sur les ${VENTES_LUES} dernières ventes`}
-                  </span>
-                </div>
-                <div className={s.liste}>
-                  {ventes.map((v) => (
-                    <div key={v.id} className={s.vente}>
-                      <span className={s.ligneTitre}>{v.title}</span>
-                      <span className={s.muted}>
-                        {v.patient?.display_name ?? '—'}
-                        {v.paid_at
-                          ? ` · ${new Date(v.paid_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`
-                          : ''}
-                      </span>
-                      <span className={s.prix}>{prix(v.amount_cents)}</span>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            ) : null}
+            {/* LE TOTAL DIT SUR QUOI IL PORTE. Il s'annonçait « encaissés »
+                alors qu'il ne sommait que les vingt dernières ventes : la
+                liste le dit, et renvoie au livre des recettes, qui les
+                compte toutes. Une vente remboursée reste à sa place, marquée,
+                et ne compte plus dans l'encaissé. */}
+            <VueVentes
+              etat={illisible.ventes ? 'illisible' : 'pret'}
+              ventes={ventes}
+              limite={VENTES_LUES}
+              peutRembourser={contexte?.role === 'owner'}
+              aConfirmer={aConfirmer}
+              enCours={geste}
+              retour={retourVente}
+              onRecu={(id) => void recu(id)}
+              onDemander={(id) => {
+                setAConfirmer(id)
+                setRetourVente(null)
+              }}
+              onConfirmer={(id) => void rembourser(id)}
+              onAnnuler={() => setAConfirmer(null)}
+            />
+
+            <ExportVentes />
           </div>
         </>
       )}

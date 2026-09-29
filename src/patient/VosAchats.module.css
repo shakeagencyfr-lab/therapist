@@ -1,0 +1,73 @@
+/* « Vos achats » et leurs reçus (0058). Les lignes reprennent le gabarit de
+   l'espace patient ; seuls le bouton du reçu et la marque « Remboursé »
+   sont propres à ce bloc. */
+
+.achat {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--c-border-light);
+}
+.achat:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.texte {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.titre {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.detail {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--c-text-muted);
+}
+
+.marque {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: var(--r-pill);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+  color: var(--c-text-muted);
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border-light);
+}
+
+/* Une vraie cible de doigt : 40 px de haut. */
+.recu {
+  flex: none;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.recu:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.retour {
+  margin-top: 10px;
+}

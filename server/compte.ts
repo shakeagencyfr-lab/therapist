@@ -22,7 +22,7 @@
  * pourrait pas rendre à sa patiente.
  */
 import { entreeParLienRecente, lireEntrees, refusDuNouveau } from '../src/lib/motDePasse.js'
-import { clientAdmin, identifier } from './auth.js'
+import { clientAdmin, identifier, identifierPourGesteSensible } from './auth.js'
 import { HttpError } from './errors.js'
 
 export interface RetourCompte {
@@ -291,7 +291,10 @@ function porteDe(db: NonNullable<ReturnType<typeof clientAdmin>>): PorteMotDePas
 }
 
 export async function changerMotDePasse(token: string | null, corps: unknown): Promise<RetourCompte> {
-  const appelant = await identifier(token)
+  /* Un compte protégé par la double authentification ne change son mot de
+     passe que depuis une session qui a donné son code : sinon, l'ancien mot
+     de passe — celui qu'on craint d'avoir perdu — suffirait à le remplacer. */
+  const appelant = await identifierPourGesteSensible(token)
   const db = clientAdmin()
   if (!db) {
     throw new HttpError(503, "Le serveur n'est pas configuré pour ce geste. Réessayez plus tard.")

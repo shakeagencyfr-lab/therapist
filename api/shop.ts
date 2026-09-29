@@ -2,11 +2,23 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { jetonDe } from '../server/auth.js'
 import { describeError } from '../server/ai.js'
 import { journaliserRefus } from '../server/errors.js'
-import { demarrerPaiement, hoteDeLaRequete, verifierEnAttente, verifierPaiement } from '../server/shop.js'
+import {
+  demarrerPaiement,
+  hoteDeLaRequete,
+  recuDeCommande,
+  rembourserCommande,
+  verifierEnAttente,
+  verifierPaiement,
+} from '../server/shop.js'
 
 /**
- * POST { action: 'demarrer', productId }, { action: 'verifier', sessionId }
- * ou { action: 'verifier-en-attente', cote: 'patient' | 'cabinet' }.
+ * POST { action: 'demarrer', productId }, { action: 'verifier', sessionId },
+ * { action: 'verifier-en-attente', cote: 'patient' | 'cabinet' },
+ * { action: 'rembourser', commandeId } ou { action: 'recu', commandeId, cote }.
+ *
+ * Le remboursement et le reçu vivent ici plutôt que dans une fonction à eux :
+ * le nombre de fonctions du déploiement est compté (server/fonctions.test.ts),
+ * et c'est la boutique.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
@@ -27,6 +39,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     }
     if (body.action === 'verifier-en-attente') {
       res.status(200).json(await verifierEnAttente(token, req.body))
+      return
+    }
+    if (body.action === 'rembourser') {
+      res.status(200).json(await rembourserCommande(token, req.body))
+      return
+    }
+    if (body.action === 'recu') {
+      res.status(200).json(await recuDeCommande(token, req.body))
       return
     }
     res.status(400).json({ error: 'Action inconnue.' })

@@ -20,10 +20,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   }
   try {
     const bilan = await pousserLesRappelsDus()
+    // Des nombres seulement : ni titre, ni texte, ni destinataire au journal.
     if (bilan.reclames) {
       console.log(
         `[rappels] ${bilan.envoyes} arrivés, ${bilan.sansAppareil} sans téléphone, ${bilan.echecs} en échec, ${bilan.appareilsRetires} téléphones périmés retirés — sur ${bilan.reclames}`,
       )
+    }
+    if (bilan.soirs) {
+      console.log(`[rappels] rappels du soir : ${bilan.soirsArrives} arrivés sur ${bilan.soirs}`)
     }
     res.status(200).json(bilan)
   } catch (err) {

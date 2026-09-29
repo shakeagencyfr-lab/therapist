@@ -18,7 +18,7 @@
  */
 import nodemailer from 'nodemailer'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { adminConfigure, clientAdmin, exigerCabinet, identifier } from './auth.js'
+import { adminConfigure, clientAdmin, exigerCabinet, identifier, identifierPourGesteSensible } from './auth.js'
 import { droitsDuCabinet, exigerDroit, levierDuCabinet } from './droits.js'
 import { lookup } from 'node:dns/promises'
 import { HttpError } from './errors.js'
@@ -328,7 +328,8 @@ async function eprouver(smtp: SmtpPret): Promise<void> {
 
 /** Enregistre le SMTP du cabinet, une fois éprouvé. */
 export async function reglerSmtp(token: string | null, raw: unknown): Promise<EtatSmtp> {
-  const appelant = await identifier(token)
+  // Un mot de passe d'envoi posé : en « aal2 » pour un compte protégé.
+  const appelant = await identifierPourGesteSensible(token)
   const cabinetId = exigerCabinet(appelant)
   const droits = await droitsDuCabinet(cabinetId, appelant.client)
   exigerDroit(droits, 'marqueBlanche')
@@ -387,7 +388,7 @@ export async function reglerSmtp(token: string | null, raw: unknown): Promise<Et
 
 /** Retire le SMTP : les courriels repartent du service de la plateforme. */
 export async function retirerSmtp(token: string | null): Promise<EtatSmtp> {
-  const appelant = await identifier(token)
+  const appelant = await identifierPourGesteSensible(token)
   const cabinetId = exigerCabinet(appelant)
   const db = admin()
   const maintenant = new Date().toISOString()

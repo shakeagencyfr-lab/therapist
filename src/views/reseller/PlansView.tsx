@@ -407,7 +407,14 @@ function ReglageDuContrat({
   )
 }
 
-function LigneException({
+/**
+ * Le contrat d'un cabinet et ses exceptions.
+ *
+ * Exportée : la fiche du cabinet (FicheCabinet.tsx) règle le même contrat
+ * avec le même composant — deux éditeurs du même contrat finiraient par ne
+ * plus dire la même chose.
+ */
+export function LigneException({
   row,
   onSave,
   onContrat,

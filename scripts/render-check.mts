@@ -11,9 +11,16 @@
  *
  *   npm run check:render
  */
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { renderToString } from 'react-dom/server'
 import { createElement as h } from 'react'
 import { App } from '../src/App'
+import { DeuxiemeFacteur } from '../src/auth/DeuxiemeFacteur'
+import { AvertissementInactivite, GardeInactivite } from '../src/auth/Inactivite'
+import { DoubleAuthentification } from '../src/views/compte/DoubleAuthentification'
+import { DeconnexionAuto } from '../src/views/compte/DeconnexionAuto'
 import { RendezVous } from '../src/patient/RendezVous'
 import { VitrinePage } from '../src/views/vitrine/VitrinePage'
 import { Tache } from '../src/patient/Tache'
@@ -23,10 +30,22 @@ import { ConsigneEditeur } from '../src/views/therapist/ConsigneEditeur'
 import { ListeDesSeances, SeancesFiche } from '../src/views/therapist/SeancesFiche'
 import { NotesCliniques } from '../src/views/therapist/NotesCliniques'
 import { ExportDossier } from '../src/views/therapist/ExportDossier'
+import { VueRappelsReguliers } from '../src/views/notifications/RappelsReguliers'
+import { VueReglagesRappels } from '../src/patient/ReglagesRappels'
+import { VueVentes } from '../src/views/boutique/VentesDuCabinet'
+import { VueExportVentes } from '../src/views/boutique/ExportVentes'
+import { VueAchats } from '../src/patient/VosAchats'
+import { MOT_MASQUE } from '../src/lib/discretion'
 import { AppStoreProvider } from '../src/state/store'
 import { COUT_HYPNOSE } from '../src/lib/coutIA'
 import { euro } from '../src/lib/format'
 import { PATIENTS } from '../src/data/patients'
+import { PageDeVente } from '../src/vente/PageDeVente'
+import { PortePraticienne } from '../src/vente/Porte'
+import { SuiviDemo, TelephoneDemo } from '../src/vente/Demo'
+import { motsInterditsDans } from '../src/vente/garde'
+import { PLANS } from '../src/data/reseller'
+import { SessionProvider } from '../src/auth/session'
 import { DOSSIER_AVANT_LECTURE, type AppState, type ResellerView, type ViewMode } from '../src/state/state'
 
 const noms = Object.values(PATIENTS).map((p) => p.name)
@@ -519,7 +538,7 @@ if (compteRevendeur && !compteRevendeur.includes('Mon compte')) {
 }
 
 // 2. Les quatre vues du revendeur rendent, et ne montrent aucun patient.
-const VUES: ResellerView[] = ['portfolio', 'brand', 'plans']
+const VUES: ResellerView[] = ['portfolio', 'brand', 'plans', 'demandes', 'fiche', 'equipe']
 for (const rView of VUES) {
   const html = rendu(`revendeur/${rView}`, { space: 'reseller', rView })
   if (!html) continue
@@ -529,6 +548,39 @@ for (const rView of VUES) {
     echecs++
   } else {
     console.log(`✓ revendeur/${rView.padEnd(9)} ${String(html.length).padStart(6)} octets · aucun contenu de patient`)
+  }
+}
+
+/* 2 bis. LA FICHE D'UN CABINET ET L'ÉQUIPE DU REVENDEUR (0057) disent ce
+   qu'elles promettent : la fiche nomme le cabinet choisi, son contrat, ses
+   chiffres et son historique ; l'onglet Équipe, ses membres et les
+   coordonnées que liront les praticiennes. Et une fiche inconnue ne plante
+   pas : elle le dit. */
+{
+  const fiche = rendu('revendeur/fiche-ollivier', { space: 'reseller', rView: 'fiche', rSel: 'ollivier' })
+  const attendus = ['Cabinet Laetitia Ollivier', 'Contrat et offre', 'Historique du contrat', 'Praticiennes', 'Analyse']
+  const manque = attendus.filter((t) => !fiche.includes(t))
+  if (manque.length) {
+    console.error(`✗ revendeur/fiche : il manque ${manque.join(', ')}`)
+    echecs++
+  } else {
+    console.log('✓ revendeur/fiche      contrat, chiffres, praticiennes et historique')
+  }
+  const inconnue = rendu('revendeur/fiche-inconnue', { space: 'reseller', rView: 'fiche', rSel: 'personne' })
+  if (inconnue && !inconnue.includes('pas, ou plus, dans votre portefeuille')) {
+    console.error("✗ revendeur/fiche-inconnue : une fiche introuvable ne le dit pas")
+    echecs++
+  } else if (inconnue) {
+    console.log('✓ revendeur/fiche-inconnue  dite, sans planter')
+  }
+  const equipe = rendu('revendeur/equipe-contenu', { space: 'reseller', rView: 'equipe' })
+  const attendusEquipe = ['Membres', 'Invitations en attente', 'Coordonnées de support']
+  const manqueEquipe = attendusEquipe.filter((t) => !equipe.includes(t))
+  if (manqueEquipe.length) {
+    console.error(`✗ revendeur/equipe : il manque ${manqueEquipe.join(', ')}`)
+    echecs++
+  } else {
+    console.log('✓ revendeur/equipe     membres, invitations, coordonnées de support')
   }
 }
 
@@ -828,6 +880,416 @@ try {
     echecs++
   } else {
     console.log(`✓ dossier           ${String(ouverte.length).padStart(6)} octets · séances relues, retrait tu, volets présents, rien d'inventé hors cabinet`)
+  }
+}
+
+/* LES RAPPELS (0055). Côté cabinet, les rappels réguliers existent dans
+   l'écran des notifications, disent leur prochain envoi, s'arrêtent, et ne
+   se programment pas en démonstration. Côté patient, les réglages montrent
+   l'aperçu exact de l'écran verrouillé — masqué par défaut —, avertissent
+   quand le contenu s'affiche, et une lecture ratée ne se fait pas passer
+   pour des réglages. */
+{
+  const manque: string[] = []
+  const MARDI_10H = new Date('2026-09-29T08:00:00Z')
+  const rien = async () => ({ ok: true, message: '' })
+
+  const notif = rendu('cabinet/notif-rappels', { space: 'cabinet', mode: 'notif' })
+  if (notif) {
+    if (!notif.includes('Rappels réguliers')) manque.push("les rappels réguliers manquent à l'écran des notifications")
+    if (!notif.includes('Démonstration : les rappels réguliers')) manque.push('la démonstration ne dit pas que rien ne partira')
+    if (!/<button[^>]*type="submit"[^>]*disabled[^>]*>Programmer ce rappel/.test(notif)) {
+      manque.push('un rappel régulier se programme en démonstration')
+    }
+    if (!notif.includes(MOT_MASQUE.titre)) manque.push("l'éditeur ne dit pas ce que montre l'écran verrouillé")
+  }
+
+  const vue = (props: Record<string, unknown>) =>
+    renderToString(
+      h(VueRappelsReguliers as never, {
+        rappels: [],
+        personnes: [{ id: 'a', nom: 'Anna' }, { id: 'b', nom: 'Bea' }],
+        groupe: ['a'],
+        telephones: { a: 1 },
+        onProgrammer: rien,
+        onArreter: rien,
+        onRelire: () => {},
+        maintenant: MARDI_10H,
+        fuseau: 'Europe/Paris',
+        etat: 'pret',
+        ...props,
+      } as never),
+    )
+  try {
+    const liste = vue({
+      rappels: [
+        {
+          id: 'r1', titre: 'Respiration', texte: 'Trois respirations lentes.', jourSemaine: 1, heure: '09:30',
+          finLe: '2026-10-27', creeLe: '2026-09-20T08:00:00Z', annuleLe: null,
+          destinataires: [{ id: 'a', nom: 'Anna', clos: false }],
+        },
+        {
+          id: 'r2', titre: 'Ancien', texte: 'x', jourSemaine: null, heure: '20:00',
+          finLe: '2026-09-01', creeLe: '2026-08-01T08:00:00Z', annuleLe: null, destinataires: [],
+        },
+      ],
+    })
+    for (const [attendu, quoi] of [
+      ['Chaque lundi, 9 h 30', 'la récurrence'],
+      ['Prochain envoi : lundi 5 octobre, 9 h 30', 'le prochain envoi'],
+      ['Arrêter le rappel « Respiration »', "le geste d'arrêt"],
+      ['Voir les rappels terminés ou arrêtés (1)', 'les rappels terminés, repliés'],
+      ['sans rappels activés', 'qui ne recevra rien sur son téléphone'],
+    ] as const) {
+      if (!liste.includes(attendu)) manque.push(`la liste des rappels ne montre pas ${quoi}`)
+    }
+    if (liste.includes('Ancien')) manque.push('un rappel terminé se montre déplié')
+    if (!vue({}).includes('Aucun rappel régulier en cours')) manque.push("la liste vide ne dit pas quoi faire")
+    if (!vue({ etat: 'echec' }).includes('pas pu être lus')) manque.push("l'échec de lecture passe pour une liste vide")
+    if (!vue({ etat: 'chargement' }).includes('Lecture des rappels')) manque.push('le chargement ne se dit pas')
+    if (!vue({ fuseau: 'America/Montreal' }).includes('(heure de Paris)')) manque.push("l'heure de Paris n'est pas précisée hors de Paris")
+  } catch (err) {
+    manque.push(`les rappels réguliers ne se rendent pas : ${(err as Error).message}`)
+  }
+
+  const reglages = (props: Record<string, unknown>) =>
+    renderToString(
+      h(VueReglagesRappels as never, {
+        etat: 'pret',
+        preferences: { masquerContenu: true, soirActif: false, soirHeure: '20:30' },
+        enCours: false,
+        telephoneActif: true,
+        onRegler: rien,
+        onRelire: () => {},
+        maintenant: MARDI_10H,
+        ...props,
+      } as never),
+    )
+  try {
+    const masque = reglages({})
+    if (!masque.includes(MOT_MASQUE.titre) || !masque.includes(MOT_MASQUE.corps)) {
+      manque.push("l'aperçu de l'écran verrouillé ne montre pas le texte neutre")
+    }
+    if (!/id="rappel-masque"[^>]*checked/.test(masque) && !/checked=""[^>]*id="rappel-masque"/.test(masque)) {
+      manque.push("la discrétion n'est pas cochée quand elle est en place")
+    }
+    if (!masque.includes('role="switch"')) manque.push('les interrupteurs ne se disent pas tels aux lecteurs d’écran')
+    if (masque.includes('Toute personne qui voit votre téléphone')) manque.push('l’avertissement paraît alors que le contenu est masqué')
+
+    const affiche = reglages({ preferences: { masquerContenu: false, soirActif: true, soirHeure: '21:00' } })
+    if (!affiche.includes('Toute personne qui voit votre téléphone')) manque.push("afficher le contenu ne s'accompagne d'aucun avertissement")
+    if (!affiche.includes("Premier rappel aujourd&#x27;hui à 21 h")) manque.push("le rappel du soir n'annonce pas son premier envoi")
+    if (!affiche.includes('type="time"')) manque.push("l'heure du rappel du soir ne se choisit pas")
+
+    const ailleurs = reglages({ telephoneActif: false })
+    if (!ailleurs.includes('ne sont pas activés sur cet appareil')) manque.push("les réglages ne disent pas qu'ils valent pour d'autres téléphones")
+
+    const rate = reglages({ etat: 'echec', preferences: null })
+    if (!rate.includes('pas pu être lus')) manque.push("la lecture ratée des réglages ne se dit pas")
+    if (rate.includes(MOT_MASQUE.titre)) manque.push('une lecture ratée montre des réglages supposés')
+    if (reglages({ etat: 'indisponible', preferences: null })) manque.push('des réglages sans base se montrent quand même')
+  } catch (err) {
+    manque.push(`les réglages de rappel ne se rendent pas : ${(err as Error).message}`)
+  }
+
+  if (manque.length) {
+    console.error(`✗ rappels : ${manque.join(', ')}`)
+    echecs++
+  } else {
+    console.log(`✓ rappels          ${String(notif.length).padStart(6)} octets · réguliers en place, discrétion par défaut, rien d'inventé hors cabinet`)
+  }
+}
+
+/* LA SÉCURITÉ DU COMPTE (0056). La porte du second facteur demande le code
+   à six chiffres, et laisse partir ; le préavis d'inactivité dit le temps
+   qui reste et ce qui serait perdu ; les deux cartes de « Mon compte » se
+   rendent sans session, sans rien supposer, et le QR code ne passe jamais
+   par du balisage injecté. */
+{
+  const manque: string[] = []
+  let porte = ''
+  try {
+    porte = renderToString(
+      h(DeuxiemeFacteur, {
+        email: 'praticienne@exemple.fr',
+        verifier: async () => null,
+        seDeconnecter: () => {},
+      }),
+    )
+    if (!porte.includes('Le code de votre application')) manque.push('la porte du code ne dit pas ce qu’elle attend')
+    if (!porte.includes('autoComplete="one-time-code"') && !porte.includes('autocomplete="one-time-code"'))
+      manque.push("le champ du code n'appelle pas le remplissage automatique")
+    if (!porte.includes('inputMode="numeric"') && !porte.includes('inputmode="numeric"'))
+      manque.push('le champ du code n’ouvre pas le clavier numérique')
+    if (!porte.includes('praticienne@exemple.fr')) manque.push('la porte du code ne dit pas pour quel compte')
+    if (!porte.includes('Me déconnecter')) manque.push('la porte du code ne laisse pas partir')
+    if (!porte.includes('Téléphone perdu')) manque.push('la porte du code ne dit rien du téléphone perdu')
+    const vus = noms.filter((n) => porte.includes(n))
+    if (vus.length) manque.push(`la porte du code montre des fiches (${vus.join(', ')})`)
+  } catch (err) {
+    manque.push(`la porte du code ne se rend pas : ${(err as Error).message}`)
+  }
+
+  try {
+    const preavis = renderToString(h(AvertissementInactivite, { secondes: 45, onRester: () => {}, onPartir: () => {} }))
+    if (!preavis.includes('role="alertdialog"')) manque.push("le préavis n'est pas annoncé comme une alerte")
+    if (!preavis.includes('45 secondes')) manque.push('le préavis ne dit pas le temps qui reste')
+    if (!preavis.includes('Je suis là')) manque.push('le préavis ne propose pas de rester')
+    if (!preavis.includes('serait perdu')) manque.push('le préavis ne dit pas ce qui serait perdu')
+    const derniere = renderToString(h(AvertissementInactivite, { secondes: 1, onRester: () => {}, onPartir: () => {} }))
+    if (!derniere.includes('1 seconde<') || derniere.includes('1 secondes')) manque.push('le préavis écrit « 1 secondes »')
+    const garde = renderToString(
+      h(AppStoreProvider, { initial: { space: 'cabinet', mode: 'therapist' } }, h(GardeInactivite, { delaiMinutes: 30, onExpire: () => {} })),
+    )
+    if (garde.includes('alertdialog')) manque.push("la garde d'inactivité s'affiche avant tout délai")
+  } catch (err) {
+    manque.push(`le préavis d'inactivité ne se rend pas : ${(err as Error).message}`)
+  }
+
+  try {
+    const mfa = renderToString(h(DoubleAuthentification))
+    if (!mfa.includes('Double authentification')) manque.push('la carte de double authentification ne se titre pas')
+    if (!mfa.includes('Lecture de votre réglage')) manque.push('la carte de double authentification ne dit pas qu’elle lit')
+    if (/Active<|Inactive</.test(mfa)) manque.push('la carte de double authentification suppose un état avant de l’avoir lu')
+    const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'views', 'compte', 'DoubleAuthentification.tsx'), 'utf8')
+    if (source.includes('dangerouslySetInnerHTML')) manque.push('le QR code est injecté dans la page au lieu d’une image')
+
+    const delai = renderToString(h(DeconnexionAuto))
+    if (!delai.includes('Déconnexion automatique')) manque.push('la carte de déconnexion automatique ne se titre pas')
+    if (!/aria-pressed="true"[^>]*>30 min</.test(delai)) manque.push('le délai par défaut n’est pas de 30 minutes')
+    for (const choix of ['Jamais', '15 min', '1 heure']) {
+      if (!delai.includes(`>${choix}<`)) manque.push(`le délai « ${choix} » n'est pas proposé`)
+    }
+  } catch (err) {
+    manque.push(`les cartes de sécurité ne se rendent pas : ${(err as Error).message}`)
+  }
+
+  const compte = rendu('cabinet/compte-securite', { space: 'cabinet', mode: 'compte' })
+  if (compte && !compte.includes('Mon compte')) manque.push("« Mon compte » ne se rend plus")
+
+  if (manque.length) {
+    console.error(`✗ sécurité : ${manque.join(', ')}`)
+    echecs++
+  } else {
+    console.log(`✓ sécurité         ${String(porte.length).padStart(6)} octets · code demandé, préavis dit, cartes sans état supposé, QR en image`)
+  }
+}
+
+/* LA PAGE DE VENTE ET LA PORTE DES PRATICIENNES (src/vente).
+   La page rend sans base ni session ; elle dit les prix réels de la table
+   `plans`, la confidentialité telle qu'elle est — et aucun mot qu'elle n'a
+   pas le droit de dire : ni label d'hébergement, ni témoignage, ni avis de
+   clients, ni note en étoiles. Aucune ressource d'ailleurs. Les aperçus
+   vivants sont les vrais écrans, sans cadre tiers. /connexion est la porte
+   titrée « Espace praticien », avec son chemin de retour. */
+{
+  const manque: string[] = []
+  let page = ''
+  try {
+    page = renderToString(h(PageDeVente))
+  } catch (err) {
+    manque.push(`la page ne se rend pas : ${(err as Error).message}`)
+  }
+  if (page) {
+    const texte = page.replace(/<[^>]+>/g, ' ').replace(/&#x27;|&#39;/g, "'").replace(/\s+/g, ' ')
+    const interdits = motsInterditsDans(texte)
+    if (interdits.length) manque.push(`mots interdits : ${interdits.join(', ')}`)
+    for (const p of PLANS) {
+      const prix = `${p.priceCents / 100} €`
+      if (!texte.includes(prix)) manque.push(`le prix de l'offre ${p.label} (${prix}) manque`)
+      if (!texte.includes(p.label)) manque.push(`l'offre ${p.label} manque`)
+    }
+    if (!texte.includes('par mois')) manque.push('les prix ne disent pas « par mois »')
+    if (!/Prix indicatifs/.test(texte)) manque.push("la mention des prix indicatifs manque")
+    for (const [attendu, quoi] of [
+      ['Paris', 'la base à Paris'],
+      ['Anthropic', "l'analyse chez Anthropic"],
+      ['États-Unis', 'les États-Unis'],
+      ['7 jours', "l'effacement à 7 jours"],
+      ['consentement', 'le consentement'],
+      ['éditeur', "l'éditeur du navigateur"],
+      ['cloisonné', 'le cloisonnement'],
+    ] as const) {
+      if (!texte.includes(attendu)) manque.push(`la confidentialité ne dit pas ${quoi}`)
+    }
+    if (/\b(claude|opus|sonnet|haiku)\b/i.test(texte)) manque.push("un modèle d'IA est nommé")
+    if ((page.match(/<h1[\s>]/g) ?? []).length !== 1) manque.push('la page n’a pas exactement un titre h1')
+    if (!page.includes('href="/connexion"')) manque.push("« Espace praticien » ne mène pas à /connexion")
+    if (!page.includes('href="#essai"')) manque.push('« Essayer 14 jours » ne mène pas au formulaire')
+    for (const chemin of ['/confidentialite', '/conditions', '/mentions-legales']) {
+      if (!page.includes(`href="${chemin}"`)) manque.push(`le pied de page ne mène pas à ${chemin}`)
+    }
+    if (/(?:src|href)="(?:https?:)?\/\//.test(page)) manque.push('une ressource ou un lien sort de chez nous')
+    if (!/type="checkbox"[^>]*required|required[^>]*type="checkbox"/.test(page)) manque.push('le consentement au recontact n’est pas exigé')
+    if (!/aria-hidden="true"[^>]*>\s*<label[^>]*>Ne remplissez pas ce champ/.test(page)) manque.push('le champ piège manque, ou se voit')
+    if (!page.includes('Aller au contenu')) manque.push("le lien d'évitement manque")
+  }
+
+  let porte = ''
+  try {
+    porte = renderToString(h(SessionProvider, null, h(PortePraticienne)))
+  } catch (err) {
+    manque.push(`la porte ne se rend pas : ${(err as Error).message}`)
+  }
+  if (porte) {
+    if (!porte.includes('Espace praticien')) manque.push('la porte ne dit pas « Espace praticien »')
+    if (!porte.includes('href="/"')) manque.push("la porte n'a pas de chemin de retour vers la page")
+  }
+
+  let demos = ''
+  try {
+    demos = renderToString(h(TelephoneDemo)) + renderToString(h(SuiviDemo))
+  } catch (err) {
+    manque.push(`les aperçus ne se rendent pas : ${(err as Error).message}`)
+  }
+  if (demos) {
+    if (!demos.includes('Bonjour')) manque.push("l'aperçu patient ne montre pas la journée")
+    if (!demos.includes('décroche')) manque.push("l'aperçu du suivi ne montre pas qui décroche")
+    if (/<iframe/.test(demos)) manque.push('un aperçu encadre une page tierce')
+    if (/Générer mes affirmations|Renouveler mes affirmations/.test(demos)) manque.push("l'aperçu propose un geste qui appellerait le serveur")
+  }
+
+  if (manque.length) {
+    console.error(`✗ page de vente : ${manque.join(' ; ')}`)
+    echecs++
+  } else {
+    console.log(`✓ page de vente    ${String(page.length).padStart(6)} octets · prix réels, confidentialité dite, aucun mot interdit, porte et aperçus`)
+  }
+}
+
+/* LES VENTES (0058). Côté cabinet, chaque vente a son reçu ; rembourser se
+   confirme sous la vente, dit la somme, le délai de la banque et que rien
+   n'est retiré au patient, et reste réservé à la personne titulaire ; un
+   remboursement impossible ouvre le paiement dans Stripe, dans un nouvel
+   onglet. Le livre des recettes part en initiales, ne s'exporte pas en
+   démonstration ni sur une période à l'envers. Côté patient, chaque achat
+   a son reçu, et un achat remboursé le dit. */
+{
+  const manque: string[] = []
+  const sans = (html: string) => html.replace(/<!-- -->/g, '')
+  const rien = () => {}
+  const VENTES = [
+    {
+      id: 'aaaaaaaa-0000-4000-8000-000000000001', title: 'Ancrage du soir', amount_cents: 2990, currency: 'eur',
+      status: 'payee', paid_at: '2026-09-12T08:00:00Z', rembourse_at: null, patient: 'Nadia Belkacem', genre: 'audio',
+    },
+    {
+      id: 'bbbbbbbb-0000-4000-8000-000000000002', title: 'Sommeil profond', amount_cents: 1500, currency: 'eur',
+      status: 'remboursee', paid_at: '2026-08-20T16:00:00Z', rembourse_at: '2026-09-05T06:00:00Z', patient: 'Dominique Roy', genre: 'seance',
+    },
+  ]
+  const ventes = (props: Record<string, unknown>) =>
+    sans(
+      renderToString(
+        h(VueVentes as never, {
+          etat: 'pret', ventes: VENTES, limite: 20, peutRembourser: true, aConfirmer: null, enCours: '', retour: null,
+          onRecu: rien, onDemander: rien, onConfirmer: rien, onAnnuler: rien, ...props,
+        } as never),
+      ),
+    )
+  let liste = ''
+  try {
+    liste = ventes({})
+    if (!liste.includes('Dernières ventes')) manque.push('la liste des ventes ne se titre pas')
+    if (!liste.includes('Télécharger le reçu de « Ancrage du soir »')) manque.push("une vente n'a pas son reçu")
+    if (!liste.includes('Télécharger le reçu de « Sommeil profond »')) manque.push("une vente remboursée n'a plus son reçu")
+    if (!liste.includes('Rembourser « Ancrage du soir »')) manque.push('une vente payée ne se rembourse pas')
+    if (liste.includes('Rembourser « Sommeil profond »')) manque.push('une vente remboursée se propose encore au remboursement')
+    if (!liste.includes('Remboursée')) manque.push('une vente remboursée ne le dit pas')
+    if (!liste.includes('29,90 € encaissés, remboursements déduits')) manque.push("l'encaissé compte une vente remboursée")
+    if (liste.includes('Confirmer le remboursement')) manque.push('la confirmation paraît avant la demande')
+
+    const confirme = ventes({ aConfirmer: VENTES[0].id })
+    for (const [attendu, quoi] of [
+      ['Rembourser 29,90 € à Nadia Belkacem ?', 'la somme et la personne'],
+      ['5 à 10 jours', 'le délai de la banque'],
+      ['ne s’annule pas', "qu'un remboursement est définitif"],
+      ['L’audio acheté reste dans sa bibliothèque', "que l'audio n'est pas retiré"],
+      ['Confirmer le remboursement', 'le geste de confirmation'],
+      ['role="group"', 'un groupe nommé pour les lecteurs d’écran'],
+      ['aria-expanded="true"', "l'état déplié du bouton"],
+    ] as const) {
+      if (!confirme.includes(attendu)) manque.push(`la confirmation ne montre pas ${quoi}`)
+    }
+
+    const refus = ventes({
+      retour: {
+        commandeId: VENTES[0].id, tone: 'warn', text: 'Votre clé Stripe n’a pas le droit de rembourser.',
+        lien: 'https://dashboard.stripe.com/payments/pi_3Nabc',
+      },
+    })
+    if (!/href="https:\/\/dashboard\.stripe\.com\/payments\/pi_3Nabc"[^>]*target="_blank"[^>]*rel="noopener noreferrer"/.test(refus)) {
+      manque.push("un remboursement impossible n'ouvre pas le paiement dans Stripe, dans un nouvel onglet")
+    }
+    if (!refus.includes('role="status"')) manque.push("le retour du remboursement n'est pas annoncé")
+
+    const equipe = ventes({ peutRembourser: false })
+    if (equipe.includes('Rembourser «')) manque.push('le remboursement se propose hors de la personne titulaire')
+    if (!equipe.includes('réservé à la personne titulaire')) manque.push("l'équipe ne sait pas pourquoi elle ne rembourse pas")
+    if (!equipe.includes('Télécharger le reçu')) manque.push("l'équipe ne télécharge plus les reçus")
+
+    if (!ventes({ ventes: [] }).includes('Aucune vente pour l’instant')) manque.push('la liste vide ne dit rien')
+    const illisible = ventes({ etat: 'illisible', ventes: [] })
+    if (!illisible.includes('n’ont pas pu être lues') || illisible.includes('Aucune vente')) {
+      manque.push('une lecture ratée passe pour une boutique sans vente')
+    }
+  } catch (err) {
+    manque.push(`les ventes ne se rendent pas : ${(err as Error).message}`)
+  }
+
+  const MARDI = new Date('2026-09-29T08:00:00Z')
+  const livre = (props: Record<string, unknown>) =>
+    sans(
+      renderToString(
+        h(VueExportVentes as never, {
+          reel: true, choix: 'mois', libre: { du: '2026-09-01', au: '2026-09-30' }, nomsComplets: false, etat: 'repos',
+          retour: null, maintenant: MARDI, onChoix: rien, onLibre: rien, onNomsComplets: rien, onExporter: rien, ...props,
+        } as never),
+      ),
+    )
+  try {
+    const pret = livre({})
+    if (!pret.includes('Livre des recettes')) manque.push('le livre des recettes ne se titre pas')
+    if (!pret.includes('Période : du 1er au 30 septembre 2026.')) manque.push('la période choisie ne se dit pas')
+    if (!pret.includes('journal d’accès')) manque.push("l'export ne dit pas qu'il laisse une trace")
+    if (/<input type="checkbox" checked/.test(pret)) manque.push('les noms complets sont cochés par défaut')
+    if (pret.includes('nommera chaque personne')) manque.push("l'avertissement des noms paraît sans les noms")
+    if (/<button[^>]*disabled[^>]*>Télécharger le livre/.test(pret)) manque.push("le livre ne s'exporte pas d'un cabinet réel")
+    for (const p of ['Ce mois-ci', 'Mois dernier', 'Cette année', 'Année dernière', 'Autre période']) {
+      if (!pret.includes(`>${p}<`)) manque.push(`la période « ${p} » n'est pas proposée`)
+    }
+    if (!livre({ nomsComplets: true }).includes('nommera chaque personne')) manque.push("les noms complets partent sans avertissement")
+    const envers = livre({ choix: 'libre', libre: { du: '2026-10-01', au: '2026-09-01' } })
+    if (!envers.includes('role="alert"') || !envers.includes('vient après la date de fin')) manque.push("une période à l'envers ne se dit pas")
+    if (!/<button[^>]*disabled[^>]*>Télécharger le livre/.test(envers)) manque.push("une période à l'envers s'exporte")
+    if (!envers.includes('type="date"')) manque.push('la période libre ne se choisit pas au calendrier')
+    const demo = livre({ reel: false })
+    if (!/<button[^>]*disabled[^>]*>Télécharger le livre/.test(demo)) manque.push("le livre s'exporte en démonstration")
+    if (!demo.includes('depuis la boutique réelle')) manque.push('la démonstration ne dit pas pourquoi rien ne part')
+    if (!livre({ etat: 'lecture' }).includes('Lecture des ventes…')) manque.push('la lecture du livre ne se dit pas')
+  } catch (err) {
+    manque.push(`le livre des recettes ne se rend pas : ${(err as Error).message}`)
+  }
+
+  try {
+    const achats = (props: Record<string, unknown>) =>
+      sans(renderToString(h(VueAchats as never, { achats: VENTES, enCours: '', retour: null, onRecu: rien, ...props } as never)))
+    const patient = achats({})
+    if (!patient.includes('Vos achats')) manque.push('« Vos achats » ne se titre pas')
+    if (!patient.includes('Télécharger le reçu de « Ancrage du soir »')) manque.push("un achat du patient n'a pas son reçu")
+    if (!patient.includes('Remboursé') || !patient.includes('remboursé le')) manque.push('un achat remboursé ne le dit pas au patient')
+    if (/Rembourser/.test(patient)) manque.push('le patient se voit proposer un remboursement')
+    if (achats({ achats: [] }) !== '') manque.push('« Vos achats » se montre sans achat')
+    if (!achats({ enCours: VENTES[0].id }).includes('en préparation')) manque.push('la préparation du reçu ne se dit pas')
+  } catch (err) {
+    manque.push(`« Vos achats » ne se rend pas : ${(err as Error).message}`)
+  }
+
+  if (manque.length) {
+    console.error(`✗ ventes : ${manque.join(' ; ')}`)
+    echecs++
+  } else {
+    console.log(`✓ ventes           ${String(liste.length).padStart(6)} octets · reçus des deux côtés, remboursement confirmé et réservé, livre en initiales`)
   }
 }
 

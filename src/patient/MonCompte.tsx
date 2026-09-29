@@ -9,6 +9,7 @@ import { Installer } from './Installer'
 import { Rappels } from './Rappels'
 import { oublierCeTelephone } from './rappelsNavigateur'
 import { supprimerCeCompte } from './suppressionCompte'
+import { AchatsDuPatient } from './VosAchats'
 import s from './MonCompte.module.css'
 
 /**
@@ -26,7 +27,17 @@ import s from './MonCompte.module.css'
  *
  * Le journal, en revanche, est à elle : il part avec le compte.
  */
-export function MonCompte({ patient }: { patient: PatientIdentity }) {
+export function MonCompte({
+  patient,
+  achatsIci = false,
+}: {
+  patient: PatientIdentity
+  /**
+   * Montrer ici « Vos achats » et leurs reçus : quand l'onglet Boutique
+   * n'existe pas — boutique fermée —, c'est le seul endroit où les retrouver.
+   */
+  achatsIci?: boolean
+}) {
   const { changerMotDePasse, deconnecterAilleurs, seDeconnecter, session, context } = useAuth()
   /* Le même compte peut ouvrir un espace professionnel : la suppression ne
      ferme alors que l'espace patient, et l'écran le dit AVANT. */
@@ -278,6 +289,8 @@ export function MonCompte({ patient }: { patient: PatientIdentity }) {
           </p>
         ) : null}
       </section>
+
+      {achatsIci ? <AchatsDuPatient patientId={patient.id} /> : null}
 
       <section className={s.carte}>
         <h2 className={s.titre}>Fermer mon espace</h2>

@@ -37,8 +37,19 @@
   margin: 10px 0 0;
 }
 
+/* Cinq onglets et plus ne tiennent plus sur un téléphone : la barre défile
+   sur elle-même plutôt que de pousser la page hors de l'écran. */
 .tabs {
   margin-bottom: 22px;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+.tabs > div {
+  white-space: nowrap;
 }
 
 @media (max-width: 900px) {

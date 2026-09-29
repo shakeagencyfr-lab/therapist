@@ -17,7 +17,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import Stripe from 'stripe'
 import { adresseDuFormulaire } from './agenda.js'
-import { adminConfigure, clientAdmin, exigerCabinet, identifier } from './auth.js'
+import { adminConfigure, clientAdmin, exigerCabinet, identifier, identifierPourGesteSensible } from './auth.js'
 import { droitsDuCabinet, exigerDroit } from './droits.js'
 import { HttpError } from './errors.js'
 import { chiffrementConfigure, chiffrer, dechiffrer, empreinte } from './secrets.js'
@@ -305,7 +305,8 @@ export interface IntegrationBody {
 
 /** Applique une action et rend l'état à jour. */
 export async function appliquerIntegration(token: string | null, raw: unknown): Promise<EtatIntegrations> {
-  const appelant = await identifier(token)
+  // Une clé posée ou retirée : en « aal2 » pour un compte protégé.
+  const appelant = await identifierPourGesteSensible(token)
   const cabinetId = exigerCabinet(appelant)
   const body = (raw && typeof raw === 'object' ? raw : {}) as Partial<IntegrationBody>
   const action = String(body.action ?? '') as IntegrationAction

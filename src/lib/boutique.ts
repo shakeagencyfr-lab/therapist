@@ -162,13 +162,16 @@ export function fusionner(a: Annonce | null, b: Annonce | null): Annonce | null 
  * les ventes, et leur somme est le vrai total. Autant ou plus : il en existe
  * peut-être d'autres, et le chiffre ne vaut que pour celles-là — l'écran doit
  * le dire, au lieu d'appeler « encaissé » une somme partielle.
+ *
+ * Une vente remboursée (0058) reste dans la liste — elle compte dans ce qui
+ * a été lu —, mais plus dans ce qui a été encaissé : l'argent est reparti.
  */
 export function totalDesVentes(
-  ventes: Array<{ amount_cents: number }>,
+  ventes: Array<{ amount_cents: number; status?: string }>,
   limite: number,
 ): { cents: number; complet: boolean } {
   return {
-    cents: ventes.reduce((n, v) => n + v.amount_cents, 0),
+    cents: ventes.reduce((n, v) => n + (v.status === 'remboursee' ? 0 : v.amount_cents), 0),
     complet: ventes.length < limite,
   }
 }

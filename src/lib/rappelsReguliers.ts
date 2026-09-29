@@ -137,6 +137,55 @@ export interface RappelRegulier {
   destinataires: DestinataireRappel[]
 }
 
+/** Une ligne de `rappels_recurrents`, avec ses destinataires, telle que l'API la rend. */
+export interface LigneRappel {
+  id: string
+  title: string
+  body: string
+  jour_semaine: number | null
+  heure: string
+  fin_le: string
+  created_at: string
+  annule_le: string | null
+  destinataires?: Array<{
+    patient_id: string
+    patient: { display_name: string | null; archived_at: string | null } | null
+  }> | null
+}
+
+/**
+ * Les rappels du cabinet, à la forme que l'écran lit.
+ *
+ * Une ligne à l'heure illisible est écartée plutôt qu'affichée « 00 h » :
+ * la contrainte de la base l'interdit, et un rappel faux à l'écran ferait
+ * croire à un envoi qui n'aura pas lieu à cette heure-là.
+ */
+export function rappelsDepuisLignes(lignes: LigneRappel[] | null | undefined): RappelRegulier[] {
+  return (lignes ?? []).flatMap((l) => {
+    const heure = heureDuChamp(l.heure)
+    if (!heure) return []
+    return [
+      {
+        id: l.id,
+        titre: l.title,
+        texte: l.body,
+        jourSemaine: l.jour_semaine ?? null,
+        heure,
+        finLe: l.fin_le,
+        creeLe: l.created_at,
+        annuleLe: l.annule_le,
+        destinataires: (l.destinataires ?? [])
+          .map((d) => ({
+            id: d.patient_id,
+            nom: d.patient?.display_name?.trim() || 'Fiche sans nom',
+            clos: Boolean(d.patient?.archived_at),
+          }))
+          .sort((a, b) => a.nom.localeCompare(b.nom, 'fr')),
+      },
+    ]
+  })
+}
+
 export type EtatRappel = 'en-cours' | 'termine' | 'arrete'
 
 type Planification = Pick<RappelRegulier, 'jourSemaine' | 'heure' | 'finLe' | 'annuleLe'>
@@ -303,6 +352,34 @@ export function messageRefusRappel(message: string | null | undefined): string {
 /* ------------------------------------------------------------------ *
  * Le rappel du soir, côté patient
  * ------------------------------------------------------------------ */
+
+/** Ses réglages de rappel, tels que l'écran les tient. */
+export interface PreferencesRappels {
+  masquerContenu: boolean
+  soirActif: boolean
+  /** « HH:MM », heure de Paris. */
+  soirHeure: string
+}
+
+/**
+ * Les réglages lus en base (patient_preferences_rappels), ou `null`.
+ *
+ * `null` N'EST PAS « PAR DÉFAUT ». La base rend une ligne — valeurs par
+ * défaut comprises — pour la fiche de la personne connectée, et aucune pour
+ * une autre : une réponse vide est un refus, que l'écran dit comme tel,
+ * plutôt que d'afficher « masqué » sur la foi d'une lecture ratée. Et un
+ * `masquer_contenu` illisible vaut masqué : c'est le côté sûr.
+ */
+export function preferencesDepuisLigne(donnees: unknown): PreferencesRappels | null {
+  const ligne = Array.isArray(donnees) ? donnees[0] : donnees
+  if (!ligne || typeof ligne !== 'object') return null
+  const l = ligne as { masquer_contenu?: unknown; soir_actif?: unknown; soir_heure?: unknown }
+  return {
+    masquerContenu: l.masquer_contenu !== false,
+    soirActif: l.soir_actif === true,
+    soirHeure: heureDuChamp(typeof l.soir_heure === 'string' ? l.soir_heure : '') ?? HEURE_DU_SOIR_PAR_DEFAUT,
+  }
+}
 
 /**
  * Quand arrive le premier rappel du soir, une fois réglé.

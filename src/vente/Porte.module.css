@@ -1,0 +1,41 @@
+/* La porte des praticiennes : l'écran de connexion, et le chemin du retour. */
+
+.porte {
+  position: relative;
+  background: var(--c-app);
+  min-height: 100vh;
+}
+
+/* En haut à gauche, hors de la carte : on le trouve sans le chercher, et il
+   ne s'interpose pas entre l'adresse et le bouton. */
+.retour {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: var(--r-pill);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--c-accent-deep);
+  text-decoration: none;
+}
+.retour:hover {
+  background: var(--c-neutral);
+  color: var(--c-dark);
+}
+.retour:focus-visible {
+  outline: 3px solid var(--c-accent-deep);
+  outline-offset: 2px;
+}
+
+/* Au plus étroit, la carte descend d'une ligne pour laisser la place au lien. */
+@media (max-width: 520px) {
+  .porte > :last-child {
+    padding-top: 72px;
+  }
+}

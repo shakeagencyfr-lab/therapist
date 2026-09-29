@@ -15,6 +15,7 @@ import { adresseCabinet } from '@/lib/domaine'
 import { adressePlausible, echeanceDite, invitationExpiree } from '@/lib/equipe'
 import { euroCents, plural } from '@/lib/format'
 import { identifiantEnSaisie, problemeIdentifiant } from '@/lib/identifiant'
+import { fermetureDite } from '@/lib/revendeur'
 import {
   adherenceLabel,
   levierOuvert,
@@ -114,8 +115,11 @@ function CabinetRow({ row, on, onSelect }: { row: PortfolioRow; on: boolean; onS
  * toute nouvelle invitation à la même adresse. Le revendeur voit maintenant
  * jusqu'à quand elle court, et peut la faire repartir, la rediriger ou la
  * retirer — tant que le cabinet est vide ; ensuite, il est à sa praticienne.
+ *
+ * Exportée : la fiche du cabinet (FicheCabinet.tsx) montre la même, avec les
+ * mêmes gestes, plutôt qu'une seconde version qui divergerait.
  */
-function InvitationOuverture({
+export function InvitationOuverture({
   invitation,
   cabinet,
   enCours,
@@ -189,6 +193,7 @@ export function CabinetPortfolio() {
   const { state, set } = useStore()
   const {
     rows,
+    fermes,
     offres,
     invitations,
     reel,
@@ -230,8 +235,11 @@ export function CabinetPortfolio() {
     // après que l'invitation eut été posée.
     (!emailSaisi || adressePlausible(emailSaisi))
 
+  /* Cliquer un cabinet ouvre SA FICHE (0057) : contrat, praticiennes,
+     chiffres, historique, et les gestes — dont la marque. Il ouvrait
+     directement l'éditeur de marque, le seul écran qui existait alors. */
   function openCabinet(id: string) {
-    set({ rSel: id, rView: 'brand', rNotice: '' })
+    set({ rSel: id, rView: 'fiche', rNotice: '' })
   }
 
   async function createCabinet() {
@@ -410,10 +418,50 @@ export function CabinetPortfolio() {
           {rows.length === 0 && !chargement ? (
             <div style={{ padding: 20 }}>
               <EmptyState>
-                Aucun cabinet ouvert. Le premier se crée en deux champs : le nom du cabinet et
-                celui de la praticienne.
+                {fermes.length
+                  ? 'Aucun cabinet en activité. Les cabinets fermés sont listés ci-dessous : chacun se rouvre depuis sa fiche.'
+                  : 'Aucun cabinet ouvert. Le premier se crée en deux champs : le nom du cabinet et celui de la praticienne.'}
               </EmptyState>
             </div>
+          ) : null}
+          {/* LES CABINETS FERMÉS (0057), à part : ils ne comptent ni dans le
+              revenu ni dans « À traiter », mais ils existent — leur
+              praticienne garde ses dossiers, et la fiche permet de rouvrir. */}
+          {fermes.length ? (
+            <>
+              <div className={s.listHead}>
+                <span style={{ fontFamily: 'var(--font-serif)', fontSize: 16 }}>Cabinets fermés</span>
+                <span style={{ fontSize: 11.5, color: 'var(--c-text-muted)' }}>
+                  {plural(fermes.length, 'cabinet', 'cabinets')}
+                </span>
+              </div>
+              {fermes.map((row) => (
+                <div key={row.cabinet.id} className={s.item}>
+                  <button
+                    type="button"
+                    className={s.row}
+                    onClick={() => openCabinet(row.cabinet.id)}
+                    aria-label={`Ouvrir la fiche de ${row.cabinet.name}, cabinet fermé`}
+                  >
+                    <Marque
+                      className={s.mark}
+                      style={{ background: 'var(--c-text-faint)' }}
+                      logo={row.cabinet.branding.logo}
+                      url={row.cabinet.branding.logoUrl}
+                    />
+                    <span>
+                      <span className={s.name}>{row.cabinet.name}</span>
+                      <span className={s.sub}>
+                        {row.cabinet.therapist} · {adresseCabinet(row.cabinet.slug)}
+                      </span>
+                    </span>
+                    <span className={s.right}>
+                      <Pill tone="neutral">{fermetureDite(row.cabinet.fermeLe)}</Pill>
+                    </span>
+                  </button>
+                </div>
+              ))}
+            </>
           ) : null}
         </section>
 
