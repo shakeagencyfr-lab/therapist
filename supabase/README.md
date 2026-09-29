@@ -115,6 +115,8 @@ Relevé du 28 septembre 2026 (base `koytgcbpeorupdklswxd`).
 | `0050_la_base_tient_la_charge.sql` | 20260928214220 | 0050_la_base_tient_la_charge |
 | `0051_chaque_jour_se_coche.sql` | 20260928214258 | 0051_chaque_jour_se_coche |
 | `0052_le_portefeuille_compte_les_jours.sql` | 20260928215828 | 0052_le_portefeuille_compte_les_jours |
+| `0053_le_dossier_se_relit_et_se_facture.sql` | 20260929005253 | 0053_le_dossier_se_relit_et_se_facture |
+| `0054_le_mot_lu_et_repondu.sql` | 20260929005345 | 0054_le_mot_lu_et_repondu |
 
 Les écarts, et ce qu'ils recouvrent — le contenu, lui, est en place :
 
