@@ -125,6 +125,7 @@ Relevé du 28 septembre 2026 (base `koytgcbpeorupdklswxd`).
 | `0060_les_demandes_d_essai.sql` | 20260929010836 | 0060_les_demandes_d_essai |
 | `0061_la_franchise_par_defaut.sql` | 20260929015413 | 0061_la_franchise_par_defaut |
 | `0062_les_rappels_suivent_le_compte_et_le_cabinet.sql` | 20260929092505 | 0062_les_rappels_suivent_le_compte_et_le_cabinet |
+| `0063_le_pentest_referme.sql` | 20260929104448 | 0063_le_pentest_referme |
 
 `0060` (demandes d'essai) a été appliquée avant `0055` à `0059` : elles ne se touchent pas.
 
