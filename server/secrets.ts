@@ -57,11 +57,3 @@ export function dechiffrer(scelle: string): string {
   return Buffer.concat([decipher.update(Buffer.from(donnees, 'base64')), decipher.final()]).toString('utf8')
 }
 
-/**
- * Ce qu'on montre d'une clé : ses quatre derniers caractères. Assez pour
- * reconnaître laquelle est enregistrée, jamais assez pour s'en servir.
- */
-export function empreinte(valeur: string): string {
-  const propre = valeur.trim()
-  return propre.length <= 4 ? '••••' : `…${propre.slice(-4)}`
-}

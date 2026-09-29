@@ -28,6 +28,7 @@
  *      ne doivent pas repayer l'appel ni remplacer une série que la
  *      thérapeute vient de corriger à la main.
  */
+import { createHash, timingSafeEqual } from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { clientAdmin } from './auth.js'
 import { analyserPourCabinet } from './ai.js'
@@ -77,7 +78,13 @@ export function cronAutorise(entete: string | null): boolean {
   const secret = (process.env.CRON_SECRET ?? '').trim()
   if (!secret) return false
   const donne = (entete ?? '').trim()
-  return donne === `Bearer ${secret}` || donne === secret
+  const presente = donne.startsWith('Bearer ') ? donne.slice(7) : donne
+  /* En temps constant (pentest P21) : une comparaison de texte s'arrête au
+     premier caractère différent, et sa durée dit combien étaient justes.
+     Les empreintes ont la même longueur quoi qu'on présente. */
+  const a = createHash('sha256').update(presente).digest()
+  const b = createHash('sha256').update(secret).digest()
+  return timingSafeEqual(a, b)
 }
 
 interface FicheAuto {

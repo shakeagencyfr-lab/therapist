@@ -11,6 +11,8 @@ import { agirVolet, lireVolet } from '../server/cabinet.js'
  */
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   const token = jetonDe(req.headers.authorization)
+  // Des réglages d'un cabinet : ni cache partagé, ni cache du navigateur (pentest P17).
+  res.setHeader('Cache-Control', 'private, no-store')
   try {
     if (req.method === 'GET') {
       res.status(200).json(await lireVolet(req.query.volet, token))

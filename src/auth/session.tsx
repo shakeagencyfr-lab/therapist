@@ -30,6 +30,7 @@ import { aUnFacteurVerifie, niveauDuJeton, type Niveau } from '@/lib/doubleAuthe
 import { messageCode, messageConnexionMotDePasse, messageEnvoiLien } from '@/lib/messageAuth'
 import { refusDuNouveau } from '@/lib/motDePasse'
 import { isConfigured, supabase } from '@/lib/supabase'
+import { marqueSure } from '@/lib/vitrine'
 import type { CabinetBranding } from '@/types/reseller'
 import { avantDelai, decisionRelecture, roleAGarder } from './relecture'
 
@@ -149,6 +150,24 @@ export interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null)
 
+/**
+ * Le contexte lu, sa marque passée au même filtre que la vitrine.
+ *
+ * Le logo de `my_context()` s'affichait tel qu'écrit en base : une adresse
+ * posée chez un tiers aurait fait charger son image à chaque ouverture de
+ * l'espace patient, et appris à ce tiers l'adresse IP et les heures de
+ * connexion des patients du cabinet. Seule une image de notre stockage
+ * passe (marqueSure) ; la base le refuse aussi depuis 0063.
+ */
+export function contexteSur(c: AccountContext | null): AccountContext | null {
+  if (!c) return c
+  return {
+    ...c,
+    cabinet: c.cabinet ? { ...c.cabinet, branding: marqueSure(c.cabinet.branding) } : c.cabinet,
+    patient: c.patient ? { ...c.patient, branding: marqueSure(c.patient.branding) } : c.patient,
+  }
+}
+
 /** La longueur minimale : décidée dans src/lib/motDePasse.ts, et là seulement. */
 export { LONGUEUR_MOT_DE_PASSE } from '@/lib/motDePasse'
 
@@ -250,7 +269,8 @@ export function SessionProvider({
      autre, ou par une déconnexion — ne décide plus de rien en arrivant. */
   const derniereLecture = useRef(0)
 
-  const poserContexte = useCallback((c: AccountContext | null) => {
+  const poserContexte = useCallback((brut: AccountContext | null) => {
+    const c = contexteSur(brut)
     contexteLu.current = c
     setContext(c)
   }, [])

@@ -196,11 +196,12 @@ export async function levierDuCabinet(
 export async function abonnementEnRegle(cabinetId: string, admin: SupabaseClient): Promise<boolean> {
   const { data, error } = await admin.rpc('abonnement_en_regle', { p_cabinet: cabinetId })
   if (error) {
-    /* Une panne de lecture ne doit pas fermer un cabinet qui paie : on laisse
-       passer et on le dit au journal. Le contraire couperait l'outil d'une
-       thérapeute en séance pour une erreur réseau d'une seconde. */
+    /* UNE PANNE NE VAUT PAS UN OUI (pentest P14). On laissait passer — une
+       vente, une analyse — quand le contrat ne se lisait pas. On refuse
+       désormais, avec un message qui invite à réessayer : une erreur d'une
+       seconde coûte un clic, pas un encaissement hors contrat. */
     console.error(`[droits] contrat ${cabinetId} — ${error.message}`)
-    return true
+    throw new HttpError(503, "Votre abonnement n'a pas pu être vérifié. Réessayez dans un instant.")
   }
   return data === true
 }

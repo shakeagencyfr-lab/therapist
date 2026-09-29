@@ -175,7 +175,7 @@ function CleAnthropic({ etat, enCours, onAgir }: BlocProps) {
       {posee ? (
         <div className={s.posee}>
           <span className={s.poseeText}>
-            <span className={s.mono}>sk-ant-{posee.hint}</span> · ajoutée le {dateLongue(posee.setAt)}
+            Clé enregistrée le {dateLongue(posee.setAt)}, chiffrée : elle ne se relit pas, même ici.
           </span>
           <GesteAConfirmer
             libelle="Retirer"
@@ -250,7 +250,7 @@ function CleStripe({ etat, enCours, onAgir }: BlocProps) {
             <span className={s.poseeText}>
               {posee.label ? <strong>{posee.label}</strong> : null}
               {posee.label ? ' · ' : ''}
-              <span className={s.mono}>{posee.hint}</span> · connecté le {dateLongue(posee.setAt)}
+              connecté le {dateLongue(posee.setAt)}
             </span>
             <GesteAConfirmer
               libelle="Déconnecter"

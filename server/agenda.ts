@@ -32,6 +32,8 @@
  * Le script du tiers n'est jamais exécuté, ni ici ni ailleurs : on ne lit
  * même pas le corps de sa réponse, seulement l'en-tête.
  */
+import { obtenirPublic } from './reseau.js'
+
 
 /** Ce que le serveur retient d'un code d'intégration. */
 export interface ChoixAgenda {
@@ -135,14 +137,12 @@ export type Sondeur = (url: string) => Promise<Reponse | null>
 export const sonderParReseau: Sondeur = async (url) => {
   if (!adresseSondable(url)) return null
   try {
-    const reponse = await fetch(url, {
-      method: 'GET',
-      redirect: 'manual',
-      headers: { Accept: 'text/html' },
-      signal: AbortSignal.timeout(5_000),
-    })
-    void reponse.body?.cancel()
-    return { code: reponse.status, vers: reponse.headers.get('location') }
+    /* Le nom est résolu PAR la connexion, qui refuse une adresse interne
+       (server/reseau.ts) : « agenda.exemple.fr » pointé sur 10.0.0.5 ne
+       fait plus sonder notre réseau (pentest P6). */
+    const reponse = await obtenirPublic(url, { delai: 5_000, entetes: { Accept: 'text/html' } })
+    const vers = reponse.entetes.location
+    return { code: reponse.code, vers: typeof vers === 'string' ? vers : null }
   } catch {
     return null
   }

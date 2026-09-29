@@ -38,6 +38,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { adminConfigure, clientAdmin, exigerCabinet, identifier } from './auth.js'
 import { droitsDuCabinet, exigerDroit } from './droits.js'
 import { HttpError } from './errors.js'
+import { obtenirPublic } from './reseau.js'
 import { THEME_DEFAUT, resoudreTheme, type ThemeVitrine } from '../src/lib/themeVitrine.js'
 /* Des TYPES seulement : ficheGoogle.ts importe d'autres modules du
    navigateur sans extension, que Node ne résoudrait pas à l'exécution. */
@@ -915,19 +916,25 @@ async function recopierPhoto(cabinetId: string, nom: string): Promise<string | n
   }
   if (!source.startsWith('https://')) return null
 
-  let octets: ArrayBuffer
+  /* L'adresse vient de Google ou de SerpAPI, pas de nous : elle part par la
+     porte sortante commune (server/reseau.ts) — https seul, aucune adresse
+     interne à aucune connexion, trois redirections au plus, dix secondes,
+     et 5 Mo lus au plus (pentest P18). Le compartiment plafonne à 5 Mo, et
+     une photo de cabinet n'en fait pas tant : au-delà, on passe plutôt que
+     de faire échouer tout l'import. */
+  let octets: Buffer
   let type = 'image/jpeg'
   try {
-    const image = await fetch(source)
-    if (!image.ok) return null
-    type = image.headers.get('content-type') ?? 'image/jpeg'
-    octets = await image.arrayBuffer()
+    const image = await obtenirPublic(source, { delai: 10_000, octetsMax: 5_000_000, redirections: 3 })
+    if (image.code < 200 || image.code >= 300 || !image.corps) return null
+    const annonce = image.entetes['content-type']
+    type = typeof annonce === 'string' ? annonce : 'image/jpeg'
+    octets = image.corps
   } catch {
     return null
   }
-  // Le compartiment plafonne à 5 Mo, et une photo de cabinet n'en fait pas
-  // tant : au-delà, on passe plutôt que de faire échouer tout l'import.
-  if (octets.byteLength > 5_000_000) return null
+  // Autre chose qu'une image (une page d'erreur, un script) ne se range pas.
+  if (!/^image\//i.test(type)) return null
   if (!/^image\/(png|jpeg|webp)$/.test(type)) type = 'image/jpeg'
 
   const extension = type === 'image/png' ? 'png' : type === 'image/webp' ? 'webp' : 'jpg'

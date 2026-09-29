@@ -176,3 +176,19 @@ export function exigerCabinet(appelant: Appelant): string {
   }
   return appelant.cabinetId
 }
+
+/**
+ * Le geste est réservé à la personne TITULAIRE du cabinet.
+ *
+ * Être membre ne suffit pas pour ce qui engage l'argent ou l'identité du
+ * cabinet : la clé Stripe décide du compte qui encaisse, la clé Anthropic de
+ * qui paie l'analyse, le SMTP et le domaine de ce par quoi partent les liens
+ * d'ouverture de compte des patients. Une consœur invitée (0042) les
+ * remplaçait (pentest du 29 septembre, P1). La base tranche
+ * (`est_titulaire_du_cabinet` : rôle owner, et second facteur s'il existe).
+ */
+export async function exigerTitulaire(appelant: Appelant, cabinetId: string, geste: string): Promise<void> {
+  const { data, error } = await appelant.client.rpc('est_titulaire_du_cabinet', { p_cabinet: cabinetId })
+  if (error) throw new HttpError(502, "Vos droits n'ont pas pu être vérifiés. Réessayez dans un instant.")
+  if (data !== true) throw new HttpError(403, `${geste} est réservé à la personne titulaire du cabinet.`)
+}

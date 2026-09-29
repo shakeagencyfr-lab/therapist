@@ -7,29 +7,34 @@
  *   1. Une clé est VALIDÉE avant d'être enregistrée — par un vrai appel au
  *      service concerné. Une clé fausse se découvre ici, à la saisie, pas
  *      en séance devant un patient.
- *   2. Une clé ne REVIENT jamais au navigateur. L'écran ne reçoit que ses
- *      quatre derniers caractères et sa date. La clé elle-même dort
+ *   2. Une clé ne REVIENT jamais au navigateur, pas même en partie : l'écran
+ *      ne reçoit que sa date de pose (0063). La clé elle-même dort
  *      chiffrée (server/secrets.ts) et n'est déchiffrée que pour servir.
  *   3. L'appelant est identifié par la base (server/auth.ts), et n'agit que
- *      sur SON cabinet. La clé de service ne sert qu'à écrire ce que la base
+ *      sur SON cabinet ; poser ou retirer une clé est au titulaire seul. La clé de service ne sert qu'à écrire ce que la base
  *      réserve au serveur.
  */
 import Anthropic from '@anthropic-ai/sdk'
 import Stripe from 'stripe'
 import { adresseDuFormulaire } from './agenda.js'
-import { adminConfigure, clientAdmin, exigerCabinet, identifier, identifierPourGesteSensible } from './auth.js'
+import {
+  adminConfigure,
+  clientAdmin,
+  exigerCabinet,
+  exigerTitulaire,
+  identifier,
+  identifierPourGesteSensible,
+} from './auth.js'
 import { droitsDuCabinet, exigerDroit } from './droits.js'
 import { HttpError } from './errors.js'
-import { chiffrementConfigure, chiffrer, dechiffrer, empreinte } from './secrets.js'
+import { chiffrementConfigure, chiffrer, dechiffrer } from './secrets.js'
 
 /* ------------------------------------------------------------------ *
  * Ce que l'écran reçoit
  * ------------------------------------------------------------------ */
 
 export interface CleAffichee {
-  /** « …AB12 » */
-  hint: string
-  /** ISO 8601 */
+  /** ISO 8601. Aucun caractère de la clé : ni en clair, ni en « …AB12 ». */
   setAt: string
   /** Stripe seulement : le nom du compte, tel que Stripe le donne. */
   label?: string
@@ -69,9 +74,7 @@ export type IntegrationAction =
   | 'boutique'
 
 interface SettingsRow {
-  anthropic_hint: string | null
   anthropic_set_at: string | null
-  stripe_hint: string | null
   stripe_account_label: string | null
   stripe_set_at: string | null
   booking_url: string | null
@@ -86,14 +89,11 @@ interface SettingsRow {
 
 function versEtat(row: SettingsRow | null): EtatIntegrations {
   return {
-    anthropic:
-      row?.anthropic_hint && row.anthropic_set_at
-        ? { hint: row.anthropic_hint, setAt: row.anthropic_set_at }
-        : null,
-    stripe:
-      row?.stripe_hint && row.stripe_set_at
-        ? { hint: row.stripe_hint, setAt: row.stripe_set_at, label: row.stripe_account_label ?? undefined }
-        : null,
+    /* La date de pose, jamais un caractère de la clé (0063, pentest P4). */
+    anthropic: row?.anthropic_set_at ? { setAt: row.anthropic_set_at } : null,
+    stripe: row?.stripe_set_at
+      ? { setAt: row.stripe_set_at, label: row.stripe_account_label ?? undefined }
+      : null,
     bookingUrl: row?.booking_url ?? null,
     bookingMode: row?.booking_mode === 'widget' ? 'widget' : 'bouton',
     bookingWidgetUrl: row?.booking_widget_url ?? null,
@@ -110,7 +110,7 @@ export async function etatIntegrations(token: string | null): Promise<EtatIntegr
   const { data, error } = await appelant.client
     .from('cabinet_settings')
     .select(
-      'anthropic_hint, anthropic_set_at, stripe_hint, stripe_account_label, stripe_set_at, booking_url, booking_mode, booking_widget_url, shop_enabled',
+      'anthropic_set_at, stripe_account_label, stripe_set_at, booking_url, booking_mode, booking_widget_url, shop_enabled',
     )
     .eq('cabinet_id', cabinetId)
     .maybeSingle<SettingsRow>()
@@ -303,6 +303,13 @@ export interface IntegrationBody {
   enabled?: boolean
 }
 
+/**
+ * Les clés engagent l'argent du cabinet : qui encaisse les ventes (Stripe),
+ * qui paie l'analyse (Anthropic). Elles sont au titulaire seul. L'agenda et
+ * l'ouverture de la boutique restent à toute l'équipe.
+ */
+const GESTES_DU_TITULAIRE = new Set<IntegrationAction>(['anthropic', 'anthropic-retirer', 'stripe', 'stripe-retirer'])
+
 /** Applique une action et rend l'état à jour. */
 export async function appliquerIntegration(token: string | null, raw: unknown): Promise<EtatIntegrations> {
   // Une clé posée ou retirée : en « aal2 » pour un compte protégé.
@@ -310,6 +317,7 @@ export async function appliquerIntegration(token: string | null, raw: unknown): 
   const cabinetId = exigerCabinet(appelant)
   const body = (raw && typeof raw === 'object' ? raw : {}) as Partial<IntegrationBody>
   const action = String(body.action ?? '') as IntegrationAction
+  if (GESTES_DU_TITULAIRE.has(action)) await exigerTitulaire(appelant, cabinetId, 'Ce réglage')
 
   switch (action) {
     case 'anthropic': {
@@ -321,7 +329,7 @@ export async function appliquerIntegration(token: string | null, raw: unknown): 
       await eprouverAnthropic(key)
       await ecrire(
         cabinetId,
-        { anthropic_hint: empreinte(key), anthropic_set_at: new Date().toISOString() },
+        { anthropic_set_at: new Date().toISOString() },
         { anthropic_key_enc: chiffrer(key) },
         'integration.anthropic_posee',
         appelant.userId,
@@ -331,7 +339,7 @@ export async function appliquerIntegration(token: string | null, raw: unknown): 
     case 'anthropic-retirer':
       await ecrire(
         cabinetId,
-        { anthropic_hint: null, anthropic_set_at: null },
+        { anthropic_set_at: null },
         { anthropic_key_enc: null },
         'integration.anthropic_retiree',
         appelant.userId,
@@ -347,7 +355,7 @@ export async function appliquerIntegration(token: string | null, raw: unknown): 
       const label = await eprouverStripe(key)
       await ecrire(
         cabinetId,
-        { stripe_hint: empreinte(key), stripe_account_label: label, stripe_set_at: new Date().toISOString() },
+        { stripe_account_label: label, stripe_set_at: new Date().toISOString() },
         { stripe_secret_enc: chiffrer(key) },
         'integration.stripe_posee',
         appelant.userId,
@@ -357,7 +365,7 @@ export async function appliquerIntegration(token: string | null, raw: unknown): 
     case 'stripe-retirer':
       await ecrire(
         cabinetId,
-        { stripe_hint: null, stripe_account_label: null, stripe_set_at: null, shop_enabled: false },
+        { stripe_account_label: null, stripe_set_at: null, shop_enabled: false },
         { stripe_secret_enc: null },
         'integration.stripe_retiree',
         appelant.userId,

@@ -27,6 +27,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return
   }
   const token = jetonDe(req.headers.authorization)
+  // Reçus, ventes : rien de ce que rend la boutique ne se garde en cache.
+  res.setHeader('Cache-Control', 'private, no-store')
   const body = (req.body && typeof req.body === 'object' ? req.body : {}) as { action?: string }
   try {
     if (body.action === 'demarrer') {

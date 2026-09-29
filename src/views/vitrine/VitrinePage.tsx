@@ -64,6 +64,8 @@ export function VitrinePage({ site, apercu = false }: { site: SiteVitrine; aperc
   /* Relue ici même si la conversion l'a déjà filtrée : l'aperçu de l'éditeur
      passe ses propres données, sans `versSiteVitrine`. */
   const reservation = lienSortant(site.reservation)
+  // Même filtre que la réservation : un « javascript: » ne devient pas un lien (pentest P12).
+  const siteWeb = lienSortant(site.site_web)
 
   /* LE PRATIQUE. Le modèle « Clinique » promet « horaires, adresse et prise
      de rendez-vous en tête » : il le met juste sous l'accroche, là où les
@@ -83,10 +85,10 @@ export function VitrinePage({ site, apercu = false }: { site: SiteVitrine; aperc
                 </a>
               </p>
             ) : null}
-            {site.site_web ? (
+            {siteWeb ? (
               <p className={s.texte}>
-                <a className={s.lien} href={site.site_web} target="_blank" rel="noreferrer">
-                  {site.site_web.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                <a className={s.lien} href={siteWeb} target="_blank" rel="noopener noreferrer">
+                  {siteWeb.replace(/^https?:\/\//, '').replace(/\/$/, '')}
                 </a>
               </p>
             ) : null}

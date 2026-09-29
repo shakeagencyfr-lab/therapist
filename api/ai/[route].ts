@@ -13,6 +13,8 @@ import { aiFunction, routeDeLAppel } from '../../server/vercel.js'
 const ANALYSES = new Map(AI_ROUTES.map((route) => [route, aiFunction(route)]))
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
+  // Une analyse porte sur un dossier de patient : jamais en cache.
+  res.setHeader('Cache-Control', 'private, no-store')
   const route = routeDeLAppel(req.query.route, req.url) as AiRoute
   const analyse = ANALYSES.get(route)
   if (!analyse) {

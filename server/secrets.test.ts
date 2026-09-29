@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { chiffrer, chiffrementConfigure, dechiffrer, empreinte } from './secrets.js'
+import { chiffrer, chiffrementConfigure, dechiffrer } from './secrets.js'
 import { HttpError } from './errors.js'
 
 describe('secrets — chiffrement des clés confiées', () => {
@@ -41,8 +41,4 @@ describe('secrets — chiffrement des clés confiées', () => {
     }
   })
 
-  it('empreinte : les quatre derniers caractères, rien de plus', () => {
-    expect(empreinte('sk-ant-api03-ABCDEFGH')).toBe('…EFGH')
-    expect(empreinte('abc')).toBe('••••')
-  })
 })

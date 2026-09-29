@@ -33,6 +33,12 @@ const app = express()
 
 // Une transcription de séance est longue : le corps JSON doit tenir.
 app.use(express.json({ limit: '2mb' }))
+// Comme en production : les réponses de l'API ne se gardent pas en cache
+// (la clé publique VAPID, seule, repose son propre en-tête).
+app.use('/api', (_req, res, next) => {
+  res.setHeader('Cache-Control', 'private, no-store')
+  next()
+})
 
 // En développement le client tourne sur le port de Vite ; en production il est
 // servi par la même origine que l'API.

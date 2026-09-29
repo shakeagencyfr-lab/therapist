@@ -21,7 +21,14 @@
  */
 import { promises as dns } from 'node:dns'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { adminConfigure, clientAdmin, exigerCabinet, identifier, identifierPourGesteSensible } from './auth.js'
+import {
+  adminConfigure,
+  clientAdmin,
+  exigerCabinet,
+  exigerTitulaire,
+  identifier,
+  identifierPourGesteSensible,
+} from './auth.js'
 import { droitsDuCabinet, exigerDroit } from './droits.js'
 import { HttpError } from './errors.js'
 
@@ -293,6 +300,7 @@ export async function poserDomaine(token: string | null, raw: unknown): Promise<
      geste sensible, en « aal2 » pour un compte protégé. */
   const appelant = await identifierPourGesteSensible(token)
   const cabinetId = exigerCabinet(appelant)
+  await exigerTitulaire(appelant, cabinetId, 'Le domaine du cabinet')
   const droits = await droitsDuCabinet(cabinetId, appelant.client)
   exigerDroit(droits, 'marqueBlanche')
 
@@ -462,6 +470,7 @@ export async function pointeIci(domaine: string): Promise<{ ok: boolean; message
 export async function retirerDomaine(token: string | null): Promise<EtatDomaine> {
   const appelant = await identifierPourGesteSensible(token)
   const cabinetId = exigerCabinet(appelant)
+  await exigerTitulaire(appelant, cabinetId, 'Le domaine du cabinet')
 
   const { data } = await appelant.client
     .from('cabinet_domains')

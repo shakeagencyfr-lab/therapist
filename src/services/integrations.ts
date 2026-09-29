@@ -2,14 +2,13 @@
  * Intégrations du cabinet, vues du navigateur.
  *
  * Le navigateur ne détient jamais une clé : il la transmet une fois au
- * serveur, qui la vérifie, la chiffre et n'en renvoie que les quatre
- * derniers caractères. Tout ici passe donc par /api/integrations avec le
+ * serveur, qui la vérifie, la chiffre et n'en renvoie que sa date de pose
+ * (pas un caractère : 0063). Tout ici passe donc par /api/integrations avec le
  * jeton de session — jamais par la base directement.
  */
 import { supabase } from '@/lib/supabase'
 
 export interface CleAffichee {
-  hint: string
   setAt: string
   label?: string
 }

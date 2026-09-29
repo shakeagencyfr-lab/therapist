@@ -188,24 +188,23 @@ describe('les en-têtes de sécurité', () => {
 })
 
 /**
- * LA POLITIQUE DE CONTENU, EN DEUX TEMPS.
+ * LA POLITIQUE DE CONTENU, APPLIQUÉE EN ENTIER.
  *
- * APPLIQUÉE (`Content-Security-Policy`) : ce qui ne peut rien casser et
- * ferme le plus gros — aucun script d'ailleurs que de chez nous et de
- * hCaptcha (la porte d'entrée), aucun `eval`, aucun plugin, aucune balise
- * <base> détournée, aucun formulaire posté ailleurs. Les scripts du build
- * sont tous des fichiers : le build ne produit aucun script en ligne.
+ * Aucun script d'ailleurs que de chez nous et de hCaptcha (la porte
+ * d'entrée), aucun `eval`, aucun plugin, aucune balise <base> détournée,
+ * aucun formulaire posté ailleurs. Les scripts du build sont tous des
+ * fichiers : le build ne produit aucun script en ligne.
  *
- * OBSERVÉE (`Content-Security-Policy-Report-Only`) : la politique complète,
+ * Et depuis le pentest du 29 septembre 2026 (P10), le reste aussi :
  * `default-src 'self'` et ce que les pages chargent vraiment — la base
  * (lectures, logos, photos, audios signés), hCaptcha, l'agenda tiers encadré
  * dans l'espace patient (n'importe quel agenda en https, le cabinet le
- * choisit), les audios en blob: de l'atelier. Éprouvée sans une violation
- * sur la porte, la vitrine, la porte patient, le widget et un espace patient
- * ouvert (audio, agenda, rappels) ; l'espace cabinet, lui, ne s'éprouve
- * qu'avec une session réelle. Elle signale sans bloquer : c'est elle qui
- * deviendra la politique appliquée, une fois l'espace cabinet vu sans
- * signalement.
+ * choisit), les audios en blob: de l'atelier. Elle n'était qu'observée,
+ * sans destination de rapport : personne ne voyait rien. Éprouvée sans une
+ * violation, en mode bloquant, sur la page de vente, la porte, les pages
+ * légales, la vitrine, la porte patient, le widget et les écrans de
+ * démonstration des espaces cabinet et revendeur. Une image posée chez un
+ * tiers (un logo traceur, P3) ne se charge plus.
  */
 describe('la politique de contenu appliquée', () => {
   it('ne laisse passer aucun script étranger, sur aucune page', () => {
@@ -240,8 +239,15 @@ describe('la politique de contenu appliquée', () => {
   })
 })
 
-describe('la politique de contenu observée', () => {
-  const observee = politique(entetes('/')['content-security-policy-report-only'])
+describe('la politique de contenu complète', () => {
+  const observee = politique(entetes('/')['content-security-policy'])
+
+  it('est appliquée, et plus seulement observée', () => {
+    for (const chemin of PARTOUT) expect(entetes(chemin)['content-security-policy-report-only'], chemin).toBeUndefined()
+    for (const chemin of [...PAGES, ...WIDGET]) {
+      expect(politique(entetes(chemin)['content-security-policy']).get('default-src'), chemin).toEqual(["'self'"])
+    }
+  })
 
   it('vise le projet de la base, et lui seul', () => {
     expect(PROJET).toBeTruthy()

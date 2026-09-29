@@ -18,10 +18,18 @@
  */
 import nodemailer from 'nodemailer'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { adminConfigure, clientAdmin, exigerCabinet, identifier, identifierPourGesteSensible } from './auth.js'
+import {
+  adminConfigure,
+  clientAdmin,
+  exigerCabinet,
+  exigerTitulaire,
+  identifier,
+  identifierPourGesteSensible,
+} from './auth.js'
 import { droitsDuCabinet, exigerDroit, levierDuCabinet } from './droits.js'
 import { lookup } from 'node:dns/promises'
 import { HttpError } from './errors.js'
+import { AdresseInterne, priveOuLocal as interne, resoudrePublic } from './reseau.js'
 import { chiffrementConfigure, chiffrer, dechiffrer } from './secrets.js'
 
 /* ------------------------------------------------------------------ *
@@ -173,18 +181,40 @@ export interface Courriel {
  * tourne puis une panne sans explication. Dix secondes suffisent à savoir si
  * un serveur d'envoi répond.
  */
-function transport(smtp: SmtpPret) {
+async function transport(smtp: SmtpPret) {
+  /* L'ADRESSE EST ÉPINGLÉE. Le nom avait été vérifié à l'enregistrement,
+     puis nodemailer le résolvait de nouveau à chaque envoi : un nom public
+     à l'enregistrement pouvait pointer vers 127.0.0.1 le lendemain (pentest
+     P7). On résout ici, on refuse l'interne, et c'est l'adresse vérifiée
+     qu'on joint ; le certificat, lui, est vérifié contre le nom. */
+  if (!PORTS_SMTP.has(smtp.port)) throw new HttpError(400, MESSAGE_PORT)
+  let ip: string
+  try {
+    ip = await resoudrePublic(smtp.host)
+  } catch (err) {
+    if (err instanceof AdresseInterne) console.error(`[courriel] hôte refusé — ${smtp.host} résout vers une adresse interne`)
+    throw new HttpError(400, "Ce serveur d'envoi est introuvable : vérifiez son nom auprès de votre hébergeur de messagerie.")
+  }
   return nodemailer.createTransport({
-    host: smtp.host,
+    host: ip,
     port: smtp.port,
-    // 465 est le port du TLS implicite ; 587 et 25 montent en STARTTLS.
+    // 465 est le port du TLS implicite ; 587, 25 et 2525 montent en STARTTLS.
     secure: smtp.port === 465,
+    tls: { servername: smtp.host },
     auth: smtp.user ? { user: smtp.user, pass: smtp.pass } : undefined,
     connectionTimeout: 10_000,
     greetingTimeout: 10_000,
     socketTimeout: 20_000,
   })
 }
+
+/**
+ * Les ports d'un serveur d'envoi, et eux seuls : 25, 465 (SSL), 587
+ * (STARTTLS), 2525 (le 587 de secours de certains hébergeurs). Tout autre
+ * port ne sert pas un SMTP — il sert à balayer une machine (pentest P7).
+ */
+export const PORTS_SMTP = new Set([25, 465, 587, 2525])
+const MESSAGE_PORT = 'Le port doit être celui de votre serveur d’envoi : 465 en SSL, 587 en STARTTLS (ou 25, 2525).'
 
 /**
  * Envoyer un courriel depuis l'adresse du cabinet.
@@ -198,7 +228,7 @@ export async function envoyerParCabinet(cabinetId: string, courriel: Courriel): 
   if (!smtp) return false
   const expediteur = courriel.fromName ? `"${courriel.fromName.replace(/"/g, '')}" <${smtp.from}>` : smtp.from
   try {
-    await transport(smtp).sendMail({
+    await (await transport(smtp)).sendMail({
       from: expediteur,
       to: courriel.to,
       subject: courriel.subject,
@@ -207,6 +237,7 @@ export async function envoyerParCabinet(cabinetId: string, courriel: Courriel): 
     })
     return true
   } catch (err) {
+    if (err instanceof HttpError) throw err
     // Journal technique seulement : ni mot de passe, ni contenu de dossier.
     console.error(`[courriel] cabinet ${cabinetId} — ${(err as Error).message}`)
     throw new HttpError(502, "Le courriel n'a pas pu être envoyé depuis votre serveur d'envoi.")
@@ -253,25 +284,7 @@ function adresseValide(email: string): boolean {
  * même la manière habituelle de contourner un filtre qui ne regarde que la
  * chaîne.
  */
-export function priveOuLocal(ip: string): boolean {
-  const v4 = ip.startsWith('::ffff:') ? ip.slice(7) : ip
-  const o = v4.split('.').map(Number)
-  if (o.length === 4 && o.every((n) => Number.isInteger(n) && n >= 0 && n <= 255)) {
-    const [a, b] = o as [number, number, number, number]
-    return (
-      a === 0 || a === 10 || a === 127 ||
-      (a === 100 && b >= 64 && b <= 127) ||   // CGNAT
-      (a === 169 && b === 254) ||             // lien-local, jetons d'instance
-      (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && b === 168) ||
-      (a === 192 && b === 0) ||
-      (a === 198 && (b === 18 || b === 19)) ||
-      a >= 224                                 // multidiffusion et réservé
-    )
-  }
-  const v6 = ip.toLowerCase()
-  return v6 === '::1' || v6 === '::' || /^f[cd]/.test(v6) || /^fe[89ab]/.test(v6)
-}
+export { priveOuLocal } from './reseau.js'
 
 async function exigerHotePublic(host: string): Promise<void> {
   const refus = new HttpError(
@@ -287,7 +300,7 @@ async function exigerHotePublic(host: string): Promise<void> {
   } catch {
     throw new HttpError(400, "Ce serveur d'envoi est introuvable : vérifiez son nom auprès de votre hébergeur de messagerie.")
   }
-  if (!adresses.length || adresses.some((a) => priveOuLocal(a.address))) {
+  if (!adresses.length || adresses.some((a) => interne(a.address))) {
     /* Le motif reste au journal : le dire à l'écran apprendrait à l'appelant
        ce qu'il cherchait précisément à savoir. */
     console.error(`[courriel] hôte refusé — ${host} résout vers une adresse interne`)
@@ -304,8 +317,9 @@ async function exigerHotePublic(host: string): Promise<void> {
  */
 async function eprouver(smtp: SmtpPret): Promise<void> {
   try {
-    await transport(smtp).verify()
+    await (await transport(smtp)).verify()
   } catch (err) {
+    if (err instanceof HttpError) throw err
     const message = (err as Error).message ?? ''
     if (/auth|credential|535|534|password/i.test(message)) {
       throw new HttpError(400, "Votre serveur refuse cet identifiant ou ce mot de passe. Vérifiez-les auprès de votre hébergeur de messagerie.")
@@ -331,6 +345,9 @@ export async function reglerSmtp(token: string | null, raw: unknown): Promise<Et
   // Un mot de passe d'envoi posé : en « aal2 » pour un compte protégé.
   const appelant = await identifierPourGesteSensible(token)
   const cabinetId = exigerCabinet(appelant)
+  /* Les liens d'ouverture de compte des patients partent par ce serveur :
+     le régler est au titulaire seul (pentest P1). */
+  await exigerTitulaire(appelant, cabinetId, 'Le serveur d’envoi')
   const droits = await droitsDuCabinet(cabinetId, appelant.client)
   exigerDroit(droits, 'marqueBlanche')
   if (!chiffrementConfigure()) chiffrer('') // lève le 503 explicite
@@ -343,9 +360,7 @@ export async function reglerSmtp(token: string | null, raw: unknown): Promise<Et
   const pass = String(body.pass ?? '')
 
   await exigerHotePublic(host)
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new HttpError(400, 'Le port doit être un nombre — 465 en SSL, 587 en STARTTLS.')
-  }
+  if (!PORTS_SMTP.has(port)) throw new HttpError(400, MESSAGE_PORT)
   if (!adresseValide(from)) {
     throw new HttpError(400, "L'adresse d'expédition n'est pas une adresse électronique.")
   }
@@ -390,6 +405,7 @@ export async function reglerSmtp(token: string | null, raw: unknown): Promise<Et
 export async function retirerSmtp(token: string | null): Promise<EtatSmtp> {
   const appelant = await identifierPourGesteSensible(token)
   const cabinetId = exigerCabinet(appelant)
+  await exigerTitulaire(appelant, cabinetId, 'Le serveur d’envoi')
   const db = admin()
   const maintenant = new Date().toISOString()
   const { error } = await db
@@ -477,7 +493,7 @@ export async function essayerSmtp(token: string | null): Promise<{ ok: true; mes
   const cabinet = fiche?.name ?? 'Votre cabinet'
 
   try {
-    await transport(smtp).sendMail({
+    await (await transport(smtp)).sendMail({
       from: `"${cabinet.replace(/"/g, '')}" <${smtp.from}>`,
       to: destinataire,
       subject: `Courriel d'essai — ${cabinet}`,
@@ -491,6 +507,7 @@ export async function essayerSmtp(token: string | null): Promise<{ ok: true; mes
       ].join('\n'),
     })
   } catch (err) {
+    if (err instanceof HttpError) throw err
     // Journal technique seulement : ni mot de passe, ni adresse de patient.
     console.error(`[courriel] essai cabinet ${cabinetId} — ${(err as Error).message}`)
     throw new HttpError(502, motifEnvoi((err as Error).message ?? '', smtp.from, smtp.port))
