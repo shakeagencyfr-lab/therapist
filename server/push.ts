@@ -13,6 +13,12 @@
  * (RFC 8291), on le signe de notre clé VAPID (RFC 8292) et on le dépose à
  * cette adresse. Le fabricant ne lit pas le contenu : il le porte.
  *
+ * DEUX SORTES DE RAPPELS, UN SEUL PASSAGE (0055). Les mots du cabinet —
+ * écrits à la main, ou par la base pour un rappel qui revient — et le rappel
+ * du soir que la personne suivie a choisi. Les deux passent par ici, et les
+ * deux arrivent masqués sur l'écran verrouillé tant qu'elle n'a pas choisi
+ * de les y lire.
+ *
  * UNE SEULE VARIABLE À POSER. La clé publique VAPID se déduit de la privée :
  * on ne demande que `VAPID_PRIVATE_KEY`, et l'on ne risque jamais une paire
  * dépareillée — la faute la plus silencieuse de ce protocole, puisque les
@@ -21,6 +27,7 @@
 import { createECDH } from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
+import { SOIR_MASQUE, texteAAfficher, type TexteRappel } from '../src/lib/discretion.js'
 import { clientAdmin } from './auth.js'
 import { HttpError } from './errors.js'
 
@@ -124,9 +131,12 @@ function couper(texte: string, max: number): string {
  * Borné : un service d'envoi refuse au-delà de 4 Ko chiffrés, et un écran
  * verrouillé n'affiche de toute façon que les premières lignes. Le texte
  * entier reste dans l'espace de la patiente.
+ *
+ * Il reçoit le texte DÉJÀ choisi (`texteAAfficher`) : c'est ce qui s'écrira
+ * sur l'écran verrouillé, et rien d'autre ne passe par ici.
  */
 export function contenuDuRappel(
-  rappel: { titre: string; corps: string },
+  rappel: TexteRappel,
   chemin: string | null | undefined,
   pushId: string,
 ): string {
@@ -188,11 +198,26 @@ export interface Appareil {
   chemin: string | null
 }
 
+/**
+ * Un mot réclamé. `masque` vient de 0055 : quand il vaut vrai, la base a
+ * déjà remplacé le titre et le texte par les neutres. Absent — une base plus
+ * ancienne —, on masque aussi (`texteAAfficher`).
+ */
 interface Reclame {
   push_id: string
   patient_id: string
   titre: string
   corps: string
+  masque?: boolean | null
+}
+
+/** Un rappel du soir réclamé (0055) : pour qui, et pour quel jour de Paris. */
+interface SoirReclame {
+  patient_id: string
+  jour: string
+  titre: string
+  corps: string
+  masque?: boolean | null
 }
 
 /** Pose un message chez un service d'envoi et rend son code d'état. */
@@ -231,6 +256,9 @@ export interface BilanRappels {
   echecs: number
   /** Inscriptions effacées parce que le téléphone ne les connaît plus. */
   appareilsRetires: number
+  /** Rappels du soir traités pendant ce passage (0055), et ceux arrivés. */
+  soirs: number
+  soirsArrives: number
 }
 
 /** Au-delà, on rend la main : le passage suivant reprendra le reste. */
@@ -240,12 +268,94 @@ const DE_FRONT = 6
 const LOT = 50
 
 /**
- * Pousse tous les rappels dus.
+ * La fonction demandée n'existe pas dans cette base.
+ *
+ * Le serveur peut être mis en ligne avant 0055 : les mots doivent alors
+ * partir comme avant, et le rappel du soir attendre la migration sans
+ * encombrer le journal à chaque minute.
+ */
+export function fonctionAbsente(erreur: { code?: string | null; message?: string | null }): boolean {
+  return erreur.code === 'PGRST202' || erreur.code === '42883' || /could not find the function/i.test(erreur.message ?? '')
+}
+
+/** Ce qu'on fait des téléphones d'un lot, une fois les envois faits. */
+interface Retours {
+  perimes: Set<string>
+  livres: Set<string>
+}
+
+async function appareilsDe(admin: SupabaseClient, patientes: string[]): Promise<Appareil[]> {
+  const { data, error } = await admin
+    .from('push_subscriptions')
+    .select('id, patient_id, endpoint, p256dh, auth, chemin')
+    .in('patient_id', [...new Set(patientes)])
+  if (error) throw new HttpError(502, `Les téléphones inscrits n'ont pas pu être lus : ${error.message}`)
+  return ((data ?? []) as Appareil[]).filter((a) => serviceDePushConnu(a.endpoint))
+}
+
+/**
+ * Pose le même texte sur chacun de ses téléphones, et rend leurs réponses.
+ *
+ * Le texte arrive déjà passé par `texteAAfficher` : ce qui s'écrit ici est
+ * exactement ce que l'écran verrouillé montrera.
+ */
+async function pousserVers(
+  siens: Appareil[],
+  texte: TexteRappel,
+  etiquette: string,
+  envoyer: Envoyeur,
+  cles: CleVapid,
+  retours: Retours,
+): Promise<Reponse[]> {
+  return Promise.all(
+    siens.map(async (a) => {
+      const reponse = lireReponse(await envoyer(a, contenuDuRappel(texte, a.chemin, etiquette), cles))
+      if (reponse === 'perime') retours.perimes.add(a.id)
+      if (reponse === 'livre') retours.livres.add(a.id)
+      return reponse
+    }),
+  )
+}
+
+/** Efface les inscriptions périmées, date les téléphones qui ont reçu. */
+async function rangerLesAppareils(
+  admin: SupabaseClient,
+  retours: Retours,
+  bilan: BilanRappels,
+  maintenant: () => number,
+): Promise<void> {
+  if (retours.perimes.size) {
+    const { error } = await admin.from('push_subscriptions').delete().in('id', [...retours.perimes])
+    if (error) console.error(`[rappels] inscriptions périmées non effacées — ${error.message}`)
+    else bilan.appareilsRetires += retours.perimes.size
+  }
+  if (retours.livres.size) {
+    await admin
+      .from('push_subscriptions')
+      .update({ last_success_at: new Date(maintenant()).toISOString(), failures: 0 })
+      .in('id', [...retours.livres])
+  }
+}
+
+async function parPaquets<T>(elements: T[], traiter: (e: T) => Promise<void>): Promise<void> {
+  for (let i = 0; i < elements.length; i += DE_FRONT) {
+    await Promise.all(elements.slice(i, i + DE_FRONT).map(traiter))
+  }
+}
+
+/**
+ * Pousse tous les rappels dus : les mots du cabinet, puis les rappels du soir.
  *
  * Réclame par lots, envoie, écrit le statut — et recommence tant qu'il reste
  * du travail et du temps. Une ligne réclamée mais non traitée (serveur
  * tombé en route) est rendue au passage suivant par la base elle-même, cinq
  * minutes plus tard.
+ *
+ * LE CONTENU MASQUÉ N'ARRIVE PAS ICI. La base rend déjà le texte neutre
+ * quand la personne a choisi la discrétion (0055) ; `texteAAfficher` le
+ * reprend quand même, et masque ce qu'une base plus ancienne rendrait sans
+ * le dire. Aucune ligne de ce passage n'écrit de titre ni de texte au
+ * journal : seulement des nombres et les messages d'erreur de la base.
  */
 export async function pousserLesRappels(
   admin: SupabaseClient,
@@ -253,7 +363,15 @@ export async function pousserLesRappels(
   envoyer: Envoyeur = envoyerParWebPush,
   maintenant: () => number = Date.now,
 ): Promise<BilanRappels> {
-  const bilan: BilanRappels = { reclames: 0, envoyes: 0, sansAppareil: 0, echecs: 0, appareilsRetires: 0 }
+  const bilan: BilanRappels = {
+    reclames: 0,
+    envoyes: 0,
+    sansAppareil: 0,
+    echecs: 0,
+    appareilsRetires: 0,
+    soirs: 0,
+    soirsArrives: 0,
+  }
   const debut = maintenant()
 
   while (maintenant() - debut < BUDGET_MS) {
@@ -263,28 +381,12 @@ export async function pousserLesRappels(
     if (!reclames.length) break
     bilan.reclames += reclames.length
 
-    const patientes = [...new Set(reclames.map((r) => r.patient_id))]
-    const { data: lus, error: e2 } = await admin
-      .from('push_subscriptions')
-      .select('id, patient_id, endpoint, p256dh, auth, chemin')
-      .in('patient_id', patientes)
-    if (e2) throw new HttpError(502, `Les téléphones inscrits n'ont pas pu être lus : ${e2.message}`)
-    const appareils = ((lus ?? []) as Appareil[]).filter((a) => serviceDePushConnu(a.endpoint))
+    const appareils = await appareilsDe(admin, reclames.map((r) => r.patient_id))
+    const retours: Retours = { perimes: new Set(), livres: new Set() }
 
-    const perimes = new Set<string>()
-    const livres = new Set<string>()
-
-    const traiter = async (r: Reclame) => {
+    await parPaquets(reclames, async (r) => {
       const siens = appareils.filter((a) => a.patient_id === r.patient_id)
-      const reponses = await Promise.all(
-        siens.map(async (a) => {
-          const reponse = lireReponse(await envoyer(a, contenuDuRappel(r, a.chemin, r.push_id), cles))
-          if (reponse === 'perime') perimes.add(a.id)
-          if (reponse === 'livre') livres.add(a.id)
-          return reponse
-        }),
-      )
-      const statut = statutDeLEnvoi(reponses)
+      const statut = statutDeLEnvoi(await pousserVers(siens, texteAAfficher(r), r.push_id, envoyer, cles, retours))
       if (statut === 'envoyee') bilan.envoyes += 1
       else if (statut === 'sans_appareil') bilan.sansAppareil += 1
       else bilan.echecs += 1
@@ -298,25 +400,46 @@ export async function pousserLesRappels(
       // suivant le reprendra dans cinq minutes — un doublon plutôt qu'un
       // statut faux.
       if (e3) console.error(`[rappels] statut non écrit — ${e3.message}`)
-    }
+    })
 
-    for (let i = 0; i < reclames.length; i += DE_FRONT) {
-      await Promise.all(reclames.slice(i, i + DE_FRONT).map(traiter))
-    }
-
-    if (perimes.size) {
-      const { error: e4 } = await admin.from('push_subscriptions').delete().in('id', [...perimes])
-      if (e4) console.error(`[rappels] inscriptions périmées non effacées — ${e4.message}`)
-      else bilan.appareilsRetires += perimes.size
-    }
-    if (livres.size) {
-      await admin
-        .from('push_subscriptions')
-        .update({ last_success_at: new Date(maintenant()).toISOString(), failures: 0 })
-        .in('id', [...livres])
-    }
-
+    await rangerLesAppareils(admin, retours, bilan, maintenant)
     if (reclames.length < LOT) break
+  }
+
+  /* LE RAPPEL DU SOIR (0055), dans le même passage et le même budget. Une
+     panne ici ne défait pas ce qui précède : les mots sont partis, et le
+     soir sera repris au passage suivant. */
+  while (maintenant() - debut < BUDGET_MS) {
+    const { data: lot, error } = await admin.rpc('rappels_du_soir_a_pousser', { p_limite: LOT })
+    if (error) {
+      if (!fonctionAbsente(error)) console.error(`[rappels] rappels du soir illisibles — ${error.message}`)
+      break
+    }
+    const soirs = (lot ?? []) as SoirReclame[]
+    if (!soirs.length) break
+    bilan.soirs += soirs.length
+
+    const appareils = await appareilsDe(admin, soirs.map((s) => s.patient_id))
+    const retours: Retours = { perimes: new Set(), livres: new Set() }
+
+    await parPaquets(soirs, async (s) => {
+      const siens = appareils.filter((a) => a.patient_id === s.patient_id)
+      // Une étiquette par soir : reçu deux fois, le rappel ne s'empile pas.
+      const texte = texteAAfficher(s, SOIR_MASQUE)
+      const statut = statutDeLEnvoi(await pousserVers(siens, texte, `soir-${s.jour}`, envoyer, cles, retours))
+      if (statut === 'envoyee') bilan.soirsArrives += 1
+
+      /* Le jour traité, quoi qu'il soit arrivé : un seul rappel par soir. Un
+         échec ne se retente pas à 23 h — la note du soir attendra demain. */
+      const { error: e3 } = await admin
+        .from('preferences_rappels')
+        .update({ soir_envoye_le: s.jour, soir_statut: statut, soir_reclame_le: null })
+        .eq('patient_id', s.patient_id)
+      if (e3) console.error(`[rappels] soir non noté — ${e3.message}`)
+    })
+
+    await rangerLesAppareils(admin, retours, bilan, maintenant)
+    if (soirs.length < LOT) break
   }
 
   return bilan

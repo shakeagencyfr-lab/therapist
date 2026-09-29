@@ -182,6 +182,13 @@ begin
   select count(*) into v_n from public.rappels_recurrents where id = v_ailleurs;
   if v_n <> 0 then raise exception 'ECHEC 6 : la thérapeute lit les rappels d''un autre cabinet'; end if;
 
+  -- 6 bis. Ni n'arrête ceux d'un autre cabinet, ni n'en lit les destinataires.
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_ther2::text, 'role', 'authenticated')::text, true);
+  if public.cabinet_arreter_rappel(v_quotidien) then raise exception 'ECHEC 6b : un autre cabinet arrête le rappel'; end if;
+  select count(*) into v_n from public.rappels_recurrents_patients where rappel_id = v_quotidien;
+  if v_n <> 0 then raise exception 'ECHEC 6c : un autre cabinet lit les destinataires du rappel'; end if;
+
   -- 7. La personne suivie ne lit pas la planification.
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_ua::text, 'role', 'authenticated')::text, true);
@@ -376,6 +383,10 @@ begin
   if v_m is distinct from false or v_t <> 'Votre note du soir' or v_c <> 'Votre sommeil, de 0 à 10 ?' or v_j <> v_jour then
     raise exception 'ECHEC 26 : le rappel du soir d''Anna ne porte pas sa question (% / % / % / %)', v_m, v_t, v_c, v_j;
   end if;
+  -- L'appel précédent a réclamé les deux (lot de 500) : on rend celui de Bea.
+  set local role postgres;
+  update public.preferences_rappels set soir_reclame_le = null where patient_id = v_fb;
+  set local role service_role;
   select titre, corps, masque into v_t, v_c, v_m
     from public.rappels_du_soir_a_pousser(500) where patient_id = v_fb;
   if v_m is distinct from true or v_t <> 'Un rappel de votre espace' or v_c ~* 'panique' then

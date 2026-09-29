@@ -1,10 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
 import { afterEach, describe, expect, it } from 'vitest'
+import { MOT_MASQUE, SOIR_MASQUE } from '../src/lib/discretion.js'
 import {
   clePubliqueDe,
   clesVapid,
   contenuDuRappel,
+  fonctionAbsente,
   lireReponse,
   pousserLesRappels,
   serviceDePushConnu,
@@ -131,21 +133,44 @@ interface Reclame {
   patient_id: string
   titre: string
   corps: string
+  masque?: boolean | null
 }
 
-function fausseBase(lots: Reclame[][], appareils: Appareil[]) {
+interface SoirReclame {
+  patient_id: string
+  jour: string
+  titre: string
+  corps: string
+  masque?: boolean | null
+}
+
+type ErreurBase = { code?: string; message: string }
+
+function fausseBase(
+  lots: Reclame[][],
+  appareils: Appareil[],
+  soirs: Array<SoirReclame[] | ErreurBase> = [],
+  { statutEnPanne = false } = {},
+) {
   const journal = {
     statuts: [] as Array<Record<string, unknown>>,
+    soirs: [] as Array<Record<string, unknown>>,
     effaces: [] as string[],
     livres: [] as string[],
     reclamations: 0,
+    reclamationsDuSoir: 0,
   }
   const admin = {
-    rpc: async () => {
+    rpc: async (nom: string) => {
+      if (nom === 'rappels_du_soir_a_pousser') {
+        journal.reclamationsDuSoir += 1
+        const suivant = soirs.shift() ?? []
+        return Array.isArray(suivant) ? { data: suivant, error: null } : { data: null, error: suivant }
+      }
       journal.reclamations += 1
       return { data: lots.shift() ?? [], error: null }
     },
-    from: () => ({
+    from: (table: string) => ({
       select: () => ({
         in: async (_col: string, ids: string[]) => ({
           data: appareils.filter((a) => ids.includes(a.patient_id)),
@@ -157,9 +182,13 @@ function fausseBase(lots: Reclame[][], appareils: Appareil[]) {
         const chaine = {
           eq(col: string, v: unknown): unknown {
             filtres[col] = v
+            if (table === 'preferences_rappels' && 'patient_id' in filtres) {
+              journal.soirs.push({ ...filtres, ...valeurs })
+              return Promise.resolve({ error: null })
+            }
             if ('push_id' in filtres && 'patient_id' in filtres) {
               journal.statuts.push({ ...filtres, ...valeurs })
-              return Promise.resolve({ error: null })
+              return Promise.resolve({ error: statutEnPanne ? { message: 'panne de la base' } : null })
             }
             return chaine
           },
@@ -188,12 +217,25 @@ function appareil(id: string, patient: string, endpoint = `https://fcm.googleapi
   return { id, patient_id: patient, endpoint, p256dh: 'k', auth: 'a', chemin: '/mon' }
 }
 
+/** Un envoyeur qui garde ce qu'il aurait posé sur chaque téléphone. */
+function envoyeurQuiNote(code = 201) {
+  const poses: Array<{ appareil: string; titre: string; corps: string; etiquette: string }> = []
+  const envoyer: Envoyeur = async (a, contenu) => {
+    const lu = JSON.parse(contenu) as { titre: string; corps: string; etiquette: string }
+    poses.push({ appareil: a.id, titre: lu.titre, corps: lu.corps, etiquette: lu.etiquette })
+    return code
+  }
+  return { poses, envoyer }
+}
+
+const BILAN_VIDE = { reclames: 0, envoyes: 0, sansAppareil: 0, echecs: 0, appareilsRetires: 0, soirs: 0, soirsArrives: 0 }
+
 describe('un passage', () => {
   it('pousse, retire les téléphones périmés et dit ce qui est arrivé à chacune', async () => {
     const { admin, journal } = fausseBase(
       [[
-        { push_id: 'n1', patient_id: 'anna', titre: 'Ce soir', corps: 'Respirez.' },
-        { push_id: 'n1', patient_id: 'bea', titre: 'Ce soir', corps: 'Respirez.' },
+        { push_id: 'n1', patient_id: 'anna', titre: 'Ce soir', corps: 'Respirez.', masque: false },
+        { push_id: 'n1', patient_id: 'bea', titre: 'Ce soir', corps: 'Respirez.', masque: false },
       ]],
       [appareil('tel-anna', 'anna'), appareil('vieux-anna', 'anna')],
     )
@@ -205,7 +247,7 @@ describe('un passage', () => {
 
     const bilan = await pousserLesRappels(admin, CLES, envoyer, figee)
 
-    expect(bilan).toEqual({ reclames: 2, envoyes: 1, sansAppareil: 1, echecs: 0, appareilsRetires: 1 })
+    expect(bilan).toEqual({ ...BILAN_VIDE, reclames: 2, envoyes: 1, sansAppareil: 1, appareilsRetires: 1 })
     expect(envois.sort()).toEqual(['tel-anna', 'vieux-anna'])
     expect(journal.effaces).toEqual(['vieux-anna'])
     expect(journal.livres).toEqual(['tel-anna'])
@@ -251,6 +293,7 @@ describe('un passage', () => {
     const bilan = await pousserLesRappels(admin, CLES, async () => 201, figee)
     expect(bilan.reclames).toBe(0)
     expect(journal.reclamations).toBe(1)
+    expect(journal.reclamationsDuSoir).toBe(1)
   })
 
   it('reprend un lot plein, et seulement tant qu’il en reste', async () => {
@@ -261,6 +304,148 @@ describe('un passage', () => {
     const bilan = await pousserLesRappels(admin, CLES, async () => 201, figee)
     expect(bilan.reclames).toBe(51)
     expect(journal.reclamations).toBe(2)
+  })
+})
+
+/* LA DISCRÉTION SUR L'ÉCRAN VERROUILLÉ (0055). La base rend déjà le texte
+   neutre ; le serveur le reprend quand même, et c'est ce qui part. */
+describe('le contenu masqué', () => {
+  it('part neutre quand la personne n’a pas choisi de le lire', async () => {
+    const { admin } = fausseBase(
+      [[{ push_id: 'n1', patient_id: 'anna', titre: MOT_MASQUE.titre, corps: MOT_MASQUE.corps, masque: true }]],
+      [appareil('tel', 'anna')],
+    )
+    const { poses, envoyer } = envoyeurQuiNote()
+    await pousserLesRappels(admin, CLES, envoyer, figee)
+    expect(poses).toEqual([{ appareil: 'tel', titre: MOT_MASQUE.titre, corps: MOT_MASQUE.corps, etiquette: 'n1' }])
+  })
+
+  /* Une base qui dirait « masqué » en laissant passer le contenu : le
+     serveur ne l'écrit pas pour autant. */
+  it('ne pose jamais le contenu d’un mot marqué masqué', async () => {
+    const { admin } = fausseBase(
+      [[{ push_id: 'n1', patient_id: 'anna', titre: 'Crises du soir', corps: 'Votre exercice anti-panique.', masque: true }]],
+      [appareil('tel', 'anna')],
+    )
+    const { poses, envoyer } = envoyeurQuiNote()
+    await pousserLesRappels(admin, CLES, envoyer, figee)
+    expect(JSON.stringify(poses)).not.toMatch(/Crises|panique/)
+    expect(poses[0]).toMatchObject({ titre: MOT_MASQUE.titre, corps: MOT_MASQUE.corps })
+  })
+
+  /* Serveur mis en ligne avant 0055 : la base ne dit rien de la discrétion.
+     Le défaut vaut aussi là — masqué. */
+  it('masque quand la base ne dit rien', async () => {
+    const { admin } = fausseBase(
+      [[{ push_id: 'n1', patient_id: 'anna', titre: 'Crises du soir', corps: 'Votre exercice.' }]],
+      [appareil('tel', 'anna')],
+      [{ code: 'PGRST202', message: 'Could not find the function public.rappels_du_soir_a_pousser' }],
+    )
+    const { poses, envoyer } = envoyeurQuiNote()
+    await pousserLesRappels(admin, CLES, envoyer, figee)
+    expect(poses[0]).toMatchObject({ titre: MOT_MASQUE.titre, corps: MOT_MASQUE.corps })
+  })
+
+  it('montre le mot à qui a choisi de le lire', async () => {
+    const { admin } = fausseBase(
+      [[{ push_id: 'n1', patient_id: 'anna', titre: 'Ce soir', corps: 'Respirez.', masque: false }]],
+      [appareil('tel', 'anna')],
+    )
+    const { poses, envoyer } = envoyeurQuiNote()
+    await pousserLesRappels(admin, CLES, envoyer, figee)
+    expect(poses[0]).toMatchObject({ titre: 'Ce soir', corps: 'Respirez.' })
+  })
+})
+
+describe('le rappel du soir', () => {
+  const JOUR = '2026-09-29'
+
+  it('pousse le rappel du soir, et note le jour traité pour chacune', async () => {
+    const { admin, journal } = fausseBase(
+      [[]],
+      [appareil('tel-anna', 'anna')],
+      [[
+        { patient_id: 'anna', jour: JOUR, titre: 'Votre note du soir', corps: 'Votre sommeil, de 0 à 10 ?', masque: false },
+        { patient_id: 'bea', jour: JOUR, titre: SOIR_MASQUE.titre, corps: SOIR_MASQUE.corps, masque: true },
+      ]],
+    )
+    const { poses, envoyer } = envoyeurQuiNote()
+    const bilan = await pousserLesRappels(admin, CLES, envoyer, figee)
+
+    expect(bilan).toMatchObject({ reclames: 0, soirs: 2, soirsArrives: 1 })
+    // Une étiquette par soir : le même rappel reçu deux fois ne s'empile pas.
+    expect(poses).toEqual([
+      { appareil: 'tel-anna', titre: 'Votre note du soir', corps: 'Votre sommeil, de 0 à 10 ?', etiquette: `soir-${JOUR}` },
+    ])
+    // Un seul par soir : le jour est noté, que le téléphone ait reçu ou non.
+    expect(journal.soirs).toEqual(
+      expect.arrayContaining([
+        { patient_id: 'anna', soir_envoye_le: JOUR, soir_statut: 'envoyee', soir_reclame_le: null },
+        { patient_id: 'bea', soir_envoye_le: JOUR, soir_statut: 'sans_appareil', soir_reclame_le: null },
+      ]),
+    )
+    expect(journal.livres).toEqual(['tel-anna'])
+  })
+
+  it('arrive masqué quand la personne n’a rien choisi', async () => {
+    const { admin } = fausseBase(
+      [[]],
+      [appareil('tel-bea', 'bea')],
+      [[{ patient_id: 'bea', jour: JOUR, titre: 'Votre note du soir', corps: 'Vos crises de panique ?' }]],
+    )
+    const { poses, envoyer } = envoyeurQuiNote()
+    await pousserLesRappels(admin, CLES, envoyer, figee)
+    expect(poses[0]).toMatchObject({ titre: SOIR_MASQUE.titre, corps: SOIR_MASQUE.corps })
+    expect(JSON.stringify(poses)).not.toMatch(/panique/)
+  })
+
+  /* Le serveur peut précéder 0055 : les mots partent, le soir se tait, et
+     le journal n'en est pas encombré chaque minute. */
+  it('laisse partir les mots quand la base ne connaît pas encore le rappel du soir', async () => {
+    const erreurs: unknown[] = []
+    const avant = console.error
+    console.error = (...args: unknown[]) => void erreurs.push(args)
+    try {
+      const { admin, journal } = fausseBase(
+        [[{ push_id: 'n1', patient_id: 'anna', titre: 't', corps: 'c', masque: false }]],
+        [appareil('tel', 'anna')],
+        [{ code: 'PGRST202', message: 'Could not find the function public.rappels_du_soir_a_pousser' }],
+      )
+      const bilan = await pousserLesRappels(admin, CLES, async () => 201, figee)
+      expect(bilan).toMatchObject({ reclames: 1, envoyes: 1, soirs: 0 })
+      expect(journal.statuts).toHaveLength(1)
+      expect(erreurs).toEqual([])
+    } finally {
+      console.error = avant
+    }
+    expect(fonctionAbsente({ code: '42883', message: 'function does not exist' })).toBe(true)
+    expect(fonctionAbsente({ code: '57014', message: 'canceling statement due to statement timeout' })).toBe(false)
+  })
+})
+
+/* DONNÉES DE SANTÉ : RIEN AU JOURNAL DU SERVEUR. Une base en panne au moment
+   d'écrire le statut fait parler le serveur ; il ne doit dire que la panne. */
+describe('le journal du serveur', () => {
+  it('ne contient ni titre ni texte, même quand quelque chose échoue', async () => {
+    const lignes: string[] = []
+    const avant = { error: console.error, log: console.log, warn: console.warn }
+    const noter = (...args: unknown[]) => void lignes.push(args.map(String).join(' '))
+    console.error = noter
+    console.log = noter
+    console.warn = noter
+    try {
+      const { admin } = fausseBase(
+        [[{ push_id: 'n1', patient_id: 'anna', titre: 'Crises du soir', corps: 'Votre exercice anti-panique.', masque: false }]],
+        [appareil('tel', 'anna')],
+        [[{ patient_id: 'anna', jour: '2026-09-29', titre: 'Votre note du soir', corps: 'Vos crises de panique ?', masque: false }]],
+        { statutEnPanne: true },
+      )
+      await pousserLesRappels(admin, CLES, async () => 201, figee)
+    } finally {
+      Object.assign(console, avant)
+    }
+    expect(lignes.length).toBeGreaterThan(0)
+    expect(lignes.join('\n')).not.toMatch(/Crises|panique|exercice|sommeil/i)
   })
 })
 
