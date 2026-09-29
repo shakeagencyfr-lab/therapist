@@ -183,6 +183,25 @@ describe('le PDF composé', () => {
     const annulee = (await composerNote({ ...note, annuleeLe: '2026-09-29T09:00:00Z' })).output()
     expect(annulee).toContain('ANNULÉE')
   })
+
+  /* Le logo du cabinet en tête, quand il en a un : une image dans la page,
+     le texte de la note inchangé. */
+  it('pose le logo du cabinet en tête, sans rien changer à ce que la note dit', async () => {
+    // Un carré PNG de 1 pixel : de quoi vérifier que l'image entre dans le fichier.
+    const pixel =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+    const note = {
+      id: 'n1', numero: 7, patientId: 'p1', sessionId: 's1', datePrestation: '2026-09-25',
+      prestation: 'Séance d’hypnose', montantCents: 6000, mentionTva: 'art-293-b' as const,
+      praticien: 'Camille Praticienne', praticienAdresse: '3 rue des Lilas', praticienNumero: 'SIRET 123',
+      beneficiaire: 'Nadia Belkacem', emiseLe: '2026-09-28T09:00:00Z', annuleeLe: null,
+    }
+    const sans = (await composerNote(note)).output()
+    const avec = (await composerNote(note, { dataUrl: pixel, largeur: 1, hauteur: 1 })).output()
+    expect(sans).not.toMatch(/\/Subtype \/Image/)
+    expect(avec).toMatch(/\/Subtype \/Image/)
+    for (const texte of ['N° 0007', 'Nadia Belkacem', 'Camille Praticienne']) expect(avec).toContain(texte)
+  })
 })
 
 describe('la mise en page ne laisse passer aucun texte brut', () => {

@@ -6,9 +6,14 @@
  * exactement ce qu'elle disait le jour de son émission, adresse comprise.
  *
  * Aucune marque de l'application : c'est une pièce de la praticienne, elle
- * sort à son nom. Une note annulée se réimprime, barrée de sa mention.
+ * sort à son nom — et à son logo, quand le cabinet en a déposé un (en tête,
+ * au-dessus de ses coordonnées). Le logo est celui du jour de l'impression :
+ * il habille la pièce, il n'en fait pas partie ; tout ce qu'elle dit reste
+ * celui du jour de l'émission. Une note annulée se réimprime, barrée de sa
+ * mention.
  */
 import { MENTIONS_TVA, jourLisible, montantLisible, nomFichierNote, numeroDeNote, type NoteHonoraires } from '@/lib/honoraires'
+import { cadreDuLogo, type LogoPdf } from '@/lib/logoPdf'
 import { pourPdf } from '@/lib/pdfTexte'
 
 /** Ce que la note imprime, dans l'ordre — la mise en page n'invente rien. */
@@ -49,21 +54,26 @@ const LARGEUR = 595.28
 const HAUTEUR = 841.89
 
 /** La note téléchargée sur cet appareil. */
-export async function telechargerNoteHonoraires(n: NoteHonoraires): Promise<void> {
-  const doc = await composerNote(n)
+export async function telechargerNoteHonoraires(n: NoteHonoraires, logo: LogoPdf | null = null): Promise<void> {
+  const doc = await composerNote(n, logo)
   doc.save(nomFichierNote(n))
 }
 
 /** La note composée, sans l'enregistrer : ce que les tests relisent. */
-export async function composerNote(n: NoteHonoraires) {
+export async function composerNote(n: NoteHonoraires, logo: LogoPdf | null = null) {
   const { jsPDF } = await import('jspdf')
   const doc = new jsPDF({ unit: 'pt', format: 'a4' })
   const c = contenuDeLaNote(n)
   const droite = LARGEUR - MARGE
   const t = (s: string) => pourPdf(s)
 
-  /* L'en-tête : la praticienne à gauche, la pièce à droite. */
+  /* L'en-tête : le logo et la praticienne à gauche, la pièce à droite. */
   let y = MARGE + 14
+  if (logo) {
+    const cadre = cadreDuLogo(logo, 150, 48)
+    doc.addImage(logo.dataUrl, 'PNG', MARGE, MARGE - 8, cadre.largeur, cadre.hauteur)
+    y = MARGE - 8 + cadre.hauteur + 22
+  }
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(11.5)
   doc.setTextColor(30, 28, 24)

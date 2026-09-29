@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Button, Card, EmptyState, Notice, Pill, Sub, Title, type PillTone } from '@/components/ui'
+import { useMaybeAuth } from '@/auth/session'
 import { useDossierFiche } from '@/cabinet/useDossierFiche'
 import {
   LIBELLE_ETAT,
@@ -19,6 +20,7 @@ import {
   type NoteHonoraires,
 } from '@/lib/honoraires'
 import { telechargerNoteHonoraires } from '@/lib/honorairesPdf'
+import { logoPourPdf } from '@/lib/logoPdf'
 import { patientOf } from '@/state/selectors'
 import { useAppState } from '@/state/store'
 import { NoteHonorairesForm } from './NoteHonorairesForm'
@@ -51,6 +53,7 @@ export function SeancesFiche() {
   const state = useAppState()
   const fiche = patientOf(state)
   const { etat, dossier, gestes, recharger } = useDossierFiche(state.sel)
+  const logoUrl = useMaybeAuth()?.context?.cabinet?.branding?.logoUrl ?? null
   const [ouverte, setOuverte] = useState<string | null | undefined>(undefined)
   const [facturation, setFacturation] = useState<Facturation | null>(null)
   const [annulation, setAnnulation] = useState('')
@@ -64,7 +67,8 @@ export function SeancesFiche() {
     if (pdf) return
     setPdf(note.id)
     try {
-      await telechargerNoteHonoraires(note)
+      // Le logo du cabinet en tête, s'il en a un ; sans lui, la note part quand même.
+      await telechargerNoteHonoraires(note, await logoPourPdf(logoUrl))
     } catch {
       setNotice({ tone: 'warn', text: 'Le PDF n’a pas pu être fabriqué. La note est bien émise : réessayez de la télécharger.' })
     }
