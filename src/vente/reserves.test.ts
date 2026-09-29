@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { problemeIdentifiant } from '@/lib/identifiant'
 import { CHEMINS_RESERVES, slugDuChemin } from '@/lib/vitrine'
+import { PAGES_LEGALES } from './contenu'
 
 /**
  * LA PORTE DES PRATICIENNES N'EST PAS UN CABINET.
@@ -39,5 +40,20 @@ describe('les chemins de la porte', () => {
   it('sont refusés par la base', () => {
     const contrainte = /add constraint cabinets_slug_forme check \(([\s\S]*?)\);/.exec(migration)?.[1] ?? ''
     for (const mot of MOTS) expect(contrainte, mot).toContain(`'${mot}'`)
+  })
+})
+
+/* Les liens légaux du pied de page vivent aussi à la racine : un cabinet qui
+   prendrait l'un de ces mots ferait disparaître la page — ou l'inverse. */
+describe('les chemins des pages légales liées par la page', () => {
+  const mots = PAGES_LEGALES.map((p) => p.chemin.replace(/^\//, ''))
+  const contrainte = /add constraint cabinets_slug_forme check \(([\s\S]*?)\);/.exec(migration)?.[1] ?? ''
+
+  it('sont réservés à l’écran et en base', () => {
+    expect(mots.length).toBe(3)
+    for (const mot of mots) {
+      expect(CHEMINS_RESERVES.has(mot), mot).toBe(true)
+      expect(contrainte, mot).toContain(`'${mot}'`)
+    }
   })
 })

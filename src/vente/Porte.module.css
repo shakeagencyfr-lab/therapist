@@ -1,23 +1,37 @@
-/* La porte des praticiennes : l'écran de connexion, et le chemin du retour. */
+/* La porte des thérapeutes : l'écran de connexion, le chemin du retour au-
+   dessus de la carte, et celui de l'essai en dessous. */
 
 .porte {
-  position: relative;
   background: var(--c-app);
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 16px 0 32px;
 }
 
-/* En haut à gauche, hors de la carte : on le trouve sans le chercher, et il
-   ne s'interpose pas entre l'adresse et le bouton. */
+/* L'écran de connexion se centre d'ordinaire dans toute la hauteur : ici,
+   c'est la porte qui centre l'ensemble — retour, carte, essai. */
+.porte > :nth-child(2) {
+  min-height: 0;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+/* À la largeur de la carte (420 pixels, SignIn.module.css), juste au-dessus. */
+.bande {
+  width: 100%;
+  max-width: calc(420px + 48px);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
 .retour {
-  position: absolute;
-  top: 16px;
-  left: 16px;
-  z-index: 1;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   min-height: 44px;
-  padding: 10px 14px;
+  padding: 10px 12px 10px 4px;
   border-radius: var(--r-pill);
   font-size: 14px;
   font-weight: 500;
@@ -25,17 +39,26 @@
   text-decoration: none;
 }
 .retour:hover {
-  background: var(--c-neutral);
   color: var(--c-dark);
+  text-decoration: underline;
 }
-.retour:focus-visible {
+.retour:focus-visible,
+.essai a:focus-visible {
   outline: 3px solid var(--c-accent-deep);
   outline-offset: 2px;
 }
 
-/* Au plus étroit, la carte descend d'une ligne pour laisser la place au lien. */
-@media (max-width: 520px) {
-  .porte > :last-child {
-    padding-top: 72px;
-  }
+.essai {
+  width: 100%;
+  max-width: calc(420px + 48px);
+  margin: 4px auto 0;
+  padding: 0 24px;
+  text-align: center;
+  font-size: 14.5px;
+  color: var(--c-text-3);
+}
+.essai a {
+  color: var(--c-accent-deep);
+  font-weight: 600;
+  text-underline-offset: 3px;
 }

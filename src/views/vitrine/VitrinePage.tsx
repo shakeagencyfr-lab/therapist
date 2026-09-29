@@ -8,6 +8,7 @@ import { cheminEspacePatient } from '@/lib/domaine'
 import { lignesMentions } from '@/lib/mentionsLegales'
 import { titreDuCabinet, useEnTete } from '@/lib/enTete'
 import { pileTexte, pileTitres, policesAcharger, resoudreTheme } from '@/lib/themeVitrine'
+import { LiensLegaux } from '@/legal/LiensLegaux'
 import { AvisGoogle } from './AvisGoogle'
 import s from './VitrinePage.module.css'
 
@@ -268,6 +269,13 @@ export function VitrinePage({ site, apercu = false }: { site: SiteVitrine; aperc
             ))}
           </dl>
         </details>
+        {/* LES DOCUMENTS DE L'ESPACE PATIENT, À CÔTÉ DE CEUX DU CABINET. Les
+            mentions ci-dessus sont celles de SA page ; l'espace qu'on ouvre
+            juste au-dessus relève aussi de la plateforme, qui l'héberge et le
+            fait tourner. L'amorce dit à quoi ils se rapportent, sans nommer le
+            fournisseur sur la page d'une marque blanche — c'est le document
+            ouvert qui le nomme, comme la loi le demande. */}
+        <LiensLegaux gauche intro="Espace patient :" className={s.legal} />
       </footer>
     </div>
   )

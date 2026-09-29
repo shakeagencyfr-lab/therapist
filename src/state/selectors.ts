@@ -8,6 +8,7 @@
  */
 import { seFaitParLePatient } from '@/lib/typesDeModules'
 import { mesurable, tacheEnRetard } from '@/lib/assiduite'
+import { parProchaineSeance, sansProchaineSeance } from '@/lib/agenda'
 import type { AppState } from './state'
 import type { Patient, PatientId, PatientModule, PsychProfile } from '@/types/domain'
 
@@ -188,16 +189,25 @@ export function riskColor(adherence: number): string {
       : 'var(--c-risk-low)'
 }
 
-/** Patients de la barre latérale, filtrés par la recherche. */
-export function sidebarPatients(state: AppState): Array<{ id: PatientId; patient: Patient }> {
+/**
+ * Patients de la barre latérale, filtrés par la recherche — et, au choix,
+ * réduits à ceux qui n'ont pas de prochaine séance, ou rangés par prochaine
+ * séance (0059). Les deux se lisent sur la VRAIE date : src/lib/agenda.ts.
+ */
+export function sidebarPatients(
+  state: AppState,
+  maintenant: Date = new Date(),
+): Array<{ id: PatientId; patient: Patient }> {
   const query = state.q.trim().toLowerCase()
-  return state.patientOrder.filter((k) => {
+  const rows = state.patientOrder.filter((k) => {
+    if (state.pSansSeance && !sansProchaineSeance(state.patients[k], maintenant)) return false
     if (!query) return true
     /* Le prototype cherche dans le nom ET le sous-titre : le programme et la
        semaine (« Liberté · semaine 3 / 6 ») sont donc des critères valides. */
     const haystack = `${state.patients[k].name} ${state.patients[k].subtitle}`.toLowerCase()
     return haystack.includes(query)
-  }).map((k) => ({ id: k, patient: state.patients[k] }))
+  }).map((k) => ({ id: k, patient: state.patients[k], prochaineSeanceLe: state.patients[k].prochaineSeanceLe }))
+  return (state.pParSeance ? parProchaineSeance(rows, maintenant) : rows).map(({ id, patient }) => ({ id, patient }))
 }
 
 /**
@@ -251,7 +261,7 @@ export interface NotifRow {
  * de ce que l'application sait déjà : programme, assiduité, modules en
  * retard, rendez-vous manquant, écoutes, courbe plate.
  */
-export function notifRows(state: AppState): NotifRow[] {
+export function notifRows(state: AppState, maintenant: Date = new Date()): NotifRow[] {
   const progs = Object.keys(state.nProgs).filter((k) => state.nProgs[k])
   const sits = Object.keys(state.nSits).filter((k) => state.nSits[k])
 
@@ -263,7 +273,8 @@ export function notifRows(state: AppState): NotifRow[] {
     const late = mods.filter(
       (m, i) => seFaitParLePatient(m.kind) && tacheEnRetard(m.septJours, isModuleDone(state, k, i, m.done)),
     ).length
-    const noNext = d.nextSession.indexOf('Aucune') === 0
+    // Sur la vraie date (0059) ; la démonstration, qui n'a que du texte, se lit sur son texte.
+    const noNext = sansProchaineSeance(d, maintenant)
     const tail = d.scale.slice(-3)
     const flat = tail.length === 3 && tail[0] === tail[2]
 

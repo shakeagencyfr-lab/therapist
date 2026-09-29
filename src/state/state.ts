@@ -81,6 +81,10 @@ export interface AppState {
   sel: PatientId
   /** Recherche de la barre latérale. */
   q: string
+  /** La liste rangée par prochaine séance plutôt que par ordre d'arrivée (0059). */
+  pParSeance: boolean
+  /** Seulement les fiches sans prochaine séance datée à venir (0059). */
+  pSansSeance: boolean
 
   /* Dossier du cabinet ---------------------------------------------- *
    * Les fiches vivent ici plutôt que dans un module importé : c'est ce qui
@@ -301,6 +305,8 @@ export const initialState: AppState = {
   mode: 'therapist',
   sel: 'camille',
   q: '',
+  pParSeance: false,
+  pSansSeance: false,
 
   pNewOpen: false,
   pNewName: '',

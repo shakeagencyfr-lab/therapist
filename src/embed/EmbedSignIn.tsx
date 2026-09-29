@@ -5,6 +5,7 @@ import { captchaConfigure, useCaptcha } from '@/auth/Captcha'
 import { variablesDeMarque } from '@/lib/couleurs'
 import { cheminEspacePatient } from '@/lib/domaine'
 import { lireVitrine, slugEmbed, type Vitrine } from '@/lib/vitrine'
+import { LiensLegaux } from '@/legal/LiensLegaux'
 import s from './EmbedSignIn.module.css'
 
 /**
@@ -146,6 +147,10 @@ export function EmbedSignIn() {
           </p>
         </>
       )}
+      {/* HORS DU CADRE. Ce widget vit dans 360 pixels de haut, sur le site de
+          quelqu'un d'autre : la page légale s'ouvre dans un nouvel onglet,
+          jamais à la place du champ (src/legal/LiensLegaux.tsx). */}
+      <LiensLegaux court className={s.legal} />
     </div>
   )
 }

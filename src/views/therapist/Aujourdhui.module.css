@@ -1,0 +1,152 @@
+/* « Aujourd'hui » en tête de la liste des patients, et les deux réglages de
+   la liste. Même grammaire que la barre latérale : petites capitales,
+   lignes basses, rien qui pousse la liste hors de l'écran. */
+
+.jour {
+  margin: 0 0 18px;
+  padding: 12px 12px 10px;
+  border: 1px solid var(--c-border-light);
+  border-radius: var(--r-md);
+  background: var(--c-surface-2);
+}
+
+.tete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 6px;
+}
+
+.titre {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+
+.compte {
+  font-size: 11px;
+  color: var(--c-text-disabled);
+}
+
+.vide {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--c-text-muted);
+}
+
+.liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ligne {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 6px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  color: var(--c-text);
+  cursor: pointer;
+}
+.ligne:hover {
+  background: var(--c-surface);
+}
+.ligne:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+.ligneOn {
+  border-color: var(--c-border-accent);
+  background: var(--c-accent-soft-2);
+}
+
+/* L'heure d'abord, en chiffres alignés : c'est elle qu'on cherche. */
+.heure {
+  flex: none;
+  min-width: 52px;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.nom {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Déjà commencée : elle reste, en retrait. */
+.passee .heure,
+.passee .nom {
+  color: var(--c-text-muted);
+}
+.passeeMot {
+  flex: none;
+  font-size: 11px;
+  color: var(--c-text-muted);
+}
+
+/* Les réglages de la liste ------------------------------------------- */
+
+.reglages {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 0 4px 10px;
+}
+
+.bascule {
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  border-radius: var(--r-pill);
+  padding: 4px 10px;
+  font-family: inherit;
+  font-size: 11.5px;
+  color: var(--c-text-3);
+  cursor: pointer;
+}
+.bascule:hover {
+  background: var(--c-surface-2);
+}
+.bascule:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+.basculeOn {
+  border-color: var(--c-border-accent);
+  background: var(--c-accent-soft);
+  color: var(--c-text);
+}
+
+.listeVide {
+  margin: 4px 4px 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--c-text-muted);
+}
+
+@media (pointer: coarse) {
+  .ligne {
+    padding: 9px 6px;
+  }
+  .bascule {
+    padding: 7px 12px;
+  }
+}

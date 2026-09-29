@@ -130,3 +130,10 @@
   color: var(--c-accent);
   text-decoration: underline;
 }
+
+/* Les pages légales, au bas de la carte : lisibles, sans rien disputer au
+   formulaire. */
+.legal {
+  margin-top: 18px;
+  font-size: 11.5px;
+}

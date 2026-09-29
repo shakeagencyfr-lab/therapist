@@ -183,7 +183,19 @@ export interface Patient {
   program: string
   subtitle: string
   weekLabel: string
+  /**
+   * La prochaine séance, telle que les écrans l'affichent : datée
+   * (« Mardi 6 octobre, 14 h 30 »), sinon le texte libre d'avant, sinon
+   * « Aucune séance planifiée ». Voir src/lib/agenda.ts.
+   */
   nextSession: string
+  /**
+   * L'instant de la prochaine séance (0059), `null` si elle n'est pas datée.
+   * Absent en démonstration, où les fiches n'ont que du texte.
+   */
+  prochaineSeanceLe?: string | null
+  /** Le texte libre des fiches d'avant, tel qu'il est en base : il se remplace en datant la séance. */
+  prochaineSeanceTexte?: string | null
   /** Assiduité en pourcentage. */
   adherence: number
   /** Nombre d'écoutes audio. */

@@ -24,7 +24,7 @@ import {
   type ChampDemande,
   type SaisieDemande,
 } from '@/lib/demandeEssai'
-import { PAGES_LEGALES } from './contenu'
+import { CHEMIN_CONFIDENTIALITE, EDITEUR } from './contenu'
 import { envoyerDemande } from './envoi'
 import s from './PageDeVente.module.css'
 
@@ -36,8 +36,16 @@ const CLE_CAPTCHA = String(env.VITE_HCAPTCHA_SITE_KEY ?? '').trim()
 
 type Etat = 'saisie' | 'envoi' | 'envoyee'
 
-const CHEMIN_CONFIDENTIALITE =
-  PAGES_LEGALES.find((p) => p.chemin.includes('confidentialite'))?.chemin ?? '/confidentialite'
+/** Une autre issue que « réessayez », quand une adresse de contact est connue. */
+function Secours() {
+  if (!EDITEUR.contact) return null
+  return (
+    <>
+      {' '}
+      Si cela persiste, écrivez-nous à <a href={`mailto:${EDITEUR.contact}`}>{EDITEUR.contact}</a>.
+    </>
+  )
+}
 
 function Champ({
   id,
@@ -82,6 +90,8 @@ export function Formulaire({ offreProposee }: { offreProposee: string }) {
   const [erreurs, setErreurs] = useState<Partial<Record<ChampDemande, string>>>({})
   const [etat, setEtat] = useState<Etat>('saisie')
   const [refus, setRefus] = useState('')
+  /** Le refus vient-il du serveur ? Alors on propose une autre issue. */
+  const [refusServeur, setRefusServeur] = useState(false)
   const [merci, setMerci] = useState('')
   const [piege, setPiege] = useState('')
   const [jeton, setJeton] = useState<string | undefined>(undefined)
@@ -110,6 +120,7 @@ export function Formulaire({ offreProposee }: { offreProposee: string }) {
     e.preventDefault()
     if (etat === 'envoi') return
     setRefus('')
+    setRefusServeur(false)
 
     const verdict = validerDemande(saisie)
     if (!verdict.ok) {
@@ -147,6 +158,7 @@ export function Formulaire({ offreProposee }: { offreProposee: string }) {
       focaliser(premierChampEnDefaut(issue.erreurs))
     }
     setRefus(issue.message)
+    setRefusServeur(!issue.erreurs || !Object.keys(issue.erreurs).length)
   }
 
   /* La confirmation prend le focus : c'est la réponse à ce qu'on vient de faire. */
@@ -227,7 +239,7 @@ export function Formulaire({ offreProposee }: { offreProposee: string }) {
           />
         </Champ>
 
-        <Champ id={id('cabinet')} libelle="Nom du cabinet" erreur={erreurs.cabinet}>
+        <Champ id={id('cabinet')} libelle="Nom du cabinet, ou votre nom" erreur={erreurs.cabinet}>
           <input
             id={id('cabinet')}
             data-champ="cabinet"
@@ -273,6 +285,7 @@ export function Formulaire({ offreProposee }: { offreProposee: string }) {
                 name={`${base}-patients`}
                 value={f.valeur}
                 data-champ={i === 0 ? 'patients' : undefined}
+                aria-invalid={Boolean(erreurs.patients)}
                 checked={saisie.patients === f.valeur}
                 onChange={() => changer('patients', f.valeur)}
               />
@@ -300,6 +313,7 @@ export function Formulaire({ offreProposee }: { offreProposee: string }) {
                 name={`${base}-offre`}
                 value={o.valeur}
                 data-champ={i === 0 ? 'offre' : undefined}
+                aria-invalid={Boolean(erreurs.offre)}
                 checked={saisie.offre === o.valeur}
                 onChange={() => changer('offre', o.valeur)}
               />
@@ -380,15 +394,29 @@ export function Formulaire({ offreProposee }: { offreProposee: string }) {
       ) : null}
 
       <div aria-live="assertive" className={s.annonce}>
-        {refus ? <p className={s.refus}>{refus}</p> : null}
+        {refus ? (
+          <p className={s.refus}>
+            {refus}
+            {refusServeur ? <Secours /> : null}
+          </p>
+        ) : null}
       </div>
 
       <button type="submit" className={`${s.bouton} ${s.boutonPlein} ${s.boutonLarge}`} disabled={etat === 'envoi'}>
         {etat === 'envoi' ? 'Envoi…' : 'Envoyer ma demande'}
       </button>
+      {/* Ce que devient ce qu'on vient d'écrire, dit AVANT l'envoi (RGPD,
+          art. 13) : qui le lit, pour quoi faire, et comment le reprendre. */}
       <p className={s.aide}>
-        Nous revenons vers vous rapidement pour ouvrir votre cabinet en essai. Voir{' '}
-        <a href={CHEMIN_CONFIDENTIALITE}>la politique de confidentialité</a>.
+        Vos réponses sont lues par {EDITEUR.nom}, qui propose Klaro, pour vous recontacter au sujet de cet essai,
+        et pour rien d’autre. Vous pouvez demander à tout moment à les consulter, les corriger ou les effacer
+        {EDITEUR.contact ? (
+          <>
+            {' '}
+            en écrivant à <a href={`mailto:${EDITEUR.contact}`}>{EDITEUR.contact}</a>
+          </>
+        ) : null}
+        . Voir aussi <a href={CHEMIN_CONFIDENTIALITE}>la politique de confidentialité</a>.
       </p>
     </form>
   )

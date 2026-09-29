@@ -1,0 +1,354 @@
+/* Les pages légales : un document à lire, pas un écran d'application.
+   Une colonne, une mesure de lecture confortable, et rien qui bouge. */
+
+.page {
+  min-height: 100vh;
+  background: var(--c-app);
+  color: var(--c-text-2);
+}
+
+/* Discret, mais en tête et sur toute la largeur : on ne peut pas lire le
+   document sans l'avoir vu. */
+.bandeau {
+  margin: 0;
+  padding: 8px 16px;
+  background: var(--c-warn-bg);
+  border-bottom: 1px solid var(--c-warn-border);
+  color: var(--c-warn-text);
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.entete {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 20px 16px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.marque {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--c-accent);
+  color: var(--c-surface);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-serif);
+  font-size: 14px;
+}
+
+.nomMarque {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--c-text);
+}
+
+.retour {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-pill);
+  background: var(--c-surface);
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--c-accent-deep);
+  cursor: pointer;
+}
+.retour:hover {
+  background: var(--c-neutral);
+}
+.retour:focus-visible {
+  outline: 3px solid var(--c-accent-deep);
+  outline-offset: 2px;
+}
+
+/* Les trois documents, pour passer de l'un à l'autre sans revenir en arrière. */
+.documents {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 16px 16px 0;
+}
+
+.documentsListe {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.document {
+  display: inline-block;
+  padding: 7px 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  font-size: 13px;
+  color: var(--c-text-3);
+}
+.document:hover {
+  color: var(--c-accent-deep);
+  border-color: var(--c-border-accent);
+}
+.documentActif,
+.documentActif:hover {
+  background: var(--c-dark);
+  border-color: var(--c-dark);
+  color: var(--c-on-dark);
+}
+.document:focus-visible {
+  outline: 3px solid var(--c-accent-deep);
+  outline-offset: 2px;
+}
+
+.contenu {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 28px 16px 48px;
+  /* Une adresse (klaroweb.site/son-identifiant) ne pousse pas la page de
+     côté sur un téléphone étroit. */
+  overflow-wrap: break-word;
+}
+
+.titre {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: clamp(30px, 6vw, 40px);
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  color: var(--c-text);
+  margin: 0 0 8px;
+}
+
+.maj {
+  margin: 0 0 20px;
+  font-size: 13px;
+  color: var(--c-text-muted);
+}
+
+.chapo {
+  margin: 0 0 28px;
+  font-family: var(--font-serif);
+  font-size: 19px;
+  line-height: 1.55;
+  color: var(--c-text-2);
+}
+
+.sommaire {
+  margin: 0 0 36px;
+  padding: 18px 20px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+}
+
+.sommaireTitre {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+
+.sommaireListe {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 14.5px;
+  line-height: 1.9;
+}
+.sommaireListe a {
+  color: var(--c-text-3);
+  text-decoration: underline;
+  text-decoration-color: var(--c-border-mute);
+  text-underline-offset: 3px;
+}
+.sommaireListe a:hover {
+  color: var(--c-accent-deep);
+}
+
+/* Une ancre ne doit pas coller le titre au bord de l'écran. */
+.section {
+  scroll-margin-top: 16px;
+  padding-top: 8px;
+  margin-bottom: 36px;
+}
+
+.h2 {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 24px;
+  line-height: 1.25;
+  color: var(--c-text);
+  margin: 0 0 14px;
+}
+
+.texte {
+  margin: 0 0 14px;
+  font-size: 15.5px;
+  line-height: 1.7;
+}
+
+.lien {
+  color: var(--c-accent-deep);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.liste {
+  margin: 0 0 14px;
+  padding-left: 22px;
+  font-size: 15.5px;
+  line-height: 1.7;
+}
+.liste li + li {
+  margin-top: 8px;
+}
+
+.encart {
+  margin: 18px 0;
+  padding: 14px 18px;
+  border-left: 3px solid var(--c-accent);
+  background: var(--c-accent-tint);
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--c-text-2);
+}
+
+/* Terme à gauche, valeur à droite sur un écran large ; l'un sous l'autre
+   au téléphone, où deux colonnes feraient des lignes de trois mots. */
+.lignes {
+  margin: 0 0 14px;
+  border-top: 1px solid var(--c-border);
+}
+
+.ligne {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--c-border);
+}
+
+@media (min-width: 640px) {
+  .ligne {
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: 20px;
+  }
+}
+
+.terme {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--c-text);
+}
+
+.valeur {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.prestataires {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 720px) {
+  .prestataires {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.prestataire {
+  padding: 16px 18px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+}
+
+.prestataireNom {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--c-text);
+}
+
+.prestataireDetail {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.prestataireDetail dt {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+.prestataireDetail dd {
+  margin: 2px 0 0;
+}
+
+/* Ce qui reste à compléter doit se voir d'un coup d'œil — et à l'impression. */
+.aCompleter {
+  background: var(--c-warn-bg);
+  color: var(--c-warn-text);
+  border: 1px dashed var(--c-warn-dash);
+  border-radius: 4px;
+  padding: 0 4px;
+  font-weight: 500;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.pied {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 20px 16px 32px;
+  border-top: 1px solid var(--c-border);
+  font-size: 12.5px;
+  color: var(--c-text-muted);
+}
+
+/* Un document juridique s'imprime : sans navigation, avec son bandeau. */
+@media print {
+  .page {
+    background: #fff;
+  }
+  .retour,
+  .documents,
+  .sommaire {
+    display: none;
+  }
+  .prestataires {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .prestataire {
+    break-inside: avoid;
+  }
+}

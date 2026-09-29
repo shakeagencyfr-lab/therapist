@@ -16,6 +16,8 @@
  */
 
 .page {
+  --v-erreur-texte: #8a2f20;
+  --v-erreur-fond: #fbeeea;
   --v-sombre-texte: #f5eee1;
   --v-sombre-doux: #d8ccb6;
   --v-sombre-accent: #e3c89a;
@@ -281,6 +283,21 @@
   width: 100%;
 }
 
+/* Le bouton d'essai de l'en-tête : « Demander l'essai » là où la place
+   manque, la phrase entière au-delà. Un seul des deux est affiché — l'autre
+   est retiré de l'arbre d'accessibilité avec lui. */
+.libelleLong {
+  display: none;
+}
+@media (min-width: 1240px) {
+  .libelleCourt {
+    display: none;
+  }
+  .libelleLong {
+    display: inline;
+  }
+}
+
 /* L'en-tête, au plus étroit : le bouton d'essai tient à côté du menu. */
 @media (max-width: 380px) {
   .enteteActions .boutonPlein {
@@ -289,6 +306,22 @@
   }
   .nomMarque {
     font-size: 19px;
+  }
+}
+/* À 320 pixels, le bouton « Menu » dépassait de trois : on serre. */
+@media (max-width: 359px) {
+  .enteteInterieur {
+    gap: 8px;
+  }
+  .enteteActions .boutonPlein {
+    padding: 9px 10px;
+    font-size: 13.5px;
+  }
+  .menuBouton {
+    padding: 9px 11px;
+  }
+  .nomMarque {
+    font-size: 18px;
   }
 }
 
@@ -364,11 +397,29 @@
 }
 @media (min-width: 960px) {
   .hero {
-    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-    align-items: center;
-    gap: 56px;
+    /* Le texte en haut, pas centré à côté d'un téléphone plus haut que lui :
+       il restait trois cents pixels vides au-dessus du titre. */
+    grid-template-columns: minmax(0, 1fr) 380px;
+    align-items: start;
+    gap: 40px;
+    padding-top: 40px;
+    padding-bottom: 72px;
+  }
+  .heroTexte {
+    padding-top: 36px;
+  }
+  /* À 1024 pixels, « séances, » partait seul sur une troisième ligne. */
+  .titre {
+    font-size: clamp(46px, 5vw, 62px);
+  }
+}
+@media (min-width: 1200px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr) 460px;
+    gap: 72px;
+  }
+  .heroTexte {
     padding-top: 64px;
-    padding-bottom: 88px;
   }
 }
 
@@ -432,40 +483,69 @@
 }
 
 .heroApercu {
+  position: relative;
   margin: 0;
   min-width: 0;
+  scroll-margin-top: var(--entete);
+  /* La hauteur de l'écran du téléphone (Demo.module.css) : sur un portable,
+     téléphone, teintes et légende tiennent dans le premier écran. */
+  --ecran-demo: 470px;
+}
+@media (min-width: 960px) {
+  .heroApercu {
+    --ecran-demo: clamp(400px, calc(100vh - 400px), 540px);
+  }
+}
+
+/* « Passer l'aperçu » : invisible jusqu'à ce que le clavier y arrive. */
+.passer {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  z-index: 3;
+  transform: translate(-50%, -120%);
+  padding: 8px 14px;
+  border-radius: var(--r-pill);
+  background: var(--c-dark);
+  color: var(--v-sombre-texte) !important;
+  text-decoration: none !important;
+  font-size: 14px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+}
+.passer:focus {
+  transform: translate(-50%, 8px);
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .legende {
-  margin: 14px auto 0;
-  max-width: 412px;
+  margin: 12px auto 0;
+  max-width: 440px;
   font-size: 13px;
   line-height: 1.5;
   color: var(--c-text-muted);
   text-align: center;
 }
 
-/* La place du téléphone, à la taille exacte du vrai : rien ne saute quand il
-   arrive. Cadre 11 + barre d'état 39 + écran 560 (620 sur grand écran). */
+/* La place du téléphone, à la taille du vrai : rien ne saute quand il
+   arrive. Cadre, barre d'état et bandeau autour de l'écran (--ecran-demo),
+   puis les teintes. */
 .telephoneAttente {
   width: 100%;
   max-width: 412px;
   margin: 0 auto;
-  height: 632px;
+  height: calc(var(--ecran-demo) + 72px);
   padding: 11px;
   border-radius: 49px;
   background: var(--c-dark);
-  margin-bottom: 94px;
+  margin-bottom: 90px;
 }
 .telephoneAttenteEcran {
   height: 100%;
   border-radius: var(--r-phone);
   background: var(--c-surface);
-}
-@media (min-width: 960px) {
-  .telephoneAttente {
-    height: 692px;
-  }
 }
 
 /* ── Le parcours ─────────────────────────────────────────────────────── */
@@ -493,21 +573,49 @@
   background: var(--c-surface);
   border: 1px solid var(--c-border);
   border-radius: var(--r-panel);
-  padding: 22px 20px 20px;
+  padding: 20px 20px 18px;
+  /* Les cinq rangées d'une carte s'alignent sur celles de ses voisines :
+     les filets tombaient à des hauteurs différentes d'une carte à l'autre. */
+  display: grid;
+  grid-row: span 5;
+  grid-template-rows: subgrid;
+  row-gap: 0;
+  align-content: start;
+}
+
+.etapeHaut {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.pictoCadre {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--c-border-accent);
+  background: var(--c-accent-tint);
+  color: var(--c-accent-deep);
+  flex: none;
+}
+.picto {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .numero {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 1px solid var(--c-border-accent);
-  background: var(--c-accent-tint);
-  font-family: var(--font-serif);
-  font-size: 18px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   color: var(--c-accent-deep);
-  margin-bottom: 16px;
 }
 
 .etapeTitre {
@@ -531,6 +639,15 @@
   line-height: 1.5;
   color: var(--c-text-2);
   font-weight: 500;
+  align-self: start;
+}
+.etapeVoir {
+  margin-top: 10px;
+  justify-self: start;
+  align-self: end;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 6px 0;
 }
 
 /* ── L'aperçu du suivi ───────────────────────────────────────────────── */
@@ -547,11 +664,76 @@
   }
 }
 
+/* ── Après la séance : la note ───────────────────────────────────────── */
+
+.deuxColonnes {
+  display: grid;
+  gap: 28px;
+}
+@media (min-width: 1000px) {
+  .deuxColonnes {
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    gap: 56px;
+    align-items: start;
+  }
+  .noteTexte {
+    position: sticky;
+    top: calc(var(--entete) + 24px);
+  }
+}
+.noteTexte > * {
+  max-width: 560px;
+}
+
+.points {
+  list-style: none;
+  margin: 22px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.points li {
+  position: relative;
+  padding-left: 22px;
+  font-size: 15.5px;
+  line-height: 1.55;
+  color: var(--c-text-2);
+}
+.points li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0.45em;
+  width: 9px;
+  height: 5px;
+  border-left: 2px solid var(--c-accent-deep);
+  border-bottom: 2px solid var(--c-accent-deep);
+  transform: rotate(-45deg);
+}
+
+.lienSimple {
+  margin: 18px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.noteAttente {
+  min-height: 720px;
+  border-radius: var(--r-panel);
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border-light);
+}
+
 /* ── Les fonctionnalités ─────────────────────────────────────────────── */
 
 .groupes {
   display: grid;
   gap: 40px;
+}
+@media (max-width: 719px) {
+  .groupes {
+    gap: 0;
+  }
 }
 @media (min-width: 1000px) {
   .groupes {
@@ -595,6 +777,58 @@
   font-size: 15px;
   line-height: 1.55;
   color: var(--c-text-3);
+}
+
+.aussi {
+  margin: 14px 0 0;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--c-text-3);
+}
+.aussiTitre {
+  font-weight: 600;
+  color: var(--c-text-2);
+}
+
+/* Sur un téléphone, chaque groupe se replie sous son titre. */
+.groupeRepliable {
+  border-top: 1px solid var(--c-border);
+  border-bottom: 1px solid var(--c-border);
+  padding-bottom: 4px;
+}
+.groupeRepliable + .groupeRepliable {
+  border-top: 0;
+}
+.groupeResume {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 2px;
+  min-height: 56px;
+}
+.groupeResume::-webkit-details-marker {
+  display: none;
+}
+.groupeResume::after {
+  content: '+';
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--c-border-mute);
+  font-size: 18px;
+  color: var(--c-text-2);
+}
+.groupeRepliable[open] .groupeResume::after {
+  content: '−';
+}
+.groupeRepliable .groupeIntro {
+  margin-top: 0;
 }
 
 /* ── La confidentialité : la bande sombre ────────────────────────────── */
@@ -653,8 +887,18 @@
   color: var(--v-sombre-doux);
 }
 
-.sansLabel {
+.prestataires {
   margin-top: 24px !important;
+  padding: 16px 18px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--v-sombre-carte);
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--v-sombre-doux);
+}
+
+.sansLabel {
+  margin-top: 16px !important;
   font-size: 14px;
   line-height: 1.6;
   color: var(--v-sombre-doux);
@@ -675,12 +919,30 @@
 }
 
 .offre {
+  position: relative;
   display: flex;
   flex-direction: column;
   background: var(--c-surface);
   border: 1px solid var(--c-border);
   border-radius: var(--r-panel);
   padding: 24px 22px 22px;
+}
+/* Un repère de fait (« votre domaine et votre site inclus »), jamais « la
+   plus choisie » : on ne le sait pas. */
+.offreRepere {
+  border-color: var(--c-accent-deep);
+  box-shadow: inset 0 0 0 1px var(--c-accent-deep);
+}
+.offreBadge {
+  align-self: flex-start;
+  margin: -6px 0 12px;
+  padding: 4px 11px;
+  border-radius: var(--r-pill);
+  background: var(--c-accent-tint);
+  border: 1px solid var(--c-border-accent);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--c-accent-deep);
 }
 .offreNom {
   margin: 0;
@@ -739,6 +1001,28 @@
   transform: rotate(-45deg);
 }
 
+/* La clé Anthropic, dite près des prix : sans elle, aucune note. */
+.cle {
+  margin-top: 20px !important;
+  padding: 16px 18px;
+  border-radius: var(--r-lg);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-left: 3px solid var(--c-accent-deep);
+}
+.cleTitre {
+  margin: 0 0 4px;
+  font-size: 15.5px;
+  font-weight: 600;
+  color: var(--c-text);
+}
+.cleTexte {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--c-text-3);
+}
+
 .mention {
   margin-top: 16px !important;
   font-size: 14px;
@@ -753,6 +1037,7 @@
 }
 .question {
   border-bottom: 1px solid var(--c-border);
+  scroll-margin-top: calc(var(--entete) + 16px);
 }
 .questionResume {
   list-style: none;
@@ -807,6 +1092,56 @@
 .essai {
   display: grid;
   gap: 28px;
+}
+
+/* Ce qui se passe ensuite : trois pas, numérotés. */
+.ensuite {
+  list-style: none;
+  margin: 24px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 16px;
+  counter-reset: ensuite;
+}
+.ensuite li {
+  position: relative;
+  padding-left: 44px;
+  counter-increment: ensuite;
+}
+.ensuite li::before {
+  content: counter(ensuite);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-accent);
+  font-family: var(--font-serif);
+  font-size: 16px;
+  color: var(--c-accent-deep);
+}
+.ensuiteTitre {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--c-text);
+  line-height: 1.4;
+}
+.ensuiteTexte {
+  display: block;
+  margin-top: 2px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--c-text-3);
+}
+.essaiPorte {
+  margin: 24px 0 0;
+  font-size: 15px;
+  color: var(--c-text-3);
 }
 @media (min-width: 1000px) {
   .essai {
@@ -916,7 +1251,9 @@ textarea.saisie {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
-@media (min-width: 720px) {
+/* Quatre de front seulement là où chacune tient sur sa ligne : à 1024
+   pixels, « Moins de 10 » se cassait en deux. */
+@media (min-width: 720px) and (max-width: 999px), (min-width: 1200px) {
   .options {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -984,15 +1321,21 @@ textarea.saisie {
 .annonce {
   min-height: 0;
 }
+/* Un envoi qui échoue se voit comme une erreur, et dit quoi faire. */
 .refus {
   margin: 16px 0 0;
   padding: 12px 14px;
   border-radius: var(--r-md);
-  background: var(--c-warn-bg);
-  border: 1px solid var(--c-warn-border);
+  background: var(--v-erreur-fond);
+  border: 1px solid var(--c-danger);
+  border-left-width: 4px;
   font-size: 15px;
   line-height: 1.5;
-  color: var(--c-warn-text);
+  color: var(--v-erreur-texte);
+}
+.refus a {
+  color: var(--v-erreur-texte) !important;
+  font-weight: 600;
 }
 
 .formulaire .boutonPlein {
@@ -1057,6 +1400,11 @@ textarea.saisie {
   padding: 8px 0;
   font-size: 14px;
   color: var(--c-text-2) !important;
+}
+.piedEditeur {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: var(--c-text-3);
 }
 .piedDroits {
   margin: 0;

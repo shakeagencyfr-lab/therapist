@@ -193,3 +193,53 @@ describe('moduleProgress — des tâches seulement', () => {
     expect(ligne?.reason).toContain('1 module en retard')
   })
 })
+
+/* LA LISTE DES PATIENTS SUR LA VRAIE DATE (0059). Trois fiches réelles :
+   une séance demain, une ce matin (faite), une sans date mais avec le texte
+   d'avant. Le filtre et le tri se lisent sur l'instant, pas sur le texte. */
+describe('la liste des patients, datée', () => {
+  const MARDI_10H = new Date('2026-09-29T08:00:00Z')
+  const base = initialState.patients[initialState.patientOrder[0]!]!
+  const fiche = (name: string, prochaineSeanceLe: string | null, nextSession = '') => ({
+    ...base,
+    name,
+    subtitle: '',
+    nextSession,
+    prochaineSeanceLe,
+    prochaineSeanceTexte: prochaineSeanceLe ? null : nextSession,
+  })
+  const etat = {
+    ...initialState,
+    patients: {
+      texte: fiche('Anna', null, 'Jeudi 14 h'),
+      demain: fiche('Bea', '2026-09-30T07:00:00Z'),
+      matin: fiche('Cleo', '2026-09-29T06:00:00Z'),
+    },
+    patientOrder: ['texte', 'demain', 'matin'],
+  }
+
+  it('« sans prochaine séance » garde le texte d’avant et la séance déjà faite', () => {
+    const ids = sidebarPatients({ ...etat, pSansSeance: true }, MARDI_10H).map((r) => r.id)
+    expect(ids).toEqual(['texte', 'matin'])
+  })
+
+  it('rangée par prochaine séance, la plus proche d’abord', () => {
+    const ids = sidebarPatients({ ...etat, pParSeance: true }, MARDI_10H).map((r) => r.id)
+    expect(ids).toEqual(['demain', 'texte', 'matin'])
+  })
+
+  it('sans réglage, l’ordre d’arrivée', () => {
+    expect(sidebarPatients(etat, MARDI_10H).map((r) => r.id)).toEqual(['texte', 'demain', 'matin'])
+  })
+
+  it('la recherche se combine au filtre', () => {
+    const ids = sidebarPatients({ ...etat, pSansSeance: true, q: 'cleo' }, MARDI_10H).map((r) => r.id)
+    expect(ids).toEqual(['matin'])
+  })
+
+  it('les notifications disent « sans rendez-vous » sur la vraie date', () => {
+    const sans = notifRows(etat, MARDI_10H).filter((r) => r.reason.includes('sans rendez-vous')).map((r) => r.key)
+    expect(sans).toContain('texte')
+    expect(sans).not.toContain('demain')
+  })
+})

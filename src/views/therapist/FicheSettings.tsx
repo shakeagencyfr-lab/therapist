@@ -3,13 +3,21 @@ import { Button, Card, Chip, Notice, TextInput, Title } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { useDroits } from '@/cabinet/droits'
 import { etatAcces, libelleAcces, normaliserAdresse } from '@/lib/accesPatient'
+import { instantDeParis, jourEtHeure, refusSeance } from '@/lib/agenda'
 import { patientOf } from '@/state/selectors'
 import { useAppState } from '@/state/store'
+import { ChampProchaineSeance, type SaisieSeance } from './ProchaineSeance'
+import { PropositionDuProgramme } from './PropositionDuProgramme'
 import s from './FicheSettings.module.css'
 
 /** Les valeurs de repli que l'assemblage affiche : à l'édition, elles valent « vide ». */
 const REPLI_ECHELLE = 'Auto-évaluation'
-const REPLI_PROCHAINE = 'Aucune séance planifiée'
+
+/** La saisie de la séance d'une fiche : la date enregistrée, sinon le texte d'avant. */
+function seanceDeLaFiche(fiche: { prochaineSeanceLe?: string | null; prochaineSeanceTexte?: string | null }): SaisieSeance {
+  const { jour, heure } = jourEtHeure(fiche.prochaineSeanceLe)
+  return { jour, heure, texte: jour ? '' : (fiche.prochaineSeanceTexte ?? '') }
+}
 
 /**
  * Réglages de la fiche : ce qu'on a retiré de la création parce que ça ne
@@ -30,7 +38,10 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
   const [seances, setSeances] = useState(6)
   const [echelle, setEchelle] = useState('')
   const [question, setQuestion] = useState('')
-  const [prochaine, setProchaine] = useState('')
+  /** La prochaine séance : un jour et une heure de Paris, sinon une indication (0059). */
+  const [seance, setSeance] = useState<SaisieSeance>({ jour: '', heure: '', texte: '' })
+  /** Le programme qu'on vient de poser : son parcours par défaut se propose (0059). */
+  const [proposition, setProposition] = useState('')
   /** Saisie du programme qu'on est en train de nommer. */
   const [nouveau, setNouveau] = useState('')
   const [ajout, setAjout] = useState(false)
@@ -56,7 +67,8 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
     setSeances(fiche.totalSessions || 6)
     setEchelle(fiche.scaleLabel === REPLI_ECHELLE ? '' : fiche.scaleLabel)
     setQuestion(fiche.scaleQuestion)
-    setProchaine(fiche.nextSession === REPLI_PROCHAINE ? '' : fiche.nextSession)
+    setSeance(seanceDeLaFiche(fiche))
+    setProposition('')
     setNotice(null)
     setOuvert(ouvertParDefaut)
     setNouveau('')
@@ -101,7 +113,16 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
   }
 
   async function enregistrer() {
-    if (!cabinet) return
+    if (!cabinet || !fiche) return
+    /* La date se relit avant d'écrire : une séance à moitié saisie, ou déjà
+       passée, ne part pas — et la phrase le dit sous le champ. */
+    const refus = refusSeance(seance.jour, seance.heure, fiche.prochaineSeanceLe)
+    if (refus) {
+      setNotice({ tone: 'warn', text: refus })
+      return
+    }
+    const instant = seance.jour && seance.heure ? instantDeParis(seance.jour, seance.heure) : null
+    const avant = fiche.program.replace(/^Programme\s+/i, '').trim()
     setEnvoi(true)
     setNotice(null)
     const r = await cabinet.majFiche(state.sel, {
@@ -112,11 +133,16 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
       seances,
       echelle: echelle.trim(),
       question: question.trim(),
-      prochaine: prochaine.trim(),
+      prochaineLe: instant ? instant.toISOString() : null,
+      prochaine: seance.texte.trim(),
     })
     setEnvoi(false)
     setNotice({ tone: r.ok ? 'ok' : 'warn', text: r.ok ? 'Fiche mise à jour.' : r.message })
-    if (r.ok) setOuvert(false)
+    if (r.ok) {
+      setOuvert(false)
+      // Un programme posé à l'instant propose son parcours par défaut, s'il en a un.
+      if (programme.trim() && programme.trim() !== avant) setProposition(programme.trim())
+    }
   }
 
   // Le programme déjà porté par la fiche reste proposé même s'il ne figure
@@ -167,6 +193,7 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
     .join(' · ')
 
   return (
+    <>
     <Card className={s.card}>
       <div className={s.head}>
         <div className={s.headText}>
@@ -179,8 +206,8 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
           </span>
           {!ouvert ? (
             <span className={s.contenu}>
-              Adresse et lien d'accès, programme, échelle du soir, hypnose, et suppression de la
-              fiche.
+              Adresse et lien d'accès, programme, échelle du soir, prochaine séance et son
+              rappel, hypnose, et suppression de la fiche.
             </span>
           ) : null}
         </div>
@@ -393,14 +420,14 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
             </span>
           </label>
 
-          <label className={s.field}>
-            <span className={s.label}>Prochaine séance</span>
-            <TextInput
-              value={prochaine}
-              onChange={(e) => setProchaine(e.target.value)}
-              placeholder="Jeudi 10 septembre, 14 h"
-            />
-          </label>
+          <ChampProchaineSeance
+            saisie={seance}
+            onChange={setSeance}
+            enregistree={fiche.prochaineSeanceLe}
+            texteEnregistre={fiche.prochaineSeanceLe ? null : fiche.prochaineSeanceTexte}
+            clos={false}
+            disabled={envoi}
+          />
 
           {/* L'hypnose : une option, pas un automatisme. Tous les patients
               n'en ont pas besoin, et c'est de loin l'analyse la plus coûteuse
@@ -509,5 +536,11 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
         </form>
       ) : null}
     </Card>
+    {/* Sous la carte, pas dedans : la fiche est refermée, et c'est la
+        prochaine chose à décider pour cette personne. */}
+    {proposition ? (
+      <PropositionDuProgramme programme={proposition} patientId={state.sel} onFermer={() => setProposition('')} />
+    ) : null}
+    </>
   )
 }

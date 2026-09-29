@@ -263,3 +263,11 @@ Ce dépôt est une recréation fidèle des écrans, pas un produit déployable. 
   la remise sur téléphone attend un service de push (Web Push ou natif).
 - **Courriels** — l'envoi intégré de Supabase est limité et ne convient qu'aux
   essais ; un SMTP dédié est nécessaire avant les premières patientes.
+- **Pages légales** — `/confidentialite`, `/cgu` et `/mentions` sont rédigées
+  d'après ce que fait le code (`src/legal/contenu.ts`), mais portent encore un
+  bandeau « Document à faire valider juridiquement » et des champs
+  « [À COMPLÉTER : …] » (raison sociale, SIREN, siège, directeur de la
+  publication, contact des données, garanties des transferts, durées non
+  fixées). Une fois relues par un conseil et complétées, passer
+  `VALIDE_JURIDIQUEMENT` à vrai : l'épreuve refuse un document déclaré validé
+  qui garde un seul crochet.

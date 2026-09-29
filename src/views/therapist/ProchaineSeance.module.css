@@ -1,0 +1,80 @@
+/* La prochaine séance, datée : deux sélecteurs natifs, qui sont ceux que le
+   téléphone sait déjà montrer (roue, calendrier), et un geste pour effacer. */
+
+.champ {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+
+.selecteurs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.jour {
+  flex: 1 1 170px;
+  min-width: 0;
+  max-width: 220px;
+}
+
+.heure {
+  flex: 0 1 120px;
+  min-width: 0;
+}
+
+.effacer {
+  border: none;
+  background: none;
+  padding: 4px 2px;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--c-text-muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.effacer:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.effacer:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+}
+
+.hint {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--c-text-muted);
+}
+
+/* Ce que la base fera la veille : la phrase exacte, en évidence douce. */
+.rappel {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--c-text-2);
+}
+
+.refus {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--c-risk-high);
+}
+
+@media (max-width: 640px) {
+  .jour,
+  .heure {
+    flex: 1 1 140px;
+    max-width: none;
+  }
+}

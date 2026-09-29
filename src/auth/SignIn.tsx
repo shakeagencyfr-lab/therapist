@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Button, FieldLabel, Marque, Notice, TextInput } from '@/components/ui'
 import { codeComplet, LONGUEUR_CODE, normaliserCode } from '@/lib/codeConnexion'
 import { estInstallee } from '@/patient/installation'
+import { LiensLegaux } from '@/legal/LiensLegaux'
 import { useAuth } from './session'
 import { captchaConfigure, useCaptcha } from './Captcha'
 import s from './SignIn.module.css'
@@ -330,6 +331,11 @@ export function SignIn({
             </p>
           </>
         )}
+        {/* Avant d'entrer, on peut lire ce qu'il advient de ses données :
+            c'est ici qu'on confie son adresse. Dans la carte, pour rester
+            sous les yeux ; dans un nouvel onglet, pour ne pas perdre le code
+            qu'on attend peut-être (src/legal/LiensLegaux.tsx). */}
+        <LiensLegaux className={s.legal} />
       </div>
     </div>
   )

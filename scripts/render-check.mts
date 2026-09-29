@@ -42,10 +42,24 @@ import { euro } from '../src/lib/format'
 import { PATIENTS } from '../src/data/patients'
 import { PageDeVente } from '../src/vente/PageDeVente'
 import { PortePraticienne } from '../src/vente/Porte'
-import { SuiviDemo, TelephoneDemo } from '../src/vente/Demo'
+import { NoteDemo, SuiviDemo, TelephoneDemo } from '../src/vente/Demo'
+import { aFournirAvantLaMiseEnLigne } from '../src/vente/contenu'
 import { motsInterditsDans } from '../src/vente/garde'
+import { LIENS_LEGAUX, type CleLegale } from '../src/legal/chemins'
+import {
+  PAGES_LEGALES as PAGES_DU_DROIT,
+  VALIDE_JURIDIQUEMENT,
+  champsACompleter,
+  revendicationsInterdites,
+} from '../src/legal/contenu'
+import { PageLegaleVue } from '../src/legal/PageLegale'
 import { PLANS } from '../src/data/reseller'
 import { SessionProvider } from '../src/auth/session'
+import { ChampProchaineSeance } from '../src/views/therapist/ProchaineSeance'
+import { VueParcoursType } from '../src/views/programmes/ParcoursType'
+import { VueProposerParcours } from '../src/views/programmes/ProposerParcours'
+import { instantDeParis } from '../src/lib/agenda'
+import { jourDeParis } from '../src/lib/assiduite'
 import { DOSSIER_AVANT_LECTURE, type AppState, type ResellerView, type ViewMode } from '../src/state/state'
 
 const noms = Object.values(PATIENTS).map((p) => p.name)
@@ -1075,13 +1089,15 @@ try {
   }
 }
 
-/* LA PAGE DE VENTE ET LA PORTE DES PRATICIENNES (src/vente).
+/* LA PAGE DE VENTE ET LA PORTE DES THÉRAPEUTES (src/vente).
    La page rend sans base ni session ; elle dit les prix réels de la table
-   `plans`, la confidentialité telle qu'elle est — et aucun mot qu'elle n'a
-   pas le droit de dire : ni label d'hébergement, ni témoignage, ni avis de
-   clients, ni note en étoiles. Aucune ressource d'ailleurs. Les aperçus
-   vivants sont les vrais écrans, sans cadre tiers. /connexion est la porte
-   titrée « Espace praticien », avec son chemin de retour. */
+   `plans`, la confidentialité telle qu'elle est, la clé Anthropic dont
+   dépend l'analyse — et aucun mot qu'elle n'a pas le droit de dire : ni
+   label revendiqué, ni témoignage, ni avis de clients, ni note en étoiles.
+   Aucune ressource d'ailleurs. Chaque aperçu porte « Exemple fictif » dans
+   son cadre, sans cadre tiers ni écart d'échelle. /connexion est la porte
+   titrée « Espace thérapeute », avec son chemin de retour et celui de
+   l'essai. */
 {
   const manque: string[] = []
   let page = ''
@@ -1114,9 +1130,18 @@ try {
     }
     if (/\b(claude|opus|sonnet|haiku)\b/i.test(texte)) manque.push("un modèle d'IA est nommé")
     if ((page.match(/<h1[\s>]/g) ?? []).length !== 1) manque.push('la page n’a pas exactement un titre h1')
-    if (!page.includes('href="/connexion"')) manque.push("« Espace praticien » ne mène pas à /connexion")
-    if (!page.includes('href="#essai"')) manque.push('« Essayer 14 jours » ne mène pas au formulaire')
-    for (const chemin of ['/confidentialite', '/conditions', '/mentions-legales']) {
+    if (!page.includes('href="/connexion"')) manque.push("« Espace thérapeute » ne mène pas à /connexion")
+    if (!page.includes('href="#essai"')) manque.push('« Demander un essai » ne mène pas au formulaire')
+    // Une demande, pas un accès : l'essai s'ouvre après un échange.
+    if (/Essayer \d+ jours/.test(texte)) manque.push('un bouton promet un essai immédiat (« Essayer 14 jours »)')
+    // Sans clé Anthropic, aucune note : la page le dit près des offres et dans l'essai.
+    if (!/Sans clé, l’espace patient et le suivi fonctionnent, mais aucune note n’est rédigée/.test(texte)) {
+      manque.push('la clé Anthropic du cabinet n’est pas dite nécessaire')
+    }
+    if (/avant chaque analyse/i.test(texte)) manque.push('la page promet une estimation « avant chaque analyse »')
+    if (/Plusieurs praticiennes/i.test(texte)) manque.push("l'équipe est vendue comme propre à une offre")
+    // Les chemins de celui qui publie les pages (src/legal/chemins.ts).
+    for (const { chemin } of LIENS_LEGAUX) {
       if (!page.includes(`href="${chemin}"`)) manque.push(`le pied de page ne mène pas à ${chemin}`)
     }
     if (/(?:src|href)="(?:https?:)?\/\//.test(page)) manque.push('une ressource ou un lien sort de chez nous')
@@ -1132,13 +1157,14 @@ try {
     manque.push(`la porte ne se rend pas : ${(err as Error).message}`)
   }
   if (porte) {
-    if (!porte.includes('Espace praticien')) manque.push('la porte ne dit pas « Espace praticien »')
+    if (!porte.includes('Espace thérapeute')) manque.push('la porte ne dit pas « Espace thérapeute »')
+    if (!porte.includes('href="/#essai"')) manque.push("la porte n'offre pas le chemin de l'essai")
     if (!porte.includes('href="/"')) manque.push("la porte n'a pas de chemin de retour vers la page")
   }
 
   let demos = ''
   try {
-    demos = renderToString(h(TelephoneDemo)) + renderToString(h(SuiviDemo))
+    demos = renderToString(h(TelephoneDemo)) + renderToString(h(SuiviDemo)) + renderToString(h(NoteDemo))
   } catch (err) {
     manque.push(`les aperçus ne se rendent pas : ${(err as Error).message}`)
   }
@@ -1147,6 +1173,12 @@ try {
     if (!demos.includes('décroche')) manque.push("l'aperçu du suivi ne montre pas qui décroche")
     if (/<iframe/.test(demos)) manque.push('un aperçu encadre une page tierce')
     if (/Générer mes affirmations|Renouveler mes affirmations/.test(demos)) manque.push("l'aperçu propose un geste qui appellerait le serveur")
+    // Chaque cadre dit qu'il est fictif ; aucun ne montre un écart spectaculaire.
+    if ((demos.match(/Exemple fictif/g) ?? []).length < 4) manque.push('un aperçu ne porte pas « Exemple fictif » dans son cadre')
+    if (/\d+\s*→\s*\d+/.test(demos)) manque.push("l'aperçu affiche un écart d'échelle, qui se lit comme un résultat")
+    if (!demos.includes('Synthèse de séance')) manque.push("le brouillon de note n'est pas montré")
+    const interditsDemos = motsInterditsDans(demos.replace(/<[^>]+>/g, ' '))
+    if (interditsDemos.length) manque.push(`mots interdits dans les aperçus : ${interditsDemos.join(', ')}`)
   }
 
   if (manque.length) {
@@ -1154,6 +1186,9 @@ try {
     echecs++
   } else {
     console.log(`✓ page de vente    ${String(page.length).padStart(6)} octets · prix réels, confidentialité dite, aucun mot interdit, porte et aperçus`)
+    // Ce que le code ne sait pas : rappelé, sans faire échouer le banc.
+    const aFournir = aFournirAvantLaMiseEnLigne()
+    if (aFournir.length) console.log(`  ↳ à fournir avant la mise en ligne : ${aFournir.join(' ; ')}`)
   }
 }
 
@@ -1290,6 +1325,232 @@ try {
     echecs++
   } else {
     console.log(`✓ ventes           ${String(liste.length).padStart(6)} octets · reçus des deux côtés, remboursement confirmé et réservé, livre en initiales`)
+  }
+}
+
+/* LES PAGES LÉGALES DE LA PLATEFORME (src/legal/). Chacune rend un seul
+   titre, toutes ses sections sous leur ancre, son bandeau tant qu'elle n'est
+   pas validée, CHAQUE champ à compléter surligné — et ne revendique rien :
+   ni certification, ni conformité, ni modèle d'analyse. Aucune ressource
+   d'ailleurs. Et les portes y mènent : celle des praticiennes et la page
+   d'un cabinet portent les trois liens, qui s'ouvrent dans un nouvel onglet. */
+{
+  const manque: string[] = []
+  let octets = 0
+  for (const cle of Object.keys(PAGES_DU_DROIT) as CleLegale[]) {
+    const page = PAGES_DU_DROIT[cle]
+    let html = ''
+    try {
+      html = renderToString(h(PageLegaleVue, { cle }))
+    } catch (err) {
+      manque.push(`${cle} ne se rend pas : ${(err as Error).message}`)
+      continue
+    }
+    octets += html.length
+    const texte = html
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&#x27;|&#39;/g, "'")
+      .replace(/&amp;/g, '&')
+      .replace(/\s+/g, ' ')
+    if ((html.match(/<h1[\s>]/g) ?? []).length !== 1) manque.push(`${cle} n’a pas exactement un titre h1`)
+    if (!texte.includes(page.titre)) manque.push(`${cle} ne porte pas son titre`)
+    for (const section of page.sections) {
+      if (!html.includes(`id="${section.id}"`)) manque.push(`${cle} : la section « ${section.titre} » manque`)
+    }
+    const bandeau = html.includes('Document à faire valider juridiquement')
+    if (bandeau === VALIDE_JURIDIQUEMENT) {
+      manque.push(bandeau ? `${cle} : le bandeau reste sur un document validé` : `${cle} : le bandeau de validation manque`)
+    }
+    const surlignes = (html.match(/<mark\b/g) ?? []).length
+    const champs = champsACompleter(page).length
+    if (surlignes !== champs) manque.push(`${cle} : ${surlignes} champ(s) surligné(s) pour ${champs} à compléter`)
+    const interdits = [...revendicationsInterdites(texte), ...motsInterditsDans(texte)]
+    if (interdits.length) manque.push(`${cle} : ${interdits.join(', ')}`)
+    if (!html.includes('aria-current="page"')) manque.push(`${cle} : le document ouvert ne se distingue pas des deux autres`)
+    for (const l of LIENS_LEGAUX) {
+      if (!html.includes(`href="${l.chemin}"`)) manque.push(`${cle} ne mène pas à ${l.chemin}`)
+    }
+    if (/src="(?:https?:)?\/\//.test(html)) manque.push(`${cle} charge une ressource d'ailleurs`)
+    const vus = noms.filter((n) => html.includes(n))
+    if (vus.length) manque.push(`${cle} montre des fiches (${vus.join(', ')})`)
+  }
+
+  const portes: Array<[string, () => string]> = [
+    ['la porte des praticiennes', () => renderToString(h(SessionProvider, null, h(PortePraticienne)))],
+    ['la page d’un cabinet', () => renderToString(h(VitrinePage, { site: SITE_FICTIF as never }))],
+  ]
+  for (const [nom, rendre] of portes) {
+    try {
+      const html = rendre()
+      for (const l of LIENS_LEGAUX) {
+        const lien = new RegExp(`<a[^>]*href="${l.chemin}"[^>]*>`).exec(html)?.[0] ?? ''
+        if (!lien) manque.push(`${nom} ne mène pas à ${l.chemin}`)
+        else if (!/target="_blank"/.test(lien) || !/rel="noopener noreferrer"/.test(lien)) {
+          manque.push(`${nom} : ${l.chemin} ne s’ouvre pas dans un nouvel onglet`)
+        }
+      }
+    } catch (err) {
+      manque.push(`${nom} ne se rend pas : ${(err as Error).message}`)
+    }
+  }
+
+  if (manque.length) {
+    console.error(`✗ pages légales : ${manque.join(' ; ')}`)
+    echecs++
+  } else {
+    console.log(`✓ pages légales    ${String(octets).padStart(6)} octets · sections, bandeau, champs surlignés, rien de revendiqué ; porte et vitrine y mènent`)
+  }
+}
+
+/* L'AGENDA (0059). La liste des patients s'ouvre sur les séances du jour,
+   se range et se filtre sur la vraie date ; la fiche fixe un jour et une
+   heure de Paris et dit, mot pour mot, le rappel que la base écrira la
+   veille ; un programme porte un parcours par défaut, proposé personne par
+   personne — rien ne s'ajoute sans une case cochée. */
+{
+  const manque: string[] = []
+  const nu = (html: string) => html.replace(/<!-- -->/g, '')
+  const MARDI_10H = new Date('2026-09-29T08:00:00Z')
+  const rien = async () => ({ ok: true, message: '' })
+
+  // La liste : une séance ce soir pour la première fiche de démonstration.
+  const premiere = Object.keys(PATIENTS)[0] as string
+  const ceSoir = (instantDeParis(jourDeParis(), '23:59') as Date).toISOString()
+  const datees = Object.fromEntries(
+    Object.entries(PATIENTS).map(([id, p]) => [
+      id,
+      { ...p, prochaineSeanceLe: id === premiere ? ceSoir : null, prochaineSeanceTexte: null },
+    ]),
+  ) as unknown as AppState['patients']
+  const liste = nu(rendu('cabinet/aujourdhui', { space: 'cabinet', mode: 'therapist', patients: datees }))
+  if (liste) {
+    const nomPremiere = (PATIENTS[premiere] as { name: string }).name
+    const jour = liste.slice(liste.indexOf('Aujourd&#x27;hui'), liste.indexOf('Patients actifs'))
+    if (!jour.includes('23 h 59') || !jour.includes(nomPremiere)) manque.push("« Aujourd'hui » ne montre pas la séance du jour")
+    if (!liste.includes('Par prochaine séance')) manque.push('la liste ne se range pas par prochaine séance')
+    if (!/Sans prochaine séance \(\d+\)/.test(liste)) manque.push('le filtre « sans prochaine séance » ne dit pas son compte')
+  }
+  const toutesDatees = Object.fromEntries(
+    Object.entries(datees).map(([id, p]) => [id, { ...p, prochaineSeanceLe: new Date(Date.now() + 86_400_000).toISOString() }]),
+  ) as unknown as AppState['patients']
+  const filtree = nu(rendu('cabinet/sans-seance', { space: 'cabinet', mode: 'therapist', patients: toutesDatees, pSansSeance: true }))
+  if (filtree && !filtree.includes('Toutes vos fiches ont une prochaine séance datée.')) {
+    manque.push('le filtre vide ne dit pas pourquoi la liste est vide')
+  }
+  const sansFiche = nu(rendu('vide/aujourdhui', { ...VIDE, mode: 'therapist' }))
+  if (sansFiche.includes('Aucune séance datée aujourd')) manque.push("« Aujourd'hui » se montre dans un cabinet sans fiche")
+
+  // Le champ de la fiche.
+  const champ = (props: Record<string, unknown>) =>
+    nu(
+      renderToString(
+        h(ChampProchaineSeance as never, {
+          saisie: { jour: '2026-10-06', heure: '14:30', texte: '' },
+          onChange: () => {},
+          enregistree: null,
+          texteEnregistre: null,
+          clos: false,
+          maintenant: MARDI_10H,
+          fuseau: 'Europe/Paris',
+          ...props,
+        } as never),
+      ),
+    )
+  try {
+    const date = champ({})
+    if (!date.includes('type="date"') || !date.includes('type="time"')) manque.push('la séance ne se choisit pas au jour et à l’heure')
+    if (!date.includes('Rappel lundi 5 octobre à 18 h : « Votre séance est demain à 14 h 30. »')) {
+      manque.push('la fiche ne dit pas le rappel exact de la veille')
+    }
+    if (date.includes('(heure de Paris)')) manque.push("l'heure de Paris est précisée à Paris")
+    if (!champ({ fuseau: 'America/Montreal' }).includes('(heure de Paris)')) manque.push("l'heure de Paris n'est pas précisée hors de Paris")
+    const passee = champ({ saisie: { jour: '2026-09-28', heure: '14:00', texte: '' } })
+    if (!passee.includes('role="alert"') || !passee.includes('déjà passée')) manque.push('une date passée ne se refuse pas')
+    const avant = champ({ saisie: { jour: '', heure: '', texte: 'Jeudi 14 h' }, texteEnregistre: 'Jeudi 14 h' })
+    if (!avant.includes('Notée jusqu&#x27;ici en toutes lettres')) manque.push('une fiche d’avant ne dit pas qu’elle reste à dater')
+    if (!avant.includes('Datez la séance')) manque.push('une fiche sans date ne dit pas ce que la date apporterait')
+    if (!champ({ clos: true }).includes('Suivi clos : aucun rappel ne part.')) manque.push('un suivi clos promet un rappel')
+  } catch (err) {
+    manque.push(`le champ de la prochaine séance ne se rend pas : ${(err as Error).message}`)
+  }
+
+  // Le parcours par défaut d'un programme.
+  const EXERCICES = [
+    { id: 'e1', titre: 'Respiration carrée', type: 'Exercice', consigne: 'Inspirez quatre temps.\nExpirez quatre temps.' },
+    { id: 'e2', titre: 'Trois lignes du soir', type: 'Écriture', consigne: '' },
+  ]
+  const parcours = (props: Record<string, unknown>) =>
+    nu(
+      renderToString(
+        h(VueParcoursType as never, {
+          etat: 'pret',
+          programme: 'Sommeil',
+          exercices: EXERCICES,
+          suiveurs: 2,
+          onEnregistrer: rien,
+          onRelire: () => {},
+          onProposer: () => {},
+          ...props,
+        } as never),
+      ),
+    )
+  try {
+    const plein = parcours({})
+    if (!plein.includes('value="Respiration carrée"') || !plein.includes('<option value="Visualisation">')) {
+      manque.push('le parcours ne montre pas ses exercices modifiables')
+    }
+    if (plein.includes('<option value="Audio"')) manque.push('un audio se propose au parcours par défaut')
+    if (!plein.includes('Monter l&#x27;exercice 2') || !plein.includes('Retirer l&#x27;exercice 1 « Respiration carrée »')) {
+      manque.push('les gestes d’un exercice ne se disent pas aux lecteurs d’écran')
+    }
+    if (!plein.includes('Le proposer à 2 personnes qui suivent ce programme')) manque.push('le parcours ne se propose pas aux personnes déjà suivies')
+    if (!parcours({ exercices: [] }).includes('Aucun exercice pour l&#x27;instant')) manque.push('le parcours vide ne dit pas quoi faire')
+    if (!parcours({ etat: 'chargement', exercices: [] }).includes('Lecture du parcours')) manque.push('la lecture du parcours ne se dit pas')
+    if (!parcours({ etat: 'echec' }).includes('n&#x27;a pas pu être lu')) manque.push('un parcours illisible passe pour un parcours vide')
+    if (!parcours({ etat: 'indisponible' }).includes('pas encore disponible')) manque.push('une base sans 0059 ne se dit pas')
+    if (parcours({ etat: 'demo' }).includes('Enregistrer le parcours')) manque.push('le parcours se règle en démonstration')
+  } catch (err) {
+    manque.push(`le parcours par défaut ne se rend pas : ${(err as Error).message}`)
+  }
+
+  // La proposition, personne par personne.
+  const proposer = (props: Record<string, unknown>) =>
+    nu(
+      renderToString(
+        h(VueProposerParcours as never, {
+          programme: 'Sommeil',
+          exercices: EXERCICES,
+          personnes: [{ id: 'a', nom: 'Anna', parcours: [{ title: 'respiration carrée', kind: 'Exercice' }] }],
+          onAjouter: rien,
+          onFermer: () => {},
+          ...props,
+        } as never),
+      ),
+    )
+  try {
+    const choix = proposer({})
+    if (!choix.includes('Proposer le parcours de « Sommeil »')) manque.push('la proposition ne se titre pas')
+    if (!choix.includes('déjà dans son parcours')) manque.push('ce que la personne a déjà ne se dit pas')
+    if (!/aria-checked="false"[^>]*aria-label="Ajouter « Respiration carrée »/.test(choix)) {
+      manque.push('un exercice déjà là est coché d’office')
+    }
+    if (!/aria-checked="true"[^>]*aria-label="Ne pas ajouter « Trois lignes du soir »/.test(choix)) {
+      manque.push('un exercice nouveau n’est pas coché d’office')
+    }
+    if (!choix.includes('<li>Inspirez quatre temps.</li>')) manque.push('la consigne ne se montre pas telle que le patient la lira')
+    if (!choix.includes('Ajouter 1 exercice') || !choix.includes('Ne rien ajouter')) manque.push('les deux gestes de la proposition manquent')
+    if (proposer({ exercices: [{ titre: 'Sans identifiant', type: 'Exercice', consigne: '' }] }) !== '') {
+      manque.push('un parcours non enregistré se propose')
+    }
+  } catch (err) {
+    manque.push(`la proposition du parcours ne se rend pas : ${(err as Error).message}`)
+  }
+
+  if (manque.length) {
+    console.error(`✗ agenda : ${manque.join(' ; ')}`)
+    echecs++
+  } else {
+    console.log(`✓ agenda           ${String(liste.length).padStart(6)} octets · séances du jour, liste datée, rappel dit, parcours proposé sans rien imposer`)
   }
 }
 

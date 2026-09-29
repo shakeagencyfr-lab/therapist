@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRetour } from '@/lib/useRetour'
 import { supabase } from '@/lib/supabase'
 import { jourDeParis } from '@/lib/assiduite'
+import { seancePourLePatient } from '@/lib/agenda'
 import type { NoteDuSoir } from '@/lib/echelle'
 import { reponsesParPage, type LigneReponse } from '@/lib/fil'
 import type { ModuleKind, QuizQuestion, ReponseDuCabinet } from '@/types/domain'
@@ -149,10 +150,14 @@ export interface PatientData {
   notesDuSoir: NoteDuSoir[]
   scaleQuestion: string
   /**
-   * La prochaine séance, telle que la thérapeute l'a écrite sur la fiche
-   * (« Jeudi 10 septembre, 14 h »). `null` quand rien n'est planifié.
+   * La prochaine séance, telle que « Ma journée » la dit : datée par la
+   * thérapeute (« Demain, 14 h 30 », 0059), sinon le texte libre des fiches
+   * d'avant (« Jeudi 10 septembre, 14 h »). `null` quand rien n'est planifié
+   * — ou quand la séance datée est passée.
    */
   prochaineSeance: string | null
+  /** L'instant de la séance datée, pour la balise `<time>` ; `null` sans date. */
+  prochaineSeanceLe: string | null
   /** Page de réservation du cabinet, si la thérapeute l'a réglée. */
   bookingUrl: string | null
   /** « bouton » ouvre la page, « widget » l'encadre ici même. */
@@ -197,6 +202,7 @@ export function usePatientData(patientId: string | null): PatientData {
   const [scaleToday, setScaleToday] = useState<number | null>(null)
   const [notesDuSoir, setNotesDuSoir] = useState<NoteDuSoir[]>([])
   const [prochaineSeance, setProchaineSeance] = useState<string | null>(null)
+  const [prochaineSeanceLe, setProchaineSeanceLe] = useState<string | null>(null)
   const [scaleQuestion, setScaleQuestion] = useState('Où en êtes-vous ce soir ?')
   const [bookingUrl, setBookingUrl] = useState<string | null>(null)
   const [bookingMode, setBookingMode] = useState<'bouton' | 'widget'>('bouton')
@@ -229,7 +235,7 @@ export function usePatientData(patientId: string | null): PatientData {
       db.from('module_completions').select('module_id').eq('patient_id', patientId).eq('jour', aujourdhui),
       db.from('affirmations').select('text, position').eq('patient_id', patientId).not('published_at', 'is', null).order('position'),
       db.from('patient_audios').select('id, listens, audio:audio_library (title, duration_seconds, meta, storage_path)').eq('patient_id', patientId),
-      db.from('patients').select('scale_question, next_session').eq('id', patientId).maybeSingle(),
+      db.from('patients').select('scale_question, next_session, next_session_at').eq('id', patientId).maybeSingle(),
       db
         .from('scale_entries')
         .select('value, recorded_at')
@@ -311,7 +317,13 @@ export function usePatientData(patientId: string | null): PatientData {
     setAffirmations(((affs.data ?? []) as Array<{ text: string }>).map((a) => a.text))
     setAudios((auds.data ?? []) as unknown as PatientAudioRow[])
     if (fiche.data?.scale_question) setScaleQuestion(fiche.data.scale_question)
-    setProchaineSeance(fiche.data?.next_session?.trim() || null)
+    /* DATÉE D'ABORD (0059) : « Demain, 14 h 30 » plutôt que le texte d'avant,
+       qui ne sert plus que de repli. Une séance datée passée ne se montre
+       plus — le vieux texte non plus, il est forcément plus ancien. */
+    const seanceLe = fiche.data?.next_session_at ?? null
+    const seance = seancePourLePatient(seanceLe, fiche.data?.next_session)
+    setProchaineSeance(seance)
+    setProchaineSeanceLe(seance && seanceLe ? seanceLe : null)
     const r = (reglages.data ?? null) as {
       booking_url?: string | null
       booking_mode?: string | null
@@ -484,6 +496,7 @@ export function usePatientData(patientId: string | null): PatientData {
     scaleToday,
     notesDuSoir,
     prochaineSeance,
+    prochaineSeanceLe,
     scaleQuestion,
     bookingUrl,
     bookingMode,

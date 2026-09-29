@@ -19,7 +19,7 @@ import { MENTION_PRIX, offres } from './contenu'
 export const URL_CANONIQUE = 'https://klaroweb.site/'
 export const TITRE = 'Klaro — le suivi entre les séances, pour les hypnothérapeutes'
 export const DESCRIPTION =
-  'Vos patients repartent avec leurs exercices, vos audios, leur journal et leurs rappels, sur leur téléphone et à votre marque. Vous voyez qui décroche avant la séance suivante. Essai de 14 jours.'
+  'Après la séance, votre note est rédigée : vous relisez. Vos patients repartent avec exercices, audios, journal et rappels, à votre marque. Vous voyez qui décroche. Essai de 14 jours sur demande.'
 
 /** Le JSON-LD de la page : un logiciel web, ses offres mensuelles. Aucune note. */
 export function donneesStructurees(): Record<string, unknown> {

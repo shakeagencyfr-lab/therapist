@@ -5,8 +5,11 @@ import { placesRestantes, useDroits } from '@/cabinet/droits'
 import { ContactRevendeur } from '@/components/layout/BandeauContrat'
 import { plural } from '@/lib/format'
 import { libelleNonLus } from '@/lib/fil'
+import { sansProchaineSeance, seanceAVenir, seancesDuJour } from '@/lib/agenda'
 import { riskColor, sidebarPatients, slippingPatients } from '@/state/selectors'
 import { useStore } from '@/state/store'
+import type { Patient } from '@/types/domain'
+import { ListeVide, ReglagesDeLaListe, VueAujourdhui } from './Aujourdhui'
 import s from './PatientSidebar.module.css'
 
 /**
@@ -23,11 +26,43 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
   const [reouverture, setReouverture] = useState('')
   const [echecReouverture, setEchecReouverture] = useState('')
 
-  const rows = sidebarPatients(state)
+  /* Un seul « maintenant » pour tout le rendu : la liste, son filtre et
+     « Aujourd'hui » disent la même chose de la même minute. */
+  const maintenant = new Date()
+  const rows = sidebarPatients(state, maintenant)
   const slipping = slippingPatients(state).length
   /* Pendant une recherche, le compteur dit déjà « trouvées sur total » : y
      ajouter le plafond ferait trois nombres à la file, qu'on ne lit plus. */
   const cherche = state.q.trim().length > 0
+  const filtre = cherche || state.pSansSeance
+  const duJour = seancesDuJour(
+    state.patientOrder.map((id) => ({
+      id,
+      nom: state.patients[id].name,
+      prochaineSeanceLe: state.patients[id].prochaineSeanceLe,
+    })),
+    maintenant,
+  )
+  const combienSansSeance = state.patientOrder.filter((id) => sansProchaineSeance(state.patients[id], maintenant)).length
+
+  /**
+   * La seconde ligne d'une fiche. Rangée par séance, elle dit la séance ; au
+   * filtre « sans prochaine séance », le texte d'avant qui reste à dater.
+   */
+  function sousLigne(p: Patient): string {
+    if (state.pParSeance && seanceAVenir(p.prochaineSeanceLe, maintenant)) return p.nextSession
+    if (state.pSansSeance && !p.prochaineSeanceLe && p.prochaineSeanceTexte?.trim()) {
+      return `À dater : « ${p.prochaineSeanceTexte.trim()} »`
+    }
+    return p.subtitle
+  }
+
+  function ouvrir(id: string) {
+    /* Changer de patient remet à zéro tout ce qui pointait vers le
+       précédent : tâche ouverte et lecteur audio. */
+    set({ sel: id, openTask: null, pAudio: 0, playPos: 0, playing: false })
+    onClose()
+  }
 
   /* Le plafond de l'offre, tenu par la base : ici il n'est qu'affiché, pour
      qu'une praticienne le voie venir au lieu de le découvrir sur un refus. */
@@ -98,10 +133,16 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
           />
         </div>
 
+        {/* Les séances du jour (0059), en tête : c'est la première chose
+            qu'on vient chercher le matin. */}
+        {state.patientOrder.length ? (
+          <VueAujourdhui seances={duJour} selection={state.sel} onChoisir={ouvrir} />
+        ) : null}
+
         <div className={s.head}>
           <span className={s.overline}>Patients actifs</span>
           <span className={s.count}>
-            {cherche
+            {filtre
               ? `${rows.length} / ${state.patientOrder.length}`
               : max === null
                 ? `${state.patientOrder.length}`
@@ -109,7 +150,20 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
           </span>
         </div>
 
+        {state.patientOrder.length > 1 || state.pSansSeance || state.pParSeance ? (
+          <ReglagesDeLaListe
+            parSeance={state.pParSeance}
+            sansSeance={state.pSansSeance}
+            combienSansSeance={combienSansSeance}
+            onParSeance={(actif) => set({ pParSeance: actif })}
+            onSansSeance={(actif) => set({ pSansSeance: actif })}
+          />
+        ) : null}
+
         <div className={s.list}>
+          {rows.length === 0 && state.patientOrder.length > 0 ? (
+            <ListeVide sansSeance={state.pSansSeance} cherche={cherche} />
+          ) : null}
           {rows.map(({ id, patient }) => {
             const on = id === state.sel
             return (
@@ -118,17 +172,12 @@ export function PatientSidebar({ open, onClose }: { open: boolean; onClose: () =
                 type="button"
                 className={on ? `${s.row} ${s.rowOn}` : s.row}
                 aria-pressed={on}
-                onClick={() => {
-                  /* Changer de patient remet à zéro tout ce qui pointait vers
-                     le précédent : tâche ouverte et lecteur audio. */
-                  set({ sel: id, openTask: null, pAudio: 0, playPos: 0, playing: false })
-                  onClose()
-                }}
+                onClick={() => ouvrir(id)}
               >
                 <Avatar initials={patient.initials} on={on} />
                 <span className={s.who}>
                   <span className={s.name}>{patient.name}</span>
-                  <span className={s.sub}>{patient.subtitle}</span>
+                  <span className={s.sub}>{sousLigne(patient)}</span>
                 </span>
                 {/* Les mots qui attendent (0054) : le chiffre pour l'œil, la
                     phrase pour qui ne le voit pas. */}

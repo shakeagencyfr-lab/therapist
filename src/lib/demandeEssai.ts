@@ -132,7 +132,7 @@ export function validerDemande(brut: unknown): Verdict {
   if (telephone && (!longueur(telephone, BORNES.telephone) || !telephoneValide(telephone))) {
     erreurs.telephone = 'Ce numéro ne se lit pas : des chiffres, et éventuellement + ( ) . -'
   }
-  if (!longueur(cabinet, BORNES.cabinet) || !sansControle(cabinet)) erreurs.cabinet = 'Indiquez le nom de votre cabinet.'
+  if (!longueur(cabinet, BORNES.cabinet) || !sansControle(cabinet)) erreurs.cabinet = 'Indiquez le nom de votre cabinet, ou votre nom si vous exercez sous celui-ci.'
   if (!longueur(ville, BORNES.ville) || !sansControle(ville)) erreurs.ville = 'Indiquez la ville du cabinet.'
   if (!FOURCHETTES.some((f) => f.valeur === patients)) erreurs.patients = 'Choisissez une fourchette.'
   if (!OFFRES_DEMANDEES.some((o) => o.valeur === offre)) erreurs.offre = 'Choisissez une offre, ou « Je ne sais pas encore ».'

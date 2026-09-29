@@ -12,6 +12,7 @@
  * rendu refuse ces mots (scripts/render-check.mts).
  */
 import { PLANS } from '@/data/reseller'
+import { LIENS_LEGAUX } from '@/legal/chemins'
 import { COUT_HYPNOSE, estimationBrouillon } from '@/lib/coutIA'
 import { euro } from '@/lib/format'
 
@@ -34,6 +35,34 @@ export function typographie<T>(valeur: T, cle = ''): T {
 }
 
 /* ------------------------------------------------------------------ *
+ * Qui vend, qui répond — à compléter ici, et nulle part ailleurs
+ * ------------------------------------------------------------------ */
+
+/**
+ * CELUI QUI PROPOSE KLARO SUR CETTE PAGE.
+ *
+ * `nom` est celui du revendeur qui reçoit les demandes d'essai (en base,
+ * `resellers.accueille_demandes` : « Shake », relu le 29 septembre 2026) —
+ * c'est lui qui lit la demande, ouvre le cabinet et règle l'abonnement. La
+ * page le nomme partout de la même façon : une visiteuse ne connaît ni
+ * « l'équipe commerciale », ni « le revendeur ».
+ *
+ * Le reste N'EST PAS CONNU DU CODE et ne s'invente pas : l'identité légale
+ * (forme, raison sociale, SIREN), la ville et une adresse de contact
+ * PUBLIQUE. Tant qu'un champ est vide, la page ne l'affiche pas, et
+ * `aFournirAvantLaMiseEnLigne()` le rappelle au banc de rendu.
+ */
+export const EDITEUR = {
+  nom: 'Shake',
+  /** « Shake SAS, SIREN 000 000 000 » — tel que dans les mentions légales. */
+  identite: '',
+  /** La ville du siège, pour qu'on sache d'où l'on vous répond. */
+  ville: '',
+  /** Une adresse de contact publique (pas une boîte personnelle). */
+  contact: '',
+} as const
+
+/* ------------------------------------------------------------------ *
  * Les prix
  * ------------------------------------------------------------------ */
 
@@ -42,10 +71,34 @@ export function typographie<T>(valeur: T, cle = ''): T {
  *
  * On ne sait pas encore si les prix de la table `plans` s'entendent hors
  * taxes ou toutes taxes comprises : la page dit « par mois » et le dit.
+ * C'est une décision commerciale, à trancher avant la mise en ligne.
  */
 export const MENTION_PRIX = typographie(
   'Prix indicatifs par cabinet et par mois — hors taxes ou toutes taxes comprises : à confirmer.',
 )
+
+/**
+ * Comment on paie, et s'il y a un engagement. Rien dans le code ne le dit :
+ * vide, la page se tait ; rempli (« Prélèvement mensuel, sans engagement,
+ * résiliable à tout moment »), il s'affiche sous les offres.
+ */
+export const MODALITES = ''
+
+/**
+ * Ce qui manque encore pour mettre la page en ligne sans mentir par
+ * omission. Le banc de rendu l'affiche ; la page, elle, se tait sur ce
+ * qu'elle ne sait pas.
+ */
+export function aFournirAvantLaMiseEnLigne(): string[] {
+  const manque: string[] = []
+  if (/à confirmer/.test(MENTION_PRIX)) manque.push('prix hors taxes ou toutes taxes comprises (MENTION_PRIX)')
+  if (!MODALITES) manque.push('mode de paiement et engagement (MODALITES)')
+  if (!EDITEUR.identite) manque.push("identité légale de l'éditeur (EDITEUR.identite)")
+  if (!EDITEUR.ville) manque.push('ville (EDITEUR.ville)')
+  if (!EDITEUR.contact) manque.push('adresse de contact publique (EDITEUR.contact)')
+  manque.push('durée de conservation des demandes d’essai (à fixer, puis dire dans la politique de confidentialité)')
+  return manque
+}
 
 /** La durée de l'essai, bornée en base (0049 : quatorze jours à l'ouverture). */
 export const JOURS_ESSAI = 14
@@ -57,6 +110,11 @@ export interface OffreAffichee {
   prix: string
   patients: string
   lignes: string[]
+  /**
+   * Ce qui la distingue, en un fait — jamais « la plus choisie », qu'on ne
+   * sait pas. Vide : pas de repère.
+   */
+  repere: string
 }
 
 function prixEntier(cents: number): string {
@@ -68,6 +126,13 @@ function prixEntier(cents: number): string {
  * Les trois offres, lues dans le catalogue du produit (src/data/reseller.ts,
  * le miroir de la table `plans`). Ce qu'une offre ouvre se lit sur ses
  * leviers — boutique, marque blanche, site — et non sur un texte recopié.
+ *
+ * L'ÉQUIPE N'EST PAS UN LEVIER. Un abonnement décide quatre choses (fiches,
+ * boutique, marque blanche, site : server/droits.ts) ; l'écran Équipe n'a
+ * aucune garde d'offre. Elle est donc dite « incluse dans toutes les
+ * offres », et Réseau se distingue par ce qu'il ouvre vraiment : des
+ * patients actifs sans limite. Le texte du catalogue (« Plusieurs
+ * praticiennes par cabinet ») n'est pas repris.
  */
 export function offres(): OffreAffichee[] {
   return typographie(offresBrutes())
@@ -76,21 +141,26 @@ export function offres(): OffreAffichee[] {
 function offresBrutes(): OffreAffichee[] {
   return PLANS.map((p) => {
     const lignes: string[] = []
-    if (p.code !== 'essentiel') lignes.push(p.code === 'cabinet' ? "Tout l'Essentiel" : 'Tout le Cabinet')
+    if (p.code === 'cabinet') lignes.push('Tout l’Essentiel')
+    if (p.code === 'reseau') lignes.push('Tout le Cabinet')
     if (p.code === 'essentiel') {
       lignes.push('Notes de séance et consignes rédigées par l’IA, relues par vous')
       lignes.push('Espace patient à votre nom et à vos couleurs')
+      if (p.shop) lignes.push('Boutique d’audios et de programmes')
     }
-    if (p.shop && p.code === 'essentiel') lignes.push('Boutique d’audios et de programmes')
-    if (p.marqueBlanche && p.code === 'cabinet') lignes.push('Marque blanche totale : votre domaine, vos courriels')
-    if (p.site && p.code === 'cabinet') lignes.push('Site vitrine nourri par votre fiche Google')
-    if (p.code === 'reseau') lignes.push('Plusieurs praticiennes dans le même cabinet')
+    if (p.code === 'cabinet') {
+      if (p.marqueBlanche) lignes.push('Marque blanche totale : votre domaine, vos courriels')
+      if (p.site) lignes.push('Site vitrine nourri par votre fiche Google')
+    }
+    if (p.code === 'reseau') lignes.push('Pour les cabinets qui suivent plus de 80 patients à la fois')
+    const repere = p.code === 'cabinet' && p.marqueBlanche && p.site ? 'Votre domaine et votre site inclus' : ''
     return {
       code: p.code,
       nom: p.label,
       prix: prixEntier(p.priceCents),
       patients: p.maxPatients === null ? 'Patients actifs sans limite' : `Jusqu’à ${p.maxPatients} patients actifs`,
       lignes,
+      repere,
     }
   })
 }
@@ -102,8 +172,9 @@ function offresBrutes(): OffreAffichee[] {
 /**
  * La fourchette d'une note de séance, de la séance courte (quelques minutes
  * de matière) à l'heure pleine, et l'hypnose de trente minutes. Les chiffres
- * viennent de src/lib/coutIA.ts — celui qui affiche l'estimation avant chaque
- * analyse — et bougent avec lui.
+ * viennent de src/lib/coutIA.ts — le module qui estime le coût à l'écran
+ * AVANT D'ANALYSER UNE SÉANCE (RecordStep) OU D'ÉCRIRE UNE HYPNOSE
+ * (HypnoseToggle), et nulle part ailleurs — et bougent avec lui.
  */
 export function coutsIA(): { noteMin: string; noteMax: string; hypnose: string } {
   return {
@@ -118,37 +189,68 @@ export function coutsIA(): { noteMin: string; noteMax: string; hypnose: string }
  * ------------------------------------------------------------------ */
 
 export interface Etape {
+  /** Le pictogramme de l'étape (PageDeVente, dessiné en SVG sur place). */
+  icone: 'micro' | 'note' | 'telephone' | 'courbe'
   titre: string
   texte: string
   detail: string
+  /** L'aperçu vivant de l'étape, plus bas ou plus haut dans la page. */
+  voir?: { ancre: string; libelle: string }
 }
 
 export const PARCOURS: Etape[] = typographie([
   {
-    titre: 'La séance, enregistrée avec son accord',
+    icone: 'micro',
+    titre: 'La séance, enregistrée avec accord',
     texte:
-      'Le consentement se recueille à l’écran, en présence du patient, avant le premier mot. Votre navigateur transcrit la voix ; vous prenez vos notes à côté, horodatées d’un geste.',
-    detail: 'Le patient peut demander l’arrêt ou l’effacement à tout moment.',
+      'Le consentement se recueille à l’écran, avant le premier mot. Le navigateur transcrit la voix ; vous notez à côté, et marquez d’un geste un mot à retenir ou un point à reprendre.',
+    detail: 'Arrêt ou effacement, à la demande de la personne suivie.',
   },
   {
-    titre: 'Une note et des consignes, relues par vous',
+    icone: 'note',
+    titre: 'Une note et des consignes, rédigées pour vous',
     texte:
-      'L’IA rédige un brouillon : synthèse, mots du patient, thèmes, points de vigilance, exercices et audios proposés. Vous corrigez, retenez, écartez.',
-    detail: 'Rien n’entre dans le parcours du patient avant votre validation.',
+      'L’IA propose un brouillon : synthèse, mots de la séance, fil rouge, points de vigilance, exercices et audios. Vous corrigez, retenez, écartez.',
+    detail: 'Rien ne part chez votre patient avant votre validation.',
+    voir: { ancre: 'note', libelle: 'Voir un brouillon' },
   },
   {
-    titre: 'L’espace du patient, sur son téléphone',
+    icone: 'telephone',
+    titre: 'Un espace sur son téléphone',
     texte:
-      'Il repart avec ses exercices du jour, vos audios, son journal et ses rappels — à votre nom et à vos couleurs. Il l’ajoute à son écran d’accueil, sans passer par un magasin d’applications.',
+      'Vos patients repartent avec leurs exercices du jour, vos audios, leur journal et leurs rappels, à votre nom et à vos couleurs. Un lien suffit.',
     detail: 'Quelques gestes par jour, pas un tableau de bord.',
+    voir: { ancre: 'apercu', libelle: 'Voir l’espace patient' },
   },
   {
+    icone: 'courbe',
     titre: 'Le suivi, entre deux séances',
     texte:
-      'Vous voyez l’assiduité semaine après semaine, la courbe de son échelle du soir, les pages de journal qu’il choisit de partager et le mot qu’il vous laisse.',
-    detail: 'Vous repérez qui décroche avant la séance suivante, pas pendant.',
+      'L’assiduité semaine après semaine, la courbe de l’échelle du soir, les pages de journal partagées avec vous et les mots qu’on vous laisse.',
+    detail: 'Vous voyez qui décroche, avant la séance suivante.',
+    voir: { ancre: 'suivi', libelle: 'Voir le suivi' },
   },
 ])
+
+/* ------------------------------------------------------------------ *
+ * La note de séance — le cœur du produit, montré
+ * ------------------------------------------------------------------ */
+
+/**
+ * Ce que la section « Après la séance » dit à côté du brouillon de
+ * démonstration. La clé Anthropic y est dite en clair : sans elle, rien ne
+ * se rédige (server/ai.ts n'a aucun repli), et c'est la première chose sur
+ * laquelle une thérapeute en essai buterait.
+ */
+export function pointsDeLaNote(): string[] {
+  const c = coutsIA()
+  return typographie([
+    'Rédigé à partir de la transcription et de vos notes de séance, quand vous lancez l’analyse.',
+    'Vous corrigez, décochez ce qui ne convient pas, et validez : rien ne part chez votre patient avant.',
+    `L’analyse est payée à l’usage à Anthropic, avec la clé de votre cabinet : de ${c.noteMin} à ${c.noteMax} environ par note. L’écran l’estime avant de lancer.`,
+    'Sans clé Anthropic, l’espace patient et le suivi fonctionnent, mais aucune note n’est rédigée.',
+  ])
+}
 
 /* ------------------------------------------------------------------ *
  * Les fonctionnalités, et le fichier qui prouve chacune
@@ -161,119 +263,97 @@ export interface Fonction {
   preuve: string
 }
 
+/** Ce qui se cite d'une ligne, sous « Et aussi » — avec sa preuve, comme le reste. */
+export interface Mention {
+  texte: string
+  preuve: string
+}
+
 export interface Groupe {
   titre: string
   intro: string
+  /** Trois, pas plus : le parcours a déjà dit le reste. */
   fonctions: Fonction[]
+  aussi: Mention[]
 }
 
 export const FONCTIONNALITES: Groupe[] = typographie([
   {
     titre: 'La séance et l’IA',
-    intro: 'Ce qui se fait pendant et juste après la séance, avec vous aux commandes.',
+    intro: 'Pendant et juste après la séance, avec vous aux commandes.',
     fonctions: [
       {
-        titre: 'Dictaphone de séance',
-        texte: 'Transcription par le navigateur, notes horodatées, mots du patient et points à reprendre marqués d’un geste.',
-        preuve: 'src/views/session/RecordStep.tsx',
-      },
-      {
         titre: 'Brouillon de note',
-        texte: 'Synthèse, thèmes, mots du patient, questions à reprendre et points de vigilance — à relire, corriger, valider.',
+        texte: 'Synthèse, mots de la séance, questions à reprendre et points de vigilance — à relire, corriger, valider.',
         preuve: 'src/views/session/DraftStep.tsx',
       },
       {
         titre: 'Consignes et exercices',
-        texte: 'Rédigés à partir de la séance, modifiables avant de partir chez le patient.',
+        texte: 'Rédigés à partir de la séance, modifiables avant de partir chez votre patient.',
         preuve: 'src/views/therapist/ConsigneEditeur.tsx',
       },
       {
-        titre: 'Profil du patient',
-        texte: 'Axes, leviers et points d’attention, qui s’affinent séance après séance, avec leurs courbes.',
-        preuve: 'src/views/therapist/PsychProfile.tsx',
-      },
-      {
         titre: 'Hypnose personnalisée de 30 minutes',
-        texte: 'Un texte en quatre mouvements, écrit pour ce patient, à lire en séance ou à télécharger en PDF.',
+        texte: 'Un texte en quatre mouvements, écrit pour cette personne, à lire en séance ou à télécharger en PDF.',
         preuve: 'src/lib/hypnosePdf.ts',
       },
-      {
-        titre: 'Le dossier de la fiche',
-        texte: 'Historique des séances relues, anamnèse, notes datées, et export du dossier en PDF.',
-        preuve: 'src/views/therapist/ExportDossier.tsx',
-      },
+    ],
+    aussi: [
+      { texte: 'dictaphone de séance', preuve: 'src/views/session/RecordStep.tsx' },
+      { texte: 'profil qui s’affine séance après séance', preuve: 'src/views/therapist/PsychProfile.tsx' },
+      { texte: 'dossier exportable en PDF', preuve: 'src/views/therapist/ExportDossier.tsx' },
     ],
   },
   {
-    titre: 'L’espace du patient',
+    titre: 'L’espace patient',
     intro: 'Sur son téléphone, à votre marque. Pensé pour deux minutes par jour.',
     fonctions: [
       {
-        titre: 'Installable, sans magasin',
-        texte: 'Un lien suffit ; il l’ajoute à son écran d’accueil s’il le souhaite.',
-        preuve: 'src/patient/Installer.tsx',
-      },
-      {
         titre: 'Exercices du jour et audios',
-        texte: 'Ce que vous lui avez confié, et la bibliothèque d’audios de votre cabinet.',
+        texte: 'Ce que vous avez confié, et la bibliothèque d’audios de votre cabinet.',
         preuve: 'src/patient/Tache.tsx',
       },
       {
         titre: 'Journal, privé ou partagé',
-        texte: 'Chaque page reste privée, sauf celles qu’il choisit de vous partager.',
+        texte: 'Chaque page reste privée, sauf celles que votre patient choisit de vous montrer.',
         preuve: 'src/patient/Journal.tsx',
       },
       {
-        titre: 'Échelle du soir',
-        texte: 'Une note de 0 à 10 sur la question que vous choisissez, en quinze secondes.',
-        preuve: 'src/lib/echelle.ts',
-      },
-      {
-        titre: 'Rappels sur le téléphone',
-        texte: 'Des notifications, s’il les active — sur iPhone, une fois l’espace installé.',
-        preuve: 'src/patient/Rappels.tsx',
-      },
-      {
         titre: 'Un mot pour vous, et l’urgence à portée',
-        texte: 'Il peut vous laisser un mot. L’espace dit qu’il n’est pas surveillé en temps réel, et le 3114, le 15 et le 112 sont en bas de chaque écran.',
+        texte: 'L’espace dit qu’il n’est pas surveillé en temps réel ; le 3114, le 15 et le 112 sont en bas de chaque écran.',
         preuve: 'src/patient/Urgence.tsx',
       },
+    ],
+    aussi: [
+      { texte: 'échelle du soir de 0 à 10', preuve: 'src/lib/echelle.ts' },
+      { texte: 'rappels sur le téléphone (sur iPhone, une fois l’espace ajouté à l’écran d’accueil)', preuve: 'src/patient/Rappels.tsx' },
+      { texte: 'aucune application à télécharger', preuve: 'src/patient/Installer.tsx' },
     ],
   },
   {
     titre: 'Le cabinet',
-    intro: 'Votre marque, votre vitrine, votre boutique — et votre équipe.',
+    intro: 'Votre marque, votre boutique, votre équipe.',
     fonctions: [
       {
         titre: 'À votre nom et à vos couleurs',
-        texte: 'Logo et couleurs du cabinet sur l’espace patient, sur votre adresse klaroweb.site/votre-cabinet.',
+        texte: 'Logo et couleurs du cabinet sur l’espace patient, à votre adresse klaroweb.site/votre-cabinet.',
         preuve: 'src/views/marque/MarqueView.tsx',
       },
       {
-        titre: 'Marque blanche totale',
-        texte: 'Votre propre domaine, et les courriels qui partent de votre adresse (offres Cabinet et Réseau).',
-        preuve: 'server/domaines.ts',
-      },
-      {
-        titre: 'Site vitrine',
-        texte: 'Une page publique nourrie par votre fiche Google : présentation, horaires, photos (offres Cabinet et Réseau).',
-        preuve: 'src/views/site/SiteView.tsx',
-      },
-      {
         titre: 'Boutique',
-        texte: 'Vendez audios, séances et programmes depuis l’espace patient, encaissés sur votre compte Stripe.',
+        texte: 'Audios, séances et programmes vendus depuis l’espace patient, encaissés sur votre compte Stripe.',
         preuve: 'server/shop.ts',
       },
       {
-        titre: 'Programmes et bibliothèque audio',
-        texte: 'Vos programmes, vos audios, rangés par catégorie et attribués d’un clic.',
-        preuve: 'src/views/programmes/ProgrammesView.tsx',
-      },
-      {
-        titre: 'Équipe',
-        texte: 'Invitez vos consœurs dans le même cabinet ; chacune entre avec son adresse.',
+        titre: 'Équipe, dans toutes les offres',
+        texte: 'Invitez vos collègues dans le même cabinet ; chacune et chacun entre avec son adresse.',
         preuve: 'src/views/equipe/EquipeView.tsx',
       },
+    ],
+    aussi: [
+      { texte: 'programmes et bibliothèque audio', preuve: 'src/views/programmes/ProgrammesView.tsx' },
+      { texte: 'votre propre domaine et vos courriels (Cabinet et Réseau)', preuve: 'server/domaines.ts' },
+      { texte: 'site vitrine nourri par votre fiche Google (Cabinet et Réseau)', preuve: 'src/views/site/SiteView.tsx' },
     ],
   },
 ])
@@ -318,11 +398,19 @@ export const CONFIDENTIALITE: Engagement[] = typographie([
   },
   {
     titre: 'Chaque cabinet est cloisonné',
-    texte:
-      'Dans la base, chaque cabinet ne voit que ses dossiers. Le journal du patient reste privé tant qu’il ne partage pas une page. L’équipe commerciale ne voit que des compteurs, jamais un patient.',
+    texte: `Dans la base, chaque cabinet ne voit que ses dossiers. Le journal reste privé tant que votre patient ne partage pas une page. L’espace de ${EDITEUR.nom}, qui ouvre votre cabinet, ne montre que des compteurs, jamais un patient.`,
     preuve: 'supabase/tests/isolation.sql',
   },
 ])
+
+/**
+ * Les autres services par lesquels passe une donnée, dits sans en oublier :
+ * « voici où vont les données de séance » ne couvre ni la boutique, ni les
+ * rappels, ni les courriels.
+ */
+export const AUTRES_PRESTATAIRES = typographie(
+  'Autres prestataires : Stripe, pour les paiements de la boutique, sur le compte Stripe de votre cabinet ; les services de notification des fabricants (Apple, Google, Mozilla, Microsoft), qui portent les rappels chiffrés sans pouvoir les lire ; un service de messagerie pour les courriels de connexion et d’invitation — le vôtre, avec la marque blanche ; votre outil de rendez-vous, si vous en reliez un ; et hCaptcha, quand la vérification anti-robot est activée à l’entrée.',
+)
 
 /** Ce que la page ne prétend pas. */
 export const SANS_LABEL = typographie(
@@ -334,9 +422,14 @@ export const SANS_LABEL = typographie(
  * ------------------------------------------------------------------ */
 
 export interface Question {
+  /** L'ancre de la question : un lien y mène, et l'ouvre (PageDeVente). */
+  id: string
   question: string
   reponse: string
 }
+
+/** L'ancre de « Que coûte l'IA ? », vers laquelle les offres renvoient. */
+export const ANCRE_COUT_IA = 'cout-ia'
 
 export function questions(): Question[] {
   return typographie(questionsBrutes())
@@ -346,46 +439,101 @@ function questionsBrutes(): Question[] {
   const c = coutsIA()
   return [
     {
-      question: 'Qui voit quoi ?',
-      reponse:
-        'Vous — et les praticiennes de votre équipe — voyez les dossiers de vos patients. Le patient voit ses exercices, ses audios, son journal et son échelle ; ni vos notes, ni son profil. Ses pages de journal restent privées tant qu’il ne les partage pas ; son échelle du soir, elle, vous est toujours visible. L’équipe qui gère votre abonnement ne voit que des compteurs : jamais un nom, une note ou une page de journal.',
+      id: 'essai-deroulement',
+      question: 'Comment se passe l’essai ?',
+      reponse: `Vous remplissez le formulaire en bas de page. ${EDITEUR.nom} vous recontacte, ouvre votre cabinet en essai de ${JOURS_ESSAI} jours et vous envoie une invitation par courriel. Pour que les notes se rédigent, votre cabinet ouvre un compte chez Anthropic, où l’analyse se paie à l’usage, et colle sa clé dans Réglages › Intégrations. Sans clé, l’espace patient et le suivi fonctionnent, mais aucune note n’est rédigée.`,
     },
     {
+      id: ANCRE_COUT_IA,
+      question: 'Que coûte l’IA ?',
+      reponse: `L’abonnement paie le logiciel ; l’analyse est payée par votre cabinet directement à Anthropic, avec sa propre clé. Klaro ne prend rien dessus. Avant d’analyser une séance ou d’écrire une hypnose, l’écran estime ce qu’elle coûtera : de ${c.noteMin} à ${c.noteMax} environ pour une note de séance selon sa longueur, autour de ${c.hypnose} pour une hypnose de 30 minutes. Les autres écrits — profil, consignes, affirmations, y compris la série automatique du lundi si vous l’activez — passent par la même clé et sont facturés de la même façon, sans estimation affichée.`,
+    },
+    {
+      id: 'apres-essai',
+      question: `Et après les ${JOURS_ESSAI} jours ?`,
+      reponse:
+        'Si l’abonnement ne prend pas le relais, rien n’est effacé : vos dossiers restent accessibles, et vos patients gardent leur espace. Vous ne pouvez plus ouvrir de fiche, et la boutique, votre domaine et votre site se ferment, jusqu’à ce que l’abonnement reprenne.',
+    },
+    {
+      id: 'qui-voit-quoi',
+      question: 'Qui voit quoi ?',
+      reponse: `Vous, et les collègues de votre équipe, voyez les dossiers de vos patients. Votre patient voit ses exercices, ses audios, son journal et son échelle ; ni vos notes, ni son profil. Ses pages de journal restent privées tant qu’il ne les partage pas ; son échelle du soir, elle, vous est toujours visible. L’espace de ${EDITEUR.nom}, qui ouvre votre cabinet, ne montre que des compteurs : jamais un nom, une note ou une page de journal.`,
+    },
+    {
+      id: 'responsable',
+      question: 'Qui est responsable des données ?',
+      reponse:
+        'Vous êtes responsable du traitement des dossiers de vos patients ; Klaro les traite pour votre compte, comme sous-traitant. Pour l’analyse, Anthropic travaille avec le compte et la clé de votre cabinet : c’est un contrat entre votre cabinet et Anthropic.',
+    },
+    {
+      id: 'hds',
+      question: 'Les données sont-elles hébergées selon la norme HDS ?',
+      reponse:
+        'Non. Klaro n’est pas certifié HDS (hébergement de données de santé), et ne le prétend pas. La base et le serveur sont à Paris ; l’analyse du texte se fait aux États-Unis. Si votre cadre d’exercice l’exige, Klaro ne remplit pas cette condition aujourd’hui : parlez-en avec nous avant de commencer.',
+    },
+    {
+      id: 'voix',
       question: 'Que devient la voix ?',
       reponse:
         'Elle ne nous parvient pas. Le navigateur transcrit la parole en l’envoyant chez son éditeur (Google, Microsoft ou Apple selon le navigateur) ; Klaro ne reçoit que le texte, jamais le son. Ce texte sert à rédiger le brouillon, puis il est effacé à l’envoi de la note — ou au bout de 7 jours si la note n’est jamais validée.',
     },
     {
+      id: 'installer',
       question: 'Faut-il installer quelque chose ?',
       reponse:
-        'Pour vous, non : un navigateur récent suffit (Chrome, Edge ou Safari pour la dictée). Pour le patient, un lien : il peut ajouter son espace à l’écran d’accueil de son téléphone, sans magasin d’applications — sur iPhone, c’est ce qui lui permet de recevoir les rappels.',
+        'Pour vous, non : un navigateur récent suffit (Chrome, Edge ou Safari pour la dictée). Pour votre patient, un lien : il peut ajouter son espace à l’écran d’accueil de son téléphone, sans magasin d’applications — sur iPhone, c’est ce qui permet de recevoir les rappels.',
     },
     {
-      question: 'Que coûte l’IA ?',
-      reponse: `L’abonnement paie le logiciel ; l’analyse est payée par votre cabinet directement à Anthropic, avec sa propre clé, posée dans les réglages. Klaro ne prend rien dessus. Avant chaque analyse, l’écran vous montre ce qu’elle coûtera : de ${c.noteMin} à ${c.noteMax} environ pour une note de séance selon sa longueur, autour de ${c.hypnose} pour une hypnose de 30 minutes.`,
-    },
-    {
-      question: 'Peut-on arrêter ?',
+      id: 'recuperer',
+      question: 'Puis-je récupérer mes dossiers ?',
       reponse:
-        'Oui. L’abonnement se règle avec l’équipe qui a ouvert votre cabinet : il suffit de le lui demander. Les modalités — préavis, sort des données — figurent dans les conditions. Un patient, lui, peut fermer son compte depuis son espace, à tout moment.',
+        'Oui, fiche par fiche : l’export fabrique un PDF avec l’identité et le programme, la synthèse de chaque séance envoyée, le profil, les notes du soir, les pages de journal partagées, votre anamnèse et vos notes de suivi. Chaque export laisse une trace — qui, quel dossier, quand — sans son contenu.',
     },
     {
-      question: 'Comment se passe l’essai ?',
-      reponse: `Vous remplissez le formulaire ci-dessous ; nous revenons vers vous pour ouvrir votre cabinet, en essai de ${JOURS_ESSAI} jours. Vous recevez alors une invitation par courriel, et vous entrez dans un cabinet vide, prêt à recevoir votre premier patient.`,
+      id: 'arreter',
+      question: 'Peut-on arrêter ?',
+      reponse: `Oui : vous le demandez à ${EDITEUR.nom}, qui a ouvert votre cabinet. Vos dossiers restent accessibles, et chaque fiche s’exporte en PDF. Votre patient, lui, peut fermer son compte depuis son espace, à tout moment.`,
     },
   ]
 }
+
+/* ------------------------------------------------------------------ *
+ * Après la demande
+ * ------------------------------------------------------------------ */
+
+/** Ce qui se passe une fois la demande envoyée — dit avant, pas après. */
+export const ENSUITE: Array<{ titre: string; texte: string }> = typographie([
+  {
+    titre: `${EDITEUR.nom} vous recontacte`,
+    texte: 'Par courriel ou par téléphone, pour comprendre votre pratique et répondre à vos questions.',
+  },
+  {
+    titre: 'Votre cabinet s’ouvre',
+    texte:
+      'Une invitation arrive par courriel. Pour la rédaction des notes, vous ouvrez un compte chez Anthropic et collez sa clé dans Réglages › Intégrations.',
+  },
+  {
+    titre: 'Votre premier patient',
+    texte: 'Vous ouvrez sa fiche, recueillez son accord en séance, puis lui donnez accès à son espace.',
+  },
+])
 
 /* ------------------------------------------------------------------ *
  * Les pages légales
  * ------------------------------------------------------------------ */
 
 /**
- * Les chemins des pages légales. Écrits par le chantier qui les publie ;
- * relus au moment de finir (voir NOTES) — à corriger ici s'ils changent.
+ * Les pages légales, lues dans la liste de celui qui les publie
+ * (src/legal/chemins.ts) : `/confidentialite`, `/cgu`, `/mentions`. Trois
+ * mots que la base refuse déjà comme identifiant de cabinet (0037) — aucune
+ * adresse de cabinet ne peut les prendre, et aucune réservation n'est à
+ * ajouter. reserves.test.ts le vérifie pour chacun.
  */
-export const PAGES_LEGALES = [
-  { chemin: '/mentions-legales', libelle: 'Mentions légales' },
-  { chemin: '/conditions', libelle: 'Conditions' },
-  { chemin: '/confidentialite', libelle: 'Confidentialité' },
-] as const
+export const PAGES_LEGALES: ReadonlyArray<{ chemin: string; libelle: string }> = LIENS_LEGAUX.map((l) => ({
+  chemin: l.chemin,
+  libelle: l.libelle,
+}))
+
+/** Le chemin de la politique de confidentialité — le formulaire y renvoie. */
+export const CHEMIN_CONFIDENTIALITE =
+  LIENS_LEGAUX.find((l) => l.cle === 'confidentialite')?.chemin ?? '/confidentialite'

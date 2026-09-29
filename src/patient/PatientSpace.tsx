@@ -5,6 +5,7 @@ import { timecode } from '@/lib/format'
 import { couleurSure } from '@/lib/couleurs'
 import { pageDuMot } from '@/lib/fil'
 import { useAuth } from '@/auth/session'
+import { LiensLegaux } from '@/legal/LiensLegaux'
 import { usePatientData } from './usePatientData'
 import { RendezVous } from './RendezVous'
 import { Boutique } from './Boutique'
@@ -73,6 +74,7 @@ export function PatientSpace() {
     scaleToday,
     notesDuSoir,
     prochaineSeance,
+    prochaineSeanceLe,
     scaleQuestion,
     bookingUrl,
     bookingMode,
@@ -367,7 +369,11 @@ export function PatientSpace() {
                 <div className={s.sectionHead}>
                   <span className={s.sectionTitle}>Prochaine séance</span>
                 </div>
-                <p className={j.prochaineTexte}>{prochaineSeance}</p>
+                {/* Datée par sa thérapeute (0059) : « Demain, 14 h 30 », et
+                    l'instant exact pour qui le lit à voix haute. */}
+                <p className={j.prochaineTexte}>
+                  {prochaineSeanceLe ? <time dateTime={prochaineSeanceLe}>{prochaineSeance}</time> : prochaineSeance}
+                </p>
               </section>
             ) : null}
           </>
@@ -663,6 +669,9 @@ export function PatientSpace() {
         {/* En bas de chaque écran, onglet et exercice ouvert compris : on ne
             choisit pas le moment où l'on en a besoin. */}
         <Urgence />
+        {/* Le pied de l'espace : ce qu'il advient de ce qu'on y écrit. Dans
+            un nouvel onglet — l'espace installé n'a pas de bouton « précédent ». */}
+        <LiensLegaux court className={s.legal} />
       </div>
 
       {avecOnglets ? (

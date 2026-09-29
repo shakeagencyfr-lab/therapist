@@ -241,6 +241,25 @@ persiste, et le message dit ce qui a été vérifié.
   vivent chiffrées, et ne sortent que côté serveur. `reseller_ai_settings` se
   lit par son revendeur mais ne s'écrit que par le serveur, qui éprouve chaque
   clé par un appel réel avant de l'enregistrer.
+- **La prochaine séance est un instant, et son rappel s'écrit d'avance**
+  (`0059`). `patients.next_session_at` (fixé à l'heure de Paris) prime sur le
+  texte libre `next_session`, gardé en repli pour les fiches d'avant. Le
+  déclencheur `rappeler_la_veille()` écrit, quand la date est fixée, un mot
+  programmé la veille à 18 h (« Votre séance est demain à 14 h 30. », sans
+  auteur) : il part par le chemin de tous les mots, sans que
+  `declencher_rappels()`, `rappels_a_pousser()` ni `patient_mots()` soient
+  redéfinies. `rappels_de_seance` (aucune politique, aucun droit pour
+  `authenticated`) retient pour quelle séance il a été écrit : la même date
+  resauvée n'en écrit pas un second, et un mot annulé par le cabinet ne revient
+  pas. Déplacée, effacée, suivi clos : le mot en attente s'annule ; parti, il
+  reste. Rien ne s'écrit quand la veille à 18 h est déjà passée.
+- **Le parcours par défaut d'un programme ne s'écrit que par la base**
+  (`0059`). `exercices_du_programme` se lit par le cabinet seul, ne s'écrit que
+  par `cabinet_regler_parcours_type()` (la liste entière d'un coup, douze
+  exercices au plus, types de l'atelier) et ne va au patient que par
+  `cabinet_appliquer_parcours_type()` : les exercices choisis, à la suite de
+  son parcours, sans doubler ce qu'il a déjà, jamais pour un suivi clos ni
+  pour la fiche d'un autre cabinet.
 
 ## Hébergement — à régler avant toute donnée réelle
 

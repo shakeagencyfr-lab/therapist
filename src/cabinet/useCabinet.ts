@@ -26,6 +26,8 @@ import { refusDeReouverture, type DroitsLus } from '@/lib/contrat'
 import { effacerDuStockage } from '@/lib/stockage'
 import { gestesDossier, type GestesDossier } from './dossier'
 import { gestesRappels, type GestesRappels } from './rappelsReguliers'
+import { gestesParcoursTypes, type GestesParcoursTypes } from './parcoursTypes'
+import { libelleProchaineSeance } from '@/lib/agenda'
 import {
   marquerLue,
   messageRefusReponse,
@@ -67,6 +69,8 @@ interface PatientRow {
   subtitle: string
   week_label: string
   next_session: string | null
+  /** La séance datée (0059). Absente d'une base qui n'a pas encore 0059. */
+  next_session_at?: string | null
   sessions_done: number
   sessions_total: number
   scale_label: string
@@ -380,7 +384,12 @@ function assembler(
     program: p.program,
     subtitle: p.subtitle || sousTitre(p),
     weekLabel: p.week_label || libelleSemaine(p),
-    nextSession: p.next_session ?? 'Aucune séance planifiée',
+    /* DATÉE D'ABORD (0059). Le libellé est absolu — « Mardi 6 octobre,
+       14 h 30 », jamais « demain » — parce qu'il reste dans l'état d'un
+       onglet qui peut rester ouvert jusqu'au lendemain. */
+    nextSession: libelleProchaineSeance(p.next_session_at, p.next_session),
+    prochaineSeanceLe: p.next_session_at ?? null,
+    prochaineSeanceTexte: p.next_session,
     adherence,
     listens: auds.reduce((n, a) => n + a.listens, 0),
     sessions: p.sessions_done,
@@ -525,6 +534,9 @@ export interface ReglagesFiche {
   /** Ce qu'elle s'auto-évalue le soir : le titre de la courbe. */
   echelle: string
   question: string
+  /** L'instant de la prochaine séance (0059), `null` si elle n'est pas datée. */
+  prochaineLe: string | null
+  /** Sans date, une indication en toutes lettres — le repli des fiches d'avant. */
   prochaine: string
 }
 
@@ -686,6 +698,12 @@ export interface CabinetData {
    * l'écran des notifications — voir src/cabinet/rappelsReguliers.ts.
    */
   rappels: GestesRappels
+  /**
+   * Le parcours par défaut des programmes (0059), lu, réglé et proposé À LA
+   * DEMANDE par l'écran des programmes et la fiche — voir
+   * src/cabinet/parcoursTypes.ts.
+   */
+  parcoursTypes: GestesParcoursTypes
 }
 
 export function useCabinet(cabinetId: string | null): CabinetData {
@@ -704,6 +722,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
      le dossier à chaque rendu. */
   const dossier = useMemo(() => gestesDossier(cabinetId), [cabinetId])
   const rappels = useMemo(() => gestesRappels(cabinetId), [cabinetId])
+  const parcoursTypes = useMemo(() => gestesParcoursTypes(cabinetId), [cabinetId])
 
   const recharger = useCallback(async () => {
     const db = supabase()
@@ -1189,7 +1208,11 @@ export function useCabinet(cabinetId: string | null): CabinetData {
           sessions_total: Math.max(0, Math.round(input.seances)),
           scale_label: input.echelle,
           scale_question: input.question,
-          next_session: input.prochaine || null,
+          /* Datée, la séance remplace le texte d'avant : deux indications
+             qui pourraient se contredire n'en font aucune. La base écrit, la
+             veille à 18 h, le rappel de la séance datée (0059). */
+          next_session_at: input.prochaineLe,
+          next_session: input.prochaineLe ? null : input.prochaine || null,
           // Les libellés dérivés se recalculent à la lecture.
           subtitle: '',
           week_label: '',
@@ -2497,6 +2520,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     supprimerHypnose,
     dossier,
     rappels,
+    parcoursTypes,
   }
 }
 

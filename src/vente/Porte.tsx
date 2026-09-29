@@ -15,6 +15,7 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { SignIn } from '@/auth/SignIn'
 import { useAuth } from '@/auth/session'
+import { useEnTete } from '@/lib/enTete'
 import { entreeDeLAdresse, estLaPorte } from './decision'
 import s from './Porte.module.css'
 
@@ -48,18 +49,29 @@ export function useQuitterLaPorte(phase: string): void {
   }, [phase])
 }
 
-/** La porte des praticiennes, sur /connexion. */
+/** Le nom de la porte, dans l'onglet comme dans la carte. */
+export const TITRE_PORTE = 'Espace thérapeute'
+
+/**
+ * La porte des thérapeutes, sur /connexion.
+ *
+ * Le chemin du retour est posé au-dessus de la carte, à sa largeur : dans un
+ * coin de l'écran, il se perdait sur un grand écran. Et une visiteuse arrivée
+ * ici sans cabinet trouve sous la carte le chemin de l'essai.
+ */
 export function PortePraticienne({ avis = null }: { avis?: string | null }) {
+  useEnTete(`${TITRE_PORTE} — Klaro`)
   return (
     <div className={s.porte}>
-      <a className={s.retour} href="/">
-        <span aria-hidden="true">←</span> Retour à l’accueil
-      </a>
-      <SignIn
-        titre="Espace praticien"
-        intro="Entrez l'adresse qui a reçu votre invitation : vous recevrez un lien de connexion, et un code si vous préférez le saisir."
-        avis={avis}
-      />
+      <div className={s.bande}>
+        <a className={s.retour} href="/">
+          <span aria-hidden="true">←</span> Retour à l’accueil
+        </a>
+      </div>
+      <SignIn titre={TITRE_PORTE} intro="Entrez l’adresse à laquelle votre invitation est arrivée." avis={avis} />
+      <p className={s.essai}>
+        Pas encore de cabinet&nbsp;? <a href="/#essai">Demander un essai</a>
+      </p>
     </div>
   )
 }

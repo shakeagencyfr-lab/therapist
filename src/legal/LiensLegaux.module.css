@@ -1,0 +1,75 @@
+/* Trois liens en pied d'écran : discrets, jamais minuscules au pouce. */
+
+.liens {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+  text-align: center;
+}
+
+.intro {
+  white-space: nowrap;
+}
+
+.gauche,
+.gauche .liste {
+  justify-content: flex-start;
+  text-align: left;
+}
+/* Aligné à gauche, le premier lien s'aligne sur le texte au-dessus. */
+.gauche .element:first-child .lien {
+  padding-left: 0;
+}
+
+.liste {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Le point médian sépare sans être lu : il n'est qu'un décor. */
+.element + .element::before {
+  content: '·';
+  padding: 0 2px;
+  color: var(--c-text-disabled);
+}
+
+/* Une cible confortable sans grossir le texte : la hauteur vient du
+   rembourrage, pas de la police. */
+.lien {
+  display: inline-block;
+  padding: 6px 4px;
+  color: var(--c-text-3);
+  text-decoration: underline;
+  text-decoration-color: var(--c-border-mute);
+  text-underline-offset: 2px;
+}
+.lien:hover {
+  color: var(--c-accent-deep);
+  text-decoration-color: currentColor;
+}
+.lien:focus-visible {
+  outline: 2px solid var(--c-accent-deep);
+  outline-offset: 1px;
+  border-radius: 4px;
+}
+
+.horsEcran {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

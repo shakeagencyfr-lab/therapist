@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Card, Notice, Overline, SquareCheck, TextInput, Title } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
+import { useParcoursTypes } from '@/cabinet/useParcoursTypes'
 import { plural } from '@/lib/format'
 import { useAppState } from '@/state/store'
 import type { PatientId } from '@/types/domain'
+import { VueParcoursType } from './ParcoursType'
+import { VueProposerParcours } from './ProposerParcours'
 import s from './ProgrammesView.module.css'
 
 /** Les fiches d'avant portaient « Programme X » ; on compare sur le nom seul. */
@@ -34,8 +37,12 @@ export function ProgrammesView() {
   const [coches, setCoches] = useState<Record<PatientId, boolean>>({})
   const [enCours, setEnCours] = useState('')
   const [notice, setNotice] = useState<{ tone: 'ok' | 'warn'; text: string } | null>(null)
+  /** Celles et ceux à qui proposer le parcours par défaut du programme ouvert. */
+  const [aProposer, setAProposer] = useState<PatientId[]>([])
 
   const programmes = state.programmes
+  // Le parcours par défaut (0059) : lu à l'ouverture de l'écran, relu quand le catalogue change.
+  const parcours = useParcoursTypes(reel, programmes.join('|'))
 
   /** Qui suit quoi, calculé une fois pour la liste et pour les compteurs. */
   const suivi = useMemo(() => {
@@ -58,9 +65,12 @@ export function ProgrammesView() {
     for (const id of suivi[cible] ?? []) etat[id] = true
     setCoches(etat)
     setNotice(null)
+    setAProposer([])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [choisi, programmes.join('|')])
 
+  const programmeOuvert = parcours.programmes[choisi]
+  const exercicesDuChoisi = programmeOuvert?.exercices ?? []
   const selection = state.patientOrder.filter((id) => coches[id])
   const publies = suivi[choisi] ?? []
   const modifie =
@@ -98,9 +108,15 @@ export function ProgrammesView() {
     if (!cabinet || enCours) return
     setEnCours('attribuer')
     setNotice(null)
+    // Celles et ceux qui arrivent : pris AVANT l'écriture, qui relit le dossier.
+    const nouveaux = selection.filter((id) => !publies.includes(id))
     const r = await cabinet.attribuerProgramme(choisi, selection)
     setEnCours('')
     setNotice({ tone: r.ok ? 'ok' : 'warn', text: r.message })
+    /* ATTRIBUER PROPOSE LE PARCOURS. Le programme a des exercices par défaut :
+       on les montre à chaque nouvelle personne, qui ne les reçoit que si on
+       les coche. */
+    if (r.ok && nouveaux.length && exercicesDuChoisi.some((e) => e.id)) setAProposer(nouveaux)
   }
 
   async function retirer() {
@@ -267,6 +283,40 @@ export function ProgrammesView() {
           )}
         </div>
       )}
+
+      {reel && choisi && programmeOuvert && aProposer.length ? (
+        <VueProposerParcours
+          programme={choisi}
+          exercices={exercicesDuChoisi}
+          personnes={aProposer
+            .filter((id) => state.patients[id])
+            .map((id) => ({
+              id,
+              nom: state.patients[id].name,
+              parcours: state.patients[id].modules.map((m) => ({ title: m.title, kind: m.kind })),
+            }))}
+          onAjouter={(patient, ids) => parcours.appliquer(programmeOuvert.id, patient, ids)}
+          onFermer={() => setAProposer([])}
+        />
+      ) : null}
+
+      {reel && choisi ? (
+        <VueParcoursType
+          /* Un programme qu'on vient de nommer n'a pas encore été relu : on
+             attend sa lecture plutôt que d'éditer un parcours sans programme. */
+          etat={parcours.etat === 'pret' && !programmeOuvert ? 'chargement' : parcours.etat}
+          programme={choisi}
+          exercices={exercicesDuChoisi}
+          suiveurs={publies.length}
+          onEnregistrer={(liste) =>
+            programmeOuvert
+              ? parcours.regler(programmeOuvert.id, liste)
+              : Promise.resolve({ ok: false, message: 'Ce programme se relit encore : réessayez dans un instant.' })
+          }
+          onRelire={() => void parcours.recharger()}
+          onProposer={() => setAProposer(publies)}
+        />
+      ) : null}
     </div>
   )
 }
