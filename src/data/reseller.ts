@@ -181,7 +181,7 @@ export const BRAND_PRESETS: Array<{ label: string; accent: string; accentHover: 
  * Dans le produit réel, l'onglet Équipe lit `equipe_du_revendeur()` (0057).
  */
 export const EQUIPE_DEMO = {
-  organisation: { id: 'demo', nom: 'Shake', courriel: 'support@exemple.fr' },
+  organisation: { id: 'demo', nom: 'Klaro', courriel: 'support@exemple.fr' },
   membres: [
     { reseller_id: 'demo', user_id: 'demo-1', email: 'direction@exemple.fr', role: 'owner', created_at: '2025-11-03T09:00:00Z', moi: true },
     { reseller_id: 'demo', user_id: 'demo-2', email: 'commercial@exemple.fr', role: 'staff', created_at: '2026-02-16T09:00:00Z', moi: false },

@@ -39,25 +39,20 @@ export function typographie<T>(valeur: T, cle = ''): T {
  * ------------------------------------------------------------------ */
 
 /**
- * CELUI QUI PROPOSE KLARO SUR CETTE PAGE.
+ * CELUI QUI PARLE SUR CETTE PAGE : KLARO, ET LUI SEUL.
  *
- * `nom` est celui du revendeur qui reçoit les demandes d'essai (en base,
- * `resellers.accueille_demandes` : « Shake », relu le 29 septembre 2026) —
- * c'est lui qui lit la demande, ouvre le cabinet et règle l'abonnement. La
- * page le nomme partout de la même façon : une visiteuse ne connaît ni
- * « l'équipe commerciale », ni « le revendeur ».
+ * La page ne nomme que le logiciel. Qui lit les demandes d'essai, ouvre le
+ * cabinet et règle l'abonnement, la visiteuse le connaît sous ce nom-là —
+ * ni « l'équipe commerciale », ni « le revendeur », ni la société qui
+ * l'exploite. L'identité légale de l'éditeur (raison sociale, forme,
+ * SIREN, siège) a sa place dans les mentions légales (src/legal), pas ici.
  *
- * Le reste N'EST PAS CONNU DU CODE et ne s'invente pas : l'identité légale
- * (forme, raison sociale, SIREN), la ville et une adresse de contact
- * PUBLIQUE. Tant qu'un champ est vide, la page ne l'affiche pas, et
+ * L'adresse de contact PUBLIQUE n'est pas connue du code et ne s'invente
+ * pas : tant qu'elle est vide, la page ne l'affiche pas, et
  * `aFournirAvantLaMiseEnLigne()` le rappelle au banc de rendu.
  */
 export const EDITEUR = {
-  nom: 'Shake',
-  /** « Shake SAS, SIREN 000 000 000 » — tel que dans les mentions légales. */
-  identite: '',
-  /** La ville du siège, pour qu'on sache d'où l'on vous répond. */
-  ville: '',
+  nom: 'Klaro',
   /** Une adresse de contact publique (pas une boîte personnelle). */
   contact: '',
 } as const
@@ -93,8 +88,6 @@ export function aFournirAvantLaMiseEnLigne(): string[] {
   const manque: string[] = []
   if (/à confirmer/.test(MENTION_PRIX)) manque.push('prix hors taxes ou toutes taxes comprises (MENTION_PRIX)')
   if (!MODALITES) manque.push('mode de paiement et engagement (MODALITES)')
-  if (!EDITEUR.identite) manque.push("identité légale de l'éditeur (EDITEUR.identite)")
-  if (!EDITEUR.ville) manque.push('ville (EDITEUR.ville)')
   if (!EDITEUR.contact) manque.push('adresse de contact publique (EDITEUR.contact)')
   manque.push('durée de conservation des demandes d’essai (à fixer, puis dire dans la politique de confidentialité)')
   return manque
@@ -397,7 +390,7 @@ export const CONFIDENTIALITE: Engagement[] = typographie([
   },
   {
     titre: 'Chaque cabinet est cloisonné',
-    texte: `Dans la base, chaque cabinet ne voit que ses dossiers. Le journal reste privé tant que votre patient ne partage pas une page. L’espace de ${EDITEUR.nom}, qui ouvre votre cabinet, ne montre que des compteurs, jamais un patient.`,
+    texte: `Dans la base, chaque cabinet ne voit que ses dossiers. Le journal reste privé tant que votre patient ne partage pas une page. Côté ${EDITEUR.nom}, l’espace qui ouvre votre cabinet ne montre que des compteurs, jamais un patient.`,
     preuve: 'supabase/tests/isolation.sql',
   },
 ])
@@ -456,7 +449,7 @@ function questionsBrutes(): Question[] {
     {
       id: 'qui-voit-quoi',
       question: 'Qui voit quoi ?',
-      reponse: `Vous, et les collègues de votre équipe, voyez les dossiers de vos patients. Votre patient voit ses exercices, ses audios, son journal et son échelle ; ni vos notes, ni son profil. Ses pages de journal restent privées tant qu’il ne les partage pas ; son échelle du soir, elle, vous est toujours visible. L’espace de ${EDITEUR.nom}, qui ouvre votre cabinet, ne montre que des compteurs : jamais un nom, une note ou une page de journal.`,
+      reponse: `Vous, et les collègues de votre équipe, voyez les dossiers de vos patients. Votre patient voit ses exercices, ses audios, son journal et son échelle ; ni vos notes, ni son profil. Ses pages de journal restent privées tant qu’il ne les partage pas ; son échelle du soir, elle, vous est toujours visible. Côté ${EDITEUR.nom}, l’espace qui ouvre votre cabinet ne montre que des compteurs : jamais un nom, une note ou une page de journal.`,
     },
     {
       id: 'responsable',

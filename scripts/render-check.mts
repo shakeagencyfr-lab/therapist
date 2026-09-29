@@ -1117,6 +1117,8 @@ try {
     }
     if (!texte.includes('par mois')) manque.push('les prix ne disent pas « par mois »')
     if (!/hors taxes/.test(texte)) manque.push("la mention hors taxes des prix manque")
+    // La page ne nomme que le logiciel (demande du 29 septembre 2026).
+    if (/Shake/i.test(texte)) manque.push('la page nomme « Shake » : elle ne doit nommer que Klaro')
     for (const [attendu, quoi] of [
       ['Paris', 'la base à Paris'],
       ['Anthropic', "l'analyse chez Anthropic"],

@@ -105,7 +105,6 @@ describe('ce qui manque avant la mise en ligne', () => {
     const manque = aFournirAvantLaMiseEnLigne().join(' ; ')
     if (/à confirmer/.test(MENTION_PRIX)) expect(manque).toMatch(/MENTION_PRIX/)
     if (!EDITEUR.contact) expect(manque).toMatch(/EDITEUR.contact/)
-    if (!EDITEUR.identite) expect(manque).toMatch(/EDITEUR.identite/)
   })
 
   it('nomme partout le même acteur commercial', () => {
@@ -113,6 +112,18 @@ describe('ce qui manque avant la mise en ligne', () => {
     const tout = textes.join(' ')
     expect(tout).not.toMatch(/équipe commerciale|l’équipe qui (?:gère|a ouvert)/)
     expect(tout).toContain(EDITEUR.nom)
+  })
+
+  /* Demande du 29 septembre : la page ne nomme que le logiciel, jamais la
+     société qui l'exploite. */
+  it('ne nomme que Klaro', () => {
+    expect(EDITEUR.nom).toBe('Klaro')
+    const tout = [
+      ...questions().flatMap((q) => [q.question, q.reponse]),
+      ...CONFIDENTIALITE.flatMap((c) => [c.titre, c.texte]),
+      ...ENSUITE.flatMap((e) => [e.titre, e.texte]),
+    ].join(' ')
+    expect(tout).not.toMatch(/Shake/i)
   })
 })
 

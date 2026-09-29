@@ -599,16 +599,11 @@ export function PageDeVente() {
           <div className={s.piedMarque}>
             <Logo />
             <p className={s.piedPhrase}>Le suivi entre les séances, pour les hypnothérapeutes.</p>
-            <p className={s.piedEditeur}>
-              Klaro vous est proposé par {EDITEUR.identite || EDITEUR.nom}
-              {EDITEUR.ville ? `, ${EDITEUR.ville}` : ''}.
-              {EDITEUR.contact ? (
-                <>
-                  {' '}
-                  Nous écrire&nbsp;: <a href={`mailto:${EDITEUR.contact}`}>{EDITEUR.contact}</a>.
-                </>
-              ) : null}
-            </p>
+            {EDITEUR.contact ? (
+              <p className={s.piedEditeur}>
+                Nous écrire&nbsp;: <a href={`mailto:${EDITEUR.contact}`}>{EDITEUR.contact}</a>.
+              </p>
+            ) : null}
           </div>
           <nav aria-label="Liens de bas de page">
             <ul className={s.piedLiens}>

@@ -408,7 +408,7 @@ export function Formulaire({ offreProposee }: { offreProposee: string }) {
       {/* Ce que devient ce qu'on vient d'écrire, dit AVANT l'envoi (RGPD,
           art. 13) : qui le lit, pour quoi faire, et comment le reprendre. */}
       <p className={s.aide}>
-        Vos réponses sont lues par {EDITEUR.nom}, qui propose Klaro, pour vous recontacter au sujet de cet essai,
+        Vos réponses sont lues par l’équipe {EDITEUR.nom} pour vous recontacter au sujet de cet essai,
         et pour rien d’autre. Vous pouvez demander à tout moment à les consulter, les corriger ou les effacer
         {EDITEUR.contact ? (
           <>

@@ -77,7 +77,7 @@ export function AppHeader() {
       }
     : { name: fictif.name, tagline: fictif.tagline, branding: fictif.branding }
 
-  const marqueRevendeur = enseigne?.name ?? 'Shake'
+  const marqueRevendeur = enseigne?.name ?? 'Klaro'
   const logoRevendeur = initiales(marqueRevendeur)
 
   // Le commutateur d'espace vient du prototype, où il servait de présentoir.
