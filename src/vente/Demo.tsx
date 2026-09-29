@@ -4,9 +4,9 @@
  * CE QU'ILS SONT, EXACTEMENT. Le téléphone et le suivi sont des composants
  * de l'application, rendus sur le portefeuille de démonstration de src/data :
  * le téléphone est l'APERÇU PATIENT QUE LA THÉRAPEUTE VOIT dans son espace
- * (src/views/patient), pas l'espace réel du patient (src/patient) — il parle
- * de « sa thérapeute » là où l'espace réel dit « votre thérapeute », et n'a
- * pas le pied d'urgence. La légende de la page le dit.
+ * (src/views/patient), pas l'espace réel du patient (src/patient). Il parle
+ * au patient comme l'espace réel (« votre thérapeute »), mais n'a pas le
+ * pied d'urgence : la légende de la page le dit.
  *
  * Le brouillon de note (NoteDemo), lui, n'est pas l'écran DraftStep : cet
  * écran porte l'envoi au dossier, la copie du message, l'actualisation du
@@ -84,7 +84,10 @@ function EcranPatient() {
  * (variablesDeMarque) : c'est la marque blanche, pour de vrai.
  */
 export function TelephoneDemo() {
-  const [teinte, setTeinte] = useState(0)
+  /* On ouvre sur « Terre » : blanc sur #8A5A2B passe le contraste (5,87:1),
+     là où l'Ocre, première du nuancier, tombe à 3,38:1 sur la carte du
+     lecteur. Les autres teintes restent à essayer. */
+  const [teinte, setTeinte] = useState(() => Math.max(0, BRAND_PRESETS.findIndex((b) => b.label === 'Terre')))
   const marque = BRAND_PRESETS[teinte] ?? BRAND_PRESETS[0]
   return (
     <AppStoreProvider initial={DEMONSTRATION}>
@@ -135,7 +138,7 @@ function Suivi() {
     <div className={s.suivi}>
       <div className={s.liste}>
         <p className={s.listeTitre} id="demo-patients">
-          <span>Vos patients cette semaine</span>
+          <span>Vos patients sur sept jours</span>
           <Fictif />
         </p>
         <ul className={s.patients} aria-labelledby="demo-patients">

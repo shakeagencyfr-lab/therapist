@@ -19,7 +19,7 @@ export const PRINCIPLES: Principle[] = [
     body: "Le patient n'a jamais plus de trois actions devant lui. Le reste est masqué.",
   },
   {
-    title: 'La voix de sa thérapeute',
+    title: 'La voix de votre thérapeute',
     body: 'Les audios sont enregistrés pour lui, nommés par elle, et restent disponibles dans son espace, aussi longtemps que le suivi dure.',
   },
   {

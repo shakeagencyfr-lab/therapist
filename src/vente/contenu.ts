@@ -69,13 +69,13 @@ export const EDITEUR = {
 /**
  * LA MENTION DES PRIX — à changer ici, et nulle part ailleurs.
  *
- * On ne sait pas encore si les prix de la table `plans` s'entendent hors
- * taxes ou toutes taxes comprises : la page dit « par mois » et le dit.
- * C'est une décision commerciale, à trancher avant la mise en ligne.
+ * Les prix de la table `plans` s'entendent hors taxes, par cabinet et par
+ * mois : c'est tranché (29 septembre).
  */
-export const MENTION_PRIX = typographie(
-  'Prix indicatifs par cabinet et par mois — hors taxes ou toutes taxes comprises : à confirmer.',
-)
+export const MENTION_PRIX = typographie('Prix par cabinet et par mois, hors taxes.')
+
+/** Pour les données structurées : les prix affichés ne comprennent pas la TVA. */
+export const PRIX_TTC = false
 
 /**
  * Comment on paie, et s'il y a un engagement. Rien dans le code ne le dit :
@@ -226,7 +226,7 @@ export const PARCOURS: Etape[] = typographie([
     icone: 'courbe',
     titre: 'Le suivi, entre deux séances',
     texte:
-      'L’assiduité semaine après semaine, la courbe de l’échelle du soir, les pages de journal partagées avec vous et les mots qu’on vous laisse.',
+      'L’assiduité des sept derniers jours, la courbe de l’échelle du soir, les pages de journal partagées avec vous et les mots qu’on vous laisse.',
     detail: 'Vous voyez qui décroche, avant la séance suivante.',
     voir: { ancre: 'suivi', libelle: 'Voir le suivi' },
   },

@@ -367,8 +367,8 @@ export function PageDeVente() {
               <TelephoneDemo />
             </Differe>
             <figcaption id="legende-apercu" className={s.legende}>
-              L’espace patient tel que vous le prévisualisez dans Klaro. Chez votre patient, il lui dit
-              «&nbsp;vous&nbsp;», et les numéros d’urgence sont en bas de chaque écran.
+              L’espace patient, tel que vous le prévisualisez dans Klaro — sur des données fictives.
+              Chez votre patient, les numéros d’urgence sont en bas de chaque écran.
             </figcaption>
           </figure>
         </section>
@@ -445,7 +445,7 @@ export function PageDeVente() {
               Qui avance, qui décroche
             </h2>
             <p className={s.intro}>
-              L’assiduité de chaque patient, semaine après semaine, et la courbe de son échelle du soir&nbsp;:
+              L’assiduité de chaque patient sur les sept derniers jours, et la courbe de son échelle du soir&nbsp;:
               les écrans du suivi, sur des patients fictifs. Choisissez-en un.
             </p>
           </div>
@@ -511,7 +511,7 @@ export function PageDeVente() {
                 <h3 className={s.offreNom}>{o.nom}</h3>
                 <p className={s.offrePrix}>
                   <span className={s.offreMontant}>{o.prix}</span>
-                  <span className={s.offrePeriode}> par mois</span>
+                  <span className={s.offrePeriode}> HT par mois</span>
                 </p>
                 <p className={s.offrePatients}>{o.patients}</p>
                 <ul className={s.offreLignes}>

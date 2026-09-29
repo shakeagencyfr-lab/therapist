@@ -88,9 +88,9 @@ describe('les offres de la page', () => {
     expect(reseau?.patients).toMatch(/sans limite/)
   })
 
-  it('ne tranchent pas entre hors taxes et toutes taxes comprises', () => {
-    expect(MENTION_PRIX).toMatch(/indicatifs/)
-    expect(MENTION_PRIX).toMatch(/à confirmer/)
+  it('se disent hors taxes, sans hésitation', () => {
+    expect(MENTION_PRIX).toMatch(/hors taxes/)
+    expect(MENTION_PRIX).not.toMatch(/à confirmer|indicatifs/)
   })
 
   it('portent une apostrophe typographique', () => {

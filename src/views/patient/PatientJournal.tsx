@@ -95,7 +95,7 @@ export function PatientJournal() {
             disabled={!maquette}
             data-apercu={maquette ? undefined : 'inerte'}
           >
-            {current.shared ? 'Partagée avec sa thérapeute' : 'Partager cette page avec sa thérapeute'}
+            {current.shared ? 'Partagée avec votre thérapeute' : 'Partager cette page avec votre thérapeute'}
           </button>
           <div className={s.pageFootRow}>
             <span className={s.shareHint}>

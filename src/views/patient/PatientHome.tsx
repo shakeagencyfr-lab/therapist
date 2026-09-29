@@ -200,7 +200,7 @@ export function PatientHome() {
   const pages = state.pages[key] ?? []
   const shared = pages.filter((g) => g.shared).length
   const journalSubtitle = pages.length
-    ? `${pages.length} ${pages.length > 1 ? 'pages' : 'page'} · ${shared} partagée${shared > 1 ? 's' : ''} avec sa thérapeute`
+    ? `${pages.length} ${pages.length > 1 ? 'pages' : 'page'} · ${shared} partagée${shared > 1 ? 's' : ''} avec votre thérapeute`
     : 'Aucune page encore. Vous pouvez commencer quand vous voulez.'
 
   /* Notification récente ------------------------------------------------ */
@@ -290,7 +290,7 @@ export function PatientHome() {
           <div className={s.playerOverline}>Votre séance d'écoute</div>
           <div className={s.playerTitle}>{current ? current.title : '—'}</div>
           <div className={s.playerMeta}>
-            {`Enregistré par sa thérapeute · ${current ? current.duration : '00:00'}`}
+            {`Enregistré par votre thérapeute · ${current ? current.duration : '00:00'}`}
           </div>
           <div className={s.playerTrack}>
             <div
@@ -314,7 +314,7 @@ export function PatientHome() {
       </div>
 
       <div className={s.section}>
-        <div className={s.overline}>Sa bibliothèque</div>
+        <div className={s.overline}>Vos audios</div>
         <div className={s.audioList}>
           {audios.map((a, i) => {
             const on = i === currentIndex
@@ -390,7 +390,7 @@ export function PatientHome() {
 
       <div className={s.section}>
         <div className={s.panel}>
-          <div className={s.panelTitle}>Un mot pour sa thérapeute</div>
+          <div className={s.panelTitle}>Un mot pour votre thérapeute</div>
           <div className={s.panelSub}>
             {maquette
               ? 'Ce que vous écrivez ici arrive dans son dossier avant la séance.'
@@ -402,7 +402,7 @@ export function PatientHome() {
             value={state.note}
             placeholder="Ce qui s'est passé, ce qui a déclenché…"
             onChange={(e) => set({ note: e.target.value, noteSent: false })}
-            aria-label="Un mot pour sa thérapeute"
+            aria-label="Un mot pour votre thérapeute"
             readOnly={!maquette}
           />
           <button
@@ -412,7 +412,7 @@ export function PatientHome() {
             disabled={!maquette}
             data-apercu={maquette ? undefined : 'inerte'}
           >
-            {state.noteSent && !state.note ? '✓ Transmis' : 'Partager avec sa thérapeute'}
+            {state.noteSent && !state.note ? '✓ Transmis' : 'Partager avec votre thérapeute'}
           </button>
         </div>
       </div>

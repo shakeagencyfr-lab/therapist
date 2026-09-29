@@ -14,7 +14,7 @@
  * Données structurées : un logiciel, ses trois offres et leurs prix. Ni note,
  * ni avis — le produit n'en a pas, et on n'en invente pas.
  */
-import { MENTION_PRIX, offres } from './contenu'
+import { MENTION_PRIX, PRIX_TTC, offres } from './contenu'
 
 export const URL_CANONIQUE = 'https://klaroweb.site/'
 export const TITRE = 'Klaro — le suivi entre les séances, pour les hypnothérapeutes'
@@ -45,6 +45,7 @@ export function donneesStructurees(): Record<string, unknown> {
         price: o.prix.replace(/\s*€$/, '').replace(',', '.'),
         priceCurrency: 'EUR',
         unitText: 'mois',
+        valueAddedTaxIncluded: PRIX_TTC,
         referenceQuantity: { '@type': 'QuantitativeValue', value: 1, unitCode: 'MON' },
       },
       url: `${URL_CANONIQUE}#offres`,

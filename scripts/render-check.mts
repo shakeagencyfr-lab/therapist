@@ -1116,7 +1116,7 @@ try {
       if (!texte.includes(p.label)) manque.push(`l'offre ${p.label} manque`)
     }
     if (!texte.includes('par mois')) manque.push('les prix ne disent pas « par mois »')
-    if (!/Prix indicatifs/.test(texte)) manque.push("la mention des prix indicatifs manque")
+    if (!/hors taxes/.test(texte)) manque.push("la mention hors taxes des prix manque")
     for (const [attendu, quoi] of [
       ['Paris', 'la base à Paris'],
       ['Anthropic', "l'analyse chez Anthropic"],
