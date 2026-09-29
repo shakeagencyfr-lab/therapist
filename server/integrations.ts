@@ -178,7 +178,9 @@ async function ecrire(
 async function eprouverAnthropic(apiKey: string): Promise<void> {
   const client = new Anthropic({ apiKey })
   try {
-    await client.models.retrieve(process.env.CLAUDE_MODEL ?? 'claude-opus-5')
+    // Le modèle des analyses (MODELE_ANALYSE, server/ai.ts — ai.ts importe ce
+    // module : l'identifiant est recopié ici plutôt qu'importé).
+    await client.models.retrieve(process.env.CLAUDE_MODEL ?? 'claude-opus-5-5')
   } catch (err) {
     if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) {
       throw new HttpError(400, 'Anthropic refuse cette clé. Vérifiez-la dans votre console Anthropic.')

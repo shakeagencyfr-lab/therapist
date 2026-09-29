@@ -20,7 +20,7 @@
  * n'a rien à faire à l'écran ni ici : la thérapeute paie un prix, pas une
  * référence technique.
  */
-export const TARIF = { entree: 5, sortie: 25 }
+export const TARIF = { entree: 4, sortie: 20 }
 
 /**
  * Taux de conversion, fixe et volontairement grossier.
@@ -80,7 +80,7 @@ export const SORTIE_BASE_BROUILLON = 2_500
  * qu'aucun plafond, puisqu'on s'y fie. `coutIA.test.ts` relit désormais le
  * chiffre dans server/ai.ts.
  */
-export const PLAFOND_SORTIE = 4000
+export const PLAFOND_SORTIE = 6000
 
 /** Jetons d'un texte, arrondis au supérieur. */
 export function jetonsDe(texte: string): number {
@@ -144,7 +144,7 @@ export function estimationBrouillon(transcript: string, notes = ''): Estimation 
  * Plafond de sortie d'un mouvement d'hypnose (maxTokens, server/ai.ts).
  * `coutIA.test.ts` relit le chiffre dans le serveur.
  */
-export const PLAFOND_MOUVEMENT = 5000
+export const PLAFOND_MOUVEMENT = 7000
 
 /** Les quatre mouvements d'une hypnose : un appel chacun. */
 const MOUVEMENTS_HYPNOSE = 4

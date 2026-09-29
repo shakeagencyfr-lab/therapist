@@ -7,8 +7,11 @@ import {
   coutCentimes,
   currentMode,
   describeError,
+  MODELE_ANALYSE,
+  MODELE_DE_REPLI,
   profilCreux,
   reglageDe,
+  rejouerLeRefus,
 } from './ai.js'
 import { modulePrompt } from './prompts.js'
 
@@ -16,6 +19,9 @@ describe('coutCentimes — au tarif du modèle', () => {
   it('Opus 5 : 5 $ / 25 $ le million', () => {
     // 1 M en entrée + 1 M en sortie = 30 $ = 3000 centimes
     expect(coutCentimes('claude-opus-5', { input: 1_000_000, output: 1_000_000 })).toBeCloseTo(3000)
+  })
+  it('Opus 5.5 : 4 $ / 20 $ le million, 20 % de moins', () => {
+    expect(coutCentimes('claude-opus-5-5', { input: 1_000_000, output: 1_000_000 })).toBeCloseTo(2400)
   })
   it('un appel ordinaire coûte des fractions de centime', () => {
     expect(coutCentimes('claude-opus-5', { input: 3000, output: 900 })).toBeCloseTo(3.75, 2)
@@ -27,15 +33,15 @@ describe('coutCentimes — au tarif du modèle', () => {
 
 describe('reglageDe — le bon modèle et le bon effort par action', () => {
   it('le brouillon de séance garde Opus : c’est la pièce clinique', () => {
-    expect(reglageDe('session-draft').model).toBe('claude-opus-5')
+    expect(reglageDe('session-draft').model).toBe('claude-opus-5-5')
   })
 
   it('tout ce qui demande du jugement clinique reste sur Opus', () => {
     // La qualité prime sur le coût : ces textes sont lus par une praticienne
     // et, pour l'hypnose, lus à voix haute à quelqu'un.
-    expect(reglageDe('profile').model).toBe('claude-opus-5')
-    expect(reglageDe('module').model).toBe('claude-opus-5')
-    expect(reglageDe('hypnose').model).toBe('claude-opus-5')
+    expect(reglageDe('profile').model).toBe('claude-opus-5-5')
+    expect(reglageDe('module').model).toBe('claude-opus-5-5')
+    expect(reglageDe('hypnose').model).toBe('claude-opus-5-5')
   })
 
   it('seules les affirmations descendent : sept phrases ne valent pas Opus', () => {
@@ -46,6 +52,7 @@ describe('reglageDe — le bon modèle et le bon effort par action', () => {
     // Un identifiant inconnu retomberait sur le tarif Opus sans rien dire, et
     // la facture du revendeur serait fausse dans le silence le plus complet.
     const TARIFS_PUBLIES: Record<string, number> = {
+      'claude-opus-5-5': 2400,
       'claude-opus-5': 3000,
       'claude-sonnet-5': 1200,
       'claude-haiku-4-5': 600,
@@ -56,6 +63,14 @@ describe('reglageDe — le bon modèle et le bon effort par action', () => {
       const attendu = TARIFS_PUBLIES[model]
       expect(attendu, `tarif inconnu pour ${model}`).toBeDefined()
       expect(coutCentimes(model, { input: 1_000_000, output: 1_000_000 })).toBeCloseTo(attendu as number)
+    }
+  })
+
+  /* Opus 5.5 : l'effort par défaut est « medium », un cran sous Opus 5.
+     Omis, il ferait réfléchir moins qu'avant sans que rien ne le dise. */
+  it('l’effort est posé explicitement, jamais laissé au défaut du modèle', () => {
+    for (const route of ['session-draft', 'profile', 'module', 'hypnose'] as const) {
+      expect(reglageDe(route)).toEqual({ model: 'claude-opus-5-5', effort: 'high' })
     }
   })
 
@@ -216,5 +231,22 @@ describe('describeError — un message qui dit quoi faire', () => {
       status: 400,
       message: 'Le brief est trop long.',
     })
+  })
+})
+
+/* Opus 5.5 a des filtres plus larges qu'Opus 5 : un faux positif ne doit pas
+   devenir une panne. Le refus est rejoué une fois, sur Opus 5. */
+describe('rejouerLeRefus — un refus du modèle d’analyse se rejoue une fois', () => {
+  it('rejoue un refus d’Opus 5.5 sur Opus 5', () => {
+    expect(MODELE_ANALYSE).toBe('claude-opus-5-5')
+    expect(MODELE_DE_REPLI).toBe('claude-opus-5')
+    expect(rejouerLeRefus('claude-opus-5-5', 'bio')).toBe(true)
+    expect(rejouerLeRefus('claude-opus-5-5', null)).toBe(true)
+  })
+
+  it('ne rejoue ni l’extraction du raisonnement, ni un autre modèle, ni le repli lui-même', () => {
+    expect(rejouerLeRefus('claude-opus-5-5', 'reasoning_extraction')).toBe(false)
+    expect(rejouerLeRefus('claude-haiku-4-5', 'cyber')).toBe(false)
+    expect(rejouerLeRefus('claude-opus-5', 'bio')).toBe(false)
   })
 })

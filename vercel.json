@@ -4,7 +4,16 @@
     "cdg1"
   ],
   "functions": {
-    "api/**/*.ts": {
+    "api/ai/**/*.ts": {
+      "maxDuration": 300
+    },
+    "api/*.ts": {
+      "maxDuration": 60
+    },
+    "api/cron/**/*.ts": {
+      "maxDuration": 60
+    },
+    "api/push/**/*.ts": {
       "maxDuration": 60
     }
   },

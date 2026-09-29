@@ -87,7 +87,11 @@ describe('plafond de sortie', () => {
  * la moitié du prix : ces cas la tiennent au-dessus de la réalité.
  */
 describe('recalée sur les appels facturés', () => {
-  const enEuros = (centimesDollar: number) => (centimesDollar / 100) * TAUX_EURO
+  /* Relevés sous Opus 5 (5 $ / 25 $ le million) ; l'analyse tourne depuis sur
+     Opus 5.5 (4 $ / 20 $). À jetons égaux, le même appel coûte 0,8 fois :
+     c'est ce prix-là que l'estimation doit tenir. À recaler sur les premiers
+     appels facturés sous Opus 5.5, qui réfléchit un peu plus à effort égal. */
+  const enEuros = (centimesDollar: number) => ((centimesDollar * 0.8) / 100) * TAUX_EURO
 
   it.each([
     { caracteres: 259, facture: 7.314 },

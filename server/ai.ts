@@ -88,6 +88,13 @@ import { seFaitParLePatient, typeDeModule } from '../src/lib/typesDeModules.js'
  * écrire sept phrases ne demande ni le meilleur modèle ni la moindre
  * réflexion, et c'est la seule action du produit dont on puisse le dire.
  *
+ * OPUS 5.5 DEPUIS LE 29 SEPTEMBRE 2026. Le successeur d'Opus 5, 20 % moins
+ * cher au jeton (4 $ / 20 $ le million contre 5 $ / 25 $). L'effort est posé
+ * EXPLICITEMENT à « high » : son défaut est « medium », un cran sous celui
+ * d'Opus 5, et une route qui l'omettrait réfléchirait moins qu'avant sans
+ * que rien ne le dise. À effort égal, il réfléchit un peu plus qu'Opus 5 :
+ * les plafonds de sortie ont été relevés d'autant (voir chaque action).
+ *
  * Aucun suffixe de date : l'identifiant d'un modèle est complet tel quel.
  */
 type Effort = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
@@ -97,11 +104,25 @@ interface Reglage {
   effort?: Effort
 }
 
+/** Le modèle des quatre analyses qui comptent. */
+export const MODELE_ANALYSE = 'claude-opus-5-5'
+
+/**
+ * Le modèle de repli, quand l'analyse refuse une demande.
+ *
+ * Opus 5.5 porte des filtres de sécurité plus larges qu'Opus 5 (biologie,
+ * extraction du raisonnement). Une séance d'hypnose n'a rien à y voir, mais
+ * un faux positif ne doit pas devenir une panne : la demande refusée est
+ * rejouée UNE fois sur Opus 5, qui la traitait hier. Le SDK du projet ne
+ * connaît pas encore le repli côté serveur ; c'est donc un nouvel essai ici.
+ */
+export const MODELE_DE_REPLI = 'claude-opus-5'
+
 const REGLAGES: Record<AiRoute, Reglage> = {
-  'session-draft': { model: 'claude-opus-5', effort: 'high' },
-  profile: { model: 'claude-opus-5', effort: 'high' },
-  module: { model: 'claude-opus-5', effort: 'high' },
-  hypnose: { model: 'claude-opus-5', effort: 'high' },
+  'session-draft': { model: MODELE_ANALYSE, effort: 'high' },
+  profile: { model: MODELE_ANALYSE, effort: 'high' },
+  module: { model: MODELE_ANALYSE, effort: 'high' },
+  hypnose: { model: MODELE_ANALYSE, effort: 'high' },
   // La seule exception. Écrire sept affirmations ne demande ni le meilleur
   // modèle ni la moindre réflexion : Haiku refuse output_config.effort (400)
   // et ne raisonne pas par défaut, ce qui est exactement ce qu'on veut.
@@ -110,6 +131,9 @@ const REGLAGES: Record<AiRoute, Reglage> = {
 
 /** Les modèles qui acceptent `output_config.effort`. Les autres répondent 400. */
 const EFFORT_ACCEPTE = new Set([
+  'claude-fable-5-1',
+  'claude-opus-5-5',
+  'claude-sonnet-5-5',
   'claude-opus-5',
   'claude-opus-4-8',
   'claude-opus-4-7',
@@ -258,6 +282,8 @@ interface CallOptions<T> {
 export interface Usage {
   input: number
   output: number
+  /** Le modèle facturé, quand ce n'est pas celui de l'action (repli après un refus). */
+  modele?: string
 }
 
 /** Une sortie du modèle, et ce qu'elle a coûté. */
@@ -266,18 +292,42 @@ interface Produit<T> {
   usage: Usage | null
 }
 
+/**
+ * Le refus rejoué ailleurs ?
+ *
+ * Oui pour un refus du modèle d'analyse, une fois, sur le modèle de repli —
+ * sauf la catégorie « reasoning_extraction », qu'aucun modèle ne traitera
+ * autrement (et qu'Anthropic ne rejoue pas non plus). Jamais quand un modèle
+ * est imposé par CLAUDE_MODEL : l'exploitation a choisi, on ne la contredit
+ * pas en silence.
+ */
+export function rejouerLeRefus(model: string, categorie: string | null | undefined): boolean {
+  return !MODELE_IMPOSE && model === MODELE_ANALYSE && categorie !== 'reasoning_extraction'
+}
+
 async function callClaude<T>({ route, schema, system, prompt, maxTokens, cle }: CallOptions<T>): Promise<Produit<T>> {
   const { model, effort } = reglageDe(route)
   const format = zodOutputFormat(schema)
-  let message
-  try {
-    message = await client(cle).messages.parse({
-      model,
+  const demander = (modele: string) =>
+    client(cle).messages.parse({
+      model: modele,
       max_tokens: maxTokens,
       system,
       messages: [{ role: 'user', content: prompt }],
-      output_config: effort ? { format, effort } : { format },
+      output_config: effort && EFFORT_ACCEPTE.has(modele) ? { format, effort } : { format },
     })
+  let message
+  let refuse: Usage | null = null
+  try {
+    message = await demander(model)
+    /* Un refus est un succès HTTP : il se lit sur stop_reason. Rejoué une
+       fois sur le modèle de repli ; l'appel refusé compte dans l'usage. */
+    const categorie = (message as { stop_details?: { category?: string | null } | null }).stop_details?.category
+    if (message.stop_reason === 'refusal' && rejouerLeRefus(model, categorie)) {
+      console.warn(`[ia] ${route} refusé (${categorie ?? 'sans catégorie'}), rejoué sur ${MODELE_DE_REPLI}`)
+      refuse = { input: message.usage.input_tokens, output: message.usage.output_tokens }
+      message = await demander(MODELE_DE_REPLI)
+    }
   } catch (err) {
     /* Une clé refusée n'est pas la même panne selon À QUI elle appartient.
        Celle du cabinet se corrige dans l'onglet Intégrations, en trente
@@ -337,7 +387,13 @@ async function callClaude<T>({ route, schema, system, prompt, maxTokens, cle }: 
   }
   return {
     data: message.parsed_output,
-    usage: { input: message.usage.input_tokens, output: message.usage.output_tokens },
+    usage: refuse
+      ? {
+          input: refuse.input + message.usage.input_tokens,
+          output: refuse.output + message.usage.output_tokens,
+          modele: MODELE_DE_REPLI,
+        }
+      : { input: message.usage.input_tokens, output: message.usage.output_tokens },
   }
 }
 
@@ -448,7 +504,7 @@ async function sessionDraft(body: Partial<SessionDraftBody>, cle: Cle | null): P
     prompt: transcript.trim()
       ? sessionDraftPrompt(material, categories, hasSpeakerLabels(transcript))
       : sessionDraftPrompt(material, categories, true, true),
-    maxTokens: 4000,
+    maxTokens: 6000,
     cle,
   })
 }
@@ -505,7 +561,7 @@ async function customModule(body: Record<string, unknown>, cle: Cle | null): Pro
     schema: generatedModuleSchema,
     system: MODULE_SYSTEM,
     prompt: modulePrompt(brief),
-    maxTokens: 4000,
+    maxTokens: 6000,
     cle,
   })
 }
@@ -528,9 +584,10 @@ async function affirmations(body: Partial<AffirmationsBody>, cle: Cle | null): P
  *
  * Un appel par mouvement, et non un pour toute la séance. Trente minutes de
  * lecture font près de cinq mille jetons : deux à trois minutes de
- * génération, quand l'hébergeur en accorde soixante secondes. Un mouvement
- * de sept minutes tient largement dans ce budget — et le modèle écrit mieux
- * sept minutes qu'il n'en écrit trente d'affilée.
+ * génération d'un seul tenant. Un mouvement de sept minutes se rédige en
+ * moins d'une minute (mesuré sous Opus 5 : ~60 jetons par seconde), loin des
+ * trois cents secondes accordées aux routes d'analyse (vercel.json) — et le
+ * modèle écrit mieux sept minutes qu'il n'en écrit trente d'affilée.
  */
 async function hypnose(body: Partial<HypnoseBody>, cle: Cle | null): Promise<Produit<unknown>> {
   const mouvement = asText(body.mouvement).trim() as Mouvement
@@ -570,8 +627,8 @@ async function hypnose(body: Partial<HypnoseBody>, cle: Cle | null): Promise<Pro
       precedents,
     }),
     // Un mouvement fait 500 à 900 mots. Le plafond laisse de la marge au
-    // raisonnement sans jamais approcher les soixante secondes.
-    maxTokens: 5000,
+    // raisonnement d'Opus 5.5, qui pense un peu plus qu'Opus 5 à effort égal.
+    maxTokens: 7000,
     cle,
   })
 }
@@ -626,7 +683,7 @@ async function profile(body: Partial<ProfileBody>, cle: Cle | null): Promise<Pro
     schema: generatedProfileSchema,
     system: PROFILE_SYSTEM,
     prompt,
-    maxTokens: 6000,
+    maxTokens: 8000,
     cle,
   })
 
@@ -641,7 +698,7 @@ async function profile(body: Partial<ProfileBody>, cle: Cle | null): Promise<Pro
       schema: generatedProfileSchema,
       system: PROFILE_SYSTEM,
       prompt: prompt + RATTRAPAGE.replace('%s', creux),
-      maxTokens: 6000,
+      maxTokens: 8000,
       cle,
     })
     /* On garde la meilleure des deux réponses, pas forcément la dernière :
@@ -659,6 +716,7 @@ async function profile(body: Partial<ProfileBody>, cle: Cle | null): Promise<Pro
       usage = {
         input: usage.input + reprise.usage.input,
         output: usage.output + reprise.usage.output,
+        modele: reprise.usage.modele ?? usage.modele,
       }
     }
   }
@@ -681,6 +739,8 @@ async function profile(body: Partial<ProfileBody>, cle: Cle | null): Promise<Pro
 
 /** Tarif du modèle, en dollars par million de jetons. */
 const TARIFS: Record<string, { input: number; output: number }> = {
+  'claude-opus-5-5': { input: 4, output: 20 },
+  'claude-sonnet-5-5': { input: 2, output: 10 },
   'claude-opus-5': { input: 5, output: 25 },
   'claude-sonnet-5': { input: 2, output: 10 },
   'claude-haiku-4-5': { input: 1, output: 5 },
@@ -710,7 +770,7 @@ const GENRES: Record<AiRoute, string> = {
 async function compter(route: AiRoute, cabinetId: string, usage: Usage): Promise<void> {
   const admin = clientAdmin()
   if (!admin) return
-  const { model: modele } = reglageDe(route)
+  const modele = usage.modele ?? reglageDe(route).model
   const { error } = await admin.from('ai_usage').insert({
     cabinet_id: cabinetId,
     kind: GENRES[route],

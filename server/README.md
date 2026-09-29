@@ -28,8 +28,10 @@ du cabinet passent tous par `/api/cabinet` plutôt que par une fonction
 chacun : l'hébergement plafonne le nombre de fonctions par déploiement, et
 quatre volets lus une fois par écran n'ont pas besoin de quatre déploiements.
 
-`vercel.json` fixe `maxDuration` à 60 secondes : un brouillon de séance peut
-demander 4 000 jetons de sortie, bien au-delà des 10 secondes accordées par
+`vercel.json` fixe `maxDuration` à 300 secondes pour les routes d'analyse
+(`api/ai/`) et à 60 pour les autres : un brouillon de séance peut demander
+6 000 jetons de sortie, raisonnement compris — une minute et demie à environ
+soixante jetons par seconde, bien au-delà des 10 secondes accordées par
 défaut à une fonction.
 
 ## Qui appelle, et ce qu'il a le droit de faire

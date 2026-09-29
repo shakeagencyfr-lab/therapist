@@ -198,8 +198,9 @@ Le schéma garde un mode « crédits » (migration 0016) où le revendeur avance
 l'IA et la revend : il n'est branché sur aucun écran, et tout cabinet vit en
 mode « clé du cabinet ». Il reste là pour le jour où l'on voudra l'ouvrir.
 
-Les cinq actions IA tournent sur Opus 5 à l'effort `high`, sauf les
-affirmations (Haiku) : écrire sept phrases ne demande pas le meilleur modèle
+Les cinq actions IA tournent sur Claude Opus 5.5 à l'effort `high` (posé
+explicitement : le défaut d'Opus 5.5 est `medium`), avec un repli sur Opus 5
+si une demande est refusée, sauf les affirmations (Haiku) : écrire sept phrases ne demande pas le meilleur modèle
 du monde (`REGLAGES`, `server/ai.ts`). `CLAUDE_MODEL`, s'il est posé, impose
 un modèle à toutes les actions ; l'effort n'est alors transmis qu'aux modèles
 qui l'acceptent. Avant chaque analyse, l'écran de séance montre ce qu'elle
