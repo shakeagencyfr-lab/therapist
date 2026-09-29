@@ -16,6 +16,7 @@ import {
   type SourceIdentite,
 } from '@/lib/honoraires'
 import { enumeration } from '@/lib/format'
+import type { EtatEnvoiNotes } from '@/services/cabinet'
 import s from './NoteHonoraires.module.css'
 
 /** Le choix de mention, tel que le formulaire le tient. */
@@ -41,11 +42,18 @@ const CHOIX_MENTION: Array<{ value: ChoixMention; label: string }> = [
  *
  * ÉMETTRE EST DÉFINITIF, et le bouton le dit avant : la base attribue le
  * numéro suivant du registre, la note ne se modifie plus, elle s'annule.
+ *
+ * L'ENVOYER AU PATIENT SE COCHE. Cochée, la case fait partir la note par
+ * courriel à l'adresse de la fiche, en plus du téléchargement ; décochée —
+ * c'est le défaut —, rien ne part. Sans adresse sur la fiche, ou sans moyen
+ * d'envoi, la case se grise et dit pourquoi.
  */
 export function NoteHonorairesForm({
   gestes,
   patientId,
   beneficiaire,
+  email,
+  envoiNotes,
   sessionId,
   dateSeance,
   onEmise,
@@ -54,10 +62,14 @@ export function NoteHonorairesForm({
   gestes: GestesDossier
   patientId: string
   beneficiaire: string
+  /** L'adresse de la fiche : celle où la note partirait. Vide si aucune. */
+  email: string
+  /** Le cabinet peut-il envoyer par courriel ? `null` tant que ce n'est pas lu. */
+  envoiNotes: EtatEnvoiNotes | null
   sessionId: string | null
   /** « AAAA-MM-JJ » : la date de la séance facturée, s'il y en a une. */
   dateSeance: string | null
-  onEmise: (note: NoteHonoraires) => void
+  onEmise: (note: NoteHonoraires, partager: boolean) => void
   onFermer: () => void
 }) {
   const id = useId()
@@ -75,7 +87,20 @@ export function NoteHonorairesForm({
   const [montant, setMontant] = useState('')
   const [mention, setMention] = useState<ChoixMention>(MENTION_PAR_DEFAUT)
   const [envoi, setEnvoi] = useState(false)
+  const [partager, setPartager] = useState(false)
   const [refus, setRefus] = useState('')
+
+  const adresse = email.trim()
+  /* Pourquoi la case ne se coche pas, s'il y a une raison : dit sous elle
+     plutôt que de la cacher — la praticienne sait alors quoi faire. */
+  const empechement = !adresse
+    ? `La fiche de ${beneficiaire} n’a pas d’adresse de courriel : ajoutez-la dans ses réglages pour pouvoir lui envoyer ses notes.`
+    : envoiNotes === null
+      ? 'Vérification de l’envoi par courriel…'
+      : !envoiNotes.possible
+        ? 'L’envoi par courriel n’est pas encore en service : la note se télécharge, remettez-la vous-même.'
+        : ''
+  const partage = partager && !empechement
 
   useEffect(() => {
     let actif = true
@@ -136,7 +161,7 @@ export function NoteHonorairesForm({
     })
     setEnvoi(false)
     if (!r.ok || !r.note) return setRefus(r.message)
-    onEmise(r.note)
+    onEmise(r.note, partage)
   }
 
   if (lecture === 'chargement') {
@@ -272,6 +297,32 @@ export function NoteHonorairesForm({
         </span>
       </fieldset>
 
+      <div className={s.partage}>
+        <label className={empechement ? `${s.option} ${s.optionEteinte}` : s.option}>
+          <input
+            type="checkbox"
+            checked={partage}
+            disabled={envoi || Boolean(empechement)}
+            onChange={(e) => setPartager(e.target.checked)}
+          />
+          <span>
+            Partager avec {beneficiaire} : envoyer la note par courriel
+            {adresse ? (
+              <>
+                {' '}
+                à <strong>{adresse}</strong>
+              </>
+            ) : null}
+          </span>
+        </label>
+        <p className={s.aide}>
+          {empechement ||
+            (envoiNotes?.depuis === 'cabinet'
+              ? 'Elle part de l’adresse d’envoi de votre cabinet, en PDF joint. Son PDF se télécharge aussi.'
+              : 'Elle part au nom de votre cabinet, en PDF joint ; une réponse vous arrive à votre adresse de connexion. Son PDF se télécharge aussi.')}
+        </p>
+      </div>
+
       {refus ? <Notice tone="warn">{refus}</Notice> : null}
 
       <p className={s.discret}>
@@ -281,7 +332,7 @@ export function NoteHonorairesForm({
 
       <div className={s.actions}>
         <Button variant="primary" type="submit" disabled={envoi}>
-          {envoi ? 'Émission…' : 'Émettre et télécharger'}
+          {envoi ? 'Émission…' : partage ? 'Émettre, envoyer et télécharger' : 'Émettre et télécharger'}
         </Button>
         <Button variant="ghost" onClick={onFermer} disabled={envoi}>
           Annuler

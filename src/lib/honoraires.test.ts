@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   MENTIONS_TVA,
+  avecEnvois,
   MENTION_PAR_DEFAUT,
   centimesDepuisSaisie,
   identiteProposee,
@@ -206,5 +207,21 @@ describe('ce que la migration 0053 accorde', () => {
     for (const t of traces) {
       expect(t).not.toMatch(/montant|beneficiaire|display_name|prestation|texte|motif/)
     }
+  })
+})
+
+describe('avecEnvois — ce que la ligne rappelle', () => {
+  it('chaque note reçoit son envoi le plus récent, quel que soit l’ordre', () => {
+    const [a, b] = [noteDepuisLigne(LIGNE), noteDepuisLigne({ ...LIGNE, id: 'n2', numero: 8 })] as [NoteHonoraires, NoteHonoraires]
+    const notes = avecEnvois(
+      [a, b],
+      [
+        { note_id: 'n1', destinataire: 'ancienne@exemple.fr', le: '2026-09-28T10:00:00Z' },
+        { note_id: 'n1', destinataire: 'nouvelle@exemple.fr', le: '2026-09-29T10:00:00Z' },
+        { note_id: 'n1', destinataire: 'milieu@exemple.fr', le: '2026-09-28T18:00:00Z' },
+      ],
+    )
+    expect(notes[0]?.envoi).toEqual({ le: '2026-09-29T10:00:00Z', a: 'nouvelle@exemple.fr' })
+    expect(notes[1]?.envoi).toBeNull()
   })
 })

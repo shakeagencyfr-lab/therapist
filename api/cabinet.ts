@@ -5,9 +5,10 @@ import { journaliserRefus } from '../server/errors.js'
 import { agirVolet, lireVolet } from '../server/cabinet.js'
 
 /**
- * Réglages du cabinet : offre, domaine, envoi de courriels, site vitrine.
+ * Réglages du cabinet : offre, domaine, envoi de courriels, site vitrine,
+ * envoi des notes d'honoraires.
  *
- * GET ?volet=droits|domaine|smtp|site — l'état. POST — une action dessus.
+ * GET ?volet=droits|domaine|smtp|site|honoraires — l'état. POST — une action dessus.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   const token = jetonDe(req.headers.authorization)

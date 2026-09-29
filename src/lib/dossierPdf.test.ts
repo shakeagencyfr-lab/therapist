@@ -14,7 +14,8 @@ import {
   type Bloc,
   type EntreeExport,
 } from './dossierPdf'
-import { composerNote } from './honorairesPdf'
+import { crc32, deflateSync } from 'node:zlib'
+import { composerNote, preparerNotePdf } from './honorairesPdf'
 
 const ici = dirname(fileURLToPath(import.meta.url))
 const fiche = Object.values(PATIENTS)[0]!
@@ -202,7 +203,54 @@ describe('le PDF composé', () => {
     expect(avec).toMatch(/\/Subtype \/Image/)
     for (const texte of ['N° 0007', 'Nadia Belkacem', 'Camille Praticienne']) expect(avec).toContain(texte)
   })
+
+  /* La note part en pièce jointe (0064) : le serveur refuse au-delà d'un
+     mégaoctet. Le pire des logos — 400 × 400 pixels de bruit, rien que la
+     compression ne rattrape — doit tenir dessous. */
+  it('tient sous le plafond de l’envoi, même avec le pire des logos', async () => {
+    const note = {
+      id: 'n1', numero: 7, patientId: 'p1', sessionId: 's1', datePrestation: '2026-09-25',
+      prestation: 'Séance d’hypnose', montantCents: 6000, mentionTva: 'art-293-b' as const,
+      praticien: 'Camille Praticienne', praticienAdresse: '3 rue des Lilas', praticienNumero: 'SIRET 123',
+      beneficiaire: 'Nadia Belkacem', emiseLe: '2026-09-28T09:00:00Z', annuleeLe: null,
+    }
+    const pdf = await preparerNotePdf(note, { dataUrl: pngDeBruit(400), largeur: 400, hauteur: 400 })
+    const octets = Buffer.from(pdf.base64(), 'base64')
+    expect(octets.subarray(0, 5).toString('latin1')).toBe('%PDF-')
+    expect(octets.length).toBeLessThan(1_000_000)
+    expect(pdf.noteId).toBe('n1')
+  })
 })
+
+/** Un PNG carré de bruit, en RGBA : ce qui se compresse le moins bien. */
+function pngDeBruit(cote: number): string {
+  let graine = 42
+  const hasard = () => ((graine = (graine * 1103515245 + 12345) >>> 0) >>> 16) & 0xff
+  const lignes = Buffer.alloc(cote * (1 + cote * 4))
+  for (let y = 0; y < cote; y++) {
+    const debut = y * (1 + cote * 4)
+    for (let i = 1; i <= cote * 4; i++) lignes[debut + i] = hasard()
+  }
+  const morceau = (type: string, donnees: Buffer) => {
+    const longueur = Buffer.alloc(4)
+    longueur.writeUInt32BE(donnees.length)
+    const corps = Buffer.concat([Buffer.from(type, 'latin1'), donnees])
+    const somme = Buffer.alloc(4)
+    somme.writeUInt32BE(crc32(corps))
+    return Buffer.concat([longueur, corps, somme])
+  }
+  const entete = Buffer.alloc(13)
+  entete.writeUInt32BE(cote, 0)
+  entete.writeUInt32BE(cote, 4)
+  entete.set([8, 6, 0, 0, 0], 8)
+  const png = Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    morceau('IHDR', entete),
+    morceau('IDAT', deflateSync(lignes)),
+    morceau('IEND', Buffer.alloc(0)),
+  ])
+  return `data:image/png;base64,${png.toString('base64')}`
+}
 
 describe('la mise en page ne laisse passer aucun texte brut', () => {
   /* Un seul caractère hors WinAnsi ruine la ligne entière (src/lib/pdfTexte.ts) :

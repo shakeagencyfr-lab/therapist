@@ -1,11 +1,11 @@
 /**
  * Les réglages du cabinet, derrière une seule route.
  *
- * Quatre volets — l'offre, le domaine, l'envoi de courriels, le site vitrine —
- * servis par une porte unique plutôt que par quatre fonctions. Ce n'est pas
- * de l'économie de style : l'hébergement plafonne le nombre de fonctions, et
- * quatre volets qui se lisent chacun une fois par écran n'ont pas besoin de
- * quatre déploiements séparés.
+ * Cinq volets — l'offre, le domaine, l'envoi de courriels, le site vitrine,
+ * l'envoi des notes d'honoraires — servis par une porte unique plutôt que
+ * par cinq fonctions. Ce n'est pas de l'économie de style : l'hébergement
+ * plafonne le nombre de fonctions, et des volets qui se lisent chacun une
+ * fois par écran n'ont pas besoin d'autant de déploiements séparés.
  *
  * Chaque volet garde sa logique dans son propre module ; ce fichier ne fait
  * que router, et refuser ce qu'il ne connaît pas.
@@ -16,8 +16,9 @@ import { mesDroits } from './droits.js'
 import { etatDomaine, poserDomaine, retirerDomaine, verifierDomaine } from './domaines.js'
 import { essayerSmtp, etatSmtp, reglerSmtp, retirerSmtp } from './courriel.js'
 import { chercherFicheGoogle, depublierSite, enregistrerSite, etatSite, importerFicheGoogle } from './sites.js'
+import { envoyerNoteHonoraires, etatEnvoiNotes } from './honoraires.js'
 
-export const VOLETS = ['droits', 'domaine', 'smtp', 'site'] as const
+export const VOLETS = ['droits', 'domaine', 'smtp', 'site', 'honoraires'] as const
 export type Volet = (typeof VOLETS)[number]
 
 function volet(valeur: unknown): Volet | null {
@@ -52,6 +53,8 @@ export async function lireVolet(valeur: unknown, token: string | null): Promise<
       return etatSmtp(token)
     case 'site':
       return etatSite(token)
+    case 'honoraires':
+      return etatEnvoiNotes(token)
   }
 }
 
@@ -78,6 +81,9 @@ export async function agirVolet(raw: unknown, token: string | null): Promise<unk
       if (action === 'importer') return importerFicheGoogle(token, body)
       /* Sans le droit du site, délibérément : voir `depublierSite`. */
       if (action === 'depublier') return depublierSite(token)
+      break
+    case 'honoraires':
+      if (action === 'envoyer') return envoyerNoteHonoraires(token, body)
       break
     case 'droits':
       // L'offre se règle depuis l'espace du revendeur, pas depuis celui du

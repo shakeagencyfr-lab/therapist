@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Button, Card, EmptyState, Notice, Pill, Sub, Title, type PillTone } from '@/components/ui'
 import { useMaybeAuth } from '@/auth/session'
 import { useDossierFiche } from '@/cabinet/useDossierFiche'
@@ -19,8 +19,9 @@ import {
   numeroDeNote,
   type NoteHonoraires,
 } from '@/lib/honoraires'
-import { telechargerNoteHonoraires } from '@/lib/honorairesPdf'
+import { preparerNotePdf, type NotePdf } from '@/lib/honorairesPdf'
 import { logoPourPdf } from '@/lib/logoPdf'
+import { envoyerNoteHonoraires, lireEnvoiNotes, type EtatEnvoiNotes } from '@/services/cabinet'
 import { patientOf } from '@/state/selectors'
 import { useAppState } from '@/state/store'
 import { NoteHonorairesForm } from './NoteHonorairesForm'
@@ -59,29 +60,88 @@ export function SeancesFiche() {
   const [annulation, setAnnulation] = useState('')
   const [pdf, setPdf] = useState('')
   const [notice, setNotice] = useState<{ tone: 'ok' | 'warn'; text: string } | null>(null)
+  /* L'envoi par courriel est-il possible ? Lu une fois, quand le dossier
+     réel est là ; en cas d'échec de lecture, la case se dit indisponible. */
+  const [envoiNotes, setEnvoiNotes] = useState<EtatEnvoiNotes | null>(null)
+  useEffect(() => {
+    if (etat !== 'pret' || !gestes) return
+    let actif = true
+    lireEnvoiNotes()
+      .then((e) => actif && setEnvoiNotes(e))
+      .catch(() => actif && setEnvoiNotes({ possible: false, depuis: null }))
+    return () => {
+      actif = false
+    }
+  }, [etat, gestes])
 
   if (!fiche) return null
   const prenom = fiche.name.split(' ')[0] ?? fiche.name
+  const email = fiche.email?.trim() ?? ''
+
+  /** La note en PDF, logo du cabinet en tête s'il en a un ; sans lui, elle se fabrique quand même. */
+  async function fabriquer(note: NoteHonoraires): Promise<NotePdf | null> {
+    try {
+      return await preparerNotePdf(note, await logoPourPdf(logoUrl))
+    } catch {
+      return null
+    }
+  }
+
+  /** Envoyer la note par courriel ; rend la phrase à dire, bonne ou mauvaise. */
+  async function partager(fichier: NotePdf): Promise<{ ok: boolean; text: string }> {
+    try {
+      const r = await envoyerNoteHonoraires(fichier.noteId, fichier.base64())
+      return { ok: true, text: `Elle est partie par courriel à ${r.destinataire}.` }
+    } catch (e) {
+      return { ok: false, text: `Le courriel n’est pas parti : ${(e as Error).message}` }
+    }
+  }
 
   async function telecharger(note: NoteHonoraires) {
     if (pdf) return
     setPdf(note.id)
-    try {
-      // Le logo du cabinet en tête, s'il en a un ; sans lui, la note part quand même.
-      await telechargerNoteHonoraires(note, await logoPourPdf(logoUrl))
-    } catch {
-      setNotice({ tone: 'warn', text: 'Le PDF n’a pas pu être fabriqué. La note est bien émise : réessayez de la télécharger.' })
-    }
+    const fichier = await fabriquer(note)
+    if (fichier) fichier.enregistrer()
+    else setNotice({ tone: 'warn', text: 'Le PDF n’a pas pu être fabriqué. La note est bien émise : réessayez de la télécharger.' })
     setPdf('')
   }
 
-  async function emise(note: NoteHonoraires) {
+  async function envoyer(note: NoteHonoraires) {
+    if (pdf) return
+    setPdf(note.id)
+    const fichier = await fabriquer(note)
+    const r = fichier ? await partager(fichier) : { ok: false, text: 'Le PDF n’a pas pu être fabriqué : réessayez.' }
+    setNotice({ tone: r.ok ? 'ok' : 'warn', text: `Note n° ${numeroDeNote(note.numero)} : ${r.text}` })
+    setPdf('')
+    if (r.ok) await recharger()
+  }
+
+  async function emise(note: NoteHonoraires, partage: boolean) {
     setFacturation(null)
-    setNotice({
-      tone: 'ok',
-      text: `Note n° ${numeroDeNote(note.numero)} émise pour ${montantLisible(note.montantCents)}. Son PDF se télécharge.`,
-    })
-    await telecharger(note)
+    const debut = `Note n° ${numeroDeNote(note.numero)} émise pour ${montantLisible(note.montantCents)}.`
+    setNotice({ tone: 'ok', text: `${debut} Son PDF se prépare…` })
+    setPdf(note.id)
+    const fichier = await fabriquer(note)
+    if (!fichier) {
+      setNotice({
+        tone: 'warn',
+        text: `${debut} Le PDF n’a pas pu être fabriqué${partage ? ', et rien n’est parti par courriel' : ''} : réessayez depuis sa ligne.`,
+      })
+    } else {
+      fichier.enregistrer()
+      if (partage) {
+        const r = await partager(fichier)
+        setNotice({
+          tone: r.ok ? 'ok' : 'warn',
+          text: r.ok
+            ? `${debut} ${r.text} Son PDF se télécharge aussi.`
+            : `${debut} Son PDF se télécharge. ${r.text} Vous pouvez la renvoyer depuis sa ligne.`,
+        })
+      } else {
+        setNotice({ tone: 'ok', text: `${debut} Son PDF se télécharge.` })
+      }
+    }
+    setPdf('')
     await recharger()
   }
 
@@ -110,9 +170,11 @@ export function SeancesFiche() {
         gestes={gestes}
         patientId={state.sel}
         beneficiaire={fiche.name}
+        email={email}
+        envoiNotes={envoiNotes}
         sessionId={f.sessionId}
         dateSeance={f.dateSeance}
-        onEmise={(note) => void emise(note)}
+        onEmise={(note, partage) => void emise(note, partage)}
         onFermer={() => setFacturation(null)}
       />
     ) : null
@@ -142,8 +204,10 @@ export function SeancesFiche() {
       <LigneNote
         note={note}
         pdf={pdf === note.id}
+        envoyable={Boolean(email && envoiNotes?.possible)}
         confirmer={annulation === note.id}
         onTelecharger={() => void telecharger(note)}
+        onEnvoyer={() => void envoyer(note)}
         onAnnuler={() => setAnnulation(note.id)}
         onConfirmer={() => void annuler(note)}
         onGarder={() => setAnnulation('')}
@@ -231,7 +295,9 @@ export function SeancesFiche() {
         <RegistreDeLaFiche
           notes={honoraires}
           pdf={pdf}
+          envoyable={Boolean(email && envoiNotes?.possible)}
           onTelecharger={(n) => void telecharger(n)}
+          onEnvoyer={(n) => void envoyer(n)}
         />
       ) : null}
     </Card>
@@ -371,29 +437,41 @@ function ContenuDeSeance({ seance }: { seance: SeanceDuDossier }) {
   )
 }
 
-/** La note d'une séance : la relire, ou l'annuler en le confirmant. */
+/** « envoyée le 29 septembre 2026 à anna@exemple.fr » : ce que la ligne rappelle. */
+function mentionEnvoi(note: NoteHonoraires): string {
+  return note.envoi ? `envoyée le ${jourLisible(note.envoi.le)} à ${note.envoi.a}` : ''
+}
+
+/** La note d'une séance : la relire, l'envoyer, ou l'annuler en le confirmant. */
 function LigneNote({
   note,
   pdf,
+  envoyable,
   confirmer,
   onTelecharger,
+  onEnvoyer,
   onAnnuler,
   onConfirmer,
   onGarder,
 }: {
   note: NoteHonoraires
   pdf: boolean
+  /** La fiche a une adresse, et le cabinet un moyen d'envoi. */
+  envoyable: boolean
   confirmer: boolean
   onTelecharger: () => void
+  onEnvoyer: () => void
   onAnnuler: () => void
   onConfirmer: () => void
   onGarder: () => void
 }) {
+  const envoi = mentionEnvoi(note)
   return (
     <div className={s.honoraires}>
       <span className={s.noteResume}>
         Note d’honoraires n° {numeroDeNote(note.numero)} · {montantLisible(note.montantCents)} · émise le{' '}
         {jourLisible(note.emiseLe)}
+        {envoi ? ` · ${envoi}` : ''}
       </span>
       {confirmer ? (
         <span className={s.gestes}>
@@ -410,6 +488,11 @@ function LigneNote({
           <Button variant="secondary" onClick={onTelecharger} disabled={pdf}>
             {pdf ? 'Préparation…' : 'Télécharger'}
           </Button>
+          {envoyable ? (
+            <Button variant="ghost" onClick={onEnvoyer} disabled={pdf}>
+              {note.envoi ? 'Renvoyer par courriel' : 'Envoyer par courriel'}
+            </Button>
+          ) : null}
           <Button variant="ghost" onClick={onAnnuler}>
             Annuler…
           </Button>
@@ -426,11 +509,15 @@ function LigneNote({
 function RegistreDeLaFiche({
   notes,
   pdf,
+  envoyable,
   onTelecharger,
+  onEnvoyer,
 }: {
   notes: NoteHonoraires[]
   pdf: string
+  envoyable: boolean
   onTelecharger: (n: NoteHonoraires) => void
+  onEnvoyer: (n: NoteHonoraires) => void
 }) {
   return (
     <section className={s.registre} aria-labelledby="registre-fiche">
@@ -444,10 +531,20 @@ function RegistreDeLaFiche({
               <strong>n° {numeroDeNote(n.numero)}</strong> · {jourLisible(n.datePrestation)} · {n.prestation} ·{' '}
               {montantLisible(n.montantCents)}
             </span>
-            {n.annuleeLe ? <Pill tone="warn">Annulée</Pill> : null}
-            <Button variant="ghost" onClick={() => onTelecharger(n)} disabled={pdf === n.id}>
+            {n.annuleeLe ? <Pill tone="warn">Annulée</Pill> : n.envoi ? <Pill tone="ok">Envoyée</Pill> : null}
+            <Button variant="ghost" onClick={() => onTelecharger(n)} disabled={Boolean(pdf)}>
               {pdf === n.id ? 'Préparation…' : 'PDF'}
             </Button>
+            {envoyable && !n.annuleeLe ? (
+              <Button
+                variant="ghost"
+                onClick={() => onEnvoyer(n)}
+                disabled={Boolean(pdf)}
+                title={n.envoi ? mentionEnvoi(n) : undefined}
+              >
+                {n.envoi ? 'Renvoyer' : 'Envoyer'}
+              </Button>
+            ) : null}
           </li>
         ))}
       </ul>

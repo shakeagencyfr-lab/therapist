@@ -64,6 +64,14 @@ Le reste est optionnel et se dégrade proprement : sans `VERCEL_TOKEN`, un
 domaine de cabinet se pose à la main et se vérifie par résolution DNS ; sans
 source de fiche Google, un site vitrine se remplit à la main.
 
+Les notes d'honoraires partent par courriel (`honoraires.ts`) depuis le
+serveur d'envoi du cabinet quand il en a un, sinon par Resend :
+`RESEND_API_KEY` (une clé « Sending access » limitée au domaine vérifié). Elle
+vit dans l'hébergeur seulement, jamais dans le dépôt. L'adresse d'expédition
+est `notes@` le domaine de `PUBLIC_SITE_URL`, ou `COURRIEL_EXPEDITEUR` si elle
+est posée — fixée ici, jamais reçue du navigateur. Sans l'une ni l'autre, la
+case « envoyer par courriel » se grise et la note se télécharge.
+
 Deux sources lisent la fiche Google d'un cabinet, et l'une suffit.
 `SERPAPI_KEY` passe par SerpAPI, qui lit la fiche telle qu'elle s'affiche sur
 Google Maps : une variable à poser, rien d'autre, et les avis comme les photos

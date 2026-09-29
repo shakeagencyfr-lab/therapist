@@ -101,6 +101,23 @@
 .option input {
   margin-top: 3px;
 }
+.optionEteinte {
+  cursor: default;
+  color: var(--c-text-muted);
+}
+
+/* L'envoi au patient : à part des mentions, juste avant le bouton qui le fait. */
+.partage {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--c-border-light);
+  overflow-wrap: anywhere;
+}
+.partage .aide {
+  padding-left: 22px;
+}
 
 .actions {
   display: flex;

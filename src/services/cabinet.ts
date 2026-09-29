@@ -258,3 +258,26 @@ export function importerFiche(
 export function depublierSite(): Promise<EtatSite> {
   return appel<EtatSite>('site', { action: 'depublier' })
 }
+
+/* ---- Les notes d'honoraires, par courriel -------------------------------- */
+
+export interface EtatEnvoiNotes {
+  possible: boolean
+  depuis: 'cabinet' | 'plateforme' | null
+}
+
+/** Le cabinet peut-il envoyer ses notes par courriel ? Lu avant de proposer la case. */
+export function lireEnvoiNotes(): Promise<EtatEnvoiNotes> {
+  return appel<EtatEnvoiNotes>('honoraires')
+}
+
+/**
+ * Envoyer une note émise à l'adresse de sa fiche. Le PDF est celui qui vient
+ * d'être fabriqué ; le destinataire, lui, est choisi par la base.
+ */
+export function envoyerNoteHonoraires(
+  noteId: string,
+  pdf: string,
+): Promise<{ ok: true; message: string; destinataire: string }> {
+  return appel('honoraires', { action: 'envoyer', noteId, pdf })
+}

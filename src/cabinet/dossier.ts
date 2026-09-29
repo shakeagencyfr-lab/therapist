@@ -27,12 +27,14 @@ import {
   type SeanceDuDossier,
 } from '@/lib/dossier'
 import {
+  avecEnvois,
   estMention,
   identiteProposee,
   manquesIdentite,
   noteDepuisLigne,
   refusEmission,
   type IdentiteFacturation,
+  type LigneEnvoiNote,
   type LigneNoteHonoraires,
   type MentionTva,
   type MentionsVitrine,
@@ -116,7 +118,7 @@ export function gestesDossier(cabinetId: string | null): GestesDossier {
     async lire(patientId) {
       const db = pret()
       if (!db) return null
-      const [seances, anamnese, notes, honoraires, membres, compte] = await Promise.all([
+      const [seances, anamnese, notes, honoraires, envois, membres, compte] = await Promise.all([
         db
           .from('therapy_sessions')
           .select(COLONNES_SEANCE)
@@ -134,6 +136,12 @@ export function gestesDossier(cabinetId: string | null): GestesDossier {
           .eq('patient_id', patientId)
           .order('le', { ascending: false }),
         db.from('notes_honoraires').select('*').eq('patient_id', patientId).order('numero', { ascending: false }),
+        // Les envois partis (0064) : ce qui dit « envoyée le … à … » sous chaque note.
+        db
+          .from('notes_honoraires_envois')
+          .select('note_id, destinataire, le, notes_honoraires!inner(patient_id)')
+          .eq('notes_honoraires.patient_id', patientId)
+          .eq('statut', 'parti'),
         db.from('cabinet_members').select('user_id, display_name').eq('cabinet_id', cabinetId as string),
         moi(),
       ])
@@ -149,9 +157,14 @@ export function gestesDossier(cabinetId: string | null): GestesDossier {
         anamnese: anamnese.error ? null : anamneseDepuisLigne(anamnese.data),
         anamneseModifieeLe: anamnese.data?.modifiee_le ?? null,
         notes: notes.error ? null : notesDepuisLignes((notes.data ?? []) as LigneNote[], compte, noms),
+        /* Des envois illisibles ne rendent pas les notes illisibles : elles
+           s'affichent sans la mention d'envoi, qui n'est qu'un rappel. */
         honoraires: honoraires.error
           ? null
-          : ((honoraires.data ?? []) as LigneNoteHonoraires[]).map(noteDepuisLigne),
+          : avecEnvois(
+              ((honoraires.data ?? []) as LigneNoteHonoraires[]).map(noteDepuisLigne),
+              envois.error ? [] : ((envois.data ?? []) as unknown as LigneEnvoiNote[]),
+            ),
       }
     },
 

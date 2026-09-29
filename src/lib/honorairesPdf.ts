@@ -53,10 +53,30 @@ const MARGE = 60
 const LARGEUR = 595.28
 const HAUTEUR = 841.89
 
+/** La note fabriquée une fois : à enregistrer sur l'appareil, et à joindre à un courriel. */
+export interface NotePdf {
+  noteId: string
+  enregistrer: () => void
+  /** Le PDF en base64, sans l'en-tête « data: ». */
+  base64: () => string
+}
+
+export async function preparerNotePdf(n: NoteHonoraires, logo: LogoPdf | null = null): Promise<NotePdf> {
+  const doc = await composerNote(n, logo)
+  return {
+    noteId: n.id,
+    enregistrer: () => doc.save(nomFichierNote(n)),
+    base64: () => {
+      const uri = doc.output('datauristring')
+      return uri.slice(uri.indexOf('base64,') + 'base64,'.length)
+    },
+  }
+}
+
 /** La note téléchargée sur cet appareil. */
 export async function telechargerNoteHonoraires(n: NoteHonoraires, logo: LogoPdf | null = null): Promise<void> {
-  const doc = await composerNote(n, logo)
-  doc.save(nomFichierNote(n))
+  const pdf = await preparerNotePdf(n, logo)
+  pdf.enregistrer()
 }
 
 /** La note composée, sans l'enregistrer : ce que les tests relisent. */

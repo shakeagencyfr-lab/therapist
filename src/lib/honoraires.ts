@@ -62,6 +62,31 @@ export interface NoteHonoraires {
   beneficiaire: string
   emiseLe: string
   annuleeLe: string | null
+  /** Son dernier envoi par courriel (0064) ; absent s'il n'est jamais parti ou n'a pas pu être lu. */
+  envoi?: EnvoiDeNote | null
+}
+
+/** Un envoi parti : quand, et à quelle adresse. */
+export interface EnvoiDeNote {
+  le: string
+  a: string
+}
+
+/** Une ligne de `notes_honoraires_envois`, telle que le dossier la lit. */
+export interface LigneEnvoiNote {
+  note_id: string
+  destinataire: string
+  le: string
+}
+
+/** Chaque note reçoit son envoi le plus récent ; l'ordre des lignes n'y fait rien. */
+export function avecEnvois(notes: NoteHonoraires[], envois: LigneEnvoiNote[]): NoteHonoraires[] {
+  const dernier = new Map<string, EnvoiDeNote>()
+  for (const e of envois) {
+    const connu = dernier.get(e.note_id)
+    if (!connu || e.le > connu.le) dernier.set(e.note_id, { le: e.le, a: e.destinataire })
+  }
+  return notes.map((n) => ({ ...n, envoi: dernier.get(n.id) ?? null }))
 }
 
 /** Une ligne de `notes_honoraires`. */

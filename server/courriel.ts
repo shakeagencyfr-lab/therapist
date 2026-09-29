@@ -170,6 +170,28 @@ export interface Courriel {
   html?: string
   /** Le nom affiché de l'expéditeur : celui du cabinet. */
   fromName?: string
+  /** Où arrive une réponse : la praticienne, pas l'adresse d'expédition. */
+  replyTo?: string
+  pieces?: PieceJointe[]
+}
+
+export interface PieceJointe {
+  nom: string
+  contenu: Buffer
+  type: string
+}
+
+/**
+ * Le nom affiché, sans ce qui ferait sortir de l'en-tête : guillemets,
+ * chevrons, retours à la ligne. Le nom d'un cabinet est saisi par lui.
+ */
+export function nomAffiche(nom: string): string {
+  return nom.replace(/["<>\r\n\\]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120)
+}
+
+function expediteurNomme(nom: string | undefined, adresse: string): string {
+  const propre = nom ? nomAffiche(nom) : ''
+  return propre ? `"${propre}" <${adresse}>` : adresse
 }
 
 /**
@@ -226,14 +248,15 @@ const MESSAGE_PORT = 'Le port doit être celui de votre serveur d’envoi : 465 
 export async function envoyerParCabinet(cabinetId: string, courriel: Courriel): Promise<boolean> {
   const smtp = await smtpDuCabinet(cabinetId)
   if (!smtp) return false
-  const expediteur = courriel.fromName ? `"${courriel.fromName.replace(/"/g, '')}" <${smtp.from}>` : smtp.from
   try {
     await (await transport(smtp)).sendMail({
-      from: expediteur,
+      from: expediteurNomme(courriel.fromName, smtp.from),
       to: courriel.to,
+      replyTo: courriel.replyTo,
       subject: courriel.subject,
       text: courriel.text,
       html: courriel.html,
+      attachments: courriel.pieces?.map((p) => ({ filename: p.nom, content: p.contenu, contentType: p.type })),
     })
     return true
   } catch (err) {
@@ -242,6 +265,80 @@ export async function envoyerParCabinet(cabinetId: string, courriel: Courriel): 
     console.error(`[courriel] cabinet ${cabinetId} — ${(err as Error).message}`)
     throw new HttpError(502, "Le courriel n'a pas pu être envoyé depuis votre serveur d'envoi.")
   }
+}
+
+/* ------------------------------------------------------------------ *
+ * Envoi par la plateforme
+ * ------------------------------------------------------------------ */
+
+/**
+ * L'adresse d'expédition de la plateforme, fixée côté serveur.
+ *
+ * `COURRIEL_EXPEDITEUR` si elle est posée, sinon `notes@` le domaine de
+ * `PUBLIC_SITE_URL` — le domaine vérifié chez le service d'envoi. Jamais
+ * reçue du navigateur.
+ */
+export function expediteurPlateforme(): string | null {
+  const choisie = process.env.COURRIEL_EXPEDITEUR?.trim()
+  if (choisie) return adresseValide(choisie) ? choisie : null
+  try {
+    const hote = new URL(process.env.PUBLIC_SITE_URL ?? '').hostname
+    return hote.includes('.') ? `notes@${hote}` : null
+  } catch {
+    return null
+  }
+}
+
+/** La plateforme sait-elle envoyer ? Il lui faut sa clé et son adresse. */
+export function plateformeConfiguree(): boolean {
+  return Boolean(process.env.RESEND_API_KEY?.trim()) && Boolean(expediteurPlateforme())
+}
+
+export const ENVOI_HORS_SERVICE = "L'envoi par courriel n'est pas encore en service : téléchargez la note et remettez-la vous-même."
+
+/**
+ * Envoyer un courriel depuis l'adresse de la plateforme (Resend).
+ *
+ * L'adresse de l'API est fixe : rien de ce que le cabinet saisit ne décide
+ * où le serveur se connecte. La clé ne sort que dans l'en-tête de cette
+ * requête ; le journal ne garde que le statut et le nom de l'erreur.
+ */
+export async function envoyerParPlateforme(courriel: Courriel, idempotence?: string): Promise<void> {
+  const cle = process.env.RESEND_API_KEY?.trim()
+  const adresse = expediteurPlateforme()
+  if (!cle || !adresse) throw new HttpError(503, ENVOI_HORS_SERVICE)
+  let reponse: Response
+  try {
+    reponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${cle}`,
+        'Content-Type': 'application/json',
+        ...(idempotence ? { 'Idempotency-Key': idempotence } : {}),
+      },
+      body: JSON.stringify({
+        from: expediteurNomme(courriel.fromName, adresse),
+        to: [courriel.to],
+        reply_to: courriel.replyTo ? [courriel.replyTo] : undefined,
+        subject: courriel.subject,
+        text: courriel.text,
+        html: courriel.html,
+        // Le type se déduit de l'extension du nom : « .pdf ».
+        attachments: courriel.pieces?.map((p) => ({ filename: p.nom, content: p.contenu.toString('base64') })),
+      }),
+      signal: AbortSignal.timeout(15_000),
+    })
+  } catch (err) {
+    console.error(`[courriel] plateforme — ${(err as Error).name}`)
+    throw new HttpError(502, "Le service d'envoi ne répond pas. Réessayez dans un instant.")
+  }
+  if (reponse.ok) return
+  const corps = (await reponse.json().catch(() => ({}))) as { name?: string }
+  console.error(`[courriel] plateforme — ${reponse.status} ${corps.name ?? ''}`.trim())
+  if (reponse.status === 429) {
+    throw new HttpError(429, "Trop de courriels sont partis ces dernières minutes. Réessayez dans un instant.")
+  }
+  throw new HttpError(502, "Le courriel n'a pas pu être envoyé. Réessayez dans un instant.")
 }
 
 /* ------------------------------------------------------------------ *
