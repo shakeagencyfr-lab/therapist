@@ -159,6 +159,14 @@ persiste, et le message dit ce qui a été vérifié.
   `cabinet_repondre_a_la_page()`. Une colonne ajoutée plus tard que l'espace
   patient doit écrire devra être accordée nommément.
 - **`audit_log` est en ajout seul** : `update` et `delete` sont révoqués.
+- **Une note d'honoraires ne s'écrit que par la base** (`0053`). Le rôle
+  authentifié n'a que `select` sur `notes_honoraires` ; il émet par
+  `cabinet_emettre_note_honoraires()` — numéro = plus grand du cabinet + 1,
+  sous verrou de la ligne `cabinet_facturation`, donc sans trou — et annule
+  par `cabinet_annuler_note_honoraires()`, qui garde le numéro. Supprimer une
+  fiche détache ses notes (`patient_id` nul) sans les effacer : ce sont des
+  pièces comptables. L'anamnèse (`dossier_anamneses`) et les notes datées
+  (`dossier_notes`) suivent la fiche, et ne se lisent qu'au cabinet.
 - **Un solde de crédits ne s'écrit pas, il se somme.** `credit_ledger` est en
   ajout seul, et `insert`, `update`, `delete` y sont révoqués pour le rôle
   authentifié : seul le serveur y écrit. Une thérapeute ne peut donc pas se

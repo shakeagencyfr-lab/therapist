@@ -20,6 +20,9 @@ import { Tache } from '../src/patient/Tache'
 import { Journal } from '../src/patient/Journal'
 import { IconeOnglet } from '../src/patient/IconesOnglets'
 import { ConsigneEditeur } from '../src/views/therapist/ConsigneEditeur'
+import { ListeDesSeances, SeancesFiche } from '../src/views/therapist/SeancesFiche'
+import { NotesCliniques } from '../src/views/therapist/NotesCliniques'
+import { ExportDossier } from '../src/views/therapist/ExportDossier'
 import { AppStoreProvider } from '../src/state/store'
 import { COUT_HYPNOSE } from '../src/lib/coutIA'
 import { euro } from '../src/lib/format'
@@ -725,6 +728,106 @@ try {
     echecs++
   } else {
     console.log(`✓ fil               ${String(filHtml.length).padStart(6)} octets · non lu replié, lu et réponse chez le patient`)
+  }
+}
+
+/* LE DOSSIER DE LA FICHE (0053). Les volets « Séances » et « Anamnèse et
+   notes » existent dans la navigation de la fiche ; l'historique relit la
+   note d'une séance et tait celle d'une séance au consentement retiré ; sans
+   cabinet réel, aucun des trois écrans n'invente de dossier. */
+{
+  const manque: string[] = []
+  const fiche = rendu('cabinet/therapist-volets', { space: 'cabinet', mode: 'therapist' })
+  for (const volet of ['Séances', 'Anamnèse et notes', 'Réglages de la fiche']) {
+    if (fiche && !fiche.includes(`>${volet}</button>`)) manque.push(`le volet « ${volet} » manque à la fiche`)
+  }
+
+  const SEANCES = [
+    {
+      id: 'recente',
+      le: '2026-09-25T09:00:00Z',
+      dureeSecondes: 3120,
+      etat: 'envoyee',
+      retireeLe: null,
+      envoyeeLe: '2026-09-25T10:00:00Z',
+      notes: 'NOTES-DE-SEANCE',
+      brouillon: {
+        synthese: 'SYNTHESE-RECENTE',
+        mots: ['la porte du soir'],
+        themes: [],
+        questions: ['QUESTION-A-REPRENDRE'],
+        vigilance: [{ point: 'VIGILANCE-POINT', conduite: 'en reparler' }],
+      },
+    },
+    {
+      id: 'retiree',
+      le: '2026-09-18T09:00:00Z',
+      dureeSecondes: 900,
+      etat: 'retiree',
+      retireeLe: '2026-09-18T11:00:00Z',
+      envoyeeLe: null,
+      notes: '',
+      brouillon: null,
+    },
+  ]
+  let ouverte = ''
+  let retiree = ''
+  let vide = ''
+  try {
+    const liste = (id: string | null) =>
+      renderToString(h(ListeDesSeances as never, { seances: SEANCES, ouverte: id, onBasculer: () => {} } as never))
+    ouverte = liste('recente')
+    retiree = liste('retiree')
+    vide = renderToString(h(ListeDesSeances as never, { seances: [], ouverte: null, onBasculer: () => {} } as never))
+  } catch (err) {
+    manque.push(`l'historique des séances ne se rend pas : ${(err as Error).message}`)
+  }
+  if (ouverte) {
+    for (const [attendu, quoi] of [
+      ['SYNTHESE-RECENTE', 'la synthèse'],
+      ['NOTES-DE-SEANCE', 'les notes de séance'],
+      ['la porte du soir', 'les mots de la séance'],
+      ['QUESTION-A-REPRENDRE', 'les questions à reprendre'],
+      ['VIGILANCE-POINT', 'les points de vigilance'],
+      ['52 min', 'la durée'],
+    ] as const) {
+      if (!ouverte.includes(attendu)) manque.push(`la séance ouverte ne montre pas ${quoi}`)
+    }
+    if (!ouverte.includes('aria-expanded="true"')) manque.push("la séance ouverte ne le dit pas aux lecteurs d'écran")
+    if (/transcript(?!ion)/i.test(ouverte)) manque.push('une transcription paraît dans l’historique')
+  }
+  if (retiree) {
+    if (!retiree.includes('Consentement retiré')) manque.push('la séance au consentement retiré ne le dit pas')
+    if (!retiree.includes('a été effacé')) manque.push("l'effacement n'est pas dit")
+    if (retiree.includes('SYNTHESE-RECENTE')) manque.push('une séance repliée montre sa synthèse')
+  }
+  if (vide && !vide.includes('Aucune séance au dossier')) manque.push("l'historique vide ne dit pas quoi faire")
+
+  // Sans cabinet réel : chaque écran le dit, aucun n'invente.
+  const demo = { space: 'cabinet', mode: 'therapist' } as const
+  const ecrans: Array<[string, unknown, string]> = [
+    ['séances', SeancesFiche, 'L’historique des séances se lit sur le dossier réel'],
+    ['anamnèse', NotesCliniques, 'la fiche de démonstration n’en garde pas'],
+    ['export', ExportDossier, 'L’export se fait depuis le dossier réel'],
+  ]
+  for (const [nom, ecran, phrase] of ecrans) {
+    try {
+      const html = renderToString(h(AppStoreProvider, { initial: demo }, h(ecran as never)))
+      if (!html.includes(phrase)) manque.push(`l'écran ${nom} ne dit pas qu'il attend un dossier réel`)
+      if (nom === 'export') {
+        if (!/<button[^>]*disabled[^>]*>Télécharger le dossier/.test(html)) manque.push("l'export se propose en démonstration")
+        if (!html.includes('journal privé')) manque.push("l'export ne dit pas que le journal privé n'y est pas")
+      }
+    } catch (err) {
+      manque.push(`l'écran ${nom} ne se rend pas : ${(err as Error).message}`)
+    }
+  }
+
+  if (manque.length) {
+    console.error(`✗ dossier : ${manque.join(', ')}`)
+    echecs++
+  } else {
+    console.log(`✓ dossier           ${String(ouverte.length).padStart(6)} octets · séances relues, retrait tu, volets présents, rien d'inventé hors cabinet`)
   }
 }
 

@@ -155,8 +155,8 @@ export function SeancesFiche() {
             Séances de {prenom}
           </Title>
           <Sub>
-            De la plus récente à la plus ancienne. La transcription n’est jamais conservée : ce qui
-            reste, c’est ce que vous avez relu et envoyé.
+            De la plus récente à la plus ancienne. La transcription n’y figure pas — elle s’efface
+            à l’envoi : ce qui reste, c’est ce que vous avez relu et gardé.
           </Sub>
         </div>
         {etat === 'pret' && gestes && honoraires !== null ? (

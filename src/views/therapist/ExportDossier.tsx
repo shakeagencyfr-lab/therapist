@@ -18,8 +18,8 @@ export const CONTENU_EXPORT = [
 ]
 
 /**
- * Exporter le dossier : le droit d'accès et la portabilité (RGPD, art. 15
- * et 20), en un PDF fabriqué sur cet appareil.
+ * Exporter le dossier : le droit d'accès (RGPD, art. 15), en un PDF
+ * fabriqué sur cet appareil. Pour la portabilité, voir src/lib/dossierPdf.ts.
  *
  * L'EXPORT EST TRACÉ AVANT D'ÊTRE FABRIQUÉ. Un dossier de santé qui sort du
  * cabinet doit laisser une trace — qui, quel dossier, quand — et jamais son
@@ -96,8 +96,8 @@ export function ExportDossier() {
         ))}
       </ul>
       <p className={s.exclu}>
-        Il ne contient ni la transcription des séances, qui n’est jamais conservée, ni le journal
-        privé, qui ne quitte pas son téléphone.
+        Il ne contient ni la transcription des séances, effacée dès leur envoi, ni le journal privé,
+        auquel votre cabinet n’a pas accès.
       </p>
       <Notice tone="warn">
         Ce document contient des données de santé. Il se fabrique sur cet appareil et s’enregistre

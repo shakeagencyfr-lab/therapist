@@ -18,7 +18,7 @@
 --      à part, tenues par le seul cabinet : ni le patient ni le revendeur
 --      n'y ont de politique, donc aucun chemin de lecture.
 --
---   3. L'EXPORT DU DOSSIER (RGPD, articles 15 et 20) se fabrique dans le
+--   3. L'EXPORT DU DOSSIER (droit d'accès, RGPD art. 15) se fabrique dans le
 --      navigateur, à partir de ce que la praticienne lit déjà. La base n'en
 --      garde que la trace : qui a exporté quel dossier, et quand — jamais ce
 --      qu'il contenait.
@@ -219,10 +219,10 @@ create policy "le cabinet tient son identite de facturation"
 -- se réimprimer à l'identique dans cinq ans, même si l'adresse du cabinet a
 -- changé entre-temps.
 --
--- JAMAIS EFFACÉES PAR LA SUPPRESSION D'UNE FICHE. Une pièce comptable se
--- conserve (dix ans, art. L123-22 du code de commerce ; six ans au moins pour
--- l'administration fiscale, art. L102 B du LPF) : la RGPD l'admet comme
--- obligation légale (art. 17-3-b). La fiche supprimée, la note perd son lien
+-- JAMAIS EFFACÉES PAR LA SUPPRESSION D'UNE FICHE. Une pièce justificative se
+-- conserve — six ans au moins pour l'administration fiscale (LPF, art. L102 B),
+-- dix ans pour qui relève du code de commerce (art. L123-22) — et le RGPD
+-- l'admet comme obligation légale (art. 17-3-b). La fiche supprimée, la note perd son lien
 -- (`patient_id` nul) et garde le nom qu'elle portait — rien de plus : ni
 -- séance, ni contenu clinique.
 --

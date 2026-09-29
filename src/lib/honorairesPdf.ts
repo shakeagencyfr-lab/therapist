@@ -48,7 +48,14 @@ const MARGE = 60
 const LARGEUR = 595.28
 const HAUTEUR = 841.89
 
+/** La note téléchargée sur cet appareil. */
 export async function telechargerNoteHonoraires(n: NoteHonoraires): Promise<void> {
+  const doc = await composerNote(n)
+  doc.save(nomFichierNote(n))
+}
+
+/** La note composée, sans l'enregistrer : ce que les tests relisent. */
+export async function composerNote(n: NoteHonoraires) {
   const { jsPDF } = await import('jspdf')
   const doc = new jsPDF({ unit: 'pt', format: 'a4' })
   const c = contenuDeLaNote(n)
@@ -142,5 +149,5 @@ export async function telechargerNoteHonoraires(n: NoteHonoraires): Promise<void
   doc.setTextColor(150, 144, 132)
   doc.text(t(`${c.praticien[0] ?? ''} · ${c.titre} ${c.numero}`), MARGE, HAUTEUR - 36)
 
-  doc.save(nomFichierNote(n))
+  return doc
 }

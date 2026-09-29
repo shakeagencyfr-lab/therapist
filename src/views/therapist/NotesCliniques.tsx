@@ -76,11 +76,13 @@ export function NotesCliniques() {
           <Title large as="h2">
             Anamnèse
           </Title>
-          <Illisible quoi="L’anamnèse" onRelire={() => void recharger()} />
+          <Illisible phrase="L’anamnèse n’a pas pu être lue." onRelire={() => void recharger()} />
         </Card>
       ) : (
+        /* Pas de clé sur la date de mise à jour : la carte se remonterait à
+           chaque enregistrement et la confirmation disparaîtrait aussitôt.
+           La saisie se compare à la version enregistrée, relue après coup. */
         <CarteAnamnese
-          key={dossier.anamneseModifieeLe ?? 'neuve'}
           gestes={gestes}
           patientId={state.sel}
           enregistree={dossier.anamnese}
@@ -93,7 +95,7 @@ export function NotesCliniques() {
           <Title large as="h2">
             Notes de suivi
           </Title>
-          <Illisible quoi="Les notes de suivi" onRelire={() => void recharger()} />
+          <Illisible phrase="Les notes de suivi n’ont pas pu être lues." onRelire={() => void recharger()} />
         </Card>
       ) : (
         <CarteNotes gestes={gestes} patientId={state.sel} notes={dossier.notes} onChange={recharger} />
@@ -103,11 +105,11 @@ export function NotesCliniques() {
 }
 
 /** Ce qui n'a pas été lu n'est pas vide : on le dit, et on propose de relire. */
-function Illisible({ quoi, onRelire }: { quoi: string; onRelire: () => void }) {
+function Illisible({ phrase, onRelire }: { phrase: string; onRelire: () => void }) {
   return (
     <div className={s.illisible}>
       <Notice tone="warn">
-        {quoi} n’a pas pu être lu. Ce n’est pas une page blanche : rien n’est perdu, réessayez dans
+        {phrase} Ce n’est pas une page blanche : rien n’est perdu, réessayez dans
         un instant.
       </Notice>
       <Button variant="secondary" onClick={onRelire}>

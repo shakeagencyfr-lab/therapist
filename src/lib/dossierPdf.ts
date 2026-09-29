@@ -1,6 +1,12 @@
 /**
- * Le dossier d'un patient, en PDF — le droit d'accès et la portabilité
- * (RGPD, articles 15 et 20), fabriqués dans le navigateur.
+ * Le dossier d'un patient, en PDF — le droit d'accès (RGPD, article 15),
+ * fabriqué dans le navigateur.
+ *
+ * UN PDF RÉPOND À L'ACCÈS, PAS TOUT À FAIT À LA PORTABILITÉ. L'article 20
+ * attend un format « lisible par machine » pour ce que la personne a
+ * elle-même fourni (son journal, ses notes du soir) : un PDF se lit, il ne
+ * se réimporte pas. Si une demande de portabilité arrive, c'est un export
+ * structuré qu'il faudra — l'écran ne promet donc que la copie du dossier.
  *
  * CE QUI Y ENTRE, ET CE QUI N'Y ENTRE PAS.
  *   - Tout ce que le cabinet tient sur la personne : identité, parcours,
@@ -86,7 +92,7 @@ export const AVERTISSEMENT_EXPORT =
   'Document confidentiel : il contient des données de santé. Remettez-le à la personne concernée ou à qui elle vous désigne, par un moyen sûr, et ne le conservez pas plus longtemps que nécessaire.'
 
 export const MENTION_JOURNAL_PRIVE =
-  'Seules les pages que la personne a choisi de partager figurent ici : son journal privé reste sur son téléphone et n’est jamais transmis au cabinet.'
+  'Seules les pages que la personne a choisi de partager figurent ici : son journal privé n’est lisible que par elle-même, et le cabinet n’y a pas accès.'
 
 const REPLI_PROCHAINE = 'Aucune séance planifiée'
 
@@ -153,9 +159,12 @@ export function blocsDuDossier(e: EntreeExport): Bloc[] {
   const chronologie = [...e.seances].sort((x, y) => new Date(x.le).getTime() - new Date(y.le).getTime())
   if (!chronologie.length) b.push({ t: 'para', texte: 'Aucune séance au dossier.' })
   for (const s of chronologie) {
+    const date = dateDeSeance(s.le)
     b.push({
       t: 'sous',
-      texte: [dateDeSeance(s.le), dureeDeSeance(s.dureeSecondes), LIBELLE_ETAT[s.etat]].filter(Boolean).join(' · '),
+      texte: [date.charAt(0).toUpperCase() + date.slice(1), dureeDeSeance(s.dureeSecondes), LIBELLE_ETAT[s.etat]]
+        .filter(Boolean)
+        .join(' · '),
     })
     if (s.etat === 'retiree') {
       b.push({
@@ -254,7 +263,14 @@ const LARGEUR = 595.28 // A4 en points
 const HAUTEUR = 841.89
 const BAS = HAUTEUR - MARGE - 24
 
+/** Le dossier téléchargé sur cet appareil. */
 export async function telechargerDossier(e: EntreeExport): Promise<void> {
+  const doc = await composerDossier(e)
+  doc.save(nomFichierDossier(e.fiche.name, e.exporteLe))
+}
+
+/** Le document composé, sans l'enregistrer : ce que les tests relisent. */
+export async function composerDossier(e: EntreeExport) {
   const { jsPDF } = await import('jspdf')
   const doc = new jsPDF({ unit: 'pt', format: 'a4' })
   const largeur = LARGEUR - MARGE * 2
@@ -351,5 +367,5 @@ export async function telechargerDossier(e: EntreeExport): Promise<void> {
     doc.text(`${n} / ${pages}`, LARGEUR - MARGE, HAUTEUR - 32, { align: 'right' })
   }
 
-  doc.save(nomFichierDossier(e.fiche.name, e.exporteLe))
+  return doc
 }

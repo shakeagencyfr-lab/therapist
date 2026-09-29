@@ -23,6 +23,7 @@
  */
 import type { Hypnose } from '@/types/domain'
 import { NOM_MOUVEMENT } from '@/services/aiClient'
+import { pourPdf } from './pdfTexte'
 
 /** Les polices de base du PDF encodent le WinAnsi : les accents passent. */
 const MARGE = 64
@@ -51,10 +52,24 @@ export function nomDuFichier(patient: string, titre: string, iso: string): strin
 }
 
 export async function telechargerHypnose(
-  hypnose: Hypnose,
-  patient: string,
-  cabinet: string,
+  brute: Hypnose,
+  patientBrut: string,
+  cabinetBrut: string,
 ): Promise<void> {
+  /* UN SEUL CARACTÈRE HORS WINANSI GÂCHE TOUTE LA LIGNE. Les polices de base
+     de jsPDF ne connaissent que ce jeu : un émoji, une espace fine insécable
+     (celle que met fr-FR avant « : »), une flèche — et la ligne entière passe
+     en codage 16 bits, illisible à l'écran comme à l'impression. Le texte est
+     écrit par l'IA et relu par la praticienne : on ne peut pas garantir qu'il
+     n'en contient pas. Tout passe donc par pourPdf avant d'être posé. */
+  const hypnose: Hypnose = {
+    ...brute,
+    titre: pourPdf(brute.titre),
+    intention: pourPdf(brute.intention),
+    mouvements: brute.mouvements.map((m) => ({ ...m, titre: pourPdf(m.titre), texte: pourPdf(m.texte) })),
+  }
+  const patient = pourPdf(patientBrut)
+  const cabinet = pourPdf(cabinetBrut)
   const { jsPDF } = await import('jspdf')
   const doc = new jsPDF({ unit: 'pt', format: 'a4' })
 

@@ -60,13 +60,32 @@ describe('la transcription ne se lit jamais', () => {
       '../views/therapist/NotesCliniques.tsx',
       '../views/therapist/ExportDossier.tsx',
     ]) {
-      expect(code(f), f).not.toMatch(/transcript/i)
+      // La colonne (`transcript`, `transcript_deleted_at`), pas le mot français.
+      expect(code(f), f).not.toMatch(/transcript(?!ion)/)
     }
   })
 
   it('les séances se lisent par COLONNES_SEANCE, pas par « * »', () => {
     const acces = code('../cabinet/dossier.ts')
     expect(acces).toMatch(/from\('therapy_sessions'\)\s*\.select\(COLONNES_SEANCE\)/)
+  })
+})
+
+describe('l’export du dossier', () => {
+  /* Un export sans trace est justement celui qu'on ne saura pas expliquer ;
+     un dossier lu à moitié se lirait comme complet. */
+  it('se trace avant de se fabriquer, et refuse un dossier lu à moitié', () => {
+    const e = code('../views/therapist/ExportDossier.tsx')
+    const trace = e.indexOf('tracerExport(')
+    expect(trace).toBeGreaterThan(-1)
+    expect(trace).toBeLessThan(e.indexOf('telechargerDossier({'))
+    expect(e).toMatch(/lu\.seances === null \|\| lu\.anamnese === null \|\| lu\.notes === null/)
+  })
+
+  it('ne prend le journal que de la fiche, que la base ne remplit que de pages partagées', () => {
+    const e = code('../views/therapist/ExportDossier.tsx')
+    expect(e).not.toMatch(/journal_pages/)
+    expect(code('../cabinet/dossier.ts')).not.toMatch(/journal_pages/)
   })
 })
 
