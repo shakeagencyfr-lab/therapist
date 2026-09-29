@@ -39,9 +39,12 @@
 }
 .tagline {
   font-size: 11px;
+  line-height: 1.45;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--c-text-muted);
+  /* Sur un téléphone, deux lignes égales plutôt qu'un mot orphelin. */
+  text-wrap: balance;
 }
 
 .title {

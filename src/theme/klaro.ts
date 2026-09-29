@@ -22,6 +22,12 @@ import type { CSSProperties } from 'react'
 
 export const KLARO = {
   nom: 'Klaro',
+  /**
+   * Sous le nom, sur la porte : ce que le logiciel fait d'une séance. Jamais
+   * sur une surface de cabinet — là, c'est la phrase du cabinet, ou rien de
+   * Klaro.
+   */
+  slogan: 'Chaque séance devient un suivi sur mesure',
   /** Le K seul : l'en-tête, la porte, l'onglet. */
   monogramme: '/marque/klaro-monogramme.svg',
   /** « Klaro », dont le K porte ses feuilles : les bandeaux. */

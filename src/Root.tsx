@@ -8,7 +8,7 @@ import { SignIn } from './auth/SignIn'
 import { SessionProvider, useAuth } from './auth/session'
 import { Button } from './components/ui'
 import { variablesDeMarque } from './lib/couleurs'
-import { variablesKlaro } from './theme/klaro'
+import { KLARO, variablesKlaro } from './theme/klaro'
 import { codeADemander } from './lib/doubleAuthentification'
 import { lireDelai, phraseDeSortie, type DelaiInactivite } from './lib/inactivite'
 import { verifierCodeDeConnexion } from './services/securiteDuCompte'
@@ -241,7 +241,11 @@ function Portail() {
           marque={b?.logo ?? 'KL'}
           logoUrl={b?.logoUrl}
           cabinet={context?.cabinet?.name ?? vitrine?.name ?? 'Klaro'}
-          tagline={context?.cabinet?.tagline || vitrine?.tagline || 'Suivi entre les séances'}
+          tagline={
+            context?.cabinet?.tagline ||
+            vitrine?.tagline ||
+            (context?.cabinet || vitrine ? 'Espace thérapie' : KLARO.slogan)
+          }
         />
       </div>
     )

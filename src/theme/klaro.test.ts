@@ -53,3 +53,23 @@ describe('aucune marque Klaro écrite dans les documents servis aux cabinets', (
     }
   })
 })
+
+describe('le slogan de Klaro', () => {
+  /* Il se lit en capitales, à côté du K, sur la largeur de la carte : au-delà,
+     il passerait sur trois lignes. */
+  it('tient sur la ligne de la porte', () => {
+    expect(KLARO.slogan.length).toBeLessThanOrEqual(45)
+    expect(KLARO.slogan).not.toMatch(/klaro/i)
+  })
+
+  /* La porte d'un cabinet et son widget parlent au nom du cabinet : sans
+     phrase à lui, « Espace thérapie », jamais la promesse de son fournisseur. */
+  it('ne sert jamais de phrase par défaut à un cabinet', () => {
+    const widget = readFileSync(join(racine, 'src/embed/EmbedSignIn.tsx'), 'utf8')
+    const patient = readFileSync(join(racine, 'src/patient-main.tsx'), 'utf8')
+    for (const source of [widget, patient]) {
+      expect(source).not.toContain('KLARO.slogan')
+      expect(source).toMatch(/vitrine\??\.tagline \|\| 'Espace thérapie'/)
+    }
+  })
+})

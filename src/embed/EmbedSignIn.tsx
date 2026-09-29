@@ -100,7 +100,7 @@ export function EmbedSignIn() {
         )}
         <div>
           <div className={s.nom}>{vitrine?.name ?? 'Votre espace'}</div>
-          <div className={s.surTitre}>{vitrine?.tagline || 'Suivi entre les séances'}</div>
+          <div className={s.surTitre}>{vitrine?.tagline || 'Espace thérapie'}</div>
         </div>
       </div>
 

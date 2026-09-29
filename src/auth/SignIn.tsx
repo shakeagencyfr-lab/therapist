@@ -3,7 +3,7 @@ import { Button, FieldLabel, Marque, Notice, TextInput } from '@/components/ui'
 import { codeComplet, normaliserCode } from '@/lib/codeConnexion'
 import { estInstallee } from '@/patient/installation'
 import { LiensLegaux } from '@/legal/LiensLegaux'
-import { logoDePorte } from '@/theme/klaro'
+import { KLARO, logoDePorte } from '@/theme/klaro'
 import { useAuth } from './session'
 import { captchaConfigure, useCaptcha } from './Captcha'
 import s from './SignIn.module.css'
@@ -41,7 +41,7 @@ export function SignIn({
   marque = 'KL',
   logoUrl = null,
   cabinet = 'Klaro',
-  tagline = 'Suivi entre les séances',
+  tagline = KLARO.slogan,
   avis = null,
 }: {
   titre: string

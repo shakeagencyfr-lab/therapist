@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Marque } from '@/components/ui'
-import { logoDePorte } from '@/theme/klaro'
+import { KLARO, logoDePorte } from '@/theme/klaro'
 import s from './SignIn.module.css'
 
 /**
@@ -19,7 +19,7 @@ export function AvisPorte({
   marque = 'KL',
   logoUrl = null,
   cabinet = 'Klaro',
-  tagline = 'Suivi entre les séances',
+  tagline = KLARO.slogan,
 }: {
   titre: string
   texte: string

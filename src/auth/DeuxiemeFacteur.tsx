@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Button, FieldLabel, Marque, Notice, TextInput } from '@/components/ui'
 import { LONGUEUR_CODE_TOTP, codeTotpComplet, normaliserCodeTotp } from '@/lib/doubleAuthentification'
-import { logoDePorte } from '@/theme/klaro'
+import { KLARO, logoDePorte } from '@/theme/klaro'
 import s from './SignIn.module.css'
 
 /**
@@ -26,7 +26,7 @@ export function DeuxiemeFacteur({
   marque = 'KL',
   logoUrl = null,
   cabinet = 'Klaro',
-  tagline = 'Suivi entre les séances',
+  tagline = KLARO.slogan,
 }: {
   email: string | null
   /** Rend null si le code est accepté, sinon la phrase à afficher. */

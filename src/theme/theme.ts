@@ -2,6 +2,8 @@
  * Marque blanche : l'accent et la couleur sombre sont paramétrables par
  * cabinet. Les autres jetons restent communs (voir src/styles/tokens.css).
  */
+import { KLARO } from './klaro'
+
 export interface CabinetTheme {
   /** Nom affiché dans l'en-tête. */
   name: string
@@ -21,7 +23,7 @@ export interface CabinetTheme {
 
 export const defaultTheme: CabinetTheme = {
   name: 'Klaro',
-  tagline: 'Suivi entre les séances',
+  tagline: KLARO.slogan,
   logo: 'KL',
 }
 

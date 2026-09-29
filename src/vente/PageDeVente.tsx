@@ -595,7 +595,7 @@ export function PageDeVente() {
         <div className={s.piedInterieur}>
           <div className={s.piedMarque}>
             <Logo />
-            <p className={s.piedPhrase}>Le suivi entre les séances, pour les hypnothérapeutes.</p>
+            <p className={s.piedPhrase}>{KLARO.slogan}, pour les hypnothérapeutes.</p>
             {EDITEUR.contact ? (
               <p className={s.piedEditeur}>
                 Nous écrire&nbsp;: <a href={`mailto:${EDITEUR.contact}`}>{EDITEUR.contact}</a>.
