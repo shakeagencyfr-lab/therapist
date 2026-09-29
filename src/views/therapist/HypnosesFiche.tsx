@@ -5,6 +5,7 @@ import { useEcritureHypnose } from '@/cabinet/useEcritureHypnose'
 import { MOUVEMENTS_HYPNOSE, NOM_MOUVEMENT, pointDeReprise } from '@/services/aiClient'
 import { plural } from '@/lib/format'
 import { telechargerHypnose } from '@/lib/hypnosePdf'
+import { logoPourPdf } from '@/lib/logoPdf'
 import { bilanHypnose, libelleReprise, rangDuMouvement } from '@/lib/texteHypnose'
 import { patientOf } from '@/state/selectors'
 import { useAppState } from '@/state/store'
@@ -68,7 +69,12 @@ export function HypnosesFiche() {
     if (pdf) return
     setPdf(h.id)
     try {
-      await telechargerHypnose(h, fiche?.name ?? '', auth?.context?.cabinet?.name ?? '')
+      // La marque du cabinet : son logo s'il en a déposé un, sa couleur d'accent.
+      const branding = auth?.context?.cabinet?.branding
+      await telechargerHypnose(h, fiche?.name ?? '', auth?.context?.cabinet?.name ?? '', {
+        logo: await logoPourPdf(branding?.logoUrl),
+        accent: branding?.accent ?? null,
+      })
     } catch {
       setNotice("Le PDF n'a pas pu être fabriqué. Réessayez.")
     }

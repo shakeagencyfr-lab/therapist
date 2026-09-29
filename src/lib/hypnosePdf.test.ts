@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { nomDuFichier } from './hypnosePdf'
+import type { Hypnose } from '@/types/domain'
+import { accentLisible, composerHypnose, nomDuFichier } from './hypnosePdf'
 
 /**
  * Le nom du fichier finit dans un dossier de téléchargements, à côté de
@@ -28,5 +29,62 @@ describe('nomDuFichier', () => {
   /* Un titre vide ne doit pas produire « Eugenie__2026-09-03.pdf ». */
   it('ne laisse pas de séparateur orphelin', () => {
     expect(nomDuFichier('Eugénie', '', '2026-09-03T17:37:35Z')).toBe('Eugenie_2026-09-03.pdf')
+  })
+})
+
+const HYPNOSE: Hypnose = {
+  id: 'h1',
+  titre: 'La barque qui rentre au port',
+  intention: 'Une hypnose pour s’endormir',
+  createdAt: '2026-09-29T15:27:00Z',
+  mouvements: [
+    { mouvement: 'induction', titre: 'Le quai', texte: 'Installez-vous.\nLaissez venir le soir.' },
+    { mouvement: 'approfondissement', titre: 'Le large', texte: 'Plus loin encore.' },
+  ],
+} as unknown as Hypnose
+
+// Un carré PNG de 1 pixel : de quoi vérifier que l'image entre dans le fichier.
+const PIXEL =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+
+/**
+ * La marque du cabinet : le logo en garde et en tête, la couleur sur les
+ * repères. Le texte à lire ne change pas.
+ */
+describe('composerHypnose — la marque du cabinet', () => {
+  it('pose le logo en page de garde et en tête des pages de lecture', async () => {
+    const sans = (await composerHypnose(HYPNOSE, 'Test', 'Sebastien Tedeschi')).output()
+    const avec = (
+      await composerHypnose(HYPNOSE, 'Test', 'Sebastien Tedeschi', {
+        logo: { dataUrl: PIXEL, largeur: 1, hauteur: 1 },
+        accent: '#2E6B5E',
+      })
+    ).output()
+    expect(sans).not.toMatch(/\/Subtype \/Image/)
+    expect(avec).toMatch(/\/Subtype \/Image/)
+    // Une image, placée trois fois : la garde et les deux pages de lecture.
+    expect(avec.match(/\/I\d+ Do/g)?.length).toBe(3)
+    for (const texte of ['La barque qui rentre au port', 'Installez-vous.', 'Sebastien Tedeschi']) {
+      expect(avec).toContain(texte)
+    }
+  })
+
+  it('met la couleur du cabinet sur les repères', async () => {
+    const avec = (
+      await composerHypnose(HYPNOSE, 'Test', 'Cabinet', { logo: null, accent: '#2E6B5E' })
+    ).output()
+    // 0x2E/255, 0x6B/255, 0x5E/255, telles que jsPDF les écrit : le texte (rg), le filet (RG).
+    expect(avec).toContain('0.18 0.42 0.369 rg')
+    expect(avec).toContain('0.18 0.42 0.37 RG')
+  })
+
+  it('assombrit un accent trop pâle pour l’impression, sans changer sa teinte', () => {
+    const [r, g, b] = accentLisible('#F2D9A8')
+    expect(r).toBeLessThan(0xf2)
+    expect(r).toBeGreaterThan(g)
+    expect(g).toBeGreaterThan(b)
+    // Une couleur déjà soutenue passe telle quelle ; une valeur illisible, le défaut.
+    expect(accentLisible('#2E6B5E')).toEqual([0x2e, 0x6b, 0x5e])
+    expect(accentLisible('javascript:')).toEqual([0x6e, 0x52, 0x30])
   })
 })
