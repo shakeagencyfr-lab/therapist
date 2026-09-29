@@ -131,6 +131,13 @@ Relevé du 28 septembre 2026 (base `koytgcbpeorupdklswxd`).
 
 Les écarts, et ce qu'ils recouvrent — le contenu, lui, est en place :
 
+- **`0063` révoque `net.http_*` sans effet.** Les droits d'exécution de
+  pg_net sont accordés par `supabase_admin`, propriétaire de l'extension ;
+  `postgres` ne peut pas les reprendre. Ce qui protège : le schéma `net`
+  n'est pas exposé par l'API (réglage par défaut — Settings › API ›
+  Exposed schemas : `public`, `graphql_public`), et aucune fonction du
+  schéma `public` qui appelle le réseau n'est exécutable par `anon` ou
+  `authenticated` (`tests/pentest_0063.sql`, épreuve 10).
 - **`0018_hypnose_comptee.sql` n'a pas d'entrée.** Son unique instruction
   (`alter type ai_call_kind add value 'hypnose'`) a été jouée hors de
   l'historique : la valeur est bien dans l'énumération. À l'inverse, l'entrée
