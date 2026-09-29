@@ -13,6 +13,7 @@ import {
   dateDeSeance,
   dureeDeSeance,
   etatDeSeance,
+  libelleDeSeance,
   lireBrouillon,
   notesDepuisLignes,
   refusAnamnese,
@@ -129,6 +130,21 @@ describe('etatDeSeance', () => {
 })
 
 describe('seancesDuDossier', () => {
+  /* Ouverte sans enregistrement : pas de date de consentement. Effacée, elle
+     a été abandonnée — il n'y avait pas de consentement à retirer. */
+  it('reconnaît une séance sans enregistrement, et la dit abandonnée si elle est effacée', () => {
+    const { seances } = seancesDuDossier([
+      ligne({ id: 'notes', consent_given_at: null, notes: 'Notes seules' }),
+      ligne({ id: 'abandon', consent_given_at: null, consent_revoked_at: '2026-09-21T08:00:00+00:00' }),
+      ligne({ id: 'micro', consent_given_at: '2026-09-20T08:00:00+00:00', notes: 'Avec micro' }),
+    ])
+    const par = Object.fromEntries(seances.map((x) => [x.id, x]))
+    expect(par.notes?.sansEnregistrement).toBe(true)
+    expect(par.micro?.sansEnregistrement).toBe(false)
+    expect(libelleDeSeance(par.abandon!)).toBe('Abandonnée')
+    expect(libelleDeSeance({ etat: 'retiree', sansEnregistrement: false })).toBe('Consentement retiré')
+  })
+
   it('de la plus récente à la plus ancienne', () => {
     const { seances } = seancesDuDossier([
       ligne({ id: 'ancienne', occurred_at: '2026-08-01T09:00:00+00:00' }),

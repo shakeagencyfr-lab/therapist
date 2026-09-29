@@ -161,6 +161,7 @@ export function nouvelleSeance(patient: PatientId = ''): Partial<AppState> {
     sessionPatient: patient,
     sessionId: null,
     consent: false,
+    sansEnregistrement: false,
     recording: false,
     elapsed: 0,
     transcript: '',

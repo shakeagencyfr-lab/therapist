@@ -502,8 +502,10 @@ export type Captation = Omit<Brouillon, 'draft'>
  */
 export interface SeanceOuverte extends Captation {
   id: string
-  /** Horodatage de la signature du consentement. */
+  /** Horodatage de la signature du consentement, ou de l'ouverture sans enregistrement. */
   ouverteLe: string
+  /** Ouverte sans enregistrement : aucun consentement à la captation, notes seules. */
+  sansEnregistrement: boolean
   /** Le brouillon, s'il avait déjà été rédigé. */
   draft: SessionDraft | null
 }
@@ -656,7 +658,8 @@ export interface CabinetData {
    * Elle s'ouvre à la signature du consentement — c'est la pièce qui
    * autorise la captation, elle est horodatée et conservée. Le brouillon
    * la complète, l'envoi la clôt et verse au dossier ce qui a été retenu. */
-  ouvrirSeance: (patientId: PatientId) => Promise<Resultat & { id?: string }>
+  /** Ouvre la séance : consentement signé, ou `sansEnregistrement` — notes seules, micro fermé. */
+  ouvrirSeance: (patientId: PatientId, options?: { sansEnregistrement?: boolean }) => Promise<Resultat & { id?: string }>
   /** La dernière séance ouverte et jamais envoyée de cette fiche, à reprendre. */
   seanceOuverte: (patientId: PatientId) => Promise<SeanceOuverte | null>
   /** Enregistre ce que la captation a pris, sans attendre le brouillon. */
@@ -1991,21 +1994,30 @@ export function useCabinet(cabinetId: string | null): CabinetData {
   /* ---- La séance ----------------------------------------------------- */
 
   const ouvrirSeance = useCallback(
-    async (patientId: PatientId): Promise<Resultat & { id?: string }> => {
+    async (patientId: PatientId, options?: { sansEnregistrement?: boolean }): Promise<Resultat & { id?: string }> => {
       const db = supabase()
       if (!db || !cabinetId) return { ok: false, message: '' }
+      /* Sans enregistrement, la séance s'ouvre SANS date de consentement : il
+         n'y en a pas eu. La base en tire la conséquence — une transcription
+         y serait refusée (therapy_sessions_transcript_needs_consent). */
+      const sans = Boolean(options?.sansEnregistrement)
       const { data, error } = await db
         .from('therapy_sessions')
         .insert({
           cabinet_id: cabinetId,
           patient_id: patientId,
           status: 'captation',
-          consent_given_at: new Date().toISOString(),
+          consent_given_at: sans ? null : new Date().toISOString(),
         })
         .select('id')
         .single<{ id: string }>()
       if (error || !data) {
-        return { ok: false, message: "Le consentement n'a pas pu être enregistré. Réessayez." }
+        return {
+          ok: false,
+          message: sans
+            ? "La séance n'a pas pu être ouverte. Réessayez."
+            : "Le consentement n'a pas pu être enregistré. Réessayez.",
+        }
       }
       return { ok: true, message: '', id: data.id }
     },
@@ -2074,6 +2086,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       return {
         id: data.id,
         ouverteLe: data.consent_given_at ?? data.created_at,
+        sansEnregistrement: !data.consent_given_at,
         transcript: data.transcript ?? '',
         notes: data.notes ?? '',
         dureeSecondes: data.duration_seconds ?? 0,

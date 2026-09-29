@@ -59,8 +59,11 @@ export type ViewMode =
 /** Vue interne de la maquette téléphone. */
 export type PatientView = 'home' | 'journal'
 
-/** Mode de captation de séance. */
-export type CaptureMode = 'live' | 'dictation'
+/**
+ * Mode de captation de séance : le micro pendant la séance, une synthèse
+ * dictée après, ou les notes écrites seules — sans micro ni transcription.
+ */
+export type CaptureMode = 'live' | 'dictation' | 'notes'
 
 /** Filtre d'assiduité du ciblage de notifications. */
 export type AdherenceFilter = 'all' | 'low' | 'mid' | 'high'
@@ -133,7 +136,14 @@ export interface AppState {
   sessionPatient: PatientId
   /** La séance en base, ouverte à la signature du consentement. */
   sessionId: string | null
+  /** La séance est ouverte : consentement signé, ou séance sans enregistrement. */
   consent: boolean
+  /**
+   * Ouverte SANS enregistrement : aucun consentement à la captation n'a été
+   * recueilli, le micro reste fermé et seules les notes écrites comptent. La
+   * base le sait aussi (consent_given_at vide) et refuserait une transcription.
+   */
+  sansEnregistrement: boolean
   capture: CaptureMode
   recording: boolean
   /** Durée d'enregistrement, en secondes. */
@@ -326,6 +336,7 @@ export const initialState: AppState = {
   sessionPatient: '',
   sessionId: null,
   consent: false,
+  sansEnregistrement: false,
   capture: 'live',
   recording: false,
   elapsed: 0,

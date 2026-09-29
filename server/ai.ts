@@ -443,7 +443,11 @@ async function sessionDraft(body: Partial<SessionDraftBody>, cle: Cle | null): P
     route: 'session-draft',
     schema: sessionDraftSchema,
     system: SESSION_DRAFT_SYSTEM,
-    prompt: sessionDraftPrompt(material, categories, hasSpeakerLabels(transcript)),
+    /* Sans transcription, pas de locuteurs à signaler : l'avertissement sur
+       les voix mêlées ne concerne que la parole transcrite. */
+    prompt: transcript.trim()
+      ? sessionDraftPrompt(material, categories, hasSpeakerLabels(transcript))
+      : sessionDraftPrompt(material, categories, true, true),
     maxTokens: 4000,
     cle,
   })

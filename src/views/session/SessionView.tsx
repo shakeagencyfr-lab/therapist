@@ -57,12 +57,20 @@ export function SessionView() {
         "Un enregistrement de séance est la donnée la plus sensible d'un cabinet. Le consentement se signe une fois, en présence du patient.",
       badge: 'Étape 2 · Consentement',
     },
-    {
-      title: 'Dictaphone de séance',
-      intro:
-        "La transcription est faite par votre navigateur : le son part chez son éditeur, qui le transcrit, et seul le texte revient ici — le son n'est jamais enregistré. Le texte s'enregistre dans la séance au fil de l'eau.",
-      badge: 'Étape 3 · Captation',
-    },
+    state.capture === 'notes'
+      ? {
+          title: 'Notes de séance',
+          intro: state.sansEnregistrement
+            ? "Séance sans enregistrement : le micro reste fermé, rien n'est transcrit. Écrivez vos notes, pendant ou après la séance — le brouillon se rédige à partir d'elles, et elles s'enregistrent dans la séance au fil de l'eau."
+            : "Pas de micro pour cette séance : écrivez vos notes, pendant ou après — le brouillon se rédige à partir d'elles, et elles s'enregistrent dans la séance au fil de l'eau.",
+          badge: 'Étape 3 · Notes',
+        }
+      : {
+          title: 'Dictaphone de séance',
+          intro:
+            "La transcription est faite par votre navigateur : le son part chez son éditeur, qui le transcrit, et seul le texte revient ici — le son n'est jamais enregistré. Le texte s'enregistre dans la séance au fil de l'eau.",
+          badge: 'Étape 3 · Captation',
+        },
     state.sent
       ? {
           title: 'Séance envoyée',
@@ -106,14 +114,17 @@ export function SessionView() {
         return
       }
     }
+    const sans = state.sansEnregistrement
     setRetrait('ferme')
     set(nouvelleSeance(state.sessionPatient))
     setAvis({
       ton: 'ok',
       etape: 2,
-      texte: cabinet?.reel
-        ? `Consentement retiré. La transcription, les notes et le brouillon de cette séance sont effacés ; il reste la date du consentement et celle de son retrait.`
-        : "Consentement retiré. Rien n'était enregistré : la démonstration n'écrit dans aucun dossier.",
+      texte: !cabinet?.reel
+        ? `${sans ? 'Séance abandonnée' : 'Consentement retiré'}. Rien n'était enregistré : la démonstration n'écrit dans aucun dossier.`
+        : sans
+          ? 'Séance abandonnée. Ses notes et son brouillon sont effacés ; il reste sa date au dossier.'
+          : `Consentement retiré. La transcription, les notes et le brouillon de cette séance sont effacés ; il reste la date du consentement et celle de son retrait.`,
     })
   }
 
@@ -148,7 +159,7 @@ export function SessionView() {
             ) : null}
             {retirable && retrait === 'ferme' ? (
               <button type="button" className={s.change} onClick={() => setRetrait('confirmer')}>
-                Retirer le consentement
+                {state.sansEnregistrement ? 'Abandonner cette séance' : 'Retirer le consentement'}
               </button>
             ) : null}
           </div>
@@ -159,11 +170,15 @@ export function SessionView() {
       <p className={s.intro}>{intro}</p>
 
       {retirable && retrait !== 'ferme' ? (
-        <div className={s.retrait} role="alertdialog" aria-label="Retirer le consentement">
+        <div
+          className={s.retrait}
+          role="alertdialog"
+          aria-label={state.sansEnregistrement ? 'Abandonner cette séance' : 'Retirer le consentement'}
+        >
           <p className={s.retraitTexte}>
-            {prenom} retire son consentement : la transcription, les notes et le brouillon de cette
-            séance sont effacés, tout de suite et sans retour. Le consentement reste daté, avec son
-            retrait.
+            {state.sansEnregistrement
+              ? 'Abandonner cette séance : ses notes et son brouillon sont effacés, tout de suite et sans retour. Sa date reste au dossier.'
+              : `${prenom} retire son consentement : la transcription, les notes et le brouillon de cette séance sont effacés, tout de suite et sans retour. Le consentement reste daté, avec son retrait.`}
           </p>
           <div className={s.retraitActions}>
             <Button variant="danger" onClick={() => void retirer()} disabled={retrait === 'en-cours'}>

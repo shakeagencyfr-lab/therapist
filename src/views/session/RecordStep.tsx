@@ -150,6 +150,8 @@ export function RecordStep() {
      Ce qui reste vrai, et suffit, ce sont les notes écrites — le brouillon
      se rédige à partir d'elles seules. */
   function startRec() {
+    // Ouverte sans enregistrement : aucun consentement à la captation, pas de micro.
+    if (read().sansEnregistrement) return
     if (!isSpeechSupported()) {
       set({
         notice: `Ce navigateur ne transcrit pas la parole (Chrome, Edge et Safari le font). En attendant, ${NOTES_SUFFISENT}`,
@@ -192,11 +194,18 @@ export function RecordStep() {
       sessionNotes:
         prev.sessionNotes +
         (prev.sessionNotes && !/\n$/.test(prev.sessionNotes) ? '\n' : '') +
-        clock(prev.elapsed) +
-        ' ' +
+        // Sans micro, le minuteur ne tourne pas : un « 00:00 » ne dirait rien.
+        (prev.capture === 'notes' ? '' : clock(prev.elapsed) + ' ') +
         prefix,
     }))
   }
+
+  /** Changer de mode : passer aux notes seules ferme le micro. */
+  function choisirMode(capture: 'live' | 'dictation' | 'notes') {
+    if (capture === 'notes' && read().recording) stopRec()
+    set({ capture })
+  }
+  const notesSeules = state.capture === 'notes'
 
   async function generate() {
     const now = read()
@@ -206,7 +215,10 @@ export function RecordStep() {
     const material = notes ? `${transcript}\n\n${notes}` : transcript
     if (material.length < 80) {
       set({
-        notice: `Il faut un peu plus de matière : dictez quelques phrases, ou ${NOTES_SUFFISENT}`,
+        notice:
+          now.capture === 'notes'
+            ? 'Il faut un peu plus de matière : quelques lignes de notes suffisent — ce qui a été travaillé, ce que vous avez observé.'
+            : `Il faut un peu plus de matière : dictez quelques phrases, ou ${NOTES_SUFFISENT}`,
       })
       return
     }
@@ -263,6 +275,10 @@ export function RecordStep() {
   }
 
   const wordsNow = state.transcript ? state.transcript.trim().split(/\s+/).length : 0
+  const motsDesNotes = state.sessionNotes.trim() ? state.sessionNotes.trim().split(/\s+/).length : 0
+  /* Ce qui partira à l'analyse : avec le micro, la transcription ; sans, les
+     notes — c'est d'elles seules que le brouillon se rédigera. */
+  const aAnalyser = notesSeules ? motsDesNotes + wordsNow : wordsNow
   /**
    * Ce que l'analyse coûtera, calculé sur la matière réelle.
    *
@@ -321,48 +337,69 @@ export function RecordStep() {
         <div className={s.overline}>
           <Overline>Mode de capture</Overline>
         </div>
-        <div className={s.modes}>
-          <button
-            type="button"
-            className={cx(s.mode, state.capture === 'live' && s.modeOn)}
-            aria-pressed={state.capture === 'live'}
-            onClick={() => set({ capture: 'live' })}
-          >
-            <span className={s.modeTitle}>Séance complète</span>
-            <span className={s.modeBody}>
-              Le micro tourne pendant toute la séance. Le plus riche, le plus intrusif.
-            </span>
-          </button>
-          <button
-            type="button"
-            className={cx(s.mode, state.capture === 'dictation' && s.modeOn)}
-            aria-pressed={state.capture === 'dictation'}
-            onClick={() => set({ capture: 'dictation' })}
-          >
-            <span className={s.modeTitle}>Synthèse dictée</span>
-            <span className={s.modeBody}>
-              Une fois la séance terminée, vous la résumez à voix haute en 90 secondes.
-            </span>
-          </button>
-        </div>
+        {state.sansEnregistrement ? (
+          <p className={s.sansMicro}>
+            <strong>Séance ouverte sans enregistrement.</strong> Le micro reste fermé : aucun
+            consentement à la captation n'a été recueilli. Pour enregistrer, abandonnez cette séance
+            et ouvrez-en une nouvelle, avec le consentement de la personne.
+          </p>
+        ) : (
+          <div className={s.modes}>
+            <button
+              type="button"
+              className={cx(s.mode, state.capture === 'live' && s.modeOn)}
+              aria-pressed={state.capture === 'live'}
+              onClick={() => choisirMode('live')}
+            >
+              <span className={s.modeTitle}>Séance complète</span>
+              <span className={s.modeBody}>
+                Le micro tourne pendant toute la séance. Le plus riche, le plus intrusif.
+              </span>
+            </button>
+            <button
+              type="button"
+              className={cx(s.mode, state.capture === 'dictation' && s.modeOn)}
+              aria-pressed={state.capture === 'dictation'}
+              onClick={() => choisirMode('dictation')}
+            >
+              <span className={s.modeTitle}>Synthèse dictée</span>
+              <span className={s.modeBody}>
+                Une fois la séance terminée, vous la résumez à voix haute en 90 secondes.
+              </span>
+            </button>
+            <button
+              type="button"
+              className={cx(s.mode, notesSeules && s.modeOn)}
+              aria-pressed={notesSeules}
+              onClick={() => choisirMode('notes')}
+            >
+              <span className={s.modeTitle}>Sans transcription</span>
+              <span className={s.modeBody}>
+                Aucun micro. Vous écrivez vos notes ; le brouillon se rédige à partir d'elles.
+              </span>
+            </button>
+          </div>
+        )}
       </section>
 
       <section className={cx(s.card, s.flush)}>
-        <div className={s.recRow}>
-          <button
-            type="button"
-            className={cx(s.recBtn, state.recording && s.recBtnOn)}
-            aria-label={state.recording ? "Arrêter l'enregistrement" : recLabel}
-            onClick={() => (state.recording ? stopRec() : startRec())}
-          >
-            <span aria-hidden>{state.recording ? '❙❙' : '●'}</span>
-          </button>
-          <div className={s.recText}>
-            <span className={s.recLabel}>{recLabel}</span>
-            <span className={s.recHint}>{recHint}</span>
+        {notesSeules ? null : (
+          <div className={s.recRow}>
+            <button
+              type="button"
+              className={cx(s.recBtn, state.recording && s.recBtnOn)}
+              aria-label={state.recording ? "Arrêter l'enregistrement" : recLabel}
+              onClick={() => (state.recording ? stopRec() : startRec())}
+            >
+              <span aria-hidden>{state.recording ? '❙❙' : '●'}</span>
+            </button>
+            <div className={s.recText}>
+              <span className={s.recLabel}>{recLabel}</span>
+              <span className={s.recHint}>{recHint}</span>
+            </div>
+            <span className={s.recTime}>{clock(state.elapsed)}</span>
           </div>
-          <span className={s.recTime}>{clock(state.elapsed)}</span>
-        </div>
+        )}
 
         <div className={s.facts}>
           {/* « Découpage : N segments de 15 min » décrivait un mécanisme qui
@@ -375,8 +412,8 @@ export function RecordStep() {
           <div className={s.fact}>
             <div className={s.factLabel}>À analyser</div>
             <div className={s.factValue}>
-              {wordsNow > 0
-                ? `${wordsNow.toLocaleString('fr-FR')} ${wordsNow > 1 ? 'mots' : 'mot'}`
+              {aAnalyser > 0
+                ? `${aAnalyser.toLocaleString('fr-FR')} ${aAnalyser > 1 ? 'mots' : 'mot'}`
                 : 'Rien encore'}
             </div>
           </div>
@@ -387,28 +424,40 @@ export function RecordStep() {
         </div>
 
         <div className={s.factNote}>
-          {cabinet?.reel
-            ? "Aucune limite de durée. Le texte et vos notes s'enregistrent dans la séance toutes les quinze secondes, à chaque pause et quand l'onglet passe en arrière-plan : si la page se ferme, vous perdez au plus les dernières secondes, et la séance vous sera proposée à la reprise quand vous en rouvrirez une pour cette personne. Si la connexion tombe, le texte reste à l'écran et l'enregistrement reprend dès qu'elle revient."
-            : "Aucune limite de durée. En démonstration, le texte ne vit qu'à l'écran : rien n'est enregistré."}{' '}
+          {!cabinet?.reel
+            ? "Aucune limite de durée. En démonstration, le texte ne vit qu'à l'écran : rien n'est enregistré."
+            : notesSeules
+              ? "Vos notes s'enregistrent dans la séance toutes les quinze secondes et quand l'onglet passe en arrière-plan : si la page se ferme, la séance vous sera proposée à la reprise quand vous en rouvrirez une pour cette personne."
+              : "Aucune limite de durée. Le texte et vos notes s'enregistrent dans la séance toutes les quinze secondes, à chaque pause et quand l'onglet passe en arrière-plan : si la page se ferme, vous perdez au plus les dernières secondes, et la séance vous sera proposée à la reprise quand vous en rouvrirez une pour cette personne. Si la connexion tombe, le texte reste à l'écran et l'enregistrement reprend dès qu'elle revient."}{' '}
           {sauvegarde.etat === 'echec' ? `${sauvegarde.message} ` : ''}
           {devis.euros === 0
-            ? "Le coût d'analyse s'affiche dès les premiers mots transcrits, et suit ce qui est réellement dit."
+            ? notesSeules
+              ? "Le coût d'analyse s'affiche dès vos premières notes, et suit ce que vous écrivez."
+              : "Le coût d'analyse s'affiche dès les premiers mots transcrits, et suit ce qui est réellement dit."
             : `Estimation grossière, calée sur les brouillons déjà facturés : ${devis.entree.toLocaleString('fr-FR')} jetons envoyés — votre matière et le cadre de l'analyse — et jusqu'à ${PLAFOND_SORTIE.toLocaleString('fr-FR')} rendus, à ${TARIF.entree} $ et ${TARIF.sortie} $ le million. La longueur du brouillon est plafonnée : l'appel ne dépassera pas ${euro(devis.eurosMax)}, et tourne plutôt autour de ${euro(devis.euros)}.${qui}`}
         </div>
 
         <div className={s.body}>
-          <div className={s.transcriptHead}>
-            <Overline>Transcription en direct</Overline>
-            <span className={s.count}>{wordsNow ? plural(wordsNow, 'mot', 'mots') : ''}</span>
-          </div>
-          <div className={s.transcript}>{transcriptView}</div>
+          {/* Sans micro, pas de transcription à montrer — sauf celle déjà prise
+              avant de passer aux notes : elle partira aussi à l'analyse. */}
+          {!notesSeules || state.transcript.trim() ? (
+            <>
+              <div className={s.transcriptHead}>
+                <Overline>{notesSeules ? 'Transcription déjà prise' : 'Transcription en direct'}</Overline>
+                <span className={s.count}>{wordsNow ? plural(wordsNow, 'mot', 'mots') : ''}</span>
+              </div>
+              <div className={s.transcript}>{transcriptView}</div>
+            </>
+          ) : null}
 
           <div className={s.notes}>
             <div className={s.notesHead}>
               <div className={s.notesTitles}>
                 <span className={s.notesTitle}>Vos notes écrites</span>
                 <span className={s.notesHint}>
-                  Prioritaires sur la transcription au moment de rédiger le brouillon.
+                  {notesSeules
+                    ? "C'est d'elles que le brouillon sera rédigé : ce qui s'est dit, ce que vous avez observé, ce que vous voulez donner."
+                    : 'Prioritaires sur la transcription au moment de rédiger le brouillon.'}
                 </span>
               </div>
               <span className={s.notesCount}>
@@ -416,7 +465,7 @@ export function RecordStep() {
               </span>
             </div>
             <div className={s.tags}>
-              {NOTE_TAGS.map((tag) => (
+              {NOTE_TAGS.filter((tag) => !(notesSeules && tag === 'Horodater')).map((tag) => (
                 <button type="button" key={tag} className={s.tag} onClick={() => stampNote(tag)}>
                   {tag}
                 </button>
@@ -424,7 +473,7 @@ export function RecordStep() {
             </div>
             <textarea
               className={s.notesField}
-              rows={6}
+              rows={notesSeules ? 12 : 6}
               value={state.sessionNotes}
               aria-label="Vos notes écrites"
               placeholder="Observations, mots exacts à retenir, hypothèse de travail, ce que vous voulez donner pour l'entre-séances…"
@@ -441,13 +490,17 @@ export function RecordStep() {
             >
               {state.generating ? 'Rédaction du brouillon…' : 'Terminer et rédiger la note'}
             </button>
-            <button
-              type="button"
-              className={s.clear}
-              onClick={() => set({ transcript: '', interim: '', elapsed: 0, notice: '' })}
-            >
-              Effacer
-            </button>
+            {/* « Effacer » vide la transcription, pas les notes : sans micro, il
+                n'a rien à effacer — sauf une transcription prise avant. */}
+            {!notesSeules || state.transcript ? (
+              <button
+                type="button"
+                className={s.clear}
+                onClick={() => set({ transcript: '', interim: '', elapsed: 0, notice: '' })}
+              >
+                {notesSeules ? 'Effacer la transcription' : 'Effacer'}
+              </button>
+            ) : null}
 
             {/* Le prix se lit là où l'on décide de le payer. Il est déjà en
                 haut de l'écran, mais personne ne remonte vérifier un chiffre

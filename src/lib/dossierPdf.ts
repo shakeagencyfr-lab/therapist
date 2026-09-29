@@ -29,10 +29,10 @@
 import type { MesureEchelle, PatientModule, PsychProfile, JournalEntry } from '@/types/domain'
 import {
   CHAMPS_ANAMNESE,
-  LIBELLE_ETAT,
   dateDeNote,
   dateDeSeance,
   dureeDeSeance,
+  libelleDeSeance,
   type Anamnese,
   type NoteDatee,
   type SeanceDuDossier,
@@ -162,14 +162,14 @@ export function blocsDuDossier(e: EntreeExport): Bloc[] {
     const date = dateDeSeance(s.le)
     b.push({
       t: 'sous',
-      texte: [date.charAt(0).toUpperCase() + date.slice(1), dureeDeSeance(s.dureeSecondes), LIBELLE_ETAT[s.etat]]
+      texte: [date.charAt(0).toUpperCase() + date.slice(1), dureeDeSeance(s.dureeSecondes), libelleDeSeance(s)]
         .filter(Boolean)
         .join(' · '),
     })
     if (s.etat === 'retiree') {
       b.push({
         t: 'discret',
-        texte: `Consentement retiré${s.retireeLe ? ` le ${jourLong(new Date(s.retireeLe))}` : ''} : tout ce qui avait été pris pendant cette séance a été effacé.`,
+        texte: `${s.sansEnregistrement ? 'Séance abandonnée' : 'Consentement retiré'}${s.retireeLe ? ` le ${jourLong(new Date(s.retireeLe))}` : ''} : tout ce qui avait été pris pendant cette séance a été effacé.`,
       })
     } else if (s.brouillon?.synthese) {
       b.push({ t: 'para', texte: s.brouillon.synthese })

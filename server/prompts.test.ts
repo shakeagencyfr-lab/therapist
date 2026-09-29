@@ -50,7 +50,27 @@ describe('sessionDraftPrompt', () => {
   })
 })
 
+/* Séance sans enregistrement : les notes seules. Présentées comme une
+   transcription, l'IA citait « littéralement » des notes télégraphiques
+   comme des mots du patient. */
+describe('sessionDraftPrompt — séance sans transcription', () => {
+  it('dit que ce sont des notes, sans parler de voix mêlées', () => {
+    const p = sessionDraftPrompt('peur des ascenseurs, image du phare', ['Détente'], true, true)
+    expect(p.startsWith('Voici les notes écrites par la thérapeute')).toBe(true)
+    expect(p).toContain("il n'y a pas de transcription")
+    expect(p).not.toContain("Voici la transcription d'une séance")
+  })
+
+  it('ne change rien à la demande ordinaire', () => {
+    expect(sessionDraftPrompt('x', ['Détente']).startsWith("Voici la transcription d'une séance d'hypnothérapie.")).toBe(true)
+  })
+})
+
 describe('sessionMaterial', () => {
+  it('sans transcription, les notes sont toute la matière', () => {
+    expect(sessionMaterial('', '  mes notes  ')).toBe('mes notes')
+  })
+
   it('les notes priment et sont annoncées', () => {
     const m = sessionMaterial('transcription', 'note')
     expect(m.startsWith('transcription')).toBe(true)

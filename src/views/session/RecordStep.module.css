@@ -307,3 +307,12 @@
 .notice {
   margin-top: 14px;
 }
+
+/* Séance ouverte sans enregistrement : le mode se dit, il ne se choisit pas. */
+.sansMicro {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--c-text-2);
+  max-width: 70ch;
+}

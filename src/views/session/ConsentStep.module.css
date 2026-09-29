@@ -80,3 +80,27 @@
   gap: 10px;
   flex-wrap: wrap;
 }
+
+/* La séance sans enregistrement : une porte à part, sous le consentement. */
+.sans {
+  border-radius: var(--r-xl);
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 22px;
+  flex-wrap: wrap;
+}
+
+.sansTexte {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.sansCorps {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--c-text-2);
+  margin: 6px 0 0;
+  max-width: 62ch;
+}

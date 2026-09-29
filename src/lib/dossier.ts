@@ -20,13 +20,16 @@ import type { DraftVigilance } from '@/types/domain'
  * sensible du cabinet. Un historique qui la demanderait l'afficherait tôt ou
  * tard. Un test lit ce texte et refuse le mot.
  */
-export const COLONNES_SEANCE = 'id, status, occurred_at, consent_revoked_at, duration_seconds, notes, draft, sent_at'
+export const COLONNES_SEANCE =
+  'id, status, occurred_at, consent_given_at, consent_revoked_at, duration_seconds, notes, draft, sent_at'
 
 /** Une séance telle que la base la rend, sans son verbatim. */
 export interface LigneSeance {
   id: string
   status: string
   occurred_at: string
+  /** Vide : séance ouverte sans enregistrement, notes seules. */
+  consent_given_at?: string | null
   consent_revoked_at: string | null
   duration_seconds: number | null
   notes: string | null
@@ -45,6 +48,14 @@ export const LIBELLE_ETAT: Record<EtatSeance, string> = {
   rangee: 'Rangée',
 }
 
+/**
+ * Le libellé d'une séance. Une séance sans enregistrement n'a pas de
+ * consentement à retirer : effacée, elle a été abandonnée.
+ */
+export function libelleDeSeance(seance: Pick<SeanceDuDossier, 'etat' | 'sansEnregistrement'>): string {
+  return seance.etat === 'retiree' && seance.sansEnregistrement ? 'Abandonnée' : LIBELLE_ETAT[seance.etat]
+}
+
 /** Ce qu'on relit d'un brouillon : la note, pas ses propositions. */
 export interface BrouillonRelu {
   synthese: string
@@ -60,6 +71,8 @@ export interface SeanceDuDossier {
   le: string
   dureeSecondes: number
   etat: EtatSeance
+  /** Ouverte sans enregistrement : aucun micro, les notes seules. */
+  sansEnregistrement: boolean
   retireeLe: string | null
   envoyeeLe: string | null
   /** Les notes écrites pendant la séance. */
@@ -148,6 +161,7 @@ export function seancesDuDossier(lignes: readonly LigneSeance[]): {
       le: l.occurred_at,
       dureeSecondes: Math.max(0, Math.round(l.duration_seconds ?? 0)),
       etat,
+      sansEnregistrement: l.consent_given_at === null,
       retireeLe: l.consent_revoked_at,
       envoyeeLe: l.sent_at,
       notes,

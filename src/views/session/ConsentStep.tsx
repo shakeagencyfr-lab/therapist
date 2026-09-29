@@ -7,12 +7,21 @@ import { DELAI_PURGE_JOURS, ceQuiAEtePris } from '@/lib/seance'
 import { useStore } from '@/state/store'
 import s from './ConsentStep.module.css'
 
-/** Étape 2 : le consentement est bloquant, rien ne s'enregistre avant lui. */
+/**
+ * Étape 2 : le consentement est bloquant, rien ne s'enregistre avant lui.
+ *
+ * OU PAS D'ENREGISTREMENT DU TOUT. Tous les patients n'acceptent pas le
+ * micro, toutes les séances ne s'y prêtent pas. La séance s'ouvre alors sans
+ * consentement à la captation — il n'y a rien à capter : le micro reste
+ * fermé, la praticienne écrit ses notes, et le brouillon se rédige à partir
+ * d'elles. La base le sait (la date de consentement reste vide) et
+ * refuserait une transcription.
+ */
 export function ConsentStep() {
   const { state, set } = useStore()
   const cabinet = useMaybeCabinet()
   const patient = state.patients[state.sessionPatient]
-  const [envoi, setEnvoi] = useState(false)
+  const [envoi, setEnvoi] = useState<'' | 'consentement' | 'sans'>('')
   const [echec, setEchec] = useState('')
   /** Une séance de cette fiche, ouverte et jamais envoyée, à reprendre. */
   const [ouverte, setOuverte] = useState<SeanceOuverte | null>(null)
@@ -51,26 +60,32 @@ export function ConsentStep() {
    * la captation, et elle doit survivre à la page. Sur les fiches de
    * démonstration, rien n'est écrit.
    */
-  async function signer() {
+  async function signer(sansEnregistrement = false) {
+    /* Sans enregistrement, pas de micro : le mode de captation le dit, et
+       l'étape suivante n'ouvre que les notes. Avec, on repart du micro si le
+       mode précédent était celui des notes seules. */
+    const capture = sansEnregistrement ? 'notes' : state.capture === 'notes' ? 'live' : state.capture
     if (!cabinet?.reel) {
-      set({ consent: true })
+      set({ consent: true, sansEnregistrement, capture })
       return
     }
-    setEnvoi(true)
+    setEnvoi(sansEnregistrement ? 'sans' : 'consentement')
     setEchec('')
-    const r = await cabinet.ouvrirSeance(state.sessionPatient)
-    setEnvoi(false)
+    const r = await cabinet.ouvrirSeance(state.sessionPatient, { sansEnregistrement })
+    setEnvoi('')
     if (!r.ok) {
       setEchec(r.message)
       return
     }
-    set({ consent: true, sessionId: r.id ?? null })
+    set({ consent: true, sansEnregistrement, capture, sessionId: r.id ?? null })
   }
 
   /** Reprendre là où la séance s'est arrêtée : son consentement tient toujours. */
   function reprendre(o: SeanceOuverte) {
     set({
       consent: true,
+      sansEnregistrement: o.sansEnregistrement,
+      ...(o.sansEnregistrement ? { capture: 'notes' as const } : {}),
       sessionId: o.id,
       transcript: o.transcript,
       interim: '',
@@ -123,14 +138,17 @@ export function ConsentStep() {
         <Card className={s.reprise}>
           <Title as="h2">Une séance de {prenom} n'a pas été envoyée</Title>
           <p className={s.repriseTexte}>
-            Consentement signé le {le}. Elle contient{' '}
+            {ouverte.sansEnregistrement ? `Ouverte sans enregistrement le ${le}` : `Consentement signé le ${le}`}.
+            Elle contient{' '}
             {ceQuiAEtePris({
               transcript: ouverte.transcript,
               notes: ouverte.notes,
               aUnBrouillon: Boolean(ouverte.draft),
             })}
-            . Reprenez-la là où elle s'est arrêtée, ou effacez-la si {prenom} le demande. Sans
-            suite, sa transcription est effacée d'office {DELAI_PURGE_JOURS} jours après la signature.
+            . Reprenez-la là où elle s'est arrêtée, ou effacez-la si {prenom} le demande.
+            {ouverte.sansEnregistrement
+              ? ''
+              : ` Sans suite, sa transcription est effacée d'office ${DELAI_PURGE_JOURS} jours après la signature.`}
           </p>
           <div className={s.repriseActions}>
             <Button variant="primary" onClick={() => reprendre(ouverte)} disabled={effacement === 'en-cours'}>
@@ -169,8 +187,8 @@ export function ConsentStep() {
           </div>
         ) : null}
         <div className={s.foot}>
-          <Button variant="primary" className={s.sign} onClick={() => void signer()} disabled={envoi}>
-            {envoi ? 'Enregistrement…' : `${prenom} a donné son accord, signer`}
+          <Button variant="primary" className={s.sign} onClick={() => void signer()} disabled={Boolean(envoi)}>
+            {envoi === 'consentement' ? 'Enregistrement…' : `${prenom} a donné son accord, signer`}
           </Button>
           {/* « depuis l'espace patient » : cet écran n'existe pas, et n'a jamais
               existé. La révocation se demande de vive voix, et le geste qui
@@ -180,6 +198,22 @@ export function ConsentStep() {
             la séance, arrête l'enregistrement et efface ce qui a été pris.
           </span>
         </div>
+      </Card>
+
+      {/* Sans micro : une vraie porte, pas un lien discret. C'est souvent le
+          choix du patient, et il ne doit pas avoir à se justifier. */}
+      <Card className={s.sans}>
+        <div className={s.sansTexte}>
+          <Title as="h3">Séance sans enregistrement</Title>
+          <p className={s.sansCorps}>
+            Aucun micro, aucune transcription : vous écrivez vos notes pendant ou après la séance,
+            et le brouillon de note se rédige à partir d'elles. Si vous le demandez, vos notes
+            partent pour analyse chez Anthropic, comme décrit plus haut — {prenom} doit le savoir.
+          </p>
+        </div>
+        <Button variant="secondary" onClick={() => void signer(true)} disabled={Boolean(envoi)}>
+          {envoi === 'sans' ? 'Ouverture…' : 'Ouvrir sans enregistrement'}
+        </Button>
       </Card>
     </>
   )

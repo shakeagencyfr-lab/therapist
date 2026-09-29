@@ -3,8 +3,8 @@ import { Button, Card, EmptyState, Notice, Pill, Sub, Title, type PillTone } fro
 import { useMaybeAuth } from '@/auth/session'
 import { useDossierFiche } from '@/cabinet/useDossierFiche'
 import {
-  LIBELLE_ETAT,
   dateDeSeance,
+  libelleDeSeance,
   dureeDeSeance,
   seanceARelire,
   type EtatSeance,
@@ -345,7 +345,10 @@ export function ListeDesSeances({
               <span className={s.date}>{dateDeSeance(seance.le)}</span>
               <span className={s.meta}>
                 {duree ? <span>{duree}</span> : null}
-                <Pill tone={TON_ETAT[seance.etat]}>{LIBELLE_ETAT[seance.etat]}</Pill>
+                {seance.sansEnregistrement && seance.etat !== 'retiree' ? (
+                  <span>Sans enregistrement</span>
+                ) : null}
+                <Pill tone={TON_ETAT[seance.etat]}>{libelleDeSeance(seance)}</Pill>
               </span>
               <span className={s.bascule} aria-hidden>
                 {ouvert ? 'Replier' : 'Relire'}
@@ -369,9 +372,9 @@ function ContenuDeSeance({ seance }: { seance: SeanceDuDossier }) {
   if (seance.etat === 'retiree') {
     return (
       <p className={s.texte}>
-        Consentement retiré{seance.retireeLe ? ` le ${jourLisible(seance.retireeLe)}` : ''} : tout ce
-        qui avait été pris pendant cette séance a été effacé. Elle reste datée au dossier, sans
-        contenu.
+        {seance.sansEnregistrement ? 'Séance abandonnée' : 'Consentement retiré'}
+        {seance.retireeLe ? ` le ${jourLisible(seance.retireeLe)}` : ''} : tout ce qui avait été pris
+        pendant cette séance a été effacé. Elle reste datée au dossier, sans contenu.
       </p>
     )
   }
