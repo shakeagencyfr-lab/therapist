@@ -11,6 +11,7 @@ import {
   MODELE_DE_REPLI,
   profilCreux,
   reglageDe,
+  rejouerLaPanne,
   rejouerLeRefus,
 } from './ai.js'
 import { modulePrompt } from './prompts.js'
@@ -248,5 +249,24 @@ describe('rejouerLeRefus — un refus du modèle d’analyse se rejoue une fois'
     expect(rejouerLeRefus('claude-opus-5-5', 'reasoning_extraction')).toBe(false)
     expect(rejouerLeRefus('claude-haiku-4-5', 'cyber')).toBe(false)
     expect(rejouerLeRefus('claude-opus-5', 'bio')).toBe(false)
+  })
+})
+
+/* Le jour de la bascule, Opus 5.5 répondait 503 à la clé d'un cabinet : la
+   praticienne restait sans brouillon alors qu'Opus 5 répondait. */
+describe('rejouerLaPanne — une panne du modèle d’analyse se rejoue sur Opus 5', () => {
+  it('rejoue l’indisponibilité, la saturation, le débit et le modèle introuvable', () => {
+    for (const statut of [503, 500, 529, 429, 404]) {
+      expect({ [statut]: rejouerLaPanne('claude-opus-5-5', statut) }).toEqual({ [statut]: true })
+    }
+  })
+
+  it('ne rejoue ni une clé refusée, ni une demande mal formée, ni un autre modèle', () => {
+    for (const statut of [400, 401, 403]) {
+      expect({ [statut]: rejouerLaPanne('claude-opus-5-5', statut) }).toEqual({ [statut]: false })
+    }
+    expect(rejouerLaPanne('claude-opus-5', 503)).toBe(false)
+    expect(rejouerLaPanne('claude-haiku-4-5', 503)).toBe(false)
+    expect(rejouerLaPanne('claude-opus-5-5', undefined)).toBe(false)
   })
 })

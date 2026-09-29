@@ -305,6 +305,22 @@ export function rejouerLeRefus(model: string, categorie: string | null | undefin
   return !MODELE_IMPOSE && model === MODELE_ANALYSE && categorie !== 'reasoning_extraction'
 }
 
+/**
+ * Une panne du modèle d'analyse se rejoue-t-elle sur le modèle de repli ?
+ *
+ * Constaté le jour de la bascule : Opus 5.5 répondait 503 à la clé d'un
+ * cabinet, trois fois de suite (le SDK réessaie déjà deux fois), et la
+ * praticienne restait sans brouillon alors qu'Opus 5 répondait. Opus 5.5 a
+ * ses propres limites de débit, et un modèle peut être indisponible pour une
+ * clé : 404 (introuvable pour ce compte), 429 (débit), 5xx et 529 (service
+ * saturé ou indisponible) se rejouent une fois sur Opus 5. Un refus de clé
+ * (401, 403) ou une demande mal formée (400) échoueraient pareil : non.
+ */
+export function rejouerLaPanne(model: string, statut: number | undefined): boolean {
+  if (MODELE_IMPOSE || model !== MODELE_ANALYSE || typeof statut !== 'number') return false
+  return statut === 404 || statut === 429 || statut >= 500
+}
+
 async function callClaude<T>({ route, schema, system, prompt, maxTokens, cle }: CallOptions<T>): Promise<Produit<T>> {
   const { model, effort } = reglageDe(route)
   const format = zodOutputFormat(schema)
@@ -318,12 +334,21 @@ async function callClaude<T>({ route, schema, system, prompt, maxTokens, cle }: 
     })
   let message
   let refuse: Usage | null = null
+  let replie = false
   try {
-    message = await demander(model)
+    try {
+      message = await demander(model)
+    } catch (err) {
+      const statut = err instanceof Anthropic.APIError ? err.status : undefined
+      if (!rejouerLaPanne(model, statut)) throw err
+      console.warn(`[ia] ${route} : ${model} a répondu ${statut}, rejoué sur ${MODELE_DE_REPLI}`)
+      replie = true
+      message = await demander(MODELE_DE_REPLI)
+    }
     /* Un refus est un succès HTTP : il se lit sur stop_reason. Rejoué une
        fois sur le modèle de repli ; l'appel refusé compte dans l'usage. */
     const categorie = (message as { stop_details?: { category?: string | null } | null }).stop_details?.category
-    if (message.stop_reason === 'refusal' && rejouerLeRefus(model, categorie)) {
+    if (!replie && message.stop_reason === 'refusal' && rejouerLeRefus(model, categorie)) {
       console.warn(`[ia] ${route} refusé (${categorie ?? 'sans catégorie'}), rejoué sur ${MODELE_DE_REPLI}`)
       refuse = { input: message.usage.input_tokens, output: message.usage.output_tokens }
       message = await demander(MODELE_DE_REPLI)
@@ -393,7 +418,9 @@ async function callClaude<T>({ route, schema, system, prompt, maxTokens, cle }: 
           output: refuse.output + message.usage.output_tokens,
           modele: MODELE_DE_REPLI,
         }
-      : { input: message.usage.input_tokens, output: message.usage.output_tokens },
+      : replie
+        ? { input: message.usage.input_tokens, output: message.usage.output_tokens, modele: MODELE_DE_REPLI }
+        : { input: message.usage.input_tokens, output: message.usage.output_tokens },
   }
 }
 
