@@ -122,8 +122,8 @@ Relevé du 28 septembre 2026 (base `koytgcbpeorupdklswxd`).
 | `0057_le_revendeur_tient_son_equipe_et_ses_cabinets.sql` | 20260929023442 | 0057_le_revendeur_tient_son_equipe_et_ses_cabinets |
 | `0058_la_vente_se_rembourse_et_se_compte.sql` | 20260929023511 | 0058_la_vente_se_rembourse_et_se_compte |
 | `0059_la_seance_a_une_date.sql` | 20260929023609 | 0059_la_seance_a_une_date |
-| `0061_la_franchise_par_defaut.sql` | 20260929015413 | 0061_la_franchise_par_defaut |
 | `0060_les_demandes_d_essai.sql` | 20260929010836 | 0060_les_demandes_d_essai |
+| `0061_la_franchise_par_defaut.sql` | 20260929015413 | 0061_la_franchise_par_defaut |
 
 `0060` (demandes d'essai) a été appliquée avant `0055` à `0059` : elles ne se touchent pas.
 
