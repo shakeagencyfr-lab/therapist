@@ -108,3 +108,43 @@
     display: none;
   }
 }
+
+/* Ce qu'on dit en revenant ici : un brouillon gardé, par exemple. */
+.avis {
+  margin-bottom: 14px;
+}
+
+/* Les brouillons gardés pour plus tard, au-dessus des fiches. */
+.attente {
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  margin-bottom: 18px;
+}
+
+.attenteTete {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px 22px 12px;
+  border-bottom: 1px solid var(--c-border-light);
+}
+
+.attenteEchec {
+  padding: 12px 22px 0;
+}
+
+.attenteLigne {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--c-border-light);
+  list-style: none;
+}
+.attenteLigne:last-child {
+  border-bottom: 0;
+}
+.attente .list {
+  margin: 0;
+  padding: 0;
+}

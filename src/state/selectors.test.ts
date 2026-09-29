@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { initialState } from './state'
 import {
   axisBand,
+  etatDeReprise,
   moduleProgress,
   notifRows,
   nouvelleSeance,
@@ -23,6 +24,36 @@ describe('nouvelleSeance', () => {
   })
   it('sans argument, aucune fiche', () => {
     expect(nouvelleSeance().sessionPatient).toBe('')
+  })
+})
+
+describe('etatDeReprise — un brouillon repris là où il s’était arrêté', () => {
+  const o = {
+    id: 's1',
+    ouverteLe: '2026-09-29T10:00:00Z',
+    sansEnregistrement: true,
+    transcript: '',
+    notes: 'Notes',
+    dureeSecondes: 0,
+    draft: { synthese: 'S' } as never,
+    choix: { proposalOff: { 0: true }, sugOff: {}, syntheseOk: true },
+  }
+  it('rouvre la séance, ses notes, son brouillon et ses choix', () => {
+    const e = etatDeReprise(o, 'nadia')
+    expect(e).toMatchObject({
+      sessionPatient: 'nadia',
+      sessionId: 's1',
+      consent: true,
+      sent: false,
+      sessionNotes: 'Notes',
+      proposalOff: { 0: true },
+      syntheseOk: true,
+    })
+    expect(e.draft).toEqual({ synthese: 'S' })
+  })
+  it('une séance sans enregistrement le reste : notes seules', () => {
+    expect(etatDeReprise(o, 'nadia')).toMatchObject({ sansEnregistrement: true, capture: 'notes' })
+    expect(etatDeReprise({ ...o, sansEnregistrement: false }, 'nadia').capture).toBeUndefined()
   })
 })
 

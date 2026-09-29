@@ -7,6 +7,7 @@
  * Les écrans de séance et la fiche s'en servent ; les tests l'éprouvent sans
  * navigateur ni base.
  */
+import type { SessionDraft } from '@/types/domain'
 import { plural } from './format'
 import { momentDuRaccourci } from './planification'
 
@@ -119,4 +120,57 @@ export function ceQuiAEtePris(p: { transcript: string; notes: string; aUnBrouill
   if (!parts.length) return 'rien encore'
   if (parts.length === 1) return parts[0]
   return `${parts.slice(0, -1).join(', ')} et ${parts[parts.length - 1]}`
+}
+
+/**
+ * Ce que la praticienne a décidé sur un brouillon, au-delà de son texte :
+ * les modules et les audios écartés, la synthèse relue.
+ *
+ * GARDER UN BROUILLON POUR PLUS TARD, C'EST GARDER SES CHOIX. Sans eux, le
+ * brouillon repris proposait de nouveau les modules qu'elle avait écartés,
+ * tous cochés — et un envoi distrait les versait au parcours. Ils voyagent
+ * avec le brouillon, sous une clé à part, et en sont retirés à la lecture :
+ * ce qui part au dossier est le brouillon seul.
+ */
+export interface ChoixDuBrouillon {
+  proposalOff: Record<number, boolean>
+  sugOff: Record<string, boolean>
+  syntheseOk: boolean
+}
+
+const CLE_CHOIX = 'choix_praticienne'
+
+export const AUCUN_CHOIX: ChoixDuBrouillon = { proposalOff: {}, sugOff: {}, syntheseOk: false }
+
+/** Le brouillon tel qu'il s'enregistre : son texte, et les choix faits dessus. */
+export function brouillonAvecChoix(draft: SessionDraft, choix: ChoixDuBrouillon): SessionDraft {
+  const proposalOff = Object.fromEntries(Object.entries(choix.proposalOff).filter(([, v]) => v === true))
+  const sugOff = Object.fromEntries(Object.entries(choix.sugOff).filter(([, v]) => v === true))
+  return { ...draft, [CLE_CHOIX]: { proposalOff, sugOff, syntheseOk: choix.syntheseOk === true } } as SessionDraft
+}
+
+/**
+ * Le brouillon relu depuis la base, et ses choix, séparés. Les choix sont
+ * lus sans confiance : ce qui n'a pas la bonne forme est ignoré.
+ */
+export function separerChoix(brut: SessionDraft | null): { draft: SessionDraft | null; choix: ChoixDuBrouillon } {
+  if (!brut || typeof brut !== 'object') return { draft: brut, choix: AUCUN_CHOIX }
+  const { [CLE_CHOIX]: lus, ...reste } = brut as SessionDraft & Record<string, unknown>
+  const draft = reste as SessionDraft
+  if (!lus || typeof lus !== 'object' || Array.isArray(lus)) return { draft, choix: AUCUN_CHOIX }
+  const c = lus as Record<string, unknown>
+  const coches = (v: unknown): Array<[string, true]> =>
+    v && typeof v === 'object' && !Array.isArray(v)
+      ? Object.entries(v as Record<string, unknown>)
+          .filter(([, x]) => x === true)
+          .map(([k]) => [k, true])
+      : []
+  return {
+    draft,
+    choix: {
+      proposalOff: Object.fromEntries(coches(c.proposalOff).filter(([k]) => /^\d+$/.test(k)).map(([k]) => [Number(k), true])),
+      sugOff: Object.fromEntries(coches(c.sugOff)),
+      syntheseOk: c.syntheseOk === true,
+    },
+  }
 }

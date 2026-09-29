@@ -4,8 +4,11 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { consentPoints } from '@/data/session'
 import {
+  AUCUN_CHOIX,
   DELAI_PURGE_JOURS,
   aSauver,
+  brouillonAvecChoix,
+  separerChoix,
   ceQuiAEtePris,
   momentDuMessage,
   seanceEnCours,
@@ -184,5 +187,29 @@ describe("l'écran de séance ne promet plus ce qu'il ne fait pas", () => {
   it('l’envoi passe par la fonction qui refuse une séance déjà close', () => {
     const cabinet = lire('../cabinet/useCabinet.ts')
     expect(cabinet).toContain("rpc('cabinet_envoyer_seance'")
+  })
+})
+
+/* Un brouillon gardé pour plus tard garde ce que la praticienne a écarté :
+   repris, il ne doit pas reproposer, cochés, les modules qu'elle refusait. */
+describe('brouillonAvecChoix / separerChoix — les choix voyagent avec le brouillon', () => {
+  const draft = { synthese: 'S', message: 'M', propositions: [] } as never
+
+  it('aller et retour : les choix reviennent, et le brouillon rendu n’en porte plus trace', () => {
+    const garde = brouillonAvecChoix(draft, { proposalOff: { 1: true, 2: false }, sugOff: { a1: true }, syntheseOk: true })
+    const { draft: relu, choix } = separerChoix(garde)
+    expect(choix).toEqual({ proposalOff: { 1: true }, sugOff: { a1: true }, syntheseOk: true })
+    expect(relu).toEqual(draft)
+    expect(Object.keys(relu as object)).not.toContain('choix_praticienne')
+  })
+
+  it('un brouillon d’avant, sans choix : aucun choix', () => {
+    expect(separerChoix(draft)).toEqual({ draft, choix: AUCUN_CHOIX })
+    expect(separerChoix(null)).toEqual({ draft: null, choix: AUCUN_CHOIX })
+  })
+
+  it('des choix mal formés sont ignorés, pas crus', () => {
+    const bizarre = { ...(draft as object), choix_praticienne: { proposalOff: { x: true, 3: 'oui', 4: true }, sugOff: [1], syntheseOk: 'vrai' } } as never
+    expect(separerChoix(bizarre).choix).toEqual({ proposalOff: { 4: true }, sugOff: {}, syntheseOk: false })
   })
 })

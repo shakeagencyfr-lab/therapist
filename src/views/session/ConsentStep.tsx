@@ -4,6 +4,7 @@ import { useMaybeCabinet } from '@/cabinet/context'
 import type { SeanceOuverte } from '@/cabinet/useCabinet'
 import { consentPoints } from '@/data/session'
 import { DELAI_PURGE_JOURS, ceQuiAEtePris } from '@/lib/seance'
+import { etatDeReprise } from '@/state/selectors'
 import { useStore } from '@/state/store'
 import s from './ConsentStep.module.css'
 
@@ -82,26 +83,7 @@ export function ConsentStep() {
 
   /** Reprendre là où la séance s'est arrêtée : son consentement tient toujours. */
   function reprendre(o: SeanceOuverte) {
-    set({
-      consent: true,
-      sansEnregistrement: o.sansEnregistrement,
-      ...(o.sansEnregistrement ? { capture: 'notes' as const } : {}),
-      sessionId: o.id,
-      transcript: o.transcript,
-      interim: '',
-      sessionNotes: o.notes,
-      elapsed: o.dureeSecondes,
-      draft: o.draft,
-      draftMaquette: false,
-      syntheseOk: false,
-      proposalOff: {},
-      sent: false,
-      msgOk: false,
-      msgEnvoye: '',
-      sugOff: {},
-      sugSent: '',
-      notice: '',
-    })
+    set({ ...etatDeReprise(o, state.sessionPatient), draftMaquette: false })
   }
 
   /** Effacer ce qui a été pris : c'est un retrait de consentement. */

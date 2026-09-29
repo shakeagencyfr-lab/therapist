@@ -27,6 +27,8 @@ export function DraftStep() {
   const draft = state.draft
   /** L'envoi en base : en cours, ou l'échec à afficher. */
   const [envoi, setEnvoi] = useState<'repos' | 'en-cours'>('repos')
+  /** Le brouillon gardé pour plus tard : en cours d'écriture. */
+  const [garde, setGarde] = useState<'repos' | 'en-cours'>('repos')
   const [echecEnvoi, setEchecEnvoi] = useState('')
   /** Envoi des audios en cours : le bouton ne se reclique pas. */
   const [envoiAudios, setEnvoiAudios] = useState(false)
@@ -133,7 +135,38 @@ export function DraftStep() {
    */
   function garderLesCorrections() {
     if (!cabinet?.reel || !state.sessionId || !state.draft) return
-    void cabinet.majBrouillon(state.sessionId, state.draft)
+    // Envoyée, la note se corrige encore ; les choix, eux, ont été faits.
+    void cabinet.majBrouillon(state.sessionId, state.draft, state.sent ? undefined : choixCourants())
+  }
+
+  /** Les choix faits sur le brouillon : ils se gardent avec lui. */
+  function choixCourants() {
+    const now = read()
+    return { proposalOff: now.proposalOff, sugOff: now.sugOff, syntheseOk: now.syntheseOk }
+  }
+
+  /**
+   * Garder le brouillon pour plus tard, sans rien envoyer.
+   *
+   * Le brouillon est déjà en base depuis sa rédaction ; ce geste y écrit la
+   * dernière version relue ET les choix faits dessus, puis libère l'écran
+   * pour la séance suivante. Rien n'entre dans le parcours du patient : il
+   * se reprend depuis l'onglet Séance ou depuis sa fiche.
+   */
+  async function garderPourPlusTard() {
+    if (!cabinet?.reel || !state.sessionId || !state.draft || state.sent || garde === 'en-cours') return
+    setGarde('en-cours')
+    setEchecEnvoi('')
+    const r = await cabinet.majBrouillon(state.sessionId, state.draft, choixCourants())
+    setGarde('repos')
+    if (!r.ok) {
+      setEchecEnvoi(r.message || "Le brouillon n'a pas pu être gardé. Réessayez.")
+      return
+    }
+    set({
+      ...nouvelleSeance(),
+      avisSeance: `Brouillon de ${firstName} gardé, rien n'est envoyé. Reprenez-le ci-dessous, ou depuis sa fiche (Séances), quand vous voudrez le valider.`,
+    })
   }
 
   function sendDraft() {
@@ -720,11 +753,24 @@ export function DraftStep() {
               Reprendre
             </button>
           )}
+          {/* Relire plus tard, envoyer plus tard : le brouillon se garde,
+              choix compris, et rien ne part. Pas en démonstration, où rien
+              ne se garde. */}
+          {cabinet?.reel && state.sessionId && !state.sent && !state.draftMaquette ? (
+            <button
+              type="button"
+              className={s.sendGhost}
+              onClick={() => void garderPourPlusTard()}
+              disabled={garde === 'en-cours' || envoi === 'en-cours'}
+            >
+              {garde === 'en-cours' ? 'Enregistrement…' : 'Garder en brouillon'}
+            </button>
+          ) : null}
           <button
             type="button"
             className={cx(s.sendBtn, state.sent && s.sendBtnDone)}
             onClick={sendDraft}
-            disabled={state.draftMaquette || state.sent || envoi === 'en-cours'}
+            disabled={state.draftMaquette || state.sent || envoi === 'en-cours' || garde === 'en-cours'}
           >
             {state.sent ? '✓ Envoyé' : envoi === 'en-cours' ? 'Envoi…' : 'Valider et envoyer'}
           </button>

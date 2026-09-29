@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Button, Card, EmptyState, Notice, Pill, Sub, Title, type PillTone } from '@/components/ui'
 import { useMaybeAuth } from '@/auth/session'
 import { useDossierFiche } from '@/cabinet/useDossierFiche'
+import { useReprendreBrouillon } from '@/cabinet/useReprendreBrouillon'
 import {
   dateDeSeance,
   libelleDeSeance,
@@ -55,6 +56,8 @@ export function SeancesFiche() {
   const fiche = patientOf(state)
   const { etat, dossier, gestes, recharger } = useDossierFiche(state.sel)
   const logoUrl = useMaybeAuth()?.context?.cabinet?.branding?.logoUrl ?? null
+  const reprendreBrouillon = useReprendreBrouillon()
+  const [reprise, setReprise] = useState('')
   const [ouverte, setOuverte] = useState<string | null | undefined>(undefined)
   const [facturation, setFacturation] = useState<Facturation | null>(null)
   const [annulation, setAnnulation] = useState('')
@@ -179,6 +182,32 @@ export function SeancesFiche() {
       />
     ) : null
 
+  /** Reprendre une séance jamais envoyée : l'écran de séance s'ouvre sur elle. */
+  async function reprendre(seance: SeanceDuDossier) {
+    setReprise(seance.id)
+    const r = await reprendreBrouillon(seance.id)
+    setReprise('')
+    if (!r.ok) setNotice({ tone: 'warn', text: r.message })
+  }
+
+  /** Ce qui se fait d'une séance : la reprendre si elle attend, la facturer si elle est envoyée. */
+  const apresLaSeance = (seance: SeanceDuDossier): ReactNode => {
+    if ((seance.etat === 'brouillon' || seance.etat === 'ouverte') && gestes) {
+      return (
+        <div className={s.honoraires}>
+          <Button variant="primary" onClick={() => void reprendre(seance)} disabled={Boolean(reprise)}>
+            {reprise === seance.id
+              ? 'Ouverture…'
+              : seance.etat === 'brouillon'
+                ? 'Reprendre ce brouillon'
+                : 'Reprendre cette séance'}
+          </Button>
+        </div>
+      )
+    }
+    return honorairesDeLaSeance(seance)
+  }
+
   /** Ce qui se fait de la note d'une séance envoyée. */
   const honorairesDeLaSeance = (seance: SeanceDuDossier): ReactNode => {
     if (seance.etat !== 'envoyee' || !gestes) return null
@@ -279,7 +308,7 @@ export function SeancesFiche() {
             seances={seances}
             ouverte={ouverteEffective}
             onBasculer={(id) => setOuverte(ouverteEffective === id ? null : id)}
-            apres={honorairesDeLaSeance}
+            apres={apresLaSeance}
           />
           {dossier && dossier.sansRien > 0 ? (
             <p className={s.discret}>
@@ -383,8 +412,8 @@ function ContenuDeSeance({ seance }: { seance: SeanceDuDossier }) {
     <>
       {seance.etat !== 'envoyee' ? (
         <p className={s.discret}>
-          Cette séance n’a pas été envoyée : reprenez-la depuis l’onglet Séance pour la verser au
-          dossier.
+          Cette séance n’a pas été envoyée : rien n’est dans le parcours du patient. Reprenez-la pour
+          la relire et la valider.
         </p>
       ) : null}
       {b?.synthese ? (

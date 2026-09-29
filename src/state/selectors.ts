@@ -9,6 +9,7 @@
 import { seFaitParLePatient } from '@/lib/typesDeModules'
 import { mesurable, tacheEnRetard } from '@/lib/assiduite'
 import { parProchaineSeance, sansProchaineSeance } from '@/lib/agenda'
+import type { SeanceOuverte } from '@/cabinet/useCabinet'
 import type { AppState } from './state'
 import type { Patient, PatientId, PatientModule, PsychProfile } from '@/types/domain'
 
@@ -167,6 +168,7 @@ export function nouvelleSeance(patient: PatientId = ''): Partial<AppState> {
     transcript: '',
     interim: '',
     notice: '',
+    avisSeance: '',
     sessionNotes: '',
     generating: false,
     draft: null,
@@ -178,6 +180,29 @@ export function nouvelleSeance(patient: PatientId = ''): Partial<AppState> {
     msgEnvoye: '',
     sugOff: {},
     sugSent: '',
+  }
+}
+
+/**
+ * L'état d'une séance reprise : là où elle s'était arrêtée, choix compris.
+ *
+ * Un brouillon rédigé ramène à la validation ; sans brouillon, à la
+ * captation. Une séance ouverte sans enregistrement le reste : notes seules.
+ */
+export function etatDeReprise(o: SeanceOuverte, patient: PatientId): Partial<AppState> {
+  return {
+    ...nouvelleSeance(patient),
+    consent: true,
+    sansEnregistrement: o.sansEnregistrement,
+    ...(o.sansEnregistrement ? { capture: 'notes' as const } : {}),
+    sessionId: o.id,
+    transcript: o.transcript,
+    sessionNotes: o.notes,
+    elapsed: o.dureeSecondes,
+    draft: o.draft,
+    proposalOff: o.choix.proposalOff,
+    sugOff: o.choix.sugOff,
+    syntheseOk: o.choix.syntheseOk,
   }
 }
 

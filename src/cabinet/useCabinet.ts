@@ -17,7 +17,7 @@ import { adresseValide, messageCreation, normaliserAdresse, refusAdresse } from 
 import { useStore } from '@/state/store'
 import { durationToSeconds, plural } from '@/lib/format'
 import { bilanTelephone } from '@/lib/rappels'
-import { DELAI_PURGE_JOURS } from '@/lib/seance'
+import { DELAI_PURGE_JOURS, brouillonAvecChoix, separerChoix, type ChoixDuBrouillon } from '@/lib/seance'
 import { ecartEchelle, mesuresDatees } from '@/lib/echelle'
 import { seFaitParLePatient } from '@/lib/typesDeModules'
 import { assiduite, decalerJour, jourDeParis, JOURS_SUIVIS, septJours } from '@/lib/assiduite'
@@ -508,6 +508,45 @@ export interface SeanceOuverte extends Captation {
   sansEnregistrement: boolean
   /** Le brouillon, s'il avait déjà été rédigé. */
   draft: SessionDraft | null
+  /** Ce que la praticienne avait écarté ou relu sur ce brouillon. */
+  choix: ChoixDuBrouillon
+}
+
+/** Les colonnes d'une séance à reprendre — la transcription comprise : on la reprend. */
+const COLONNES_REPRISE = 'id, patient_id, consent_given_at, created_at, transcript, notes, duration_seconds, draft'
+interface LigneReprise {
+  id: string
+  patient_id: PatientId
+  consent_given_at: string | null
+  created_at: string
+  transcript: string | null
+  notes: string | null
+  duration_seconds: number | null
+  draft: SessionDraft | null
+}
+
+const versReprise = (data: LigneReprise): SeanceOuverte & { patientId: PatientId } => {
+  const { draft, choix } = separerChoix(data.draft)
+  return {
+    id: data.id,
+    patientId: data.patient_id,
+    ouverteLe: data.consent_given_at ?? data.created_at,
+    sansEnregistrement: !data.consent_given_at,
+    transcript: data.transcript ?? '',
+    notes: data.notes ?? '',
+    dureeSecondes: data.duration_seconds ?? 0,
+    draft,
+    choix,
+  }
+}
+
+/** Un brouillon rédigé, jamais envoyé : ce que la liste d'attente montre. */
+export interface BrouillonEnAttente {
+  id: string
+  patientId: PatientId
+  /** L'instant de la séance, en ISO. */
+  le: string
+  sansEnregistrement: boolean
 }
 
 /** Ce qui part au dossier à la validation du brouillon. */
@@ -662,13 +701,17 @@ export interface CabinetData {
   ouvrirSeance: (patientId: PatientId, options?: { sansEnregistrement?: boolean }) => Promise<Resultat & { id?: string }>
   /** La dernière séance ouverte et jamais envoyée de cette fiche, à reprendre. */
   seanceOuverte: (patientId: PatientId) => Promise<SeanceOuverte | null>
+  /** Une séance précise, jamais envoyée, à reprendre — un brouillon gardé pour plus tard. */
+  chargerSeance: (sessionId: string) => Promise<(SeanceOuverte & { patientId: PatientId }) | null>
+  /** Les brouillons rédigés et jamais envoyés du cabinet, du plus récent au plus ancien. */
+  brouillonsEnAttente: () => Promise<BrouillonEnAttente[] | null>
   /** Enregistre ce que la captation a pris, sans attendre le brouillon. */
   sauverCaptation: (sessionId: string, input: Captation) => Promise<Resultat>
   /** Retire le consentement : la base efface tout ce qui a été pris. */
   retirerConsentement: (sessionId: string) => Promise<Resultat>
   enregistrerBrouillon: (sessionId: string, input: Brouillon) => Promise<Resultat>
-  /** Réécrit le seul brouillon, à la sortie d'un champ relu. */
-  majBrouillon: (sessionId: string, draft: SessionDraft) => Promise<Resultat>
+  /** Réécrit le brouillon — et les choix faits dessus —, à la sortie d'un champ ou pour le garder. */
+  majBrouillon: (sessionId: string, draft: SessionDraft, choix?: ChoixDuBrouillon) => Promise<Resultat>
   /** Rend aussi les modules créés : leurs consignes s'écrivent juste après. */
   envoyerSeance: (
     sessionId: string,
@@ -2035,15 +2078,68 @@ export function useCabinet(cabinetId: string | null): CabinetData {
    * Cet enregistrement-là part à la sortie du champ.
    */
   const majBrouillon = useCallback(
-    async (sessionId: string, draft: SessionDraft): Promise<Resultat> => {
+    async (sessionId: string, draft: SessionDraft, choix?: ChoixDuBrouillon): Promise<Resultat> => {
       const db = supabase()
       if (!db || !cabinetId) return { ok: false, message: '' }
-      const { error } = await db.from('therapy_sessions').update({ draft }).eq('id', sessionId)
+      const { data, error } = await db
+        .from('therapy_sessions')
+        .update({ draft: choix ? brouillonAvecChoix(draft, choix) : draft })
+        .eq('id', sessionId)
+        .select('id')
       if (error) return { ok: false, message: "Vos corrections n'ont pas pu être enregistrées." }
+      if (!data?.length) return { ok: false, message: "Cette séance n'existe plus : le brouillon n'a pas pu être gardé." }
       return { ok: true, message: '' }
     },
     [cabinetId],
   )
+
+  /**
+   * Un brouillon gardé pour plus tard, repris par son identifiant.
+   *
+   * Pas de délai ici, à la différence de la reprise proposée au
+   * consentement : au-delà de sept jours, la transcription est effacée, mais
+   * le brouillon rédigé et les notes restent — et restent envoyables (0043).
+   */
+  const chargerSeance = useCallback(
+    async (sessionId: string): Promise<(SeanceOuverte & { patientId: PatientId }) | null> => {
+      const db = supabase()
+      if (!db || !cabinetId) return null
+      const { data, error } = await db
+        .from('therapy_sessions')
+        .select(COLONNES_REPRISE)
+        .eq('id', sessionId)
+        .is('sent_at', null)
+        .is('consent_revoked_at', null)
+        .maybeSingle<LigneReprise>()
+      if (error || !data) return null
+      return versReprise(data)
+    },
+    [cabinetId],
+  )
+
+  /**
+   * Les brouillons en attente d'envoi.
+   *
+   * Sans la transcription ni le texte : une liste n'a besoin que de savoir
+   * qui, et quand. Le brouillon se charge en entier quand on le reprend.
+   */
+  const brouillonsEnAttente = useCallback(async (): Promise<BrouillonEnAttente[] | null> => {
+    const db = supabase()
+    if (!db || !cabinetId) return null
+    const { data, error } = await db
+      .from('therapy_sessions')
+      .select('id, patient_id, occurred_at, consent_given_at')
+      .eq('cabinet_id', cabinetId)
+      .is('sent_at', null)
+      .is('consent_revoked_at', null)
+      .not('draft', 'is', null)
+      .order('occurred_at', { ascending: false })
+      .limit(30)
+    if (error) return null
+    return ((data ?? []) as Array<{ id: string; patient_id: PatientId; occurred_at: string; consent_given_at: string | null }>).map(
+      (l) => ({ id: l.id, patientId: l.patient_id, le: l.occurred_at, sansEnregistrement: !l.consent_given_at }),
+    )
+  }, [cabinetId])
 
   /**
    * La séance laissée en plan sur cette fiche, s'il y en a une.
@@ -2083,6 +2179,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
       if (error || !data) return null
       // Une séance ouverte sur laquelle rien n'a été pris ne vaut pas reprise.
       if (!data.transcript && !data.notes && !data.draft) return null
+      const { draft, choix } = separerChoix(data.draft)
       return {
         id: data.id,
         ouverteLe: data.consent_given_at ?? data.created_at,
@@ -2090,7 +2187,8 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         transcript: data.transcript ?? '',
         notes: data.notes ?? '',
         dureeSecondes: data.duration_seconds ?? 0,
-        draft: data.draft,
+        draft,
+        choix,
       }
     },
     [cabinetId],
@@ -2522,6 +2620,8 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     retirerConsentement,
     enregistrerBrouillon,
     majBrouillon,
+    chargerSeance,
+    brouillonsEnAttente,
     envoyerSeance,
     majConsigne,
     enregistrerProfil,

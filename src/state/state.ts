@@ -153,6 +153,11 @@ export interface AppState {
   interim: string
   /** Message d'information affiché sous la zone de captation. */
   notice: string
+  /**
+   * Ce qu'on dit en revenant au choix de la fiche — un brouillon gardé pour
+   * plus tard, par exemple. Choisir une fiche l'efface.
+   */
+  avisSeance: string
   sessionNotes: string
 
   /* Brouillon de note --------------------------------------------- */
@@ -337,6 +342,7 @@ export const initialState: AppState = {
   sessionId: null,
   consent: false,
   sansEnregistrement: false,
+  avisSeance: '',
   capture: 'live',
   recording: false,
   elapsed: 0,
