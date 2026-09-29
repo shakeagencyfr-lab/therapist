@@ -5,6 +5,7 @@ import { couleurSure } from '@/lib/couleurs'
 import { cabinetById } from '@/state/resellerSelectors'
 import { useStore } from '@/state/store'
 import type { Space, ViewMode } from '@/state/state'
+import { logoDePorte } from '@/theme/klaro'
 import s from './AppHeader.module.css'
 
 /**
@@ -97,7 +98,7 @@ export function AppHeader() {
         <Marque
           className={s.logo}
           logo={reseller ? logoRevendeur : cabinet.branding.logo}
-          url={reseller ? null : cabinet.branding.logoUrl}
+          url={reseller ? logoDePorte(marqueRevendeur, null) : cabinet.branding.logoUrl}
         />
         <div className={s.names}>
           <span className={s.cabinet}>{reseller ? marqueRevendeur : cabinet.name}</span>

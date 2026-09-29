@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Button, FieldLabel, Marque, Notice, TextInput } from '@/components/ui'
 import { LONGUEUR_CODE_TOTP, codeTotpComplet, normaliserCodeTotp } from '@/lib/doubleAuthentification'
+import { logoDePorte } from '@/theme/klaro'
 import s from './SignIn.module.css'
 
 /**
@@ -90,7 +91,7 @@ export function DeuxiemeFacteur({
     <div className={s.page}>
       <div className={s.card}>
         <div className={s.brand}>
-          <Marque className={s.logo} logo={marque} url={logoUrl} />
+          <Marque className={s.logo} logo={marque} url={logoDePorte(cabinet, logoUrl)} />
           <div>
             <div className={s.name}>{cabinet}</div>
             <div className={s.tagline}>{tagline}</div>

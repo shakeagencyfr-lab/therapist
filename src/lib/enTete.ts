@@ -14,6 +14,7 @@
  * juste pour la plupart qu'un titre faux pour tout le monde.
  */
 import { useEffect } from 'react'
+import { KLARO } from '@/theme/klaro'
 
 function poser(nom: string, contenu: string) {
   if (!contenu) return
@@ -50,4 +51,36 @@ export function titreDuCabinet(nom: string, surTitre?: string | null): string {
   if (!propre) return ''
   const suite = (surTitre ?? '').trim()
   return suite ? `${propre} — ${suite}` : propre
+}
+
+/**
+ * Pose l'icône d'onglet de Klaro, et rend de quoi la retirer.
+ *
+ * Seulement sur les pages de Klaro : index.html, servi identique au domaine
+ * de chaque cabinet, n'en déclare aucune — sinon l'onglet de la page publique
+ * d'un cabinet porterait le K de son fournisseur. Le SVG d'abord, le PNG pour
+ * les navigateurs qui ne le lisent pas, l'icône d'écran d'accueil d'iOS.
+ */
+export function poserIconesKlaro(doc: Document = document): () => void {
+  const liens: Array<[string, Record<string, string>]> = [
+    ['icon', { type: 'image/svg+xml', href: KLARO.icone }],
+    ['icon', { type: 'image/png', sizes: '48x48', href: KLARO.iconePng }],
+    ['apple-touch-icon', { href: KLARO.iconeEcranAccueil }],
+  ]
+  const poses = liens.map(([rel, attributs]) => {
+    const lien = doc.createElement('link')
+    lien.setAttribute('rel', rel)
+    for (const [nom, valeur] of Object.entries(attributs)) lien.setAttribute(nom, valeur)
+    lien.setAttribute('data-marque', 'klaro')
+    doc.head.appendChild(lien)
+    return lien
+  })
+  return () => {
+    for (const lien of poses) lien.remove()
+  }
+}
+
+/** L'icône de Klaro dans l'onglet, le temps que la page est montée. */
+export function useIconeKlaro() {
+  useEffect(() => poserIconesKlaro(), [])
 }

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Marque } from '@/components/ui'
+import { logoDePorte } from '@/theme/klaro'
 import s from './SignIn.module.css'
 
 /**
@@ -33,7 +34,7 @@ export function AvisPorte({
     <div className={s.page}>
       <div className={s.card}>
         <div className={s.brand}>
-          <Marque className={s.logo} logo={marque} url={logoUrl} />
+          <Marque className={s.logo} logo={marque} url={logoDePorte(cabinet, logoUrl)} />
           <div>
             <div className={s.name}>{cabinet}</div>
             <div className={s.tagline}>{tagline}</div>

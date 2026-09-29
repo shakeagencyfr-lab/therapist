@@ -15,7 +15,8 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { SignIn } from '@/auth/SignIn'
 import { useAuth } from '@/auth/session'
-import { useEnTete } from '@/lib/enTete'
+import { useEnTete, useIconeKlaro } from '@/lib/enTete'
+import { variablesKlaro } from '@/theme/klaro'
 import { entreeDeLAdresse, estLaPorte } from './decision'
 import s from './Porte.module.css'
 
@@ -61,8 +62,9 @@ export const TITRE_PORTE = 'Espace thérapeute'
  */
 export function PortePraticienne({ avis = null }: { avis?: string | null }) {
   useEnTete(`${TITRE_PORTE} — Klaro`)
+  useIconeKlaro()
   return (
-    <div className={s.porte}>
+    <div className={s.porte} style={variablesKlaro()}>
       <div className={s.bande}>
         <a className={s.retour} href="/">
           <span aria-hidden="true">←</span> Retour à l’accueil

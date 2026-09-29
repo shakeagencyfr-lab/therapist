@@ -8,6 +8,7 @@ import { SignIn } from './auth/SignIn'
 import { SessionProvider, useAuth } from './auth/session'
 import { Button } from './components/ui'
 import { variablesDeMarque } from './lib/couleurs'
+import { variablesKlaro } from './theme/klaro'
 import { codeADemander } from './lib/doubleAuthentification'
 import { lireDelai, phraseDeSortie, type DelaiInactivite } from './lib/inactivite'
 import { verifierCodeDeConnexion } from './services/securiteDuCompte'
@@ -229,7 +230,7 @@ function Portail() {
     // La marque du cabinet quand on la connaît déjà ; celle du produit sinon.
     const b = context?.cabinet?.branding ?? vitrine?.branding
     return (
-      <div style={variablesDeMarque(b)}>
+      <div style={b ? variablesDeMarque(b) : variablesKlaro()}>
         <DeuxiemeFacteur
           email={context?.email ?? session?.user.email ?? null}
           verifier={async (code) => {

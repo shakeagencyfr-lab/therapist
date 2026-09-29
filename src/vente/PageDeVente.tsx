@@ -32,6 +32,7 @@ import {
 } from './contenu'
 import { CHEMIN_PORTE } from './decision'
 import { Formulaire } from './Formulaire'
+import { KLARO, variablesKlaro } from '@/theme/klaro'
 import { poserEnTeteDeVente } from './seo'
 import s from './PageDeVente.module.css'
 
@@ -204,12 +205,8 @@ function NoteEnAttente() {
 function Logo() {
   return (
     <a className={s.marque} href="/" aria-label="Klaro, retour en haut de l’accueil">
-      <span className={s.logo} aria-hidden="true">
-        KL
-      </span>
-      <span className={s.nomMarque} aria-hidden="true">
-        Klaro
-      </span>
+      {/* Le logotype vectorisé : le K porte ses feuilles, l'or est celui de la marque. */}
+      <img className={s.logotype} src={KLARO.logotype} alt="" width={91} height={30} />
     </a>
   )
 }
@@ -322,7 +319,7 @@ export function PageDeVente() {
   }
 
   return (
-    <div className={s.page}>
+    <div className={s.page} style={variablesKlaro()}>
       <a className={s.evitement} href="#contenu">
         Aller au contenu
       </a>

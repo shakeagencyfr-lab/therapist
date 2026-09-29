@@ -36,23 +36,10 @@
   gap: 10px;
 }
 
-.logo {
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  background: var(--c-accent);
-  color: var(--c-surface);
-  display: grid;
-  place-items: center;
-  font-family: var(--font-serif);
-  font-size: 14px;
-}
-
-.nomMarque {
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--c-text);
+.logotype {
+  display: block;
+  height: 26px;
+  width: auto;
 }
 
 .retour {

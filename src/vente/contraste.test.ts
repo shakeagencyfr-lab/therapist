@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { COULEURS_KLARO, variablesKlaro } from '@/theme/klaro'
 
 /**
  * La page de vente se lit : chaque couple texte / fond qu'elle emploie tient
@@ -32,9 +33,16 @@ function jetons(fichier: string): Record<string, string> {
   return table
 }
 
+/* La palette Klaro, posée sur la racine de la page (variablesKlaro) : elle
+   l'emporte sur les jetons du produit, comme dans le navigateur. */
+const klaro = Object.fromEntries(
+  Object.entries(variablesKlaro()).map(([nom, valeur]) => [nom, String(valeur).toLowerCase()]),
+)
+
 const t = {
   ...jetons(join(ici, '..', 'styles', 'tokens.css')),
   ...jetons(join(ici, 'PageDeVente.module.css')),
+  ...klaro,
 }
 
 /** [texte, fond, où] */
@@ -47,7 +55,9 @@ const COUPLES: Array<[string, string, string]> = [
   ['--c-accent-deep', '--c-app', 'surtitres et liens'],
   ['--c-accent-deep', '--c-surface', 'liens dans les cartes'],
   ['--c-accent-deep', '--c-accent-tint', 'numéros du parcours, section essai'],
-  ['--c-surface', '--c-accent-deep', 'boutons pleins'],
+  ['--c-dark', '--c-or', 'boutons pleins : l’or de la marque sous un texte sombre'],
+  ['--c-surface', '--c-accent', 'boutons à texte clair de la porte (or profond)'],
+  ['--c-accent', '--c-app', 'liens de la porte'],
   ['--c-surface', '--c-dark', 'boutons pleins survolés'],
   ['--c-danger', '--c-surface', 'erreurs du formulaire'],
   ['--v-erreur-texte', '--v-erreur-fond', 'refus du serveur'],
@@ -76,5 +86,16 @@ describe('les contrastes de la page de vente', () => {
       ([texte, fond, ou]) => `${ou} — ${texte} sur ${fond} : ${contraste(t[texte] as string, t[fond] as string).toFixed(2)}`,
     )
     expect(faibles).toEqual([])
+  })
+})
+
+describe('la palette Klaro', () => {
+  it('garde l’or de la planche de marque, et la bande sombre l’écrit', () => {
+    expect(COULEURS_KLARO.or).toBe('#dbaa59')
+    expect(t['--v-sombre-accent']).toBe(COULEURS_KLARO.or)
+  })
+
+  it('l’or de la marque n’écrit pas sur le crème : il n’y tient pas 3:1', () => {
+    expect(contraste(COULEURS_KLARO.or, t['--c-app'] as string)).toBeLessThan(3)
   })
 })

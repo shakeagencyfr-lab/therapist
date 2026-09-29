@@ -14,6 +14,8 @@
  * Données structurées : un logiciel, ses trois offres et leurs prix. Ni note,
  * ni avis — le produit n'en a pas, et on n'en invente pas.
  */
+import { KLARO } from '@/theme/klaro'
+import { poserIconesKlaro } from '@/lib/enTete'
 import { MENTION_PRIX, PRIX_TTC, offres } from './contenu'
 
 export const URL_CANONIQUE = 'https://klaroweb.site/'
@@ -62,7 +64,14 @@ const META: Array<['name' | 'property', string, string]> = [
   ['property', 'og:url', URL_CANONIQUE],
   ['property', 'og:title', TITRE],
   ['property', 'og:description', DESCRIPTION],
-  ['name', 'twitter:card', 'summary'],
+  // L'image de partage : le logo sur crème, adresse absolue (les robots des
+  // réseaux ne résolvent pas un chemin relatif).
+  ['property', 'og:image', new URL(KLARO.imagePartage, URL_CANONIQUE).href],
+  ['property', 'og:image:width', '1200'],
+  ['property', 'og:image:height', '630'],
+  ['property', 'og:image:alt', 'Klaro'],
+  ['name', 'twitter:card', 'summary_large_image'],
+  ['name', 'twitter:image', new URL(KLARO.imagePartage, URL_CANONIQUE).href],
   ['name', 'twitter:title', TITRE],
   ['name', 'twitter:description', DESCRIPTION],
 ]
@@ -108,8 +117,12 @@ export function poserEnTeteDeVente(doc: Document = document): () => void {
   doc.head.appendChild(jsonld)
   posees.push(jsonld)
 
+  // L'icône d'onglet de Klaro : la page de vente est chez elle.
+  const retirerIcones = poserIconesKlaro(doc)
+
   return () => {
     doc.title = avant
+    retirerIcones()
     for (const balise of posees) balise.remove()
     for (const [balise, contenu] of anciennes) {
       if (contenu === null) balise.removeAttribute('content')

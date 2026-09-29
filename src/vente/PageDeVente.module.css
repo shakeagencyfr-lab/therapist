@@ -1,16 +1,18 @@
 /* La page de vente de klaroweb.site.
  *
- * L'identité du produit, sans rien ajouter : le fond crème, la sérif
- * Newsreader pour les titres, Public Sans pour le texte, l'ocre en accent —
- * les jetons de src/styles/tokens.css. Deux polices servies depuis notre
- * domaine (/fonts/base.css), aucune image, aucune ressource extérieure.
+ * L'identité de Klaro : le fond crème, la sérif Newsreader pour les titres,
+ * Public Sans pour le texte, l'or de la marque. Les jetons du produit
+ * (src/styles/tokens.css) y prennent l'or de src/theme/klaro.ts, posé sur la
+ * racine de la page. Deux polices et le logo, servis depuis notre domaine ;
+ * aucune ressource extérieure.
  *
- * LES COULEURS DE TEXTE SE LISENT. L'ocre du produit (#a17a45) ne tient que
- * 3,6:1 sur le fond : il reste pour les filets et les pastilles, jamais pour
- * un texte. Les liens et les surtitres prennent l'ocre appuyé (6,7:1), les
- * boutons pleins aussi (7,1:1 sous le texte crème). Sur la bande sombre, le
- * texte est crème (12,3:1) et le secondaire sable (9:1). Les paires sont
- * éprouvées par src/vente/contraste.test.ts, qui relit ce fichier.
+ * LES COULEURS DE TEXTE SE LISENT. L'or de la marque (#dbaa59) ne tient que
+ * 1,9:1 sur le fond : il habille — logo, filets, pastilles, et le fond des
+ * boutons pleins, sous un texte sombre (6,7:1). Les liens et les surtitres
+ * prennent l'or profond. Sur la bande sombre, le texte est crème (12,3:1),
+ * le secondaire sable (9:1), et l'or de la marque y écrit (6,7:1). Les
+ * paires sont éprouvées par src/vente/contraste.test.ts, qui relit ce
+ * fichier et la palette.
  *
  * Téléphone d'abord : tout est pensé à 375 pixels, gouttière de 16.
  */
@@ -20,7 +22,7 @@
   --v-erreur-fond: #fbeeea;
   --v-sombre-texte: #f5eee1;
   --v-sombre-doux: #d8ccb6;
-  --v-sombre-accent: #e3c89a;
+  --v-sombre-accent: #dbaa59;
   --v-sombre-carte: #3d3224;
   --marge: 16px;
   --largeur: 1160px;
@@ -110,21 +112,10 @@
   color: var(--c-text) !important;
   flex: none;
 }
-.logo {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  background: var(--c-accent);
-  color: var(--c-surface);
-  display: grid;
-  place-items: center;
-  font-family: var(--font-serif);
-  font-size: 15px;
-}
-.nomMarque {
-  font-family: var(--font-serif);
-  font-size: 21px;
-  letter-spacing: -0.01em;
+.logotype {
+  display: block;
+  height: 30px;
+  width: auto;
 }
 
 .nav {
@@ -241,10 +232,11 @@
   white-space: nowrap;
   cursor: pointer;
 }
+/* L'or de la marque, sous un texte sombre : c'est le bouton de la planche. */
 .boutonPlein {
-  background: var(--c-accent-deep);
-  border-color: var(--c-accent-deep);
-  color: var(--c-surface) !important;
+  background: var(--c-or);
+  border-color: var(--c-or);
+  color: var(--c-dark) !important;
 }
 .boutonPlein:hover {
   background: var(--c-dark);

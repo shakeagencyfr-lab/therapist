@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useEnTete } from '@/lib/enTete'
+import { useEnTete, useIconeKlaro } from '@/lib/enTete'
+import { KLARO, variablesKlaro } from '@/theme/klaro'
 import { LIENS_LEGAUX, type CleLegale } from './chemins'
 import {
   MISE_A_JOUR,
@@ -27,6 +28,7 @@ import s from './PageLegale.module.css'
 export function PageLegaleVue({ cle }: { cle: CleLegale }) {
   const page = PAGES_LEGALES[cle]
   useEnTete(`${page.titre} — Klaro`, page.description)
+  useIconeKlaro()
 
   /* LE RETOUR, SEULEMENT S'IL MÈNE QUELQUE PART. Ouverte dans un nouvel
      onglet (depuis le widget, l'espace patient), la page n'a pas d'avant :
@@ -39,7 +41,7 @@ export function PageLegaleVue({ cle }: { cle: CleLegale }) {
   }, [])
 
   return (
-    <div className={s.page}>
+    <div className={s.page} style={variablesKlaro()}>
       {VALIDE_JURIDIQUEMENT ? null : (
         <p className={s.bandeau} role="note">
           <strong>Document à faire valider juridiquement.</strong> Les passages surlignés restent à compléter.
@@ -47,11 +49,10 @@ export function PageLegaleVue({ cle }: { cle: CleLegale }) {
       )}
 
       <header className={s.entete}>
+        {/* Un logo, pas un lien : ouverte depuis l'espace d'un patient, la
+            racine du domaine serait celle de son cabinet, pas la nôtre. */}
         <span className={s.marque}>
-          <span className={s.logo} aria-hidden="true">
-            KL
-          </span>
-          <span className={s.nomMarque}>Klaro</span>
+          <img className={s.logotype} src={KLARO.logotype} alt="Klaro" width={79} height={26} />
         </span>
         {retour ? (
           <button type="button" className={s.retour} onClick={() => window.history.back()}>
