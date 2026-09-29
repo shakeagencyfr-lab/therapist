@@ -78,6 +78,18 @@ export function messageCode(err: ErreurAuth | null | undefined): string {
   return "La vérification du code a échoué. Réessayez dans un instant ; si cela persiste, demandez un nouveau code."
 }
 
+/** Ce qu'on dit à qui arrive par un lien de courriel qui ne vaut plus. */
+export function messageLien(err: ErreurAuth | null | undefined): string {
+  if (!err) return ''
+  if (err.status === 429 || err.code === 'over_request_rate_limit') {
+    return "Trop d'essais en peu de temps. Patientez quelques minutes, puis demandez un nouveau courriel."
+  }
+  if (err.status === 403 || err.status === 400 || err.status === 422 || err.code === 'otp_expired') {
+    return "Ce lien ne fonctionne plus : il a déjà servi, a expiré, ou un courriel plus récent l'a remplacé. Entrez votre adresse pour en recevoir un nouveau."
+  }
+  return "Le lien n'a pas pu être vérifié. Réessayez dans un instant ; si cela persiste, demandez un nouveau courriel."
+}
+
 /** Ce qu'on dit à qui n'a pas pu entrer par son mot de passe. */
 export function messageConnexionMotDePasse(err: ErreurAuth | null | undefined): string {
   if (!err) return ''

@@ -17,8 +17,10 @@ describe('les courriels de connexion', () => {
   for (const nom of modeles) {
     const html = readFileSync(join(dossier, nom), 'utf8')
 
-    it(`${nom} : le lien ET le code à 6 chiffres, pour l'application installée`, () => {
-      expect(html).toContain('{{ .ConfirmationURL }}')
+    it(`${nom} : le lien ET le code, pour l'application installée`, () => {
+      // Le lien mène à notre page, avec l'empreinte ; jamais au domaine de la base.
+      expect(html).toMatch(/href="\{\{ if \.RedirectTo \}\}\{\{ \.RedirectTo \}\}\{\{ else \}\}\{\{ \.SiteURL \}\}\{\{ end \}\}\?token_hash=\{\{ \.TokenHash \}\}&type=(email|invite|recovery)"/)
+      expect(html).not.toContain('ConfirmationURL')
       expect(html).toContain('{{ .Token }}')
     })
 

@@ -126,7 +126,7 @@ export function Installer({ accent, variante }: Props) {
               l'installation comment y entrer — sans quoi on tourne en
               rond entre l'icône et ses courriels. */}
           <p className={s.note}>
-            À la première ouverture, entrez votre adresse : vous recevrez un code à 6 chiffres, à
+            À la première ouverture, entrez votre adresse : vous recevrez un code, à
             saisir dans l'application — le lien du courriel, lui, s'ouvrirait dans Safari. Un mot de
             passe choisi dans « Moi » fonctionne aussi.
           </p>

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Button, FieldLabel, Marque, Notice, TextInput } from '@/components/ui'
-import { codeComplet, LONGUEUR_CODE, normaliserCode } from '@/lib/codeConnexion'
+import { codeComplet, normaliserCode } from '@/lib/codeConnexion'
 import { estInstallee } from '@/patient/installation'
 import { LiensLegaux } from '@/legal/LiensLegaux'
 import { useAuth } from './session'
@@ -123,8 +123,8 @@ export function SignIn({
         autoComplete="one-time-code"
         value={code}
         onChange={(e) => setCode(normaliserCode(e.target.value))}
-        placeholder={'0'.repeat(LONGUEUR_CODE)}
-        aria-label={`Code à ${LONGUEUR_CODE} chiffres`}
+        placeholder="Le code du courriel"
+        aria-label="Code reçu par courriel"
         required
       />
     </div>
@@ -160,8 +160,8 @@ export function SignIn({
                 à la porte. On le dit avant qu'il soit touché. */}
             <p className={s.intro}>
               {installe
-                ? `Saisissez ici le code à ${LONGUEUR_CODE} chiffres qu'il contient. N'ouvrez pas son lien : il ouvrirait votre navigateur, et vous connecterait là-bas plutôt que dans cette application.`
-                : `Il contient un lien et un code à ${LONGUEUR_CODE} chiffres. Ouvrez le lien depuis cet appareil, ou saisissez le code ci-dessous — plus simple si vous lisez vos courriels ailleurs. L'un comme l'autre vaut une heure, et une seule fois.`}
+                ? `Saisissez ici le code qu'il contient. N'ouvrez pas son lien : il ouvrirait votre navigateur, et vous connecterait là-bas plutôt que dans cette application.`
+                : `Il contient un lien et un code. Ouvrez le lien depuis cet appareil, ou saisissez le code ci-dessous — plus simple si vous lisez vos courriels ailleurs. L'un comme l'autre vaut une heure, et une seule fois.`}
             </p>
             <form onSubmit={saisirLeCode}>
               {champCode}
@@ -209,7 +209,7 @@ export function SignIn({
             {installe ? (
               <Notice tone="ok" style={{ marginBottom: 14 }}>
                 Vous êtes dans l'application installée : un lien reçu par courriel s'ouvrirait dans
-                votre navigateur, pas ici. Demandez plutôt un code à {LONGUEUR_CODE} chiffres, à
+                votre navigateur, pas ici. Demandez plutôt un code, à
                 saisir sur cet écran — ou entrez votre mot de passe, si vous en avez choisi un.
               </Notice>
             ) : null}
@@ -325,7 +325,7 @@ export function SignIn({
               {voie === 'motDePasse'
                 ? "Le mot de passe se choisit depuis « Mon compte », une fois dans votre espace. Si vous n'en avez pas encore, demandez un courriel de connexion."
                 : voie === 'code'
-                  ? `Le code à ${LONGUEUR_CODE} chiffres figure dans votre dernier courriel de connexion ou d'invitation. Il ne sert qu'une fois ; s'il a expiré, demandez-en un nouveau.`
+                  ? `Le code figure dans votre dernier courriel de connexion ou d'invitation. Il ne sert qu'une fois ; s'il a expiré, demandez-en un nouveau.`
                   : installe
                     ? 'Vous recevez un code à saisir ici, sans rien à retenir. Se connecter ne donne accès à rien en soi — il faut qu’une fiche ou une invitation vous attende.'
                     : 'Vous recevez un lien qui vous connecte — et un code, si vous préférez le saisir —, sans rien à retenir. Se connecter ne donne accès à rien en soi — il faut qu’une fiche ou une invitation vous attende.'}

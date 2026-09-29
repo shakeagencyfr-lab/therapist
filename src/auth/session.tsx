@@ -27,7 +27,8 @@ import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 import { oublierLesBrouillons } from '@/lib/brouillon'
 import { normaliserCode } from '@/lib/codeConnexion'
 import { aUnFacteurVerifie, niveauDuJeton, type Niveau } from '@/lib/doubleAuthentification'
-import { messageCode, messageConnexionMotDePasse, messageEnvoiLien } from '@/lib/messageAuth'
+import { lireJetonDeLien, retirerJetonDeLien } from '@/lib/lienDeConnexion'
+import { messageCode, messageConnexionMotDePasse, messageEnvoiLien, messageLien } from '@/lib/messageAuth'
 import { refusDuNouveau } from '@/lib/motDePasse'
 import { isConfigured, supabase } from '@/lib/supabase'
 import { marqueSure } from '@/lib/vitrine'
@@ -115,7 +116,7 @@ export interface AuthState {
   verificationLente: boolean
   envoyerLien: (email: string, captchaToken?: string) => Promise<void>
   /**
-   * Entrer avec le code à six chiffres du courriel — celui de connexion comme
+   * Entrer avec le code du courriel — celui de connexion comme
    * celui d'invitation.
    *
    * C'est la seule voie qui marche depuis l'espace installé sur un iPhone :
@@ -462,7 +463,20 @@ export function SessionProvider({
       if (vivant && lu.current === utilisateur) setPhase('connecte')
     }
 
-    void db.auth.getSession().then(({ data }) => suivre('INITIAL_SESSION', data.session))
+    void (async () => {
+      /* LE LIEN DU COURRIEL MÈNE ICI, PAS À LA BASE (lienDeConnexion.ts) :
+         il porte l'empreinte du jeton, que la page échange elle-même contre
+         une session, puis efface de l'adresse. Un robot qui visite le lien
+         n'exécute pas l'application : il ne consomme rien. */
+      const jeton = lireJetonDeLien(window.location.search)
+      if (jeton) {
+        const { error: err } = await db.auth.verifyOtp({ token_hash: jeton.tokenHash, type: jeton.type })
+        window.history.replaceState(window.history.state, '', retirerJetonDeLien(window.location.href))
+        if (err && vivant) setError(messageLien(err))
+      }
+      const { data } = await db.auth.getSession()
+      suivre('INITIAL_SESSION', data.session)
+    })()
 
     const { data: sub } = db.auth.onAuthStateChange((evenement, suivante) => suivre(evenement, suivante))
 

@@ -14,10 +14,15 @@ l'application attend.
 
 Chaque modèle porte les deux voies d'entrée :
 
-- `{{ .ConfirmationURL }}` — le lien, pour qui lit le courriel sur l'appareil
-  où il veut entrer ;
-- `{{ .Token }}` — le code à 6 chiffres (`src/lib/codeConnexion.ts`,
-  `LONGUEUR_CODE`), pour l'application installée sur un téléphone : un lien
+- le lien, pour qui lit le courriel sur l'appareil où il veut entrer. Il
+  mène à NOTRE page (`{{ .RedirectTo }}`, ou `{{ .SiteURL }}` à défaut) avec
+  l'empreinte du jeton (`?token_hash={{ .TokenHash }}&type=…`), que
+  l'application échange elle-même (`src/lib/lienDeConnexion.ts`). Jamais
+  `{{ .ConfirmationURL }}` : il mène à `<projet>.supabase.co`, un autre
+  domaine que celui de l'expéditeur — les messageries y voient de
+  l'hameçonnage, et les robots qui visitent les liens le consommaient ;
+- `{{ .Token }}` — le code (6 à 10 chiffres selon le réglage « Email OTP
+  Length » ; `src/lib/codeConnexion.ts` les accepte tous), pour l'application installée sur un téléphone : un lien
   touché dans la messagerie s'ouvrirait dans le navigateur, pas dans
   l'application.
 

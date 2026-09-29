@@ -15,9 +15,11 @@
 /**
  * La longueur que le service d'authentification donne à ses codes.
  *
- * Six par défaut ; le réglage va jusqu'à dix. On accepte donc de six à dix
- * chiffres, pour qu'un réglage changé au tableau de bord ne ferme pas la
- * porte sans qu'on touche au code.
+ * Six ou huit selon le projet (le réglage va jusqu'à dix) : on accepte de
+ * six à dix chiffres, et les écrans disent « le code » sans en donner le
+ * nombre — le projet en production en envoie huit, et la porte en annonçait
+ * six. Un réglage changé au tableau de bord ne ferme pas la porte, et ne
+ * rend aucun texte faux.
  */
 export const LONGUEUR_CODE = 6
 const LONGUEUR_MAX = 10

@@ -20,6 +20,7 @@ import { exigerDeuxiemeFacteur } from './auth.js'
 import { envoyerParCabinet, smtpDuCabinet } from './courriel.js'
 import { HttpError } from './errors.js'
 import { levierDuCabinet } from './droits.js'
+import { lienVersLaPage } from '../src/lib/lienDeConnexion.js'
 import { motifExact } from '../src/lib/motifExact.js'
 
 const URL = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? ''
@@ -113,7 +114,7 @@ interface LienNeuf {
   /** Le lien, quand il y en a un — et alors LE COMPTE VIENT D'ÊTRE CRÉÉ. */
   lien: string | null
   /**
-   * Le code à six chiffres qui va avec, quand le service le fournit.
+   * Le code qui va avec, quand le service le fournit.
    *
    * Il ouvre la même porte que le lien, mais se tape là où l'on en a besoin :
    * dans l'espace installé sur l'écran d'accueil d'un iPhone, que le lien —
@@ -157,8 +158,17 @@ async function lienDeConnexion(
     if (!existe) console.error(`[invitation] lien — ${error.status ?? ''} ${error.message}`)
     return { lien: null, code: null, existe }
   }
-  const proprietes = (data as { properties?: { action_link?: string; email_otp?: string } } | null)?.properties
-  return { lien: proprietes?.action_link ?? null, code: proprietes?.email_otp || null, existe: false }
+  const proprietes = (
+    data as { properties?: { action_link?: string; email_otp?: string; hashed_token?: string } } | null
+  )?.properties
+  /* Le lien mène à la page du cabinet, pas à la base : même raison que les
+     courriels de la plateforme (src/lib/lienDeConnexion.ts). Sans page
+     d'arrivée connue, le lien de la base reste le seul possible. */
+  const lien =
+    redirectTo && proprietes?.hashed_token
+      ? lienVersLaPage(redirectTo, proprietes.hashed_token, 'invite')
+      : (proprietes?.action_link ?? null)
+  return { lien, code: proprietes?.email_otp || null, existe: false }
 }
 
 /**
@@ -210,7 +220,7 @@ export function modeleSelonRole(role: string | null | undefined): Exclude<Invite
 /**
  * Le courriel d'invitation, en marque blanche. Rien d'un dossier n'y figure.
  *
- * `code` : le code à six chiffres fabriqué avec le lien, quand le service l'a
+ * `code` : le code fabriqué avec le lien, quand le service l'a
  * rendu. Il ouvre la même porte, à la main — c'est la seule qui s'ouvre
  * depuis l'espace installé sur un iPhone, où le lien mène à Safari et laisse
  * l'application déconnectée. Le libellé cité est celui de la porte
