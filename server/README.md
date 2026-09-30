@@ -18,7 +18,8 @@ des deux le sert :
 | --- | --- | --- |
 | `/api/ai/{session-draft,module,affirmations,profile,hypnose}` | `ai.ts` | les cinq analyses |
 | `/api/integrations` | `integrations.ts` | clés Anthropic et Stripe, agenda, boutique |
-| `/api/cabinet?volet=…` | `cabinet.ts` | offre, domaine, envoi de courriels, site vitrine |
+| `/api/cabinet?volet=…` | `cabinet.ts` | offre, domaine, envoi de courriels, site vitrine, notes d'honoraires, jetons |
+| `/api/revendeur` | `revendeur.ts` | les jetons du revendeur : sa clé, son Stripe, son barème, ses recharges |
 | `/api/shop` | `shop.ts` | paiement d'un produit, et sa vérification |
 | `/api/invitations` | `invitations.ts` | le courriel qui porte le lien de connexion |
 
@@ -43,9 +44,19 @@ au nom de l'appelant, sous la RLS, et celui qui porte la clé de service,
 réservé aux écritures que la base refuse au navigateur.
 
 `droits.ts` lit ensuite ce que l'offre du cabinet ouvre — plafond de fiches,
-boutique, marque blanche, site vitrine — en appelant `cabinet_droits()`. La
-règle est calculée en base et nulle part ailleurs : deux endroits qui
-décideraient du même droit finiraient par ne plus être d'accord.
+boutique, marque blanche, site vitrine, hypnose — en appelant
+`cabinet_droits()`. La règle est calculée en base et nulle part ailleurs :
+deux endroits qui décideraient du même droit finiraient par ne plus être
+d'accord.
+
+`jetons.ts` décide qui paie une analyse (0065). Tant que le revendeur n'a pas
+activé les jetons ET posé sa clé, c'est la clé du cabinet, comme toujours.
+Sinon, la clé du revendeur paie, et chaque appel est réservé en jetons avant
+de partir (`jetons_debiter`), confirmé s'il produit, rendu s'il échoue. Les
+forfaits — les consignes et le profil d'une séance payée, les mouvements
+d'une hypnose — sont calculés ici, sur des identifiants que la base reconnaît
+au cabinet. Les recharges et le pass Hypnose se paient sur le compte Stripe
+du revendeur ; la commande est relue chez Stripe au retour, sans webhook.
 
 
 ## Variables d'environnement

@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase'
 import { seFaitParLePatient } from '@/lib/typesDeModules'
 import { allModules, isModuleDone, profileOf, scaleSeries } from '@/state/selectors'
 import type { AppState } from '@/state/state'
+import type { JetonsDeLAppel } from '@/types/jetons'
 import type {
   ContextJournalEntry,
   ContextModule,
@@ -125,6 +126,23 @@ interface Envelope<T> {
   mock?: boolean
   data?: T
   error?: string
+  /** En mode jetons : ce que l'appel a coûté, et ce qui reste. Absent sinon. */
+  jetons?: JetonsDeLAppel
+}
+
+/**
+ * L'évènement que chaque analyse payée en jetons émet sur `window`, avec
+ * `{ solde, utilises }` pour détail : le compteur de l'écran se met à jour
+ * sans relire la base, d'où que parte l'analyse.
+ */
+export const EVENEMENT_JETONS = 'klaro:jetons'
+
+/** Annonce les jetons d'un appel. Rien hors d'un navigateur (épreuves, rendu serveur). */
+function annoncerJetons(jetons: JetonsDeLAppel): void {
+  if (typeof window === 'undefined' || typeof CustomEvent !== 'function') return
+  window.dispatchEvent(
+    new CustomEvent<JetonsDeLAppel>(EVENEMENT_JETONS, { detail: { solde: jetons.solde, utilises: jetons.utilises } }),
+  )
 }
 
 /**
@@ -197,6 +215,7 @@ async function post<T>(route: string, body: unknown, fallback: string): Promise<
     throw new AiError(payload?.error ?? messageDeLHebergeur(response.status) ?? fallback)
   }
   dernierEstMaquette = payload.mock === true
+  if (payload.jetons && typeof payload.jetons.utilises === 'number') annoncerJetons(payload.jetons)
   return payload.data
 }
 
@@ -211,6 +230,12 @@ export interface SessionDraftInput {
   notes: string
   /** Les rayons de la bibliothèque d'audios du cabinet. */
   categories: string[]
+  /**
+   * La séance en base, quand il y en a une. En mode jetons, c'est elle qui
+   * ouvre le forfait : les consignes et une actualisation du profil qui la
+   * citent ne se repaient pas.
+   */
+  sessionId?: string | null
 }
 
 /** Brouillon de note de séance. */
@@ -236,6 +261,8 @@ export interface ModuleInput {
    * écrire pour quelqu'un.
    */
   context?: PatientContext
+  /** La séance dont ce module est une consigne : comprise dans son forfait (mode jetons). */
+  sessionId?: string | null
 }
 
 /** Module sur mesure, depuis le brief de l'atelier. */
@@ -260,6 +287,8 @@ export interface ProfileInput {
   synthese: string
   /** Transcription de la dernière séance, si elle existe. */
   transcript: string
+  /** La séance qui vient d'être analysée : l'actualisation qui la suit est comprise (mode jetons). */
+  sessionId?: string | null
 }
 
 /** Profil psychologique actualisé. */
@@ -290,6 +319,11 @@ export interface HypnoseInput {
   synthese: string
   /** Ce que la thérapeute veut travailler, si elle le précise. */
   intention: string
+  /**
+   * L'hypnose ouverte en base avant l'écriture (useEcritureHypnose). En mode
+   * jetons, elle relie les quatre mouvements : l'hypnose se paie une fois.
+   */
+  hypnoseId?: string | null
 }
 
 export interface MouvementEcrit {

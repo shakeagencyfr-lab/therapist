@@ -18,7 +18,19 @@ import Anthropic from '@anthropic-ai/sdk'
 import { HttpError } from './errors.js'
 import { baseConfiguree, clientAdmin, identifierPourGesteSensible, type Appelant } from './auth.js'
 import { cleAnthropicDuCabinet } from './integrations.js'
-import { abonnementEnRegle } from './droits.js'
+import { abonnementEnRegle, hypnoseOuverte, REFUS_HYPNOSE } from './droits.js'
+import {
+  confirmer,
+  coutDeLAppel,
+  facturationDuCabinet,
+  jetonsDeLAppel,
+  recherchesPour,
+  rembourser,
+  reserver,
+  soldeDuCabinet,
+  type Facturation,
+} from './jetons.js'
+import type { JetonsDeLAppel } from '../src/types/jetons.js'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import type { ZodType } from 'zod'
 
@@ -172,7 +184,8 @@ function mockMode(): boolean {
 }
 
 /**
- * D'où vient la clé d'un appel : DU CABINET, et de nulle part ailleurs.
+ * D'où vient la clé d'un appel : DU CABINET — ou, en mode jetons, de son
+ * revendeur (server/jetons.ts). De nulle part ailleurs.
  *
  * C'est le modèle vendu — l'abonnement paie l'outil, la clé paie l'analyse —
  * et c'était aussi, jusqu'ici, une simple préférence : faute de clé propre,
@@ -187,7 +200,11 @@ function mockMode(): boolean {
  */
 export interface Cle {
   apiKey: string
-  source: 'cabinet'
+  /**
+   * « revendeur » : le mode jetons (0065). La clé qui paie est celle du
+   * revendeur, et ses refus ne se corrigent pas dans l'onglet du cabinet.
+   */
+  source: 'cabinet' | 'revendeur'
 }
 
 async function resoudreCle(cabinetId: string | null): Promise<Cle | null> {
@@ -378,6 +395,24 @@ async function callClaude<T>({ route, schema, system, prompt, maxTokens, cle }: 
         "Le crédit de votre clé Anthropic est épuisé. Rechargez-le depuis votre compte Anthropic (rubrique Billing), puis relancez : rien n'a été analysé.",
       )
     }
+    /* EN MODE JETONS, LA CLÉ EST CELLE DU REVENDEUR. Sa panne n'est ni à la
+       praticienne ni à ses jetons : elle se dit au revendeur, et les jetons
+       réservés sont rendus (analyserEnJetons). */
+    if (
+      cle?.source === 'revendeur' &&
+      (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError)
+    ) {
+      throw new HttpError(
+        502,
+        "La clé d'analyse de votre revendeur a été refusée : prévenez-le, c'est un réglage de son espace. Rien n'a été analysé, et vos jetons vous sont rendus.",
+      )
+    }
+    if (cle?.source === 'revendeur' && err instanceof Anthropic.BadRequestError && /credit balance/i.test(err.message)) {
+      throw new HttpError(
+        502,
+        "Le compte d'analyse de votre revendeur est à court de crédit : prévenez-le. Rien n'a été analysé, et vos jetons vous sont rendus.",
+      )
+    }
     throw err
   }
 
@@ -497,10 +532,16 @@ export type AiRoute = 'session-draft' | 'module' | 'affirmations' | 'profile' | 
 
 export const AI_ROUTES: AiRoute[] = ['session-draft', 'module', 'affirmations', 'profile', 'hypnose']
 
-/** Enveloppe de réponse : les données, et le drapeau du mode maquette. */
+/**
+ * Enveloppe de réponse : les données, et le drapeau du mode maquette.
+ *
+ * En mode jetons, elle dit aussi ce que l'appel a coûté et ce qui reste —
+ * une clé de plus, absente sinon : un client d'avant l'ignore.
+ */
 export interface AiResult {
   mock: boolean
   data: unknown
+  jetons?: JetonsDeLAppel
 }
 
 async function sessionDraft(body: Partial<SessionDraftBody>, cle: Cle | null): Promise<Produit<unknown>> {
@@ -841,8 +882,9 @@ export async function handleAi(route: AiRoute, raw: unknown, token: string | nul
     )
   }
 
-  // Hors maquette, il faut la clé DU CABINET. Sans elle, le refus est dit
-  // avant tout travail — il n'y a plus de repli qui ferait payer la plateforme.
+  // Hors maquette, il faut la clé DU CABINET — ou les jetons de son revendeur.
+  // Sans l'une ni les autres, le refus est dit avant tout travail : il n'y a
+  // plus de repli qui ferait payer la plateforme.
   return analyserPourCabinet(route, body, appelant?.cabinetId ?? null)
 }
 
@@ -852,8 +894,9 @@ export async function handleAi(route: AiRoute, raw: unknown, token: string | nul
  * C'est ce dont a besoin une tâche planifiée — les affirmations du lundi — :
  * elle n'a pas de jeton d'appelant à présenter, seulement un cabinet et un
  * dossier. Elle ne contourne rien pour autant : la clé reste celle du
- * cabinet, la consommation est inscrite à son compte, et le refus faute de
- * clé est le même qu'à l'écran.
+ * cabinet (ou de son revendeur, jetons décomptés), la consommation est
+ * inscrite à son compte, et le refus faute de clé ou de jetons est le même
+ * qu'à l'écran.
  */
 export async function analyserPourCabinet(
   route: AiRoute,
@@ -872,7 +915,22 @@ export async function analyserPourCabinet(
         "Votre abonnement n'est plus en cours : l'analyse est suspendue. Vos dossiers restent accessibles, et votre revendeur peut réactiver l'offre.",
       )
     }
+    /* L'HYPNOSE EST UNE OPTION (0065) : comprise dans l'offre, accordée par
+       exception, ou achetée pour un temps. Refusée avant toute dépense, dans
+       les deux modes — la clé du cabinet ne l'ouvre pas plus que les jetons. */
+    if (db && route === 'hypnose' && !(await hypnoseOuverte(cabinetId, db))) {
+      throw new HttpError(403, REFUS_HYPNOSE)
+    }
   }
+
+  /* QUI PAIE. Hors maquette, le revendeur décide : sa clé et des jetons, ou
+     la clé de chaque cabinet. Ce second cas est le chemin d'avant, inchangé. */
+  const facturation: Facturation =
+    mock || !cabinetId ? { mode: 'cle_cabinet' } : await facturationDuCabinet(cabinetId, clientAdmin())
+  if (facturation.mode === 'jetons' && cabinetId) {
+    return analyserEnJetons(route, body, cabinetId, facturation)
+  }
+
   const cle = mock ? null : await resoudreCle(cabinetId)
   if (!mock) client(cle)
 
@@ -883,6 +941,44 @@ export async function analyserPourCabinet(
   }
 
   return { mock, data: produit.data }
+}
+
+/**
+ * L'analyse en mode jetons : la clé du revendeur, et le prix de l'appel.
+ *
+ * Les jetons sont RÉSERVÉS avant l'appel — deux analyses lancées ensemble ne
+ * passent pas sur un solde qui n'en couvre qu'une —, CONFIRMÉS quand l'appel
+ * a produit, RENDUS s'il a échoué, quelle qu'en soit la raison : un corps mal
+ * formé, un refus du modèle, une sortie coupée. Ce qui n'a rien produit ne
+ * se paie pas.
+ */
+async function analyserEnJetons(
+  route: AiRoute,
+  body: Record<string, unknown>,
+  cabinetId: string,
+  facturation: Extract<Facturation, { mode: 'jetons' }>,
+): Promise<AiResult> {
+  const db = clientAdmin()
+  if (!db) {
+    throw new HttpError(503, "Le serveur n'a pas sa clé de service : il ne peut pas décompter les jetons. Rien n'a été produit.")
+  }
+  const cle: Cle = { apiKey: facturation.cle, source: 'revendeur' }
+  const cout = await coutDeLAppel(route, body, facturation.bareme, recherchesPour(cabinetId, db))
+  const reservation = await reserver(cabinetId, cout, facturation, db)
+
+  let produit: Produit<unknown>
+  try {
+    produit = await produire(route, body, cle)
+  } catch (err) {
+    await rembourser(reservation, db)
+    throw err
+  }
+  await confirmer(reservation, db)
+
+  if (produit.usage) {
+    await compter(route, cabinetId, produit.usage)
+  }
+  return { mock: false, data: produit.data, jetons: jetonsDeLAppel(cout, await soldeDuCabinet(cabinetId, db)) }
 }
 
 function produire(route: AiRoute, body: Record<string, unknown>, cle: Cle | null): Promise<Produit<unknown>> {

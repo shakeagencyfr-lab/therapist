@@ -211,10 +211,19 @@ const LEVIERS_DITS: Record<string, { nom: string; feminin: boolean }> = {
   shop: { nom: 'boutique', feminin: true },
   marque_blanche: { nom: 'marque blanche', feminin: true },
   site: { nom: 'site vitrine', feminin: false },
+  // 0065 : l'exception d'hypnose, et l'hypnose comprise dans une offre.
+  hypnose: { nom: 'hypnose', feminin: true },
+  hypnose_incluse: { nom: 'hypnose', feminin: true },
+}
+
+/** « 800 jetons par mois ». */
+function forfaitDit(valeur: unknown): string {
+  return `${plural(Number(valeur ?? 0), 'jeton', 'jetons')} par mois`
 }
 
 function exceptionDite(champ: string, valeur: unknown): string {
   if (champ === 'max_patients') return valeur === null ? "selon l'offre" : plural(Number(valeur), 'fiche', 'fiches')
+  if (champ === 'jetons_mois') return valeur === null ? "selon l'offre" : forfaitDit(valeur)
   const f = LEVIERS_DITS[champ]?.feminin ?? false
   if (valeur === null) return "selon l'offre"
   return valeur ? (f ? 'ouverte' : 'ouvert') : f ? 'fermée' : 'fermé'
@@ -224,6 +233,7 @@ function reglageDit(champ: string, valeur: unknown): string {
   if (champ === 'price_cents') return typeof valeur === 'number' ? euroCents(valeur) : '—'
   if (champ === 'max_patients') return valeur === null ? 'sans limite' : plural(Number(valeur), 'fiche', 'fiches')
   if (champ === 'label') return `« ${String(valeur ?? '')} »`
+  if (champ === 'jetons_mois') return forfaitDit(valeur)
   const f = LEVIERS_DITS[champ]?.feminin ?? false
   return valeur ? (f ? 'comprise' : 'compris') : f ? 'non comprise' : 'non compris'
 }
@@ -235,6 +245,8 @@ const NOMS_REGLAGES: Record<string, string> = {
   shop: 'boutique',
   marque_blanche: 'marque blanche',
   site: 'site vitrine',
+  jetons_mois: 'forfait',
+  hypnose_incluse: 'hypnose',
 }
 
 /**
@@ -268,10 +280,18 @@ export function phraseDuJournal(e: EntreeJournal, nomOffre: (code: string) => st
       const { avant, apres } = paire(m)
       return `${qui} : échéance ${dateDite(avant)} → ${dateDite(apres)}.`
     }
+    /* Le pass Hypnose (0065) : un achat, ou un geste du revendeur. */
+    case 'contrat.option_hypnose': {
+      const { avant, apres } = paire(m)
+      if (!apres) return `${qui} : option Hypnose retirée.`
+      if (!avant) return `${qui} : option Hypnose ouverte jusqu'au ${dateDite(apres)}.`
+      return `${qui} : option Hypnose ${dateDite(avant)} → ${dateDite(apres)}.`
+    }
     case 'contrat.exception': {
       const parties = Object.entries(m).map(([champ, v]) => {
         const { avant, apres } = paire((v ?? {}) as Record<string, unknown>)
-        const nom = champ === 'max_patients' ? 'plafond' : (LEVIERS_DITS[champ]?.nom ?? champ)
+        const nom =
+          champ === 'max_patients' ? 'plafond' : champ === 'jetons_mois' ? 'forfait' : (LEVIERS_DITS[champ]?.nom ?? champ)
         return `${nom} ${exceptionDite(champ, avant)} → ${exceptionDite(champ, apres)}`
       })
       return `${qui} : exception — ${parties.join(' ; ')}.`

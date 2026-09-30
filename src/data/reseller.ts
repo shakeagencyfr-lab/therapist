@@ -14,7 +14,7 @@ import type {
   Subscription,
 } from '@/types/reseller'
 
-/** Les trois offres. Mêmes valeurs que la table `plans` (migration 0003). */
+/** Les trois offres. Mêmes valeurs que la table `plans` (migrations 0003, 0019 et 0065). */
 export const PLANS: Plan[] = [
   {
     code: 'essentiel',
@@ -24,6 +24,8 @@ export const PLANS: Plan[] = [
     shop: true,
     marqueBlanche: false,
     site: false,
+    jetonsMois: 300,
+    hypnoseIncluse: false,
     includes: [
       'Fiches patients et parcours hebdomadaire',
       'Bibliothèque audio du cabinet',
@@ -38,6 +40,8 @@ export const PLANS: Plan[] = [
     shop: true,
     marqueBlanche: true,
     site: true,
+    jetonsMois: 800,
+    hypnoseIncluse: false,
     includes: [
       "Tout l'Essentiel",
       'Marque blanche totale : son domaine et ses courriels',
@@ -52,6 +56,8 @@ export const PLANS: Plan[] = [
     shop: true,
     marqueBlanche: true,
     site: true,
+    jetonsMois: 2000,
+    hypnoseIncluse: true,
     includes: [
       'Tout le Cabinet',
       'Plusieurs praticiennes par cabinet',
@@ -146,6 +152,9 @@ const SANS_EXCEPTION = {
   shopOverride: null,
   marqueBlancheOverride: null,
   siteOverride: null,
+  jetonsMoisOverride: null,
+  hypnoseOverride: null,
+  hypnoseJusquAu: null,
 } as const
 
 export const SUBSCRIPTIONS: Record<CabinetId, Subscription> = {

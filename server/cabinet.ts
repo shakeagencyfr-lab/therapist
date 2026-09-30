@@ -1,9 +1,9 @@
 /**
  * Les réglages du cabinet, derrière une seule route.
  *
- * Cinq volets — l'offre, le domaine, l'envoi de courriels, le site vitrine,
- * l'envoi des notes d'honoraires — servis par une porte unique plutôt que
- * par cinq fonctions. Ce n'est pas de l'économie de style : l'hébergement
+ * Six volets — l'offre, le domaine, l'envoi de courriels, le site vitrine,
+ * l'envoi des notes d'honoraires, les jetons d'analyse — servis par une
+ * porte unique plutôt que par six fonctions. Ce n'est pas de l'économie de style : l'hébergement
  * plafonne le nombre de fonctions, et des volets qui se lisent chacun une
  * fois par écran n'ont pas besoin d'autant de déploiements séparés.
  *
@@ -17,8 +17,9 @@ import { etatDomaine, poserDomaine, retirerDomaine, verifierDomaine } from './do
 import { essayerSmtp, etatSmtp, reglerSmtp, retirerSmtp } from './courriel.js'
 import { chercherFicheGoogle, depublierSite, enregistrerSite, etatSite, importerFicheGoogle } from './sites.js'
 import { envoyerNoteHonoraires, etatEnvoiNotes } from './honoraires.js'
+import { demarrerAchatJetons, etatJetons, verifierAchatJetons } from './jetons.js'
 
-export const VOLETS = ['droits', 'domaine', 'smtp', 'site', 'honoraires'] as const
+export const VOLETS = ['droits', 'domaine', 'smtp', 'site', 'honoraires', 'jetons'] as const
 export type Volet = (typeof VOLETS)[number]
 
 function volet(valeur: unknown): Volet | null {
@@ -55,11 +56,19 @@ export async function lireVolet(valeur: unknown, token: string | null): Promise<
       return etatSite(token)
     case 'honoraires':
       return etatEnvoiNotes(token)
+    case 'jetons':
+      return etatJetons(token)
   }
 }
 
-/** Action sur un volet. Le corps porte `volet` et `action`. */
-export async function agirVolet(raw: unknown, token: string | null): Promise<unknown> {
+/**
+ * Action sur un volet. Le corps porte `volet` et `action`.
+ *
+ * `hote` : l'hôte de la requête, pour qu'un achat de jetons ramène la
+ * praticienne là d'où elle est partie (server/jetons.ts). Il ne choisit
+ * qu'entre des adresses que le serveur connaît déjà.
+ */
+export async function agirVolet(raw: unknown, token: string | null, hote: string | null = null): Promise<unknown> {
   const body = (raw && typeof raw === 'object' ? raw : {}) as { volet?: string; action?: string }
   const action = String(body.action ?? '')
   const nom = volet(body.volet)
@@ -84,6 +93,10 @@ export async function agirVolet(raw: unknown, token: string | null): Promise<unk
       break
     case 'honoraires':
       if (action === 'envoyer') return envoyerNoteHonoraires(token, body)
+      break
+    case 'jetons':
+      if (action === 'acheter') return demarrerAchatJetons(token, body, hote)
+      if (action === 'verifier') return verifierAchatJetons(token, body)
       break
     case 'droits':
       // L'offre se règle depuis l'espace du revendeur, pas depuis celui du

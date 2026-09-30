@@ -192,3 +192,42 @@ export async function exigerTitulaire(appelant: Appelant, cabinetId: string, ges
   if (error) throw new HttpError(502, "Vos droits n'ont pas pu être vérifiés. Réessayez dans un instant.")
   if (data !== true) throw new HttpError(403, `${geste} est réservé à la personne titulaire du cabinet.`)
 }
+
+/** Le revendeur de l'appelant, ou 403 : cette fonction est celle d'un revendeur. */
+export function exigerRevendeur(appelant: Appelant): string {
+  if (!appelant.resellerId) {
+    throw new HttpError(403, "Cette fonction est réservée à l'espace d'un revendeur.")
+  }
+  return appelant.resellerId
+}
+
+/**
+ * L'appelant est-il membre de ce revendeur — second facteur compris ?
+ *
+ * `my_context()` reconnaît l'appartenance à « aal1 » : c'est ce qui permet à
+ * l'écran de demander le code. Ce qui se lit avec la clé de service doit donc
+ * repasser par la base (`is_reseller_member`, 0063), qui tient la même règle
+ * que pour les tables du revendeur.
+ */
+export async function exigerMembreDuRevendeur(appelant: Appelant, resellerId: string): Promise<void> {
+  const { data, error } = await appelant.client.rpc('is_reseller_member', { p_reseller: resellerId })
+  if (error) throw new HttpError(502, "Vos droits n'ont pas pu être vérifiés. Réessayez dans un instant.")
+  if (data !== true) {
+    throw new HttpError(403, "Les réglages de ce revendeur ne vous sont pas ouverts : donnez votre code de connexion, puis rechargez.")
+  }
+}
+
+/**
+ * Le geste est réservé au PROPRIÉTAIRE du revendeur.
+ *
+ * Brancher la clé qui paie l'analyse de tous les cabinets, le compte Stripe
+ * qui encaisse leurs recharges, fixer ce que coûte chaque action : c'est
+ * l'argent de l'enseigne, comme le catalogue des offres (0049) — pas celui
+ * d'un membre de l'équipe. La base tranche (`is_reseller_owner`, second
+ * facteur compris).
+ */
+export async function exigerProprietaireDuRevendeur(appelant: Appelant, resellerId: string, geste: string): Promise<void> {
+  const { data, error } = await appelant.client.rpc('is_reseller_owner', { p_reseller: resellerId })
+  if (error) throw new HttpError(502, "Vos droits n'ont pas pu être vérifiés. Réessayez dans un instant.")
+  if (data !== true) throw new HttpError(403, `${geste} est réservé au propriétaire du compte revendeur.`)
+}

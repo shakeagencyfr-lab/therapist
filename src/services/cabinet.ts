@@ -34,6 +34,8 @@ export interface Droits {
   ferme?: boolean
   /** Depuis quand. */
   fermeLe?: string | null
+  /** L'hypnose personnalisée est-elle ouverte (0065) : offre, exception ou pass en cours. */
+  hypnose?: boolean
 }
 
 /* ---- Le domaine --------------------------------------------------------- */

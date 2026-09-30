@@ -214,6 +214,10 @@ export function useEcritureHypnose(): EcritureHypnose {
             themes: ch.brouillon.themes ?? [],
             synthese: ch.brouillon.synthese ?? '',
             intention: ch.intention,
+            /* La ligne est ouverte juste au-dessus, AVANT le premier appel : en
+               mode jetons, c'est elle qui fait payer l'hypnose une fois, et
+               non quatre. */
+            hypnoseId: ch.hypnoseId,
           },
           async (ecrit, rang) => {
             poser([...acquis.current, ecrit])

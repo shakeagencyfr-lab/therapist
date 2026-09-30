@@ -127,8 +127,11 @@ Relevé du 28 septembre 2026 (base `koytgcbpeorupdklswxd`).
 | `0062_les_rappels_suivent_le_compte_et_le_cabinet.sql` | 20260929092505 | 0062_les_rappels_suivent_le_compte_et_le_cabinet |
 | `0063_le_pentest_referme.sql` | 20260929104448 | 0063_le_pentest_referme |
 | `0064_la_note_part_par_courriel.sql` | 20260929131737 | 0064_la_note_part_par_courriel |
+| `0065_les_jetons.sql` | 20260930081336 | 0065_les_jetons |
 
 `0060` (demandes d'essai) a été appliquée avant `0055` à `0059` : elles ne se touchent pas.
+
+`0065` (les jetons) a été appliquée après `0067` : elles ne se touchent pas.
 
 Les écarts, et ce qu'ils recouvrent — le contenu, lui, est en place :
 
@@ -248,12 +251,24 @@ persiste, et le message dit ce qui a été vérifié.
   dates d'encaissement et de remboursement (deux index partiels). Les ventes
   d'une fiche supprimée partent avec elle (`on delete cascade` de `0010`,
   inchangé) : l'écran invite à exporter avant.
-- **Un solde de crédits ne s'écrit pas, il se somme.** `credit_ledger` est en
-  ajout seul, et `insert`, `update`, `delete` y sont révoqués pour le rôle
-  authentifié : seul le serveur y écrit. Une thérapeute ne peut donc pas se
-  créditer, ni effacer une consommation, et chaque mouvement garde sa raison.
-  `cabinet_credit_balance()` fait la somme ; `cabinet_ai_billing()` rend au
-  cabinet son mode, son solde et son découvert — rien du revendeur.
+- **Un solde de crédits ne s'écrit pas, il se somme** (`0016`, aujourd'hui
+  inerte : ses fonctions sont retirées depuis `0038`, ses tables restent vides
+  et intactes). Les jetons de `0065` l'ont remplacé sans le déterrer.
+- **Les jetons sont des lots, et aucun navigateur n'en écrit un** (`0065`).
+  Le mode ne vaut que si le revendeur l'a activé ET a posé sa clé Anthropic
+  (`jetons_mode_actif`) ; sinon chaque cabinet garde sa clé, et rien ne se
+  verse. Le forfait du mois (`plans.jetons_mois`, ou l'exception du contrat)
+  est versé paresseusement par `jetons_assurer_periode` et expire au premier
+  du mois suivant (Europe/Paris) ; l'essai reçoit un lot unique qui expire
+  avec lui. Le serveur réserve avant l'appel (`jetons_debiter`, verrou par
+  cabinet, SQLSTATE `KL402` quand le solde manque), confirme après, rend en
+  cas d'échec (`jetons_rembourser`, lot par lot). Une commande Stripe ne se
+  dit payée que par `jetons_encaisser`, qui passe la commande et verse la
+  recharge — ou prolonge le pass Hypnose — d'un seul geste, une seule fois.
+  Toutes ces fonctions sont au rôle de service seul ; le cabinet lit son état
+  par `cabinet_jetons()`. L'hypnose devient une option (`hypnose_ouverte`,
+  et la clé `hypnose` de `cabinet_droits`) ; les cabinets qui en avaient déjà
+  écrit une la gardent par exception (`hypnose_override = true`).
 - **`reseller_secrets` n'a ni politique ni droit pour `authenticated`**, comme
   `cabinet_secrets` (0009) : la clé Anthropic et la clé Stripe du revendeur
   vivent chiffrées, et ne sortent que côté serveur. `reseller_ai_settings` se

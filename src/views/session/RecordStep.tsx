@@ -230,6 +230,8 @@ export function RecordStep() {
         transcript,
         notes,
         categories: now.cats,
+        // La séance en base : en mode jetons, elle ouvre le forfait de ses consignes.
+        sessionId: now.sessionId,
       })
       const maquette = derniereReponseEstMaquette()
       set({

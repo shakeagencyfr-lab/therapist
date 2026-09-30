@@ -201,6 +201,8 @@ export function DraftStep() {
     setEnvoi('en-cours')
     setEchecEnvoi('')
     const retenues = proposals.filter((_, i) => !state.proposalOff[i])
+    // La séance envoyée : ses consignes sont comprises dans son forfait (mode jetons).
+    const seance = state.sessionId
     void cabinet
       .envoyerSeance(state.sessionId, key, {
         modules: retained,
@@ -231,7 +233,7 @@ export function DraftStep() {
         /* Les consignes s'écrivent APRÈS, et le savoir change la conduite à
            tenir en cas d'échec : la séance, les modules et les audios sont
            déjà en place, il ne manquerait que du texte. */
-        void consignes.ecrire(key, r.modules ?? [], retenues)
+        void consignes.ecrire(key, r.modules ?? [], retenues, seance)
       })
   }
 
@@ -323,6 +325,8 @@ export function DraftStep() {
         notes: now.sessionNotes.trim(),
         synthese: now.draft?.synthese ?? '',
         transcript: now.transcript.trim(),
+        // Depuis la séance de cette fiche : une actualisation comprise dans son forfait.
+        sessionId: now.sessionPatient === key ? now.sessionId : null,
       })
       const next: PsychProfile = {
         updated: "Actualisé à l'instant, depuis la dernière séance",

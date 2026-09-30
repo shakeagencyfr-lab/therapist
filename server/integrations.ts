@@ -175,7 +175,7 @@ async function ecrire(
  * Éprouve une clé Anthropic par un appel réel, le moins cher qui existe :
  * lire la fiche du modèle. Une clé refusée l'est ici, pas en séance.
  */
-async function eprouverAnthropic(apiKey: string): Promise<void> {
+export async function eprouverAnthropic(apiKey: string): Promise<void> {
   const client = new Anthropic({ apiKey })
   try {
     // Le modèle des analyses (MODELE_ANALYSE, server/ai.ts — ai.ts importe ce
@@ -199,7 +199,7 @@ async function eprouverAnthropic(apiKey: string): Promise<void> {
  * nom, pour que l'écran dise « connecté à Cabinet Ollivier (FR) » plutôt
  * que « une clé est enregistrée ».
  */
-async function eprouverStripe(secretKey: string): Promise<string> {
+export async function eprouverStripe(secretKey: string): Promise<string> {
   const stripe = new Stripe(secretKey)
   try {
     const compte = await stripe.accounts.retrieve()

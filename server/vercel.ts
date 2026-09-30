@@ -22,6 +22,8 @@ export function aiFunction(route: AiRoute) {
       return
     }
     try {
+      /* L'enveloppe telle quelle : { mock, data } — et, en mode jetons,
+         { jetons: { utilises, solde } }, que l'écran relaie (aiClient). */
       res.status(200).json(await handleAi(route, req.body, jetonDe(req.headers.authorization)))
     } catch (err) {
       const { status, message } = describeError(err)
