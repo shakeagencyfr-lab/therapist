@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Suivi entre-séances pour thérapeutes — Cabinet Laetitia Ollivier",
+  "description": "Suivi entre-séances pour thérapeutes — Cabinet Hélène Marchal",
   "scripts": {
     "dev": "concurrently -n web,api -c cyan,magenta \"vite\" \"npm run dev:server\"",
     "dev:web": "vite",

@@ -40,13 +40,13 @@ begin
 
   -- 1. Elle publie sa marque.
   update public.cabinets
-     set name = 'Cabinet Laetitia', tagline = 'Hypnothérapie',
+     set name = 'Cabinet Hélène', tagline = 'Hypnothérapie',
          branding = '{"accent":"#2F6F62","accentHover":"#275C51","accentDeep":"#1F4A41","dark":"#1B2A26","logo":"CL"}'::jsonb
    where id = v_cab;
   if not found then raise exception 'ECHEC : la praticienne ne peut pas publier la marque de son cabinet'; end if;
 
   select name into v_nom from public.cabinets where id = v_cab;
-  if v_nom is distinct from 'Cabinet Laetitia' then raise exception 'ECHEC : la marque publiée ne se relit pas (%)', v_nom; end if;
+  if v_nom is distinct from 'Cabinet Hélène' then raise exception 'ECHEC : la marque publiée ne se relit pas (%)', v_nom; end if;
 
   -- 2. Le cabinet d'à côté ne bouge pas : la RLS ne rend aucune ligne à écrire.
   update public.cabinets set name = 'Détourné' where id = v_autre;

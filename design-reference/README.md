@@ -1,4 +1,4 @@
-# Handoff : Suivi entre-séances pour thérapeutes (Cabinet Laetitia Ollivier)
+# Handoff : Suivi entre-séances pour thérapeutes (Cabinet Hélène Marchal)
 
 ## Overview
 Application de suivi entre les séances d'hypnothérapie. Elle relie deux espaces :

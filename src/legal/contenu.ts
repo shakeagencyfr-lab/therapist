@@ -387,7 +387,7 @@ const CONFIDENTIALITE: PageLegale = {
         },
         {
           type: 'paragraphe',
-          texte: `Seuls disposent d’un accès technique à la base — un accès d’administration, nécessaire à sa maintenance : l’exploitante, ${EXPLOITANTE}, et le prestataire technique qui développe et administre la plateforme pour le compte de l’éditrice, lié par un engagement de confidentialité ; ce prestataire est un sous-traitant ultérieur, désigné comme tel dans l’accord de sous-traitance, et son identité et ses coordonnées sont communiquées à tout cabinet qui en fait la demande. Ils ne consultent pas les dossiers. Un accès exceptionnel au contenu d’un dossier n’a lieu que sur la demande écrite du cabinet — pour l’aider à résoudre un incident — ou pour répondre à une obligation légale ; il se limite au strict nécessaire et il est consigné : qui, quand, pourquoi.`,
+          texte: `Seuls disposent d’un accès technique à la base — un accès d’administration, nécessaire à sa maintenance : ${EXPLOITANTE} et le prestataire technique qui développe et administre la plateforme pour le compte de l’éditrice, lié par un engagement de confidentialité ; ce prestataire est un sous-traitant ultérieur, désigné comme tel dans l’accord de sous-traitance, et son identité et ses coordonnées sont communiquées à tout cabinet qui en fait la demande. Ils ne consultent pas les dossiers. Un accès exceptionnel au contenu d’un dossier n’a lieu que sur la demande écrite du cabinet — pour l’aider à résoudre un incident — ou pour répondre à une obligation légale ; il se limite au strict nécessaire et il est consigné : qui, quand, pourquoi.`,
         },
         { type: 'paragraphe', texte: 'Le service s’appuie sur les prestataires suivants.' },
         {
@@ -1476,7 +1476,7 @@ const ANNEXE: SectionLegale[] = [
         type: 'liste',
         elements: [
           'ne traiter les données que sur instruction documentée du Client, y compris pour les transferts hors de l’Union européenne, sauf obligation légale dont il l’informe alors, si la loi le permet ; l’avertir immédiatement si une instruction lui paraît enfreindre la réglementation ;',
-          `veiller à ce que les personnes autorisées à traiter les données — l’exploitante, ${EXPLOITANTE}, et, chez le prestataire technique désigné parmi les sous-traitants ultérieurs, les personnes qui administrent la plateforme — soient tenues à la confidentialité, et n’y accèdent que dans la mesure nécessaire ;`,
+          `veiller à ce que les personnes autorisées à traiter les données — ${EXPLOITANTE} et, chez le prestataire technique désigné parmi les sous-traitants ultérieurs, les personnes qui administrent la plateforme — soient tenues à la confidentialité, et n’y accèdent que dans la mesure nécessaire ;`,
           'mettre en œuvre les mesures de sécurité appropriées prévues à l’article 32 du RGPD, décrites dans la politique de confidentialité ;',
           'ne recourir à un sous-traitant ultérieur que dans les conditions ci-dessous, en lui imposant les mêmes obligations de protection des données, et répondre de lui envers le Client ;',
           'aider le Client, par des mesures techniques et organisationnelles appropriées, à répondre aux demandes d’exercice des droits des personnes — l’export d’un dossier et la suppression d’une fiche sont disponibles à l’écran — et lui transmettre sans délai toute demande reçue directement ;',
@@ -1672,7 +1672,7 @@ const MENTIONS: PageLegale = {
             { terme: 'Nom commercial', valeur: NOM_COMMERCIAL },
             {
               terme: 'Forme juridique',
-              valeur: `Entreprise individuelle, sous le régime de la micro-entreprise, exploitée par ${EXPLOITANTE} ; sans capital social.`,
+              valeur: 'Entreprise individuelle (EI), sous le régime de la micro-entreprise ; sans capital social.',
             },
             { terme: 'Siège et établissement', valeur: ADRESSE },
             {
@@ -1697,8 +1697,8 @@ const MENTIONS: PageLegale = {
           type: 'lignes',
           lignes: [
             {
-              terme: 'Directrice de la publication',
-              valeur: `${EXPLOITANTE}, exploitante de ${NOM_COMMERCIAL}.`,
+              terme: 'Direction de la publication',
+              valeur: `L’exploitante de ${NOM_COMMERCIAL}.`,
             },
           ],
         },

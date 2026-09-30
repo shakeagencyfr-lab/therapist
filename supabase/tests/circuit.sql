@@ -26,7 +26,7 @@ declare
 begin
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at) values
     (v_revendeur,'00000000-0000-0000-0000-000000000000','authenticated','authenticated','circuit-revendeur@exemple.fr','',now(),now(),now()),
-    ('bbbb0000-0000-4000-8000-000000000002','00000000-0000-0000-0000-000000000000','authenticated','authenticated','laetitia@exemple.fr','',now(),now(),now()),
+    ('bbbb0000-0000-4000-8000-000000000002','00000000-0000-0000-0000-000000000000','authenticated','authenticated','helene@exemple.fr','',now(),now(),now()),
     ('cccc0000-0000-4000-8000-000000000003','00000000-0000-0000-0000-000000000000','authenticated','authenticated','camille@exemple.fr','',now(),now(),now());
 
   insert into public.resellers (name, slug) values ('Revendeur du circuit', 'revendeur-du-circuit') returning id into v_org;
@@ -41,7 +41,7 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', v_revendeur, 'role','authenticated')::text, true);
 
   insert into public.cabinets (reseller_id, name, slug, tagline)
-  values (v_org, 'Cabinet Laetitia Ollivier', 'laetitia-ollivier', 'Espace thérapie')
+  values (v_org, 'Cabinet Hélène Marchal', 'helene-marchal', 'Espace thérapie')
   returning id into v_cab;
 
   /* Un essai qui court : depuis 0035, c'est lui qui ouvre le droit de créer
@@ -50,7 +50,7 @@ begin
   values (v_cab, 'circuit-cabinet', 'essai', now() + interval '14 days');
 
   insert into public.cabinet_invitations (cabinet_id, email, role, expires_at)
-  values (v_cab, 'laetitia@exemple.fr', 'owner', now() + interval '30 days');
+  values (v_cab, 'helene@exemple.fr', 'owner', now() + interval '30 days');
 
   select count(*) into n from public.patients;
   if n <> 0 then raise exception 'FUITE : le revendeur voit % patients', n; end if;
@@ -62,7 +62,7 @@ begin
 
   perform public.claim_access();
   ctx := public.my_context();
-  if ctx->'cabinet'->>'name' is distinct from 'Cabinet Laetitia Ollivier' then
+  if ctx->'cabinet'->>'name' is distinct from 'Cabinet Hélène Marchal' then
     raise exception 'La praticienne n''a pas rejoint son cabinet : %', ctx;
   end if;
 
@@ -92,7 +92,7 @@ begin
   if ctx->'patient'->>'display_name' is distinct from 'Camille R.' then
     raise exception 'Le patient n''a pas été rattaché à sa fiche : %', ctx;
   end if;
-  if ctx->'patient'->>'cabinet_name' is distinct from 'Cabinet Laetitia Ollivier' then
+  if ctx->'patient'->>'cabinet_name' is distinct from 'Cabinet Hélène Marchal' then
     raise exception 'Mauvais cabinet rattaché : %', ctx;
   end if;
 

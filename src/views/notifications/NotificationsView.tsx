@@ -61,8 +61,8 @@ export function NotificationsView() {
   const aTelephone = (cle: string) => (state.appareils[cle] ?? 0) > 0
   const sansTelephone = cabinetReel ? recipients.filter((row) => !aTelephone(row.key)) : []
 
-  /* L'aperçu porte le nom du cabinet connecté : il montrait « Cabinet Laetitia
-     Ollivier » à tout le monde, c'est-à-dire le nom d'un autre cabinet sur
+  /* L'aperçu porte le nom du cabinet connecté : il montrait « Cabinet Hélène
+     Marchal » à tout le monde, c'est-à-dire le nom d'un autre cabinet sur
      l'écran d'une praticienne. */
   const auth = useMaybeAuth()
   const nomCabinet = auth?.context?.cabinet?.name ?? 'Votre cabinet'

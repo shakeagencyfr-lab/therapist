@@ -47,7 +47,7 @@ begin
   values (v_cab, true, 'Cabinet Contrat', '3 rue des Lilas, Nantes',
           '[{"auteur":"Marc","note":4,"texte":"Trois séances ont suffi.","date":""}]'::jsonb,
           '["claire|une écoute rare."]'::jsonb,
-          'Laetitia Ollivier', 'SIRET 123 456 789 00012');
+          'Hélène Marchal', 'SIRET 123 456 789 00012');
   insert into public.cabinet_settings (cabinet_id, booking_url, booking_mode)
   values (v_cab, 'https://agenda.exemple.fr/cabinet-contrat', 'bouton');
   insert into public.cabinet_domains (cabinet_id, domaine, verifie)
@@ -62,7 +62,7 @@ begin
   if v->>'reservation' is distinct from 'https://agenda.exemple.fr/cabinet-contrat' then
     raise exception 'ECHEC : l''agenda n''est pas rendu (%)', v->>'reservation';
   end if;
-  if v->>'responsable' is distinct from 'Laetitia Ollivier' or v->>'numero_pro' is distinct from 'SIRET 123 456 789 00012' then
+  if v->>'responsable' is distinct from 'Hélène Marchal' or v->>'numero_pro' is distinct from 'SIRET 123 456 789 00012' then
     raise exception 'ECHEC : les mentions légales ne sont pas rendues';
   end if;
   if v ? 'avis_retires' then raise exception 'FUITE : la page publique rend les avis retirés'; end if;

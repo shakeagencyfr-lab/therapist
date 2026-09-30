@@ -22,6 +22,7 @@ import {
   ADRESSE,
   COURRIEL,
   EDITRICE,
+  EXPLOITANTE,
   SIREN,
   SIRET,
   TELEPHONE,
@@ -392,7 +393,7 @@ describe('les mentions légales', () => {
     expect(t).toContain(ADRESSE)
     expect(t).toContain(TELEPHONE)
     expect(t).toContain(COURRIEL)
-    expect(t).toMatch(/Directrice de la publication[\s\S]*Laetitia OLLIVIER/)
+    expect(t).toMatch(/Direction de la publication[\s\S]*L’exploitante de LO HYPNOSE/)
   })
 
   it('nomment les hébergeurs, leur adresse, un moyen de les joindre et leur région', () => {
@@ -416,11 +417,11 @@ describe('les mentions légales', () => {
  * ------------------------------------------------------------------ */
 
 describe('l’éditrice', () => {
-  /* Une EI se désigne par le nom de la personne, suivi ou précédé de « EI »
-     (C. com., R526-26) : « LO HYPNOSE » seul ne suffit pas. */
-  it('porte le nom de l’exploitante et la mention EI', () => {
-    expect(EDITRICE).toMatch(/Laetitia OLLIVIER, entrepreneur individuel \(EI\)/)
-    expect(EDITRICE).toContain('LO HYPNOSE')
+  /* Le nom commercial et la mention EI, sans le nom de l'exploitante : c'est
+     son choix (30 septembre 2026). Aucune page ne doit le laisser passer. */
+  it('porte le nom commercial et la mention EI, jamais le nom de l’exploitante', () => {
+    expect(EDITRICE).toBe('LO HYPNOSE, entrepreneur individuel (EI)')
+    expect(EXPLOITANTE).toBe('l’exploitante de LO HYPNOSE')
   })
 
   it('est nommée de la même façon sur les quatre pages', () => {

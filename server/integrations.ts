@@ -196,7 +196,7 @@ export async function eprouverAnthropic(apiKey: string): Promise<void> {
 
 /**
  * Éprouve une clé Stripe en lisant le compte qu'elle ouvre. On en garde le
- * nom, pour que l'écran dise « connecté à Cabinet Ollivier (FR) » plutôt
+ * nom, pour que l'écran dise « connecté à Cabinet Marchal (FR) » plutôt
  * que « une clé est enregistrée ».
  */
 export async function eprouverStripe(secretKey: string): Promise<string> {

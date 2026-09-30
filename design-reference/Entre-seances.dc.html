@@ -30,7 +30,7 @@
     <div style="display: flex; align-items: center; gap: 12px;">
       <div style="width: 34px; height: 34px; border-radius: 10px; background: #A17A45; color: #FFFDF8; display: grid; place-items: center; font-family: 'Newsreader', serif; font-size: 16px; letter-spacing: 0.02em;">LO</div>
       <div style="display: flex; flex-direction: column; gap: 1px;">
-        <span style="font-size: 14px; font-weight: 600; letter-spacing: -0.01em;">Cabinet Laetitia Ollivier</span>
+        <span style="font-size: 14px; font-weight: 600; letter-spacing: -0.01em;">Cabinet Hélène Marchal</span>
         <span style="font-size: 11px; color: #8A857B; letter-spacing: 0.08em; text-transform: uppercase;">Espace thérapie</span>
       </div>
     </div>
@@ -331,7 +331,7 @@
         <sc-if value="{{ hasPush }}" hint-placeholder-val="{{ false }}">
         <div style="margin: 8px 16px 0; background: #33291C; border-radius: 18px; padding: 14px 16px;">
           <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px;">
-            <span style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(245,238,225,0.6);">Cabinet Laetitia Ollivier</span>
+            <span style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(245,238,225,0.6);">Cabinet Hélène Marchal</span>
             <span style="font-size: 10.5px; color: rgba(245,238,225,0.5); flex: none;">{{ pushAgo }}</span>
           </div>
           <div style="font-size: 13.5px; font-weight: 600; color: #F5EEE1; margin-bottom: 3px;">{{ pushTitle }}</div>
@@ -491,7 +491,7 @@
 
         <div style="padding: 20px 24px 0;">
           <div style="border: 1px solid #E6E1D8; border-radius: 20px; padding: 18px;">
-            <div style="font-size: 14px; font-weight: 600; margin-bottom: 3px;">Un mot pour Laetitia</div>
+            <div style="font-size: 14px; font-weight: 600; margin-bottom: 3px;">Un mot pour Hélène</div>
             <div style="font-size: 12px; color: #8A857B; margin-bottom: 13px;">Ce que vous écrivez ici arrive dans son dossier avant la séance.</div>
             <textarea value="{{ noteText }}" onChange="{{ onNote }}" rows="3" placeholder="Ce qui s'est passé, ce qui a déclenché…" style="width: 100%; resize: vertical; font-family: 'Newsreader', serif; font-size: 15px; line-height: 1.6; color: #3A372F; background: #F8F5EF; border: 1px solid #EEE9E0; border-radius: 12px; padding: 13px 14px; margin-bottom: 11px;"></textarea>
             <button onClick="{{ shareNote }}" style="{{ noteBtnStyle }}">{{ noteBtnLabel }}</button>
@@ -542,7 +542,7 @@
           </div>
           <div style="padding: 10px 24px 0;">
             <h2 style="font-family: 'Newsreader', serif; font-weight: 400; font-size: 27px; line-height: 1.15; margin: 0;">Mon journal</h2>
-            <div style="font-size: 12.5px; line-height: 1.5; color: #8A857B; margin-top: 6px;">Vos pages restent ici, consultables à tout moment. Vous choisissez page par page ce que Laetitia peut lire.</div>
+            <div style="font-size: 12.5px; line-height: 1.5; color: #8A857B; margin-top: 6px;">Vos pages restent ici, consultables à tout moment. Vous choisissez page par page ce que Hélène peut lire.</div>
           </div>
           <div style="padding: 18px 24px 0;">
             <button onClick="{{ newPage }}" style="width: 100%; font-size: 13.5px; font-weight: 600; color: #FFFDF8; background: #A17A45; border: none; border-radius: 12px; padding: 13px; cursor: pointer;" style-hover="background: #856239;">Nouvelle page</button>
@@ -1219,7 +1219,7 @@
 
           <div style="margin-top: 20px; background: #33291C; border-radius: 18px; padding: 15px 17px;">
             <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px;">
-              <span style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(245,238,225,0.6);">Cabinet Laetitia Ollivier</span>
+              <span style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(245,238,225,0.6);">Cabinet Hélène Marchal</span>
               <span style="font-size: 10.5px; color: rgba(245,238,225,0.5); flex: none;">{{ nWhen }}</span>
             </div>
             <div style="font-size: 13.5px; font-weight: 600; color: #F5EEE1; margin-bottom: 3px;">{{ nPreviewTitle }}</div>
@@ -1628,7 +1628,7 @@ class Component extends DCLogic {
     },
     "Reprendre rendez-vous": {
       duree: "1 minute", quand: "Dès que vous voyez ce module",
-      steps: ["Ouvrez l'agenda et prenez le premier créneau qui vous convient.", "Si aucun créneau ne convient, écrivez-le ici, Laetitia vous rappelle."],
+      steps: ["Ouvrez l'agenda et prenez le premier créneau qui vous convient.", "Si aucun créneau ne convient, écrivez-le ici, Hélène vous rappelle."],
       why: "Un programme interrompu à la cinquième semaine sur six perd l'essentiel de ce qui a été construit. Reprendre maintenant coûte moins que recommencer."
     },
     "Prendre la parole une fois par jour": {
@@ -1658,7 +1658,7 @@ class Component extends DCLogic {
 
   CONSIGNE_PAR_TYPE = {
     Exercice: { duree: "Quelques minutes", quand: "Comme indiqué sur le module", steps: ["Trouvez un moment où vous ne serez pas interrompu.", "Faites l'exercice sans chercher à bien le faire.", "Notez ici ce que vous avez remarqué."] },
-    Journal: { duree: "3 minutes", quand: "Le soir", steps: ["Écrivez ce qui s'est passé, en deux phrases.", "Notez ce que le corps a fait avant les pensées.", "Choisissez si vous le partagez avec Laetitia."] },
+    Journal: { duree: "3 minutes", quand: "Le soir", steps: ["Écrivez ce qui s'est passé, en deux phrases.", "Notez ce que le corps a fait avant les pensées.", "Choisissez si vous le partagez avec Hélène."] },
     Écriture: { duree: "20 minutes", quand: "Avant la prochaine séance", steps: ["Écrivez d'un seul trait, sans vous relire.", "Ne cherchez pas la bonne formulation.", "Apportez le texte à la séance."] },
     Formulaire: { duree: "10 minutes", quand: "Avant la prochaine séance", steps: ["Répondez à votre rythme, l'enregistrement est automatique.", "Laissez en blanc ce que vous préférez dire de vive voix."] },
     Séance: { duree: "1 minute", quand: "Dès maintenant", steps: ["Ouvrez l'agenda et choisissez un créneau.", "Écrivez ici si rien ne convient."] },
@@ -2021,7 +2021,7 @@ class Component extends DCLogic {
 
     const logged = (st.scaleLog[key] || []).length;
     const feedback = logged === 0 ? "Quinze secondes, une fois par jour. C'est tout ce qui est demandé."
-      : st.scale <= 2 ? "Noté à " + st.scale + ". Laetitia le verra avant votre séance."
+      : st.scale <= 2 ? "Noté à " + st.scale + ". Hélène le verra avant votre séance."
       : st.scale <= 5 ? "Noté à " + st.scale + ". En baisse par rapport à la semaine dernière."
       : "Noté à " + st.scale + ". Pensez à l'audio de la semaine ce soir.";
 
@@ -2190,7 +2190,7 @@ class Component extends DCLogic {
 
       patientTasks: patientTasks,
       nowPlayingTitle: curAudio.title,
-      nowPlayingMeta: "Enregistré par Laetitia · " + curAudio.duration,
+      nowPlayingMeta: "Enregistré par Hélène · " + curAudio.duration,
       nowPlayingTotal: curAudio.duration,
       patientAudios: patientAudios,
       pFirstName: p.name.split(" ")[0],
@@ -2225,7 +2225,7 @@ class Component extends DCLogic {
         }));
       },
       noteBtnStyle: "font-size: 13px; font-weight: 500; border: none; border-radius: 10px; padding: 11px 15px; cursor: pointer; background: " + (st.note.trim() ? "#A17A45" : "#EFE7D9") + "; color: " + (st.note.trim() ? "#FFFDF8" : "#A6A096") + ";",
-      noteBtnLabel: st.noteSent && !st.note ? "✓ Transmis à Laetitia" : "Partager avec Laetitia",
+      noteBtnLabel: st.noteSent && !st.note ? "✓ Transmis à Hélène" : "Partager avec Hélène",
       playPct: Math.round((st.playPos / durSec) * 100) + "%",
       playTime: this.fmt(Math.min(st.playPos, durSec)),
       togglePlayer: () => this.setState(s => ({ playing: !s.playing })),
@@ -2393,7 +2393,7 @@ class Component extends DCLogic {
       nMsg: st.nMsg,
       onNMsg: e => this.setState({ nMsg: e.target.value }),
       nTemplates: [
-        { label: "Relance douce", t: "Un mot de Laetitia", m: "Rien d'urgent. Si la semaine a été dense, prenez seulement l'audio de dix minutes, le reste attendra la séance." },
+        { label: "Relance douce", t: "Un mot d’Hélène", m: "Rien d'urgent. Si la semaine a été dense, prenez seulement l'audio de dix minutes, le reste attendra la séance." },
         { label: "Rappel d'écoute", t: "Votre audio vous attend", m: "L'induction enregistrée pour vous n'a pas encore été écoutée. Elle fonctionne mieux le soir, au calme, casque sur les oreilles." },
         { label: "Reprise de rendez-vous", t: "On reprend ?", m: "Il reste une séance à votre programme. Un créneau vous attend dans l'agenda, choisissez celui qui vous arrange." }
       ].map(x => ({ label: x.label, pick: () => this.setState({ nTitle: x.t, nMsg: x.m }) })),
@@ -2405,7 +2405,7 @@ class Component extends DCLogic {
       nPreviewMsg: st.nMsg.trim() || "Le message apparaîtra ici, tel que le patient le verra sur son écran verrouillé.",
       nSend: () => {
         if (!canSend) return;
-        const entry = { title: st.nTitle.trim() || "Un mot de Laetitia", msg: st.nMsg.trim(), when: st.nWhen, keys: on.map(r => r.key), to: on.map(r => r.name).join(", ") };
+        const entry = { title: st.nTitle.trim() || "Un mot d’Hélène", msg: st.nMsg.trim(), when: st.nWhen, keys: on.map(r => r.key), to: on.map(r => r.name).join(", ") };
         this.setState(s => ({ pushes: [entry].concat(s.pushes), nMsg: "", nTitle: "" }));
       },
       nSendLabel: canSend ? "Envoyer à " + on.length + (on.length > 1 ? " patients" : " patient") : "Envoyer",
@@ -2642,7 +2642,7 @@ class Component extends DCLogic {
 
       /* journal patient */
       jSubtitle: pages.length
-        ? pages.length + (pages.length > 1 ? " pages · " : " page · ") + pages.filter(g => g.shared).length + " partagée" + (pages.filter(g => g.shared).length > 1 ? "s" : "") + " avec Laetitia"
+        ? pages.length + (pages.length > 1 ? " pages · " : " page · ") + pages.filter(g => g.shared).length + " partagée" + (pages.filter(g => g.shared).length > 1 ? "s" : "") + " avec Hélène"
         : "Aucune page encore. Vous pouvez commencer quand vous voulez.",
       openJournal: () => this.setState({ pView: "journal", openPage: null }),
       closeJournal: () => this.setState({ pView: "home" }),
@@ -2654,7 +2654,7 @@ class Component extends DCLogic {
         title: g.title || "Page sans titre",
         date: g.date,
         excerpt: (g.text || "").slice(0, 96) + ((g.text || "").length > 96 ? "…" : "") || "Page vide",
-        badge: g.shared ? "Partagée avec Laetitia" : "Privée",
+        badge: g.shared ? "Partagée avec Hélène" : "Privée",
         badgeStyle: "align-self: flex-start; font-size: 11px; border-radius: 999px; padding: 3px 9px; margin-top: 3px; color: " + (g.shared ? "#6E5230" : "#8A857B") + "; background: " + (g.shared ? "#F5EEE1" : "#F2EDE4") + ";",
         open: () => this.setState({ pView: "page", openPage: g.id })
       })),
@@ -2672,7 +2672,7 @@ class Component extends DCLogic {
       pgDate: cur ? cur.date : "",
       pgSaved: cur ? ((cur.text || "").trim() ? "Enregistré" : "Nouvelle page") : "",
       togglePgShared: () => setPage({ shared: cur ? !cur.shared : true }),
-      pgShareLabel: cur && cur.shared ? "Partagée avec Laetitia" : "Partager cette page avec Laetitia",
+      pgShareLabel: cur && cur.shared ? "Partagée avec Hélène" : "Partager cette page avec Hélène",
       pgShareStyle: "width: 100%; font-size: 13.5px; font-weight: 600; border-radius: 12px; padding: 13px; cursor: pointer; border: 1px solid " + (cur && cur.shared ? "#A17A45" : "#DFD1B8") + "; background: " + (cur && cur.shared ? "#A17A45" : "transparent") + "; color: " + (cur && cur.shared ? "#FFFDF8" : "#6E5230") + ";",
       pgShareHint: cur && cur.shared ? "Elle la verra dans votre dossier avant la séance." : "Tant que ce n'est pas partagé, personne d'autre que vous n'y a accès.",
       deletePage: () => this.setState(s => ({

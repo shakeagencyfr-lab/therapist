@@ -69,8 +69,8 @@ describe('estDomainePersonnalise', () => {
   })
 
   it("reconnaît le domaine d'un cabinet", () => {
-    expect(estDomainePersonnalise('espace.cabinet-ollivier.fr')).toBe(true)
-    expect(estDomainePersonnalise('Cabinet-Ollivier.FR')).toBe(true)
+    expect(estDomainePersonnalise('espace.cabinet-marchal.fr')).toBe(true)
+    expect(estDomainePersonnalise('Cabinet-Marchal.FR')).toBe(true)
   })
 })
 
@@ -140,7 +140,7 @@ describe('versSiteVitrine', () => {
     google_note: 4.9,
     google_avis: 37,
     reservation: 'https://agenda.exemple.fr/cabinet-fontaine',
-    responsable: 'Laetitia Ollivier',
+    responsable: 'Hélène Marchal',
     numero_pro: 'SIRET 123 456 789 00012',
   }
 

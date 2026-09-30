@@ -9,7 +9,7 @@
 --
 -- Un seul bloc DO qui se termine par RAISE EXCEPTION 'REUSSITE …' : rien
 -- ne persiste. L'épreuve dépendait d'un jeu d'essai (le revendeur « Shake »,
--- le cabinet de Laetitia et ses cinq patients) qui n'existe qu'en
+-- le cabinet d’Hélène et ses cinq patients) qui n'existe qu'en
 -- développement : en production, elle échouait sur des adresses déjà prises.
 -- Elle fabrique désormais ce qui attend chaque compte — une invitation de
 -- revendeur, une invitation de cabinet, une fiche — sous des adresses de

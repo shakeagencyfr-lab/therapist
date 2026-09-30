@@ -433,7 +433,7 @@ export const initialState: AppState = {
   rView: 'portfolio',
   rCabinets: CABINETS,
   rSubs: SUBSCRIPTIONS,
-  rSel: 'ollivier',
+  rSel: 'marchal',
   rNotice: '',
   rNoticeTon: 'ok',
   rNewOpen: false,

@@ -5,7 +5,7 @@ describe('lignesMentions', () => {
   it('dit qui publie, où, sous quel numéro, et chez quel hébergeur', () => {
     const lignes = lignesMentions({
       name: 'Cabinet Fontaine',
-      responsable: 'Laetitia Ollivier',
+      responsable: 'Hélène Marchal',
       numero_pro: 'SIRET 123 456 789 00012',
       adresse: '3 rue des Lilas, 44000 Nantes',
       telephone: '02 40 00 00 00',
@@ -17,7 +17,7 @@ describe('lignesMentions', () => {
       'Numéro professionnel',
       'Hébergement',
     ])
-    expect(lignes[0]?.valeur).toBe('Laetitia Ollivier')
+    expect(lignes[0]?.valeur).toBe('Hélène Marchal')
     expect(lignes.at(-1)?.valeur).toBe(HEBERGEUR)
   })
 
@@ -34,7 +34,7 @@ describe('lignesMentions', () => {
 describe('mentionsManquantes', () => {
   it('ne signale rien quand tout est saisi', () => {
     expect(
-      mentionsManquantes({ responsable: 'L. Ollivier', numeroPro: '12345678900012', adresse: 'Nantes' }),
+      mentionsManquantes({ responsable: 'H. Marchal', numeroPro: '12345678900012', adresse: 'Nantes' }),
     ).toEqual([])
   })
 

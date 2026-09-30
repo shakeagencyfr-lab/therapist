@@ -30,9 +30,9 @@ const PREP: PreparationEnvoi = {
   numero: 12,
   date_prestation: '2026-09-29',
   beneficiaire: 'Anna Martin',
-  praticien: 'Laetitia Ollivier',
+  praticien: 'Hélène Marchal',
   cabinet: 'Cabinet des Tilleuls',
-  repondre_a: 'laetitia@exemple.fr',
+  repondre_a: 'helene@exemple.fr',
 }
 
 async function statut(promesse: Promise<unknown>): Promise<number | 'aucun'> {
@@ -76,7 +76,7 @@ describe('courrielDeLaNote — ce que le patient reçoit', () => {
     expect(c.subject).toBe('Votre note d’honoraires n° 0012')
     expect(c.text).toContain('Bonjour Anna Martin,')
     expect(c.text).toContain('n° 0012, pour la séance du 29 septembre 2026')
-    expect(c.text).toContain('Laetitia Ollivier\nCabinet des Tilleuls')
+    expect(c.text).toContain('Hélène Marchal\nCabinet des Tilleuls')
   })
 
   /* Une pièce du cabinet : ni le nom de l'application, ni lien, ni montant. */
@@ -122,7 +122,7 @@ describe('envoyerParPlateforme — le service d’envoi', () => {
       {
         to: 'anna@exemple.fr',
         fromName: 'Cabinet des Tilleuls',
-        replyTo: 'laetitia@exemple.fr',
+        replyTo: 'helene@exemple.fr',
         subject: 'S',
         text: 'T',
         pieces: [{ nom: 'n.pdf', contenu: PDF, type: 'application/pdf' }],
@@ -137,7 +137,7 @@ describe('envoyerParPlateforme — le service d’envoi', () => {
     const corps = JSON.parse(init.body as string)
     expect(corps.from).toBe('"Cabinet des Tilleuls" <notes@klaroweb.site>')
     expect(corps.to).toEqual(['anna@exemple.fr'])
-    expect(corps.reply_to).toEqual(['laetitia@exemple.fr'])
+    expect(corps.reply_to).toEqual(['helene@exemple.fr'])
     expect(corps.attachments[0]).toMatchObject({ filename: 'n.pdf', content: PDF.toString('base64') })
   })
 

@@ -4,8 +4,8 @@ import { HttpError } from './errors'
 
 describe('nettoyerDomaine', () => {
   it("accepte ce qu'on colle vraiment : protocole, majuscules, barre finale", () => {
-    expect(nettoyerDomaine('https://Espace.Cabinet-Ollivier.FR/')).toBe('espace.cabinet-ollivier.fr')
-    expect(nettoyerDomaine('  cabinet-ollivier.fr.  ')).toBe('cabinet-ollivier.fr')
+    expect(nettoyerDomaine('https://Espace.Cabinet-Marchal.FR/')).toBe('espace.cabinet-marchal.fr')
+    expect(nettoyerDomaine('  cabinet-marchal.fr.  ')).toBe('cabinet-marchal.fr')
   })
 
   it('refuse une adresse électronique, et le dit', () => {
@@ -33,10 +33,10 @@ describe('dnsAttendus', () => {
      limite de l'hébergeur. Dicter un CNAME sur « cabinet.fr » enverrait la
      thérapeute poser un enregistrement que son registrar refusera. */
   it('dicte un A sur un domaine racine, un CNAME sur un sous-domaine', () => {
-    expect(dnsAttendus('cabinet-ollivier.fr')).toEqual([
+    expect(dnsAttendus('cabinet-marchal.fr')).toEqual([
       { type: 'A', nom: '@', valeur: '76.76.21.21' },
     ])
-    expect(dnsAttendus('espace.cabinet-ollivier.fr')).toEqual([
+    expect(dnsAttendus('espace.cabinet-marchal.fr')).toEqual([
       { type: 'CNAME', nom: 'espace', valeur: 'cname.vercel-dns.com' },
     ])
   })

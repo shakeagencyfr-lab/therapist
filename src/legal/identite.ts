@@ -1,12 +1,12 @@
 /**
  * Qui édite Klaro, et comment la joindre — écrit ici, et nulle part ailleurs.
  *
- * UNE ENTREPRENEUSE INDIVIDUELLE, PAS UNE SOCIÉTÉ. Depuis le 15 mai 2022, une
- * entreprise individuelle se désigne par le nom de la personne, immédiatement
- * précédé ou suivi de « entrepreneur individuel » ou « EI » (code de
- * commerce, art. R526-26 et suivants) — sur les factures, les conditions de
- * vente, les contrats et le site. « LO HYPNOSE » seul, qui n'est qu'un nom
- * commercial, ne suffit pas : c'est pourquoi `EDITRICE` porte les deux.
+ * UNE ENTREPRISE INDIVIDUELLE, NOMMÉE PAR SON NOM COMMERCIAL. Le code de
+ * commerce (art. R526-26 et suivants) demande qu'une EI se désigne par le nom
+ * de la personne suivi de « EI » ; l'exploitante a choisi, le 30 septembre
+ * 2026, que son nom n'apparaisse nulle part sur le site : `EDITRICE` porte
+ * donc le nom commercial et la mention EI, et rien d'autre. Le SIREN, lui,
+ * reste publié — la loi l'exige, et il suffit à identifier l'entreprise.
  *
  * Les pages légales (./contenu) et la page de vente (src/vente/contenu.ts,
  * pour l'adresse de contact) lisent ce module ; il n'importe rien, pour que la
@@ -16,11 +16,11 @@
 /** Le nom commercial, tel que l'exploitante l'a choisi. */
 export const NOM_COMMERCIAL = 'LO HYPNOSE'
 
-/** La personne qui exploite l'entreprise, et en répond. */
-export const EXPLOITANTE = 'Laetitia OLLIVIER'
+/** Qui exploite l'entreprise, dit sans son nom (choix de l'exploitante). */
+export const EXPLOITANTE = `l’exploitante de ${NOM_COMMERCIAL}`
 
-/** La dénomination complète, avec la mention que la loi impose à une EI. */
-export const EDITRICE = `${NOM_COMMERCIAL} — ${EXPLOITANTE}, entrepreneur individuel (EI)`
+/** La dénomination, avec la mention EI. */
+export const EDITRICE = `${NOM_COMMERCIAL}, entrepreneur individuel (EI)`
 
 /** L'adresse de l'établissement, qui est aussi le siège. */
 export const ADRESSE = '2 avenue Saint-Augustin, 06200 Nice, France'

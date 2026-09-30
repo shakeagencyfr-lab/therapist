@@ -622,8 +622,8 @@ for (const rView of VUES) {
    coordonnées que liront les praticiennes. Et une fiche inconnue ne plante
    pas : elle le dit. */
 {
-  const fiche = rendu('revendeur/fiche-ollivier', { space: 'reseller', rView: 'fiche', rSel: 'ollivier' })
-  const attendus = ['Cabinet Laetitia Ollivier', 'Contrat et offre', 'Historique du contrat', 'Praticiennes', 'Analyse']
+  const fiche = rendu('revendeur/fiche-marchal', { space: 'reseller', rView: 'fiche', rSel: 'marchal' })
+  const attendus = ['Cabinet Hélène Marchal', 'Contrat et offre', 'Historique du contrat', 'Praticiennes', 'Analyse']
   const manque = attendus.filter((t) => !fiche.includes(t))
   if (manque.length) {
     console.error(`✗ revendeur/fiche : il manque ${manque.join(', ')}`)

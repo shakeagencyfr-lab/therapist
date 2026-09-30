@@ -76,13 +76,13 @@ const DEFAULT_BRANDING = {
 
 export const CABINETS: Cabinet[] = [
   {
-    id: 'ollivier',
-    name: 'Cabinet Laetitia Ollivier',
-    slug: 'laetitia-ollivier',
+    id: 'marchal',
+    name: 'Cabinet Hélène Marchal',
+    slug: 'helene-marchal',
     tagline: 'Espace thérapie',
-    branding: { ...DEFAULT_BRANDING, logo: 'LO' },
-    therapist: 'Laetitia Ollivier',
-    email: 'laetitia@cabinet-ollivier.fr',
+    branding: { ...DEFAULT_BRANDING, logo: 'HM' },
+    therapist: 'Hélène Marchal',
+    email: 'helene@cabinet-marchal.fr',
     since: 'Depuis mars 2026',
     archived: false,
   },
@@ -139,7 +139,7 @@ export const CABINETS: Cabinet[] = [
  * est volontairement absente, comme la base la supprimerait.
  */
 export const CABINET_STATS: Record<CabinetId, CabinetStats> = {
-  ollivier: { therapists: 1, patientsActive: 5, adherenceAvg: 78.6, sessions30d: 14 },
+  marchal: { therapists: 1, patientsActive: 5, adherenceAvg: 78.6, sessions30d: 14 },
   benali: { therapists: 1, patientsActive: 2, adherenceAvg: null, sessions30d: 3 },
   fontaines: { therapists: 3, patientsActive: 34, adherenceAvg: 71.2, sessions30d: 62 },
   'rive-gauche': { therapists: 1, patientsActive: 18, adherenceAvg: 64.8, sessions30d: 21 },
@@ -158,7 +158,7 @@ const SANS_EXCEPTION = {
 } as const
 
 export const SUBSCRIPTIONS: Record<CabinetId, Subscription> = {
-  ollivier: { cabinetId: 'ollivier', plan: 'cabinet', status: 'actif', periodEnd: '12 octobre', trialEnd: '', trialEndsAt: null, periodEndAt: '2026-10-12T12:00:00Z', enRegle: true, ...SANS_EXCEPTION },
+  marchal: { cabinetId: 'marchal', plan: 'cabinet', status: 'actif', periodEnd: '12 octobre', trialEnd: '', trialEndsAt: null, periodEndAt: '2026-10-12T12:00:00Z', enRegle: true, ...SANS_EXCEPTION },
   benali: { cabinetId: 'benali', plan: 'essentiel', status: 'essai', periodEnd: '—', trialEnd: '14 octobre', trialEndsAt: '2026-10-14T12:00:00Z', periodEndAt: null, enRegle: true, ...SANS_EXCEPTION },
   fontaines: { cabinetId: 'fontaines', plan: 'reseau', status: 'actif', periodEnd: '1er octobre', trialEnd: '', trialEndsAt: null, periodEndAt: '2026-10-01T12:00:00Z', enRegle: true, ...SANS_EXCEPTION },
   'rive-gauche': { cabinetId: 'rive-gauche', plan: 'cabinet', status: 'impaye', periodEnd: '28 août', trialEnd: '', trialEndsAt: null, periodEndAt: '2026-08-28T12:00:00Z', enRegle: false, ...SANS_EXCEPTION },

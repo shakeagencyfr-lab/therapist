@@ -22,7 +22,7 @@ import s from './MarqueBlanche.module.css'
  *
  * Les couleurs et le logo habillent l'application ; ces deux réglages-ci font
  * disparaître le fournisseur. Un patient qui reçoit un lien de
- * « cabinet-ollivier.fr », envoyé depuis « contact@cabinet-ollivier.fr »,
+ * « cabinet-marchal.fr », envoyé depuis « contact@cabinet-marchal.fr »,
  * n'a aucune raison de savoir que Klaro existe.
  *
  * Les deux écrans suivent la même règle : rien n'est annoncé avant d'avoir
