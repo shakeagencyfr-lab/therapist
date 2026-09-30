@@ -6,6 +6,7 @@ import { buildPatientContext, generateAffirmations } from '@/services/aiClient'
 import { allModules, isModuleDone, patientOf, toggleModulePatch } from '@/state/selectors'
 import { useStore } from '@/state/store'
 import type { Reservation } from '@/types/domain'
+import { IconeLecture } from '@/components/ui/IconeLecture'
 import s from './PatientHome.module.css'
 
 const SCALE_STEPS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
@@ -306,7 +307,7 @@ export function PatientHome() {
               onClick={() => set((prev) => ({ playing: !prev.playing }))}
               aria-label={state.playing ? 'Mettre en pause' : 'Lancer la lecture'}
             >
-              {state.playing ? '❙❙' : '▶'}
+              <IconeLecture signe={state.playing ? 'pause' : 'lecture'} taille={22} />
             </button>
             <span className={s.playerTime}>{current ? current.duration : '00:00'}</span>
           </div>

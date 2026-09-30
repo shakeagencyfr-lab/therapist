@@ -111,7 +111,7 @@
   border: 1px solid #dfd1b8;
   background: var(--c-surface);
   color: var(--c-accent);
-  padding-left: 2px;
+  padding: 0;
 }
 .playOn {
   border-color: var(--c-accent);

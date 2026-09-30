@@ -19,6 +19,7 @@ import { Installer } from './Installer'
 import { IconeOnglet, type Icone } from './IconesOnglets'
 import { MaCourbe } from './MaCourbe'
 import { Urgence } from './Urgence'
+import { IconeLecture } from '@/components/ui/IconeLecture'
 import s from './PatientSpace.module.css'
 import j from './Journee.module.css'
 
@@ -571,7 +572,7 @@ export function PatientSpace() {
                       aria-pressed={enCours}
                       onClick={() => void ecouter(a.id, a.audio?.storage_path)}
                     >
-                      {enCours ? '■' : '▶'}
+                      <IconeLecture signe={enCours ? 'arret' : 'lecture'} taille={15} />
                     </button>
                     <span>
                       <span className={s.audioTitle}>{a.audio?.title ?? 'Audio'}</span>

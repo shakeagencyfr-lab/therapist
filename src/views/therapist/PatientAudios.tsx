@@ -4,6 +4,7 @@ import { useMaybeCabinet } from '@/cabinet/context'
 import { patientOf } from '@/state/selectors'
 import { useStore } from '@/state/store'
 import type { PatientAudio } from '@/types/domain'
+import { IconeLecture } from '@/components/ui/IconeLecture'
 import s from './PatientAudios.module.css'
 
 /** Le repère d'une ligne : l'envoi en base, ou son rang en démonstration. */
@@ -119,7 +120,7 @@ export function PatientAudios() {
                   onClick={() => set((prev) => ({ audioOn: prev.audioOn === id ? null : id }))}
                 >
                   <span className={on ? `${s.play} ${s.playOn}` : s.play} aria-hidden>
-                    {on ? '❙❙' : '▶'}
+                    <IconeLecture signe={on ? 'pause' : 'lecture'} taille={14} />
                   </span>
                   <span className={s.body}>
                     <span className={s.title}>{a.title}</span>
