@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { AiError, messageDEchec, pointDeReprise, type MouvementEcrit } from '@/services/aiClient'
-import { bilanHypnose, corrigerTexte, libelleReprise, rangDuMouvement } from './texteHypnose'
+import { bilanHypnose, corrigerTexte, libelleReprise, rangDuMouvement, titreDeSeanceARenommer } from './texteHypnose'
 
 const ecrit = (mouvement: MouvementEcrit['mouvement'], texte = 'Un texte.'): MouvementEcrit => ({
   mouvement,
@@ -79,6 +79,25 @@ describe('rangDuMouvement et libelleReprise', () => {
   it('dit « relancer » quand rien n’est acquis, « reprendre au mouvement N » sinon', () => {
     expect(libelleReprise('induction')).toBe("Relancer l'écriture")
     expect(libelleReprise('travail')).toBe('Reprendre au mouvement 3')
+  })
+})
+
+/* Le titre d'une hypnose refermée est celui de son induction : une
+   retouche qui en change la métaphore la renomme, et son annulation lui
+   rend l'ancien. Rien d'autre ne touche au titre. */
+describe('titreDeSeanceARenommer', () => {
+  it('renomme la séance quand la retouche change le titre de l’induction', () => {
+    expect(titreDeSeanceARenommer('induction', 'Le bord de mer', '  La forêt profonde ')).toBe('La forêt profonde')
+  })
+
+  it('lui rend l’ancien titre quand la retouche est annulée', () => {
+    expect(titreDeSeanceARenommer('induction', 'La forêt profonde', 'Le bord de mer')).toBe('Le bord de mer')
+  })
+
+  it('ne touche à rien pour un autre mouvement, un titre inchangé ou vide', () => {
+    expect(titreDeSeanceARenommer('travail', 'Le bord de mer', 'La forêt profonde')).toBeNull()
+    expect(titreDeSeanceARenommer('induction', 'Le bord de mer', ' Le bord de mer ')).toBeNull()
+    expect(titreDeSeanceARenommer('induction', 'Le bord de mer', '   ')).toBeNull()
   })
 })
 

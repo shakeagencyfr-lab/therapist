@@ -68,6 +68,7 @@ import { CoutEnJetons } from '../src/views/jetons/CoutEnJetons'
 import { VerrouHypnose } from '../src/views/jetons/VerrouHypnose'
 import { DroitsContexte } from '../src/cabinet/droits'
 import { etatJetonsDemo } from '../src/data/jetons'
+import { JetonsContexte, type JetonsData } from '../src/cabinet/useJetons'
 import { devisJetons } from '../src/lib/jetonsIA'
 import { ETAT_REVENDEUR_DEMO } from '../src/data/jetons'
 import { JetonsRevendeurContexte, type JetonsRevendeurData } from '../src/reseller/useJetonsRevendeur'
@@ -219,6 +220,41 @@ if (avecChoix) {
     echecs++
   } else {
     console.log(`✓ session/choisie     ${String(avecChoix.length).padStart(6)} octets · séance au nom de ${nomChoisi}`)
+  }
+}
+
+/* 1 quater bis. LA RÈGLE DU MICRO. Une séance sans transcription promet
+   que rien n'est enregistré PENDANT la séance — pas « aucun micro » : le
+   champ des notes en a un quand le consentement est signé (la praticienne
+   dicte ses propres notes), et le brouillon, après la séance, garde le sien.
+   Ouverte sans enregistrement, le champ des notes n'en a pas. */
+{
+  const lu = (html: string) => html.replace(/&#x27;/g, "'")
+  const manque: string[] = []
+  const consentement = lu(avecChoix)
+  if (!consentement.includes("Rien n'est enregistré pendant la séance, rien n'est transcrit")) {
+    manque.push("la porte « sans enregistrement » ne dit pas que rien n'est enregistré pendant la séance")
+  }
+  const seance = { space: 'cabinet', mode: 'session', sessionPatient: choisie, consent: true, capture: 'notes' } as const
+  const notes = lu(rendu('session/notes', seance))
+  const sansEnregistrement = lu(rendu('session/sans-enregistrement', { ...seance, sansEnregistrement: true }))
+  if (!notes.includes("Rien n'est enregistré pendant la séance : écrivez vos notes, ou dictez-les")) {
+    manque.push('les notes seules ne disent pas que rien de la séance ne s’enregistre')
+  }
+  if (!sansEnregistrement.includes("Séance sans enregistrement : rien n'est enregistré pendant la séance")) {
+    manque.push('la séance sans enregistrement ne dit pas sa promesse')
+  }
+  if (!sansEnregistrement.includes('vos notes s\'écrivent au clavier')) {
+    manque.push('la séance sans enregistrement ne dit pas que ses notes s’écrivent au clavier')
+  }
+  for (const [nom, html] of [['consentement', consentement], ['notes', notes], ['sans enregistrement', sansEnregistrement]] as const) {
+    if (/Pas de micro|Aucun micro|micro reste fermé/i.test(html)) manque.push(`${nom} promet encore « pas de micro »`)
+  }
+  if (manque.length) {
+    console.error(`✗ session/micro : ${manque.join(' ; ')}`)
+    echecs++
+  } else {
+    console.log(`✓ session/micro      ${String(notes.length).padStart(6)} octets · « rien n'est enregistré pendant la séance », jamais « pas de micro »`)
   }
 }
 
@@ -1955,6 +1991,73 @@ try {
   }
   const refus403 = fenetre({ initial: { echec: { message: "L'hypnose n'est pas comprise dans votre offre.", statut: 403 } } })
   if (refus403.includes('Voir vos jetons')) manque.push('un refus de l’option Hypnose renvoie à la recharge')
+
+  /* Un cabinet qui paie avec SA clé : son 402 dit une clé refusée ou un
+     crédit Anthropic épuisé. La phrase du serveur, seule — pas les jetons
+     d'un revendeur, qu'il n'a pas. */
+  const cleDuCabinet: JetonsData = {
+    etat: null,
+    chargement: false,
+    erreur: '',
+    mode: 'cle_cabinet',
+    solde: null,
+    bareme: null,
+    hypnose: null,
+    recharges: [],
+    optionHypnose: null,
+    paiementPossible: false,
+    retour: null,
+    effacerRetour: () => {},
+    reverifier: async () => {},
+    recharger: async () => {},
+    acheter: async () => null,
+    verifier: async () => ({ ok: false, message: '', solde: null, objet: 'recharge', jetons: 0 }),
+  }
+  const refusCle = renderToString(
+    h(
+      AppStoreProvider,
+      { initial: { space: 'cabinet' } },
+      h(
+        JetonsContexte.Provider,
+        { value: cleDuCabinet },
+        h(FenetreRetouche, {
+          cible: 'synthese',
+          libelle: 'la synthèse de séance',
+          devis: null,
+          onFermer: () => {},
+          onOptimiser: async () => ({ ok: true }),
+          initial: {
+            echec: { message: 'Le crédit de votre clé Anthropic est épuisé. Rechargez-le depuis votre compte Anthropic.', statut: 402 },
+          },
+        }),
+      ),
+    ),
+  )
+  if (!refusCle.includes('Le crédit de votre clé Anthropic est épuisé') || /Voir vos jetons|Recharger vos jetons|Demandez des jetons/.test(refusCle)) {
+    manque.push('un cabinet qui paie avec sa clé est renvoyé vers les jetons de son revendeur')
+  }
+
+  /* Pendant la retouche, le clavier reste dans la fenêtre : « Annuler » et
+     ✕ restent ouverts — ils abandonnent —, « Optimiser » garde le focus en
+     disant qu'il travaille, et la phrase dit ce que l'abandon fait. */
+  const partie = fenetre({ initial: { probleme: 'Trop rapide', attendu: 'Plus lent', envoi: true } })
+  const annulerPartie = /<button[^>]*>Annuler<\/button>/.exec(partie)?.[0] ?? ''
+  if (!annulerPartie || annulerPartie.includes('disabled')) manque.push('« Annuler » se ferme pendant la retouche')
+  if (!partie.includes('aria-label="Abandonner la retouche"')) manque.push('✕ ne dit pas qu’il abandonne la retouche')
+  const optimiserParti = /<button[^>]*aria-busy="true"[^>]*>/.exec(partie)?.[0] ?? ''
+  if (!optimiserParti || / disabled=""/.test(optimiserParti) || !optimiserParti.includes('aria-disabled="true"')) {
+    manque.push('« Optimiser » se ferme pendant la retouche, et le focus tombe hors de la fenêtre')
+  }
+  if (!partie.includes('« Annuler » l&#x27;abandonne : le texte en place ne bougera pas.')) {
+    manque.push('la fenêtre ne dit pas ce que fait « Annuler » pendant la retouche')
+  }
+  const partieEnJetons = fenetre({
+    devis: devisJetons(etat, 'retouche'),
+    initial: { probleme: 'Trop rapide', attendu: 'Plus lent', envoi: true },
+  })
+  if (!partieEnJetons.includes('une retouche déjà partie reste décomptée si elle aboutit')) {
+    manque.push('en jetons, l’abandon ne dit pas qu’une retouche partie peut être décomptée')
+  }
 
   const preferences = avecStore(
     h(VuePreferencesIA, {

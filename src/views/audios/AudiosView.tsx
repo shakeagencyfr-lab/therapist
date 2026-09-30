@@ -296,13 +296,22 @@ export function AudiosView() {
     }))
   }
 
+  /**
+   * Enregistre le titre saisi. À la sortie du champ, et aussi à la fin
+   * d'une dictée — le champ garde alors le focus, et la praticienne peut
+   * continuer d'écrire ou de dicter pendant l'enregistrement (une écriture
+   * et une relecture du dossier). Ce qu'elle ajoute pendant ce temps reste
+   * dans le champ, pour la prochaine sortie ou la prochaine fin de dictée :
+   * la saisie ne se vide que si elle est encore celle qui est partie.
+   */
   async function commitTitle() {
     if (!reel || !cabinet || !selected || titreSaisi === null) return
-    if (titreSaisi.trim() && titreSaisi.trim() !== selected.title) {
-      const r = await cabinet.renommerAudio(selected.id, titreSaisi)
+    const envoye = titreSaisi
+    if (envoye.trim() && envoye.trim() !== selected.title) {
+      const r = await cabinet.renommerAudio(selected.id, envoye)
       if (!r.ok) set({ libNotice: r.message })
     }
-    setTitreSaisi(null)
+    setTitreSaisi((courant) => (courant === envoye ? null : courant))
   }
 
   async function recategorise(cat: string) {

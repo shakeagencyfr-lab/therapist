@@ -142,6 +142,27 @@ const CLE_CHOIX = 'choix_praticienne'
 
 export const AUCUN_CHOIX: ChoixDuBrouillon = { proposalOff: {}, sugOff: {}, syntheseOk: false }
 
+/**
+ * Les choix à écrire avec le brouillon, pris au bon endroit.
+ *
+ * `courant` : le magasin maintenant (read()), qui a les derniers clics ;
+ * `rendu` : le rendu d'où l'écriture part, avec sa séance et ses choix.
+ * D'ordinaire le magasin fait foi. Mais un champ démonté annonce encore la
+ * fin de sa dictée APRÈS que « Garder en brouillon » ou « Changer de
+ * patient » a vidé le magasin (nouvelleSeance) : ses choix y sont ceux par
+ * défaut, et les écrire effaçait ceux que la praticienne venait de garder —
+ * modules écartés de nouveau cochés, synthèse plus « relue ». Le magasin
+ * parti vers une autre séance (ou sans brouillon), ce sont les choix du
+ * rendu qui partent.
+ */
+export function choixAGarder(
+  courant: ChoixDuBrouillon & { sessionId: string | null; draft: SessionDraft | null },
+  rendu: ChoixDuBrouillon & { sessionId: string | null },
+): ChoixDuBrouillon {
+  const source = courant.sessionId === rendu.sessionId && courant.draft ? courant : rendu
+  return { proposalOff: source.proposalOff, sugOff: source.sugOff, syntheseOk: source.syntheseOk }
+}
+
 /** Le brouillon tel qu'il s'enregistre : son texte, et les choix faits dessus. */
 export function brouillonAvecChoix(draft: SessionDraft, choix: ChoixDuBrouillon): SessionDraft {
   const proposalOff = Object.fromEntries(Object.entries(choix.proposalOff).filter(([, v]) => v === true))

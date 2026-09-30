@@ -3,7 +3,7 @@ import { Notice, TextArea, Title } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { useDevis, useProfilCompris } from '@/cabinet/useJetons'
 import { dateDuJour, plural } from '@/lib/format'
-import { momentDuMessage } from '@/lib/seance'
+import { choixAGarder, momentDuMessage, type ChoixDuBrouillon } from '@/lib/seance'
 import {
   buildPatientContext,
   derniereReponseEstMaquette as derniereEstMaquette,
@@ -13,7 +13,7 @@ import {
   retoucher,
 } from '@/services/aiClient'
 import { RetourIA } from '@/components/retouche/RetourIA'
-import { versionDe, type IssueRetouche, type RetourDeLaPraticienne } from '@/lib/retouche'
+import { RETOUCHE_ABANDONNEE, versionDe, type IssueRetouche, type RetourDeLaPraticienne } from '@/lib/retouche'
 import { nouvelleSeance, profileOf } from '@/state/selectors'
 import { useStore } from '@/state/store'
 import { useEcritureConsignes } from '@/cabinet/useEcritureConsignes'
@@ -149,11 +149,18 @@ export function DraftStep() {
    * ici — le texte est encore à l'écran, l'envoi le réécrira, et
    * interrompre une relecture pour une panne réseau d'une seconde coûterait
    * plus qu'elle.
+   *
+   * APPELÉE AUSSI APRÈS LE DÉMONTAGE : un champ qui dictait annonce la fin
+   * de sa dictée en se démontant — après « Garder en brouillon » ou
+   * « Changer de patient », quand le magasin est déjà vidé. Le texte et la
+   * séance sont ceux de ce rendu-ci ; les choix aussi dans ce cas-là
+   * (choixAGarder), sans quoi les choix par défaut écrasaient ceux qu'elle
+   * venait de garder.
    */
   function garderLesCorrections() {
     if (!cabinet?.reel || !state.sessionId || !state.draft) return
     // Envoyée, la note se corrige encore ; les choix, eux, ont été faits.
-    void cabinet.majBrouillon(state.sessionId, state.draft, state.sent ? undefined : choixCourants())
+    void cabinet.majBrouillon(state.sessionId, state.draft, state.sent ? undefined : choixAGarder(read(), state))
   }
 
   /** Les choix faits sur le brouillon : ils se gardent avec lui. */
@@ -194,40 +201,79 @@ export function DraftStep() {
   }
 
   /**
-   * Le brouillon retouché rejoint la séance en base. Un échec ne se dit pas
-   * ici, pas plus qu'à la sortie d'un champ (garderLesCorrections) : le
-   * texte est à l'écran, et l'envoi le réécrira.
+   * Le brouillon retouché rejoint la séance en base — TEL QU'IL VIENT D'ÊTRE
+   * POSÉ, passé en argument. Relu dans le magasin juste après `set`, il
+   * était encore l'ancien (read() rend le dernier rendu, et React n'a pas
+   * rendu entre les deux) : la retouche payée s'enregistrait sans elle, et
+   * son annulation enregistrait le texte refusé — celui qu'une reprise
+   * aurait ramené, et envoyé. `relu` : ce que la retouche change aux choix
+   * (la synthèse n'est plus relue), pour la même raison.
+   *
+   * Un échec ne se dit pas ici, pas plus qu'à la sortie d'un champ
+   * (garderLesCorrections) : le texte est à l'écran, et l'envoi le réécrira.
    */
-  async function garderLaRetouche() {
+  async function garderLaRetouche(suivant: SessionDraft, relu: Partial<ChoixDuBrouillon> = {}) {
     const now = read()
-    if (!cabinet?.reel || !now.sessionId || !now.draft) return
-    await cabinet.majBrouillon(now.sessionId, now.draft, now.sent ? undefined : choixCourants())
+    if (!cabinet?.reel || !now.sessionId) return
+    await cabinet.majBrouillon(now.sessionId, suivant, now.sent ? undefined : { ...choixCourants(), ...relu })
   }
 
-  function poserDansLeBrouillon(patch: Partial<SessionDraft>, relu: Partial<{ syntheseOk: boolean; msgOk: boolean }> = {}) {
+  /**
+   * Pose une pièce dans le brouillon, et rend le brouillon qui en résulte :
+   * c'est lui qui s'enregistre (garderLaRetouche). Null : plus de brouillon.
+   */
+  function poserDansLeBrouillon(
+    patch: Partial<SessionDraft>,
+    relu: Partial<{ syntheseOk: boolean; msgOk: boolean }> = {},
+  ): SessionDraft | null {
+    const d = read().draft
+    if (!d) return null
     set((prev) => (prev.draft ? { draft: { ...prev.draft, ...patch }, ...relu } : {}))
+    return { ...d, ...patch }
+  }
+
+  /**
+   * La séance a-t-elle quitté l'écran pendant l'appel ? La fenêtre est
+   * modale, mais une retouche dure trente secondes : rien ne se pose dans
+   * le brouillon d'une autre séance.
+   */
+  function seanceQuittee(seance: string | null): { ok: false; message: string } | null {
+    const now = read()
+    return now.sessionId !== seance || !now.draft
+      ? { ok: false, message: "Le brouillon a changé pendant la retouche : rien n'y a été posé." }
+      : null
   }
 
   /** Retouche la synthèse ou le message : un texte seul. */
   function retoucherTexte(cible: 'synthese' | 'message') {
     const relu = cible === 'synthese' ? { syntheseOk: false } : { msgOk: false }
-    return async (retour: RetourDeLaPraticienne): Promise<IssueRetouche> => {
+    const reluDansLesChoix: Partial<ChoixDuBrouillon> = cible === 'synthese' ? { syntheseOk: false } : {}
+    return async (retour: RetourDeLaPraticienne, abandon?: AbortSignal): Promise<IssueRetouche> => {
+      const seance = read().sessionId
       const avant = read().draft?.[cible] ?? ''
+      // Vidé à la main : il n'y a plus de texte de l'IA à retoucher.
+      if (!avant.trim()) return { ok: false, message: 'Ce texte est vide : écrivez-le avant de le faire retoucher.' }
       let texte: string
       try {
         texte = (await retoucher({ cible, ...retour, actuel: avant, ...contexteDeRetouche() })).texte.trim()
       } catch (err) {
         return echecDeRetouche(err)
       }
+      // La fenêtre refermée pendant l'appel : le texte en place ne bouge pas.
+      if (abandon?.aborted) return RETOUCHE_ABANDONNEE
+      const quittee = seanceQuittee(seance)
+      if (quittee) return quittee
       if (!texte) return { ok: false, message: "La retouche est revenue vide : le texte d'avant reste en place." }
-      poserDansLeBrouillon({ [cible]: texte }, relu)
-      await garderLaRetouche()
+      const retouche = poserDansLeBrouillon({ [cible]: texte }, relu)
+      if (retouche) await garderLaRetouche(retouche, reluDansLesChoix)
       return {
         ok: true,
         version: texte,
         annuler: async () => {
-          poserDansLeBrouillon({ [cible]: avant }, relu)
-          await garderLaRetouche()
+          const quitteeAvant = seanceQuittee(seance)
+          if (quitteeAvant) return quitteeAvant
+          const retabli = poserDansLeBrouillon({ [cible]: avant }, relu)
+          if (retabli) await garderLaRetouche(retabli, reluDansLesChoix)
           return { ok: true, message: '' }
         },
       }
@@ -236,7 +282,8 @@ export function DraftStep() {
 
   /** Retouche un module proposé, et lui seul : les autres ne bougent pas. */
   function retoucherProposition(i: number) {
-    return async (retour: RetourDeLaPraticienne): Promise<IssueRetouche> => {
+    return async (retour: RetourDeLaPraticienne, abandon?: AbortSignal): Promise<IssueRetouche> => {
+      const seance = read().sessionId
       const avant = read().draft?.propositions?.[i]
       if (!avant) return { ok: false, message: "Ce module n'est plus dans le brouillon." }
       let rendu: SessionDraft['propositions'][number]
@@ -245,22 +292,28 @@ export function DraftStep() {
       } catch (err) {
         return echecDeRetouche(err)
       }
+      // La fenêtre refermée pendant l'appel : le module en place ne bouge pas.
+      if (abandon?.aborted) return RETOUCHE_ABANDONNEE
+      const quittee = seanceQuittee(seance)
+      if (quittee) return quittee
       if (!rendu.titre?.trim()) return { ok: false, message: "La retouche est revenue vide : le module d'avant reste en place." }
       const nouvelle = { titre: rendu.titre.trim(), pourquoi: (rendu.pourquoi ?? '').trim(), type: rendu.type }
-      const poser = (p: SessionDraft['propositions'][number]) =>
-        set((prev) =>
-          prev.draft
-            ? { draft: { ...prev.draft, propositions: prev.draft.propositions.map((x, j) => (j === i ? p : x)) } }
-            : {},
-        )
-      poser(nouvelle)
-      await garderLaRetouche()
+      /* Le brouillon suivant se bâtit ici, et c'est lui qui s'enregistre :
+         relu après `set`, le magasin rendait encore l'ancien. */
+      const poser = (p: SessionDraft['propositions'][number]) => {
+        const propositions = (read().draft?.propositions ?? []).map((x, j) => (j === i ? p : x))
+        return poserDansLeBrouillon({ propositions })
+      }
+      const retouche = poser(nouvelle)
+      if (retouche) await garderLaRetouche(retouche)
       return {
         ok: true,
         version: versionDe(nouvelle),
         annuler: async () => {
-          poser(avant)
-          await garderLaRetouche()
+          const quitteeAvant = seanceQuittee(seance)
+          if (quitteeAvant) return quitteeAvant
+          const retabli = poser(avant)
+          if (retabli) await garderLaRetouche(retabli)
           return { ok: true, message: '' }
         },
       }
@@ -558,7 +611,10 @@ export function DraftStep() {
           </button>
         </div>
         {/* La synthèse ne s'enregistre qu'à la sortie du champ ; le micro, lui,
-            ne fait pas sortir : la fin de la dictée enregistre à sa place. */}
+            ne fait pas sortir : la fin de la dictée enregistre à sa place.
+            Le micro reste ici même pour une séance ouverte sans
+            enregistrement : la séance est finie, c'est la praticienne qui
+            dicte sa propre note — rien de la séance ne s'enregistre. */}
         <TextArea
           nu
           className={s.field}
@@ -573,7 +629,8 @@ export function DraftStep() {
           dictee
           onDicteeFin={garderLesCorrections}
         />
-        {cabinet?.reel ? (
+        {/* Des pouces sous un texte de l'IA, pas sous un champ vide. */}
+        {cabinet?.reel && draft.synthese.trim() ? (
           <RetourIA
             cible="synthese"
             libelle="la synthèse de séance"
@@ -821,8 +878,9 @@ export function DraftStep() {
           dictee
           onDicteeFin={garderLesCorrections}
         />
-        {/* Parti, le message est chez le patient : il ne se retouche plus. */}
-        {cabinet?.reel && !state.msgEnvoye ? (
+        {/* Parti, le message est chez le patient : il ne se retouche plus.
+            Vide, il n'y a rien de l'IA à noter. */}
+        {cabinet?.reel && !state.msgEnvoye && draft.message.trim() ? (
           <RetourIA
             cible="message"
             libelle="le message au patient"

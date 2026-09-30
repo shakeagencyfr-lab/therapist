@@ -730,6 +730,12 @@ export interface CabinetData {
   ajouterMouvement: (hypnoseId: string, m: HypnoseMouvement, rang: number) => Promise<Resultat>
   /** Referme l'hypnose : les quatre mouvements sont là. */
   acheverHypnose: (hypnoseId: string, titre: string) => Promise<Resultat>
+  /**
+   * Renomme une hypnose refermée, sans rien relire : l'appelant relit le
+   * dossier une fois ses écritures faites. Son titre est celui de son
+   * induction, qu'une retouche peut changer.
+   */
+  renommerHypnose: (hypnoseId: string, titre: string) => Promise<Resultat>
   /** Supprime une fiche et tout ce qu'elle porte. Irréversible. */
   supprimerPatiente: (patientId: PatientId) => Promise<Resultat>
   /** Supprime une hypnose et ses mouvements. */
@@ -2454,6 +2460,17 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     [cabinetId, recharger],
   )
 
+  const renommerHypnose = useCallback(
+    async (hypnoseId: string, titre: string): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const { error } = await db.from('hypnoses').update({ titre }).eq('id', hypnoseId)
+      if (error) return { ok: false, message: "Le titre de l'hypnose n'a pas pu suivre." }
+      return { ok: true, message: '' }
+    },
+    [cabinetId],
+  )
+
   /**
    * Supprime une fiche. Tout ce qui s'y rattache part avec elle : la base le
    * fait en cascade, sur les clés étrangères. Le compte de connexion de la
@@ -2636,6 +2653,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     creerHypnose,
     ajouterMouvement,
     acheverHypnose,
+    renommerHypnose,
     supprimerPatiente,
     supprimerHypnose,
     dossier,

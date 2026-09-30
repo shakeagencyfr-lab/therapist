@@ -103,6 +103,12 @@ describe('le prix, vu par le revendeur', () => {
     expect(centimesCourts(102)).toBe('1,02 €')
   })
 
+  it('dit une action offerte à zéro, jamais « moins de 0,01 € »', () => {
+    expect(centimesCourts(0)).toBe('0,00 €')
+    expect(centimesCourts(-0)).toBe('0,00 €')
+    expect(centimesCourts(0)).not.toContain('moins de')
+  })
+
   it('dit le prix au jeton avec ses millimes', () => {
     expect(euroParJeton(8500, 1000)).toBe('0,085 €')
     expect(euroParJeton(1200, 100)).toBe('0,12 €')

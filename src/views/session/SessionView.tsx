@@ -57,12 +57,17 @@ export function SessionView() {
         "Un enregistrement de séance est la donnée la plus sensible d'un cabinet. Le consentement se signe une fois, en présence du patient.",
       badge: 'Étape 2 · Consentement',
     },
+    /* La promesse porte sur la SÉANCE : rien n'y est enregistré. « Pas de
+       micro » était faux dès que le champ des notes a eu le sien — il l'a
+       quand le consentement est signé (la praticienne dicte ses propres
+       notes), pas dans une séance ouverte sans enregistrement, où le
+       patient peut encore être là. */
     state.capture === 'notes'
       ? {
           title: 'Notes de séance',
           intro: state.sansEnregistrement
-            ? "Séance sans enregistrement : le micro reste fermé, rien n'est transcrit. Écrivez vos notes, pendant ou après la séance — le brouillon se rédige à partir d'elles, et elles s'enregistrent dans la séance au fil de l'eau."
-            : "Pas de micro pour cette séance : écrivez vos notes, pendant ou après — le brouillon se rédige à partir d'elles, et elles s'enregistrent dans la séance au fil de l'eau.",
+            ? "Séance sans enregistrement : rien n'est enregistré pendant la séance, rien n'est transcrit, et vos notes s'écrivent au clavier. Écrivez-les pendant ou après la séance — le brouillon se rédige à partir d'elles, et elles s'enregistrent dans la séance au fil de l'eau."
+            : "Rien n'est enregistré pendant la séance : écrivez vos notes, ou dictez-les, pendant ou après — le brouillon se rédige à partir d'elles, et elles s'enregistrent dans la séance au fil de l'eau.",
           badge: 'Étape 3 · Notes',
         }
       : {

@@ -6,7 +6,7 @@ import { plural } from '@/lib/format'
 import { preparerModule } from '@/lib/moduleAtelier'
 import { echecDeRetouche, generateModule, messageDEchec, retoucher } from '@/services/aiClient'
 import { RetourIA } from '@/components/retouche/RetourIA'
-import { versionDe, type IssueRetouche, type RetourDeLaPraticienne } from '@/lib/retouche'
+import { RETOUCHE_ABANDONNEE, versionDe, type IssueRetouche, type RetourDeLaPraticienne } from '@/lib/retouche'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { useDevis } from '@/cabinet/useJetons'
 import { CoutEnJetons } from '@/views/jetons/CoutEnJetons'
@@ -207,7 +207,7 @@ export function AtelierView() {
    * avant l'assignation : le module retouché remplace le brouillon à
    * l'écran, et l'ancien reste en mémoire pour « Annuler la retouche ».
    */
-  async function retoucherModule(retour: RetourDeLaPraticienne): Promise<IssueRetouche> {
+  async function retoucherModule(retour: RetourDeLaPraticienne, abandon?: AbortSignal): Promise<IssueRetouche> {
     const avant = read().aMod
     if (!avant) return { ok: false, message: "Il n'y a plus de module à retoucher." }
     const { type, ...actuel } = avant
@@ -217,6 +217,8 @@ export function AtelierView() {
     } catch (err) {
       return echecDeRetouche(err)
     }
+    // La fenêtre refermée pendant l'appel : le module en place ne bouge pas.
+    if (abandon?.aborted) return RETOUCHE_ABANDONNEE
     if (!rendu.steps?.some((e) => e.trim()) && !rendu.pourquoi?.trim()) {
       return { ok: false, message: "La retouche est revenue vide : le module d'avant reste en place." }
     }

@@ -62,7 +62,9 @@ export type PatientView = 'home' | 'journal'
 
 /**
  * Mode de captation de séance : le micro pendant la séance, une synthèse
- * dictée après, ou les notes écrites seules — sans micro ni transcription.
+ * dictée après, ou les notes seules — rien d'enregistré ni de transcrit
+ * pendant la séance (la praticienne peut dicter ses propres notes, sauf
+ * dans une séance ouverte sans enregistrement).
  */
 export type CaptureMode = 'live' | 'dictation' | 'notes'
 
@@ -141,8 +143,10 @@ export interface AppState {
   consent: boolean
   /**
    * Ouverte SANS enregistrement : aucun consentement à la captation n'a été
-   * recueilli, le micro reste fermé et seules les notes écrites comptent. La
-   * base le sait aussi (consent_given_at vide) et refuserait une transcription.
+   * recueilli, rien n'est enregistré pendant la séance, et seules les notes
+   * écrites au clavier comptent (leur champ n'a pas de micro ; le brouillon,
+   * après la séance, garde le sien). La base le sait aussi
+   * (consent_given_at vide) et refuserait une transcription.
    */
   sansEnregistrement: boolean
   capture: CaptureMode

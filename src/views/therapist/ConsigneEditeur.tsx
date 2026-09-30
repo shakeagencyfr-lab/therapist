@@ -3,7 +3,7 @@ import { Button, Notice, TextArea, TextInput } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { RetourIA } from '@/components/retouche/RetourIA'
 import { consigneCorrigee, etapesDe as lignesDe } from '@/lib/parcours'
-import { versionDe, type IssueRetouche, type RetourDeLaPraticienne } from '@/lib/retouche'
+import { RETOUCHE_ABANDONNEE, versionDe, type IssueRetouche, type RetourDeLaPraticienne } from '@/lib/retouche'
 import { seFaitParLePatient } from '@/lib/typesDeModules'
 import { echecDeRetouche, retoucher } from '@/services/aiClient'
 import type { GeneratedModule, PatientContext, PatientModule } from '@/types/domain'
@@ -64,7 +64,7 @@ export function ConsigneEditeur({
    * retouche » remet les champs d'avant ; le quiz, lui, n'a jamais bougé
    * (consigneCorrigee le garde).
    */
-  async function retoucherConsigne(retour: RetourDeLaPraticienne): Promise<IssueRetouche> {
+  async function retoucherConsigne(retour: RetourDeLaPraticienne, abandon?: AbortSignal): Promise<IssueRetouche> {
     const avant = { titre, duree, quand, why, etapes }
     let rendu: GeneratedModule
     try {
@@ -78,6 +78,8 @@ export function ConsigneEditeur({
     } catch (err) {
       return echecDeRetouche(err)
     }
+    // La fenêtre refermée pendant l'appel : les champs en place ne bougent pas.
+    if (abandon?.aborted) return RETOUCHE_ABANDONNEE
     if (!rendu.steps?.some((e) => e.trim())) {
       return { ok: false, message: "La retouche est revenue sans étapes : la consigne d'avant reste en place." }
     }

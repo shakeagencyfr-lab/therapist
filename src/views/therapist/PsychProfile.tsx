@@ -4,7 +4,7 @@ import { RetourIA } from '@/components/retouche/RetourIA'
 import { useMaybeCabinet } from '@/cabinet/context'
 import type { ProfilGenere } from '@/cabinet/useCabinet'
 import { useDevis } from '@/cabinet/useJetons'
-import type { IssueRetouche, RetourDeLaPraticienne } from '@/lib/retouche'
+import { RETOUCHE_ABANDONNEE, type IssueRetouche, type RetourDeLaPraticienne } from '@/lib/retouche'
 import {
   buildPatientContext,
   derniereReponseEstMaquette as derniereEstMaquette,
@@ -224,10 +224,14 @@ export function PsychProfile() {
    * séance — elle ne compte pas une séance de plus. La version d'avant reste
    * ici : « Annuler la retouche » la réenregistre, en version elle aussi.
    */
-  async function retoucherProfil(retour: RetourDeLaPraticienne): Promise<IssueRetouche> {
+  async function retoucherProfil(retour: RetourDeLaPraticienne, abandon?: AbortSignal): Promise<IssueRetouche> {
     const now = read()
     const avant = profileOf(now, key)
     if (!avant || !cabinet?.reel) return { ok: false, message: 'Le profil se retouche depuis votre cabinet.' }
+    // Rien d'écrit par l'IA (PROFIL_VIDE) : il n'y a rien à retoucher, il y a un profil à établir.
+    if (!avant.portrait.trim()) {
+      return { ok: false, message: "Ce patient n'a pas encore de profil : actualisez-le d'abord, puis retouchez-le." }
+    }
     if (now.profGen) return { ok: false, message: "Un profil s'actualise en ce moment : attendez qu'il soit prêt." }
     // La séance en mémoire n'est la matière de ce profil que si elle est la sienne.
     const memeFiche = now.sessionPatient === key
@@ -247,6 +251,8 @@ export function PsychProfile() {
     } catch (err) {
       return echecDeRetouche(err)
     }
+    // La fenêtre refermée pendant l'appel : le profil en place ne bouge pas.
+    if (abandon?.aborted) return RETOUCHE_ABANDONNEE
     const nouveau: ProfilGenere = {
       portrait: rendu.portrait || avant.portrait,
       axes: (rendu.axes ?? [])
@@ -404,8 +410,12 @@ export function PsychProfile() {
           {resume ? <Notice tone="ok">{resume}</Notice> : null}
 
           {/* Le profil entier, pas un bloc : une retouche des leviers qui
-              laisserait les axes en l'état se contredirait. */}
-          {cabinet?.reel ? (
+              laisserait les axes en l'état se contredirait. Et seulement un
+              profil que l'IA a écrit : un patient sans profil (PROFIL_VIDE,
+              portrait vide) n'a rien à noter ni à retoucher — le serveur
+              refusait la retouche en conseillant de recharger la page, ce
+              qui ne changeait rien. */}
+          {cabinet?.reel && profile.portrait.trim() ? (
             <RetourIA
               cible="profil"
               libelle="le profil entier — une nouvelle version, sans séance de plus"
