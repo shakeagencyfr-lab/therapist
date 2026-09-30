@@ -30,6 +30,8 @@ export interface OptionsDictee {
    * le curseur, la sortie ne vient donc pas d'elle-même.
    */
   onDicteeFin?: () => void
+  /** Une dictée commence dans le champ, ou y est finie (voir useDicteeChamp, `onEnCours`). */
+  onDicteeEnCours?: (enCours: boolean) => void
 }
 
 /**
@@ -157,11 +159,12 @@ export function ChampDicte({
   className,
   dictee = true,
   onDicteeFin,
+  onDicteeEnCours,
   ...rest
 }: InputHTMLAttributes<HTMLInputElement> & OptionsDictee) {
   const ref = useRef<HTMLInputElement>(null)
   const actif = dictee && !rest.disabled && !rest.readOnly
-  const etat = useDicteeChamp(ref, { actif, valeur: rest.value, onFin: onDicteeFin })
+  const etat = useDicteeChamp(ref, { actif, valeur: rest.value, onFin: onDicteeFin, onEnCours: onDicteeEnCours })
   const marges = useMarges(ref, className)
   return (
     <Habillage dictee={etat} avecBouton={actif} ligne marges={marges}>
@@ -175,11 +178,12 @@ export function ZoneDicte({
   className,
   dictee = true,
   onDicteeFin,
+  onDicteeEnCours,
   ...rest
 }: TextareaHTMLAttributes<HTMLTextAreaElement> & OptionsDictee) {
   const ref = useRef<HTMLTextAreaElement>(null)
   const actif = dictee && !rest.disabled && !rest.readOnly
-  const etat = useDicteeChamp(ref, { actif, valeur: rest.value, onFin: onDicteeFin })
+  const etat = useDicteeChamp(ref, { actif, valeur: rest.value, onFin: onDicteeFin, onEnCours: onDicteeEnCours })
   const marges = useMarges(ref, className)
   return (
     <Habillage dictee={etat} avecBouton={actif} ligne={false} marges={marges}>

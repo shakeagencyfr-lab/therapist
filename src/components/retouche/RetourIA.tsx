@@ -1,12 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { useDevis } from '@/cabinet/useJetons'
 import {
+  RETOUCHE_ABANDONNEE,
   actionDeLaRetouche,
   estCibleRetouche,
   type CibleVote,
   type IssueRetouche,
   type RetourDeLaPraticienne,
+  type Retoucheur,
   type Vote,
 } from '@/lib/retouche'
 import { FenetreRetouche } from './FenetreRetouche'
@@ -21,8 +23,9 @@ export interface RetourIAProps {
    * Retoucher ce texte, et l'enregistrer par le chemin habituel de l'écran.
    * Absent : les pouces seuls — l'avis se compte, rien ne se réécrit (les
    * mots, la vigilance, les questions du brouillon ; un texte déjà parti).
+   * Le second argument dit l'abandon : voir `Retoucheur`.
    */
-  onRetoucher?: (retour: RetourDeLaPraticienne) => Promise<IssueRetouche>
+  onRetoucher?: Retoucheur
   /** Le texte en place, pour savoir s'il a été corrigé à la main depuis la retouche. */
   version?: string
   /** Une écriture, un enregistrement en cours : les gestes attendent. */
@@ -74,6 +77,13 @@ export function RetourIA({
   const [annulation, setAnnulation] = useState(false)
   /** Ce que la ligne ajoute : la préférence retenue, la version rétablie, un échec. */
   const [note, setNote] = useState('')
+  /**
+   * La retouche partie, tant qu'elle n'est pas revenue. Refermer la fenêtre
+   * pendant l'appel l'abandonne : l'écran ne posera pas son texte (voir
+   * `Retoucheur`). Démontée — la ligne quitte l'écran —, de même.
+   */
+  const enVol = useRef<AbortController | null>(null)
+  useEffect(() => () => enVol.current?.abort(), [])
 
   function compter(v: Vote) {
     // Un avis perdu ne se dit pas : il ne manque à personne.
@@ -102,12 +112,23 @@ export function RetourIA({
 
   async function optimiser(retour: RetourDeLaPraticienne, consigne: string | null): Promise<IssueRetouche> {
     if (!onRetoucher || !estCibleRetouche(cible)) return { ok: false, message: 'Ce texte ne se retouche pas.' }
+    const abandon = new AbortController()
+    enVol.current = abandon
     let r: IssueRetouche
     try {
-      r = await onRetoucher(retour)
+      r = await onRetoucher(retour, abandon.signal)
     } catch {
-      return { ok: false, message: "La retouche n'a pas pu être faite. Le texte en place n'a pas bougé." }
+      r = { ok: false, message: "La retouche n'a pas pu être faite. Le texte en place n'a pas bougé." }
+    } finally {
+      if (enVol.current === abandon) enVol.current = null
     }
+    const abandonnee = abandon.signal.aborted
+    /* Abandonnée PENDANT l'appel : la fenêtre est fermée, et l'écran n'a
+       rien posé — il vérifie l'abandon avant d'écrire. Abandonnée APRÈS,
+       quand l'écran écrivait déjà le texte revenu, la retouche est faite :
+       la ligne le dit, avec de quoi revenir en arrière, plutôt que de
+       prétendre que rien n'a bougé. */
+    if (abandonnee && !r.ok) return RETOUCHE_ABANDONNEE
     if (!r.ok) return r
     setOuverte(false)
     setReussie(r)
@@ -116,7 +137,8 @@ export function RetourIA({
        appris à personne, et ne laisse rien en base. Ce qui se retient est la
        consigne relue dans la fenêtre — jamais la réponse brute, qui parlait
        de ce patient et partirait chez tous. */
-    if (consigne && cabinet) {
+    // Abandonnée, rien ne se retient : elle n'a pas vu ce que sa consigne a donné.
+    if (consigne && cabinet && !abandonnee) {
       try {
         setNote((await cabinet.retouches.retenir(cible, consigne, patient)).message)
       } catch {
@@ -124,6 +146,17 @@ export function RetourIA({
       }
     }
     return r
+  }
+
+  /** Refermer la fenêtre — et, si la retouche est partie, l'abandonner. */
+  function fermerLaFenetre() {
+    const partie = enVol.current
+    if (partie) {
+      enVol.current = null
+      partie.abort()
+      setNote(RETOUCHE_ABANDONNEE.message)
+    }
+    setOuverte(false)
   }
 
   async function annuler() {
@@ -205,7 +238,7 @@ export function RetourIA({
           libelle={libelle}
           devis={devis}
           patient={patient}
-          onFermer={() => setOuverte(false)}
+          onFermer={fermerLaFenetre}
           onOptimiser={optimiser}
         />
       ) : null}

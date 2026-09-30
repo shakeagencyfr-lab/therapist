@@ -12,8 +12,8 @@ import {
   type MouvementEcrit,
   type MouvementHypnose,
 } from '@/services/aiClient'
-import { corrigerTexte, rangDuMouvement } from '@/lib/texteHypnose'
-import type { IssueRetouche, RetourDeLaPraticienne } from '@/lib/retouche'
+import { corrigerTexte, rangDuMouvement, titreDeSeanceARenommer } from '@/lib/texteHypnose'
+import { RETOUCHE_ABANDONNEE, type IssueRetouche, type RetourDeLaPraticienne } from '@/lib/retouche'
 import { useStore } from '@/state/store'
 import type { Hypnose, PatientId, SessionDraft } from '@/types/domain'
 
@@ -120,8 +120,9 @@ export interface EcritureHypnose {
    * Faire réécrire un mouvement par l'IA, sur le retour de la praticienne
    * (0066), les autres en contexte. Enregistré comme une correction ; la
    * version d'avant reste en mémoire, et `annuler` la réenregistre.
+   * `abandon` : la fenêtre refermée pendant l'appel — rien ne se pose.
    */
-  retoucher: (mouvement: MouvementHypnose, retour: RetourDeLaPraticienne) => Promise<IssueRetouche>
+  retoucher: (mouvement: MouvementHypnose, retour: RetourDeLaPraticienne, abandon?: AbortSignal) => Promise<IssueRetouche>
   /**
    * Repartir d'un écran vierge, sans toucher à ce qui est en base. Une
    * hypnose interrompue y reste : le dossier est relu pour que la fiche la
@@ -156,6 +157,16 @@ export function useEcritureHypnose(): EcritureHypnose {
    * image voient tous deux l'ancien rendu, et lanceraient deux écritures.
    */
   const enVol = useRef(false)
+  /**
+   * La retouche en route (un jeton par retouche), tant qu'elle n'est ni
+   * revenue ni abandonnée. Les gestes qui changent le chantier — écrire,
+   * reprendre, corriger, fermer — l'attendent comme ils attendent une
+   * écriture : fermé puis rouvert sous elle, le chantier recevait le
+   * mouvement retouché d'une AUTRE hypnose.
+   */
+  const retoucheEnVol = useRef<object | null>(null)
+  /** Une écriture ou une retouche tourne : le chantier ne bouge pas. */
+  const occupe = useCallback(() => enVol.current || retoucheEnVol.current !== null, [])
 
   const poser = useCallback((liste: MouvementEcrit[]) => {
     acquis.current = liste
@@ -193,7 +204,7 @@ export function useEcritureHypnose(): EcritureHypnose {
    */
   const derouler = useCallback(
     async (ch: Chantier, deja: readonly MouvementEcrit[]) => {
-      if (enVol.current) return
+      if (occupe()) return
       enVol.current = true
       const { acquis: base, restants } = pointDeReprise(deja)
       // L'écriture se voit dès le clic, avant même l'ouverture de la ligne.
@@ -263,12 +274,12 @@ export function useEcritureHypnose(): EcritureHypnose {
         enVol.current = false
       }
     },
-    [cabinet, estConservee, poser, read, verser],
+    [cabinet, estConservee, occupe, poser, read, verser],
   )
 
   const ecrire = useCallback(
     async (patientId: PatientId, brouillon: SessionDraft, intention: string) => {
-      if (enVol.current) return
+      if (occupe()) return
       const now = read()
       /* La séance d'où l'hypnose naît — SI c'est celle de cette fiche. La
          séance en mémoire n'est pas effacée en changeant de fiche : lancée
@@ -280,7 +291,7 @@ export function useEcritureHypnose(): EcritureHypnose {
       setConservee(true)
       await derouler(chantier.current, [])
     },
-    [derouler, read],
+    [derouler, occupe, read],
   )
 
   const reprendre = useCallback(async () => {
@@ -296,7 +307,7 @@ export function useEcritureHypnose(): EcritureHypnose {
      écrits, passés en précédents, gardent alors le fil. */
   const reprendreHypnose = useCallback(
     async (patientId: PatientId, brouillon: SessionDraft, hypnose: Hypnose) => {
-      if (enVol.current) return
+      if (occupe()) return
       const deja: MouvementEcrit[] = hypnose.mouvements.map((m) => ({
         mouvement: m.mouvement,
         titre: m.titre,
@@ -312,19 +323,32 @@ export function useEcritureHypnose(): EcritureHypnose {
       versees.current = new Set(deja.map((e) => e.mouvement))
       await derouler(chantier.current, deja)
     },
-    [derouler],
+    [derouler, occupe],
   )
 
   /**
    * Remplace un mouvement écrit — son texte, et son titre quand une retouche
    * l'a changé : en base s'il y est, puis à l'écran. La correction à la main,
    * la retouche et son annulation passent toutes par ici.
+   *
+   * LE CHANTIER EST NOMMÉ, pas relu : celui où le mouvement a été lu. S'il
+   * n'est plus celui de l'écran — fermé, une autre hypnose ouverte —, rien
+   * ne s'écrit : le mouvement d'une hypnose n'a rien à faire dans une autre.
    */
   const remplacer = useCallback(
-    async (corrige: MouvementEcrit): Promise<Resultat> => {
+    async (corrige: MouvementEcrit, ch: Chantier): Promise<Resultat> => {
+      if (chantier.current !== ch) {
+        return { ok: false, message: "L'hypnose a changé entre-temps : le texte en place n'a pas bougé." }
+      }
       const mouvement = corrige.mouvement
-      const ch = chantier.current
-      if (ch?.hypnoseId && cabinet?.reel) {
+      const titreAvant = acquis.current.find((e) => e.mouvement === mouvement)?.titre ?? ''
+      /* Le titre de la séance est celui de son induction (acheverHypnose) :
+         une retouche qui change de métaphore la renomme, et son annulation
+         lui rend l'ancien. Sans quoi la liste et la page de garde du PDF
+         gardaient la plage quand l'induction parlait de forêt. */
+      const titreDeSeance = achevee.current ? titreDeSeanceARenommer(mouvement, titreAvant, corrige.titre) : null
+      let renommee = true
+      if (ch.hypnoseId && cabinet?.reel) {
         const r = await cabinet.ajouterMouvement(ch.hypnoseId, corrige, rangDuMouvement(mouvement))
         if (!r.ok) {
           return {
@@ -333,13 +357,20 @@ export function useEcritureHypnose(): EcritureHypnose {
           }
         }
         versees.current.add(mouvement)
+        if (titreDeSeance) renommee = (await cabinet.renommerHypnose(ch.hypnoseId, titreDeSeance)).ok
         // Refermée, l'hypnose est déjà sur la fiche : elle doit y lire le
-        // texte corrigé, et le PDF avec elle.
+        // texte corrigé — et son titre —, et le PDF avec elle.
         if (achevee.current) await cabinet.recharger()
+        /* Écrit dans SON hypnose ; mais l'écran a pu passer à une autre
+           pendant l'écriture : on n'y touche pas. */
+        if (chantier.current !== ch) return { ok: true, message: '' }
       }
       poser(acquis.current.map((e) => (e.mouvement === mouvement ? corrige : e)))
       setConservee(estConservee())
-      return { ok: true, message: '' }
+      return {
+        ok: true,
+        message: renommee ? '' : "Le texte est enregistré, mais le titre de la séance n'a pas pu suivre.",
+      }
     },
     [cabinet, estConservee, poser],
   )
@@ -351,52 +382,85 @@ export function useEcritureHypnose(): EcritureHypnose {
       if (enVol.current) {
         return { ok: false, message: "Attendez la fin de l'écriture pour corriger un mouvement." }
       }
+      if (retoucheEnVol.current) {
+        return { ok: false, message: 'Attendez la fin de la retouche pour corriger un mouvement.' }
+      }
       const correction = corrigerTexte(texte)
       if (!correction.ok) return correction
+      const ch = chantier.current
       const avant = acquis.current.find((e) => e.mouvement === mouvement)
-      if (!avant) return { ok: false, message: "Ce mouvement n'est pas encore écrit." }
-      return remplacer({ ...avant, texte: correction.texte })
+      if (!ch || !avant) return { ok: false, message: "Ce mouvement n'est pas encore écrit." }
+      return remplacer({ ...avant, texte: correction.texte }, ch)
     },
     [remplacer],
   )
 
   const retoucher = useCallback(
-    async (mouvement: MouvementHypnose, retour: RetourDeLaPraticienne): Promise<IssueRetouche> => {
+    async (mouvement: MouvementHypnose, retour: RetourDeLaPraticienne, abandon?: AbortSignal): Promise<IssueRetouche> => {
       if (enVol.current) return { ok: false, message: "Attendez la fin de l'écriture pour retoucher un mouvement." }
+      if (retoucheEnVol.current) return { ok: false, message: 'Une retouche est déjà en cours : attendez son retour.' }
       const ch = chantier.current
       const avant = acquis.current.find((e) => e.mouvement === mouvement)
       if (!ch || !avant) return { ok: false, message: "Ce mouvement n'est pas encore écrit." }
-      let rendu: { titre: string; texte: string }
-      try {
-        rendu = await retoucherMouvement({
-          context: buildPatientContext(read(), ch.patientId),
-          brouillon: ch.brouillon,
-          intention: ch.intention,
-          hypnoseId: ch.hypnoseId,
-          ecrit: avant,
-          autres: acquis.current,
-          retour,
-        })
-      } catch (err) {
-        return echecDeRetouche(err)
+
+      /* LE VERROU TIENT PENDANT TOUTE LA RETOUCHE — l'appel, puis l'écriture
+         en base. Abandonnée pendant l'appel (la fenêtre refermée), elle ne
+         tient plus rien : les gestes reprennent tout de suite, et son texte
+         ne se posera pas. Revenue, elle s'écrit jusqu'au bout sous le
+         verrou, abandon ou pas. */
+      const jeton = {}
+      retoucheEnVol.current = jeton
+      const liberer = () => {
+        if (retoucheEnVol.current === jeton) retoucheEnVol.current = null
       }
-      const correction = corrigerTexte(rendu.texte)
-      if (!correction.ok) return { ok: false, message: "La retouche est revenue vide : le texte d'avant reste en place." }
-      const retouche: MouvementEcrit = { ...avant, titre: rendu.titre.trim() || avant.titre, texte: correction.texte }
-      const r = await remplacer(retouche)
-      if (!r.ok) return { ok: false, message: r.message }
-      return {
-        ok: true,
-        version: retouche.texte,
-        // La version d'avant, gardée ici : « Annuler la retouche » la réenregistre.
-        annuler: () => remplacer(avant),
+      abandon?.addEventListener('abort', liberer, { once: true })
+      try {
+        let rendu: { titre: string; texte: string }
+        try {
+          rendu = await retoucherMouvement({
+            context: buildPatientContext(read(), ch.patientId),
+            brouillon: ch.brouillon,
+            intention: ch.intention,
+            hypnoseId: ch.hypnoseId,
+            ecrit: avant,
+            autres: acquis.current,
+            retour,
+          })
+        } catch (err) {
+          return echecDeRetouche(err)
+        }
+        abandon?.removeEventListener('abort', liberer)
+        if (abandon?.aborted) return RETOUCHE_ABANDONNEE
+        // Le chantier a changé sous la retouche : elle ne s'y pose pas.
+        if (chantier.current !== ch || enVol.current) {
+          return { ok: false, message: "L'hypnose a changé pendant la retouche : le texte en place n'a pas bougé." }
+        }
+        const correction = corrigerTexte(rendu.texte)
+        if (!correction.ok) return { ok: false, message: "La retouche est revenue vide : le texte d'avant reste en place." }
+        const retouche: MouvementEcrit = { ...avant, titre: rendu.titre.trim() || avant.titre, texte: correction.texte }
+        const r = await remplacer(retouche, ch)
+        if (!r.ok) return { ok: false, message: r.message }
+        return {
+          ok: true,
+          version: retouche.texte,
+          ...(r.message ? { libelle: `Version retouchée par l'IA. ${r.message}` } : {}),
+          // La version d'avant, gardée ici : « Annuler la retouche » la
+          // réenregistre — dans CETTE hypnose, et hors de toute écriture.
+          annuler: async () => {
+            if (occupe()) return { ok: false, message: "Attendez la fin de l'écriture ou de la retouche en cours pour revenir à la version d'avant." }
+            return remplacer(avant, ch)
+          },
+        }
+      } finally {
+        abandon?.removeEventListener('abort', liberer)
+        liberer()
       }
     },
-    [read, remplacer],
+    [occupe, read, remplacer],
   )
 
   const reinitialiser = useCallback(() => {
-    if (enVol.current) return
+    if (occupe()) return
     const interrompue = !!chantier.current?.hypnoseId && !achevee.current
     chantier.current = null
     versees.current = new Set()
@@ -411,7 +475,7 @@ export function useEcritureHypnose(): EcritureHypnose {
        l'hypnose interrompue n'y apparaissait pas, et l'on ne pouvait ni la
        reprendre ni l'effacer. */
     if (interrompue && cabinet?.reel) void cabinet.recharger()
-  }, [cabinet, poser])
+  }, [cabinet, occupe, poser])
 
   const aReprendre = !ecriture && erreur ? (pointDeReprise(ecrits).restants[0] ?? null) : null
   const aEnregistrer = !ecriture && fini && !conservee && !!cabinet?.reel

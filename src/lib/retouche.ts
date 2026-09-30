@@ -287,3 +287,23 @@ export type IssueRetouche =
       /** Le statut HTTP, quand le serveur a répondu : 402, ce sont les jetons qui manquent. */
       statut?: number | null
     }
+
+/**
+ * Retoucher un texte depuis l'écran qui le porte : l'appel à l'IA, puis la
+ * pose du texte rendu, par le chemin habituel de l'écran.
+ *
+ * `abandon` : la praticienne a refermé la fenêtre pendant l'appel. Le
+ * serveur ne s'arrête pas pour autant — la réponse arrive —, mais l'écran
+ * ne la pose nulle part : il vérifie `abandon.aborted` APRÈS l'appel et
+ * AVANT toute écriture, à l'écran comme en base, et rend
+ * RETOUCHE_ABANDONNEE. Sans cette vérification, un texte qu'elle a refusé
+ * d'attendre remplacerait en silence celui qu'elle relit, ou qu'elle vient
+ * de corriger à la main.
+ */
+export type Retoucheur = (retour: RetourDeLaPraticienne, abandon?: AbortSignal) => Promise<IssueRetouche>
+
+/** Ce qu'une retouche abandonnée rend : rien n'a bougé. */
+export const RETOUCHE_ABANDONNEE = {
+  ok: false,
+  message: "Retouche abandonnée : le texte en place n'a pas bougé.",
+} as const satisfies IssueRetouche

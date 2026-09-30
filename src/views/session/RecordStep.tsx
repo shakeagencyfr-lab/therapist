@@ -369,9 +369,10 @@ export function RecordStep() {
         </div>
         {state.sansEnregistrement ? (
           <p className={s.sansMicro}>
-            <strong>Séance ouverte sans enregistrement.</strong> Le micro reste fermé : aucun
-            consentement à la captation n'a été recueilli. Pour enregistrer, abandonnez cette séance
-            et ouvrez-en une nouvelle, avec le consentement de la personne.
+            <strong>Séance ouverte sans enregistrement.</strong> Rien n'est enregistré pendant la
+            séance, et vos notes s'écrivent au clavier : aucun consentement à la captation n'a été
+            recueilli. Pour enregistrer, abandonnez cette séance et ouvrez-en une nouvelle, avec le
+            consentement de la personne.
           </p>
         ) : (
           <div className={s.modes}>
@@ -508,7 +509,10 @@ export function RecordStep() {
             </div>
             {/* Le micro du champ se tait pendant l'enregistrement — il couperait
                 la transcription de la séance — et n'existe pas dans une séance
-                ouverte sans enregistrement, dont l'écran promet un micro fermé. */}
+                ouverte sans enregistrement : aucun consentement n'a été
+                recueilli, et le patient peut encore être là. Le brouillon, à
+                l'étape suivante, garde le sien : la séance est finie, c'est la
+                praticienne qui dicte. */}
             <TextArea
               nu
               className={s.notesField}

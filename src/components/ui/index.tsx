@@ -378,12 +378,15 @@ export function TextInput({
   className,
   dictee,
   onDicteeFin,
+  onDicteeEnCours,
   nu = false,
   ...rest
 }: InputHTMLAttributes<HTMLInputElement> & OptionsChamp) {
   const classe = nu ? className : cx(s.input, className)
   if (dictee !== undefined && isSpeechSupported()) {
-    return <ChampDicte className={classe} dictee={dictee} onDicteeFin={onDicteeFin} {...rest} />
+    return (
+      <ChampDicte className={classe} dictee={dictee} onDicteeFin={onDicteeFin} onDicteeEnCours={onDicteeEnCours} {...rest} />
+    )
   }
   return <input className={classe} {...rest} />
 }
@@ -392,12 +395,15 @@ export function TextArea({
   className,
   dictee,
   onDicteeFin,
+  onDicteeEnCours,
   nu = false,
   ...rest
 }: TextareaHTMLAttributes<HTMLTextAreaElement> & OptionsChamp) {
   const classe = nu ? className : cx(s.textarea, className)
   if (dictee !== undefined && isSpeechSupported()) {
-    return <ZoneDicte className={classe} dictee={dictee} onDicteeFin={onDicteeFin} {...rest} />
+    return (
+      <ZoneDicte className={classe} dictee={dictee} onDicteeFin={onDicteeFin} onDicteeEnCours={onDicteeEnCours} {...rest} />
+    )
   }
   return <textarea className={classe} {...rest} />
 }

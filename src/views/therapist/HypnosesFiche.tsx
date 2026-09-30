@@ -15,8 +15,14 @@ import {
 import { plural } from '@/lib/format'
 import { telechargerHypnose } from '@/lib/hypnosePdf'
 import { logoPourPdf } from '@/lib/logoPdf'
-import type { IssueRetouche, RetourDeLaPraticienne } from '@/lib/retouche'
-import { bilanHypnose, corrigerTexte, libelleReprise, rangDuMouvement } from '@/lib/texteHypnose'
+import { RETOUCHE_ABANDONNEE, type IssueRetouche, type RetourDeLaPraticienne } from '@/lib/retouche'
+import {
+  bilanHypnose,
+  corrigerTexte,
+  libelleReprise,
+  rangDuMouvement,
+  titreDeSeanceARenommer,
+} from '@/lib/texteHypnose'
 import { patientOf } from '@/state/selectors'
 import { useAppState } from '@/state/store'
 import { useMaybeAuth } from '@/auth/session'
@@ -125,8 +131,15 @@ export function HypnosesFiche() {
     return ecrireMouvement(h, { ...m, texte })
   }
 
-  /** Remplace un mouvement en base — texte et titre —, puis relit le dossier. */
-  async function ecrireMouvement(h: Hypnose, m: HypnoseMouvement) {
+  /**
+   * Remplace un mouvement en base — texte et titre —, puis relit le dossier.
+   *
+   * `titreDeSeance` : le nouveau titre de l'hypnose, quand une retouche de
+   * son induction en a changé la métaphore (titreDeSeanceARenommer) — ou
+   * son ancien, quand on l'annule. Seulement pour une hypnose refermée :
+   * une interrompue prendra le titre de son induction en se refermant.
+   */
+  async function ecrireMouvement(h: Hypnose, m: HypnoseMouvement, titreDeSeance: string | null = null) {
     if (!cabinet?.reel) {
       return { ok: false, message: 'En démonstration, aucune correction ne s’enregistre.' }
     }
@@ -134,8 +147,10 @@ export function HypnosesFiche() {
     if (!r.ok) {
       return { ok: false, message: "La correction n'a pas pu être enregistrée : le dossier garde le texte d'avant." }
     }
+    const renommee = h.complete && titreDeSeance ? (await cabinet.renommerHypnose(h.id, titreDeSeance)).ok : true
+    // La liste, le PDF et sa page de garde relisent le titre avec le texte.
     await cabinet.recharger()
-    return { ok: true, message: '' }
+    return { ok: true, message: renommee ? '' : "Le texte est enregistré, mais le titre de la séance n'a pas pu suivre." }
   }
 
   /**
@@ -143,7 +158,12 @@ export function HypnosesFiche() {
    * autres en contexte, et l'enregistre comme une correction. La version
    * d'avant reste ici, en mémoire : « Annuler la retouche » la réécrit.
    */
-  async function retoucherEnBase(h: Hypnose, m: HypnoseMouvement, retour: RetourDeLaPraticienne): Promise<IssueRetouche> {
+  async function retoucherEnBase(
+    h: Hypnose,
+    m: HypnoseMouvement,
+    retour: RetourDeLaPraticienne,
+    abandon?: AbortSignal,
+  ): Promise<IssueRetouche> {
     let rendu: { titre: string; texte: string }
     try {
       rendu = await retoucherMouvement({
@@ -158,12 +178,19 @@ export function HypnosesFiche() {
     } catch (err) {
       return echecDeRetouche(err)
     }
+    // La fenêtre refermée pendant l'appel : rien ne se pose, ni ici ni en base.
+    if (abandon?.aborted) return RETOUCHE_ABANDONNEE
     const correction = corrigerTexte(rendu.texte)
     if (!correction.ok) return { ok: false, message: "La retouche est revenue vide : le texte d'avant reste en place." }
     const retouche: HypnoseMouvement = { ...m, titre: rendu.titre.trim() || m.titre, texte: correction.texte }
-    const r = await ecrireMouvement(h, retouche)
+    const r = await ecrireMouvement(h, retouche, titreDeSeanceARenommer(m.mouvement, m.titre, retouche.titre))
     if (!r.ok) return { ok: false, message: r.message }
-    return { ok: true, version: retouche.texte, annuler: () => ecrireMouvement(h, m) }
+    return {
+      ok: true,
+      version: retouche.texte,
+      ...(r.message ? { libelle: `Version retouchée par l'IA. ${r.message}` } : {}),
+      annuler: () => ecrireMouvement(h, m, titreDeSeanceARenommer(m.mouvement, retouche.titre, m.titre)),
+    }
   }
 
   function fermer() {
@@ -402,7 +429,9 @@ export function HypnosesFiche() {
                                 occupe: ecriture,
                                 patient: fiche.name,
                                 // Hors de l'option Hypnose, l'avis seul : la retouche est refusée.
-                                onRetoucher: verrouillee ? undefined : (retour) => retoucherEnBase(h, m, retour),
+                                onRetoucher: verrouillee
+                                  ? undefined
+                                  : (retour, abandon) => retoucherEnBase(h, m, retour, abandon),
                               }
                             : undefined
                         }

@@ -234,8 +234,15 @@ export function centimesDits(centimes: number): string {
   return euro(centimes / 100)
 }
 
-/** Le même, pour une cellule de tableau : « < 0,01 € » tient où « moins de » déborde. */
+/**
+ * Le même, pour une cellule de tableau : « < 0,01 € » tient où « moins de » déborde.
+ *
+ * ZÉRO SE DIT ZÉRO. Une action offerte (0 jeton) coûte « 0,00 € » à la
+ * praticienne : `euro(0)` en faisait « moins de 0,01 € », qui laissait croire
+ * qu'on la faisait encore payer — et débordait de la cellule.
+ */
 export function centimesCourts(centimes: number): string {
+  if (centimes === 0) return '0,00 €'
   return centimes > 0 && centimes < 1 ? '< 0,01 €' : centimesDits(centimes)
 }
 

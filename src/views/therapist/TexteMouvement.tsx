@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button, Notice, TextArea } from '@/components/ui'
 import { RetourIA } from '@/components/retouche/RetourIA'
-import type { IssueRetouche, RetourDeLaPraticienne } from '@/lib/retouche'
+import type { Retoucheur } from '@/lib/retouche'
 import { corrigerTexte } from '@/lib/texteHypnose'
 import { NOM_MOUVEMENT, type MouvementEcrit } from '@/services/aiClient'
 import t from './TexteMouvement.module.css'
@@ -26,7 +26,7 @@ interface Props {
    */
   retouche?: {
     /** Absent — l'option Hypnose fermée — : les pouces seuls. */
-    onRetoucher?: (retour: RetourDeLaPraticienne) => Promise<IssueRetouche>
+    onRetoucher?: Retoucheur
     occupe?: boolean
     /** Le nom du patient de cette hypnose : une consigne retenue qui le porte est refusée. */
     patient?: string
@@ -137,8 +137,10 @@ export function TexteMouvement({ ecrit, classes, onCorriger, retouche }: Props) 
               </p>
             ))}
           {/* Sous le mouvement, pas sous chaque paragraphe : la retouche
-              réécrit le mouvement entier, raccordé aux trois autres. */}
-          {retouche ? (
+              réécrit le mouvement entier, raccordé aux trois autres. Un
+              mouvement vide (resté en base d'une écriture interrompue) n'a
+              rien de l'IA à noter : il se reprend, il ne se retouche pas. */}
+          {retouche && ecrit.texte.trim() ? (
             <RetourIA
               cible="hypnose"
               libelle={`le mouvement « ${nom} »`}

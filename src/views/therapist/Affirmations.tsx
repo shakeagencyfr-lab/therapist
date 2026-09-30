@@ -3,7 +3,7 @@ import { Button, Card, Notice, TextInput, Title, type NoticeTone } from '@/compo
 import { plural } from '@/lib/format'
 import { buildPatientContext, echecDeRetouche, generateAffirmations, messageDEchec, retoucher } from '@/services/aiClient'
 import { RetourIA } from '@/components/retouche/RetourIA'
-import { versionDe, type IssueRetouche, type RetourDeLaPraticienne } from '@/lib/retouche'
+import { RETOUCHE_ABANDONNEE, versionDe, type IssueRetouche, type RetourDeLaPraticienne } from '@/lib/retouche'
 import { patientOf } from '@/state/selectors'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { useDevis } from '@/cabinet/useJetons'
@@ -206,7 +206,7 @@ export function Affirmations() {
    * « Envoyer au patient », même en automatique. La liste d'avant reste ici,
    * pour « Annuler la retouche ».
    */
-  async function retoucherLaListe(retour: RetourDeLaPraticienne): Promise<IssueRetouche> {
+  async function retoucherLaListe(retour: RetourDeLaPraticienne, abandon?: AbortSignal): Promise<IssueRetouche> {
     const now = read()
     const avantEnAttente = now.affPending[key]
     const avant = (avantEnAttente ?? now.affs[key] ?? []).filter((x) => x.trim())
@@ -218,6 +218,8 @@ export function Affirmations() {
     } catch (err) {
       return echecDeRetouche(err)
     }
+    // La fenêtre refermée pendant l'appel : la liste en place ne bouge pas.
+    if (abandon?.aborted) return RETOUCHE_ABANDONNEE
     if (!liste.length) return { ok: false, message: "La retouche n'a rendu aucune affirmation : la liste d'avant reste en place." }
     set((prev) => ({ affPending: { ...prev.affPending, [key]: liste } }))
     setRetour(null)

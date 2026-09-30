@@ -217,6 +217,14 @@ interface OptionsDicteeChamp {
    * le curseur, la sortie ne vient donc pas d'elle-même.
    */
   onFin?: () => void
+  /**
+   * Appelé quand une dictée commence dans ce champ (vrai), puis quand elle
+   * est vraiment finie (faux) : le micro fermé ET les derniers mots dits
+   * arrivés — ou jetés, par un abandon ou un démontage. Pour l'écran qui
+   * doit savoir qu'une dictée tourne : une fenêtre qu'Échap fermerait au
+   * lieu d'arrêter le micro, un envoi qui partirait sans les derniers mots.
+   */
+  onEnCours?: (enCours: boolean) => void
 }
 
 /**
@@ -236,7 +244,7 @@ interface OptionsDicteeChamp {
  */
 export function useDicteeChamp(
   ref: RefObject<HTMLInputElement | HTMLTextAreaElement>,
-  { actif, valeur, onFin }: OptionsDicteeChamp,
+  { actif, valeur, onFin, onEnCours }: OptionsDicteeChamp,
 ): DicteeChamp {
   const [ecoute, setEcoute] = useState(false)
   const [interim, setInterim] = useState('')
@@ -261,6 +269,17 @@ export function useDicteeChamp(
   const mentionMontree = useRef(false)
   const onFinCourant = useRef(onFin)
   onFinCourant.current = onFin
+  const onEnCoursCourant = useRef(onEnCours)
+  onEnCoursCourant.current = onEnCours
+  /** Ce que l'écran sait : une dictée tourne-t-elle dans ce champ ? */
+  const enCoursAnnonce = useRef(false)
+
+  /** Dit à l'écran qu'une dictée commence, ou qu'elle est finie — une fois chaque. */
+  const annoncerEnCours = useCallback((enCours: boolean) => {
+    if (enCoursAnnonce.current === enCours) return
+    enCoursAnnonce.current = enCours
+    onEnCoursCourant.current?.(enCours)
+  }, [])
 
   /** « La dictée a fini d'écrire » — une fois, et seulement si elle a écrit. */
   const annoncerFin = useCallback(() => {
@@ -268,10 +287,14 @@ export function useDicteeChamp(
       window.clearTimeout(minuterieFin.current)
       minuterieFin.current = null
     }
+    /* Toujours atteint après un arrêt — le délai des derniers mots, un
+       abandon, un démontage : c'est ici que la dictée est vraiment finie,
+       qu'elle ait écrit ou non. */
+    annoncerEnCours(false)
     if (!modifie.current) return
     modifie.current = false
     onFinCourant.current?.()
-  }, [])
+  }, [annoncerEnCours])
 
   const programmerFin = useCallback(() => {
     if (minuterieFin.current !== null) window.clearTimeout(minuterieFin.current)
@@ -416,12 +439,13 @@ export function useDicteeChamp(
     }
     transcripteur.current = t
     modifie.current = false
+    annoncerEnCours(true)
     const montrer = !mentionDejaVue()
     mentionMontree.current = montrer
     setMention(montrer)
     setEcoute(true)
     guetterSilence()
-  }, [annoncerFin, arreter, guetterSilence, ref, repos, verser])
+  }, [annoncerEnCours, annoncerFin, arreter, guetterSilence, ref, repos, verser])
 
   // Le champ, ses frappes et son formulaire.
   useEffect(() => {

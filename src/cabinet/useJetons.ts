@@ -76,6 +76,13 @@ export interface JetonsData {
 
 const Ctx = createContext<JetonsData | null>(null)
 
+/**
+ * Le contexte lui-même, pour le banc de rendu seulement : il y pose un mode
+ * de facturation à la main (un cabinet qui paie avec sa propre clé) sans
+ * base derrière.
+ */
+export const JetonsContexte = Ctx
+
 /** Retire `?jetons=…` de l'adresse, sans recharger ni toucher au reste. */
 function oublierLeRetour(): void {
   if (typeof window === 'undefined') return

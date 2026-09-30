@@ -108,6 +108,10 @@ export function HypnoseCard() {
               interrompue : elle se reprend ou se ferme d'abord. */}
           {!ecriture && ecrits.length === 0 && !erreur ? (
             <div className={s.lancement}>
+              {/* Le micro reste ici, même pour une séance ouverte sans
+                  enregistrement : la séance est finie, c'est la praticienne
+                  qui dicte sa propre intention — rien de la séance ne
+                  s'enregistre. */}
               <label className={s.champ}>
                 <span className={s.label}>Ce que vous voulez travailler (facultatif)</span>
                 <TextInput
@@ -174,7 +178,9 @@ export function HypnoseCard() {
                   ? {
                       occupe: ecriture,
                       patient: patient.name,
-                      onRetoucher: verrouillee ? undefined : (retour) => retoucher(e.mouvement, retour),
+                      onRetoucher: verrouillee
+                        ? undefined
+                        : (retour, abandon) => retoucher(e.mouvement, retour, abandon),
                     }
                   : undefined
               }
