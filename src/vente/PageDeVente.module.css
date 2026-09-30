@@ -479,13 +479,20 @@
   margin: 0;
   min-width: 0;
   scroll-margin-top: var(--entete);
-  /* La hauteur de l'écran du téléphone (Demo.module.css) : sur un portable,
-     téléphone, teintes et légende tiennent dans le premier écran. */
+  /* La hauteur de l'écran du téléphone sur un téléphone (Demo.module.css) ;
+     au-delà, le cadre prend les proportions d'un vrai téléphone, et c'est sa
+     largeur qui le règle. */
   --ecran-demo: 420px;
+  --telephone-l: 412px;
 }
 @media (min-width: 960px) {
   .heroApercu {
-    --ecran-demo: clamp(400px, calc(100vh - 370px), 560px);
+    --telephone-l: 380px;
+  }
+}
+@media (min-width: 1200px) {
+  .heroApercu {
+    --telephone-l: 400px;
   }
 }
 
@@ -527,7 +534,7 @@
    puis les teintes. */
 .telephoneAttente {
   width: 100%;
-  max-width: 412px;
+  max-width: var(--telephone-l, 412px);
   margin: 0 auto;
   height: calc(var(--ecran-demo) + 72px);
   padding: 11px;
@@ -539,6 +546,12 @@
   height: 100%;
   border-radius: var(--r-phone);
   background: var(--c-surface);
+}
+@media (min-width: 560px) {
+  .telephoneAttente {
+    height: auto;
+    aspect-ratio: 412 / 866;
+  }
 }
 
 /* ── Le parcours ─────────────────────────────────────────────────────── */
