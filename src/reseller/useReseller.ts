@@ -48,6 +48,7 @@ interface ExceptionRow {
   jetons_mois_override?: number | null
   hypnose_override?: boolean | null
   hypnose_jusqu_au?: string | null
+  facturation_ia_override?: string | null
 }
 
 /** Une ligne de `reseller_cabinet_overview()`. */
@@ -160,6 +161,8 @@ export interface Exceptions {
   hypnoseOverride?: boolean | null
   /** Le pass Hypnose, prolongé ou retiré à la main (ISO, ou null). */
   hypnoseJusquAu?: string | null
+  /** Qui paie l'analyse de ce cabinet (0070) ; null remet le réglage du revendeur. */
+  facturationIaOverride?: 'cle_cabinet' | 'jetons' | null
 }
 
 /**
@@ -331,6 +334,11 @@ function versPortfolio(
       jetonsMoisOverride: exception?.jetons_mois_override ?? null,
       hypnoseOverride: exception?.hypnose_override ?? null,
       hypnoseJusquAu: exception?.hypnose_jusqu_au ?? null,
+      // Une valeur inconnue ne se montre pas comme une exception posée.
+      facturationIaOverride:
+        exception?.facturation_ia_override === 'jetons' || exception?.facturation_ia_override === 'cle_cabinet'
+          ? exception.facturation_ia_override
+          : null,
     },
     plan,
   }
@@ -415,7 +423,7 @@ export function useReseller(): ResellerData {
       db
         .from('subscriptions')
         .select(
-          'cabinet_id, max_patients_override, shop_override, marque_blanche_override, site_override, jetons_mois_override, hypnose_override, hypnose_jusqu_au',
+          'cabinet_id, max_patients_override, shop_override, marque_blanche_override, site_override, jetons_mois_override, hypnose_override, hypnose_jusqu_au, facturation_ia_override',
         ),
       db.rpc('journal_des_contrats', { p_limite: 50 }),
       db.from('cabinet_slug_aliases').select('slug, cabinet_id').order('created_at', { ascending: false }),
@@ -865,6 +873,7 @@ export function useReseller(): ResellerData {
       if (champs.jetonsMoisOverride !== undefined) ligne.jetons_mois_override = champs.jetonsMoisOverride
       if (champs.hypnoseOverride !== undefined) ligne.hypnose_override = champs.hypnoseOverride
       if (champs.hypnoseJusquAu !== undefined) ligne.hypnose_jusqu_au = champs.hypnoseJusquAu
+      if (champs.facturationIaOverride !== undefined) ligne.facturation_ia_override = champs.facturationIaOverride
 
       /* On redemande les lignes touchées : sans abonnement, l'`update` ne
          touche rien et rendrait un succès pour une écriture qui n'a pas eu
@@ -876,6 +885,10 @@ export function useReseller(): ResellerData {
         .eq('cabinet_id', cabinetId)
         .select('cabinet_id')
       await recharger()
+      /* Des jetons sans clé du revendeur : la base refuse (0070), et dit
+         quoi faire d'abord. Sa phrase est écrite pour l'écran ; les autres
+         refus restent génériques. */
+      if (error?.code === '23514' && error.message.startsWith('Posez d')) return { ok: false, message: error.message }
       if (error) return { ok: false, message: "L'exception n'a pas pu être enregistrée." }
       if (!data?.length) {
         return {

@@ -45,7 +45,7 @@ vi.mock('./integrations.js', async (original) => ({
 
 const { analyserPourCabinet } = await import('./ai.js')
 const { REFUS_HYPNOSE } = await import('./droits.js')
-const { SoldeInsuffisant, BAREME_PAR_DEFAUT } = await import('./jetons.js')
+const { SoldeInsuffisant, BAREME_PAR_DEFAUT, REFUS_JETONS_SANS_CLE } = await import('./jetons.js')
 
 const JETONS = { mode: 'jetons', resellerId: 'r1', cle: 'sk-ant-du-revendeur', bareme: BAREME_PAR_DEFAUT, paiement: true }
 
@@ -106,6 +106,17 @@ describe('l’analyse en mode jetons', () => {
     expect(m.cleAnthropicDuCabinet).toHaveBeenCalledWith('cab-1')
     expect(m.coutDeLAppel).not.toHaveBeenCalled()
     expect(m.reserver).not.toHaveBeenCalled()
+  })
+
+  it('des jetons forcés sans la clé du revendeur : le 503 remonte, jamais la clé du cabinet (0070)', async () => {
+    m.facturationDuCabinet.mockRejectedValue(new HttpError(503, REFUS_JETONS_SANS_CLE))
+    m.cleAnthropicDuCabinet.mockResolvedValue('sk-ant-du-cabinet' as never)
+    const err = await refus(analyserPourCabinet('module', { intent: 'Un module assez long pour passer.' }, 'cab-1'))
+    expect(err.status).toBe(503)
+    expect(err.message).toBe(REFUS_JETONS_SANS_CLE)
+    expect(m.cleAnthropicDuCabinet).not.toHaveBeenCalled()
+    expect(m.reserver).not.toHaveBeenCalled()
+    m.cleAnthropicDuCabinet.mockResolvedValue(null)
   })
 
   it('hors contrat, ni facturation ni jetons', async () => {

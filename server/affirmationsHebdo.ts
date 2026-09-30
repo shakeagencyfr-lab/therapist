@@ -19,6 +19,8 @@
  *
  *   1. LA CLÉ EST CELLE DU CABINET — ou celle de son revendeur, en mode
  *      jetons (0065), et la série se paie alors en jetons comme à l'écran.
+ *      Le mode est celui DU CABINET : le réglage du revendeur, ou
+ *      l'exception de son contrat (0070).
  *      Un cabinet sans clé, ou à court de jetons, est sauté, pas facturé à
  *      la plateforme. C'est la même règle qu'à l'écran.
  *   2. RIEN DE PRIVÉ NE SORT DU DOSSIER. Le contexte n'emporte que les pages
@@ -249,9 +251,12 @@ export async function publierLesAffirmationsDeLaSemaine(): Promise<BilanHebdo> {
 
   /**
    * Une lecture par cabinet, pas une par fiche : sa clé, ou les jetons de son
-   * revendeur. Des réglages illisibles font sauter le cabinet plutôt que de
-   * retomber sur sa clé — ce serait lui faire payer ce que son revendeur a
-   * promis de payer.
+   * revendeur, selon le mode DE CE CABINET (0070). Des réglages illisibles
+   * font sauter le cabinet plutôt que de retomber sur sa clé — ce serait lui
+   * faire payer ce que son revendeur a promis de payer. Un cabinet gardé sur
+   * sa clé par exception n'est armé que par elle, même chez un revendeur en
+   * jetons ; un cabinet placé en jetons sans la clé du revendeur est sauté
+   * (le 503 de `facturationDuCabinet`), jamais servi sur sa propre clé.
    */
   const cles = new Map<string, boolean>()
   async function cabinetArmé(cabinetId: string): Promise<boolean> {
@@ -261,7 +266,7 @@ export async function publierLesAffirmationsDeLaSemaine(): Promise<BilanHebdo> {
         const facturation = await facturationDuCabinet(cabinetId, admin)
         arme = facturation.mode === 'jetons' || Boolean(await cleAnthropicDuCabinet(cabinetId))
       } catch (err) {
-        console.error(`[affirmations] cabinet ${cabinetId} — facturation illisible · ${(err as Error).message}`)
+        console.error(`[affirmations] cabinet ${cabinetId} — facturation illisible ou refusée · ${(err as Error).message}`)
       }
       cles.set(cabinetId, arme)
     }

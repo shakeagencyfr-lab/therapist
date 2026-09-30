@@ -106,8 +106,11 @@ function Fiche({ row }: { row: PortfolioRow }) {
      pas le bouton à qui la base le refuserait. */
   const proprietaire = useMaybeAuth()?.context?.reseller?.role === 'owner'
   /* En jetons (0065), la dépense d'analyse n'est plus celle du cabinet : c'est
-     la clé du revendeur qui la paie. La note sous les chiffres le dit. */
-  const modeJetons = useJetonsRevendeur()?.etat?.mode === 'jetons'
+     la clé du revendeur qui la paie. La note sous les chiffres le dit — selon
+     le mode DE CE CABINET (0070) : l'exception de son contrat, sinon le
+     réglage du revendeur. */
+  const reglageDuRevendeur = useJetonsRevendeur()?.etat?.mode
+  const modeJetons = (row.subscription.facturationIaOverride ?? reglageDuRevendeur) === 'jetons'
 
   const id = row.cabinet.id
   const nom = row.cabinet.name
@@ -255,7 +258,7 @@ function Fiche({ row }: { row: PortfolioRow }) {
       </div>
       <p className={s.note}>
         {modeJetons
-          ? "Vos jetons sont activés : cette dépense d'analyse est payée par votre clé, et le cabinet la règle en jetons (onglet Jetons IA)."
+          ? "Ce cabinet est en jetons : cette dépense d'analyse est payée par votre clé, et le cabinet la règle en jetons (onglet Jetons IA)."
           : "La dépense d'analyse est réglée par le cabinet, sur sa propre clé : elle ne vous est pas imputée. Elle sert à répondre à une praticienne qui s'étonne de sa facture."}
       </p>
 

@@ -155,13 +155,14 @@ const SANS_EXCEPTION = {
   jetonsMoisOverride: null,
   hypnoseOverride: null,
   hypnoseJusquAu: null,
+  facturationIaOverride: null,
 } as const
 
 export const SUBSCRIPTIONS: Record<CabinetId, Subscription> = {
   marchal: { cabinetId: 'marchal', plan: 'cabinet', status: 'actif', periodEnd: '12 octobre', trialEnd: '', trialEndsAt: null, periodEndAt: '2026-10-12T12:00:00Z', enRegle: true, ...SANS_EXCEPTION },
   benali: { cabinetId: 'benali', plan: 'essentiel', status: 'essai', periodEnd: '—', trialEnd: '14 octobre', trialEndsAt: '2026-10-14T12:00:00Z', periodEndAt: null, enRegle: true, ...SANS_EXCEPTION },
   fontaines: { cabinetId: 'fontaines', plan: 'reseau', status: 'actif', periodEnd: '1er octobre', trialEnd: '', trialEndsAt: null, periodEndAt: '2026-10-01T12:00:00Z', enRegle: true, ...SANS_EXCEPTION },
-  'rive-gauche': { cabinetId: 'rive-gauche', plan: 'cabinet', status: 'impaye', periodEnd: '28 août', trialEnd: '', trialEndsAt: null, periodEndAt: '2026-08-28T12:00:00Z', enRegle: false, ...SANS_EXCEPTION },
+  'rive-gauche': { cabinetId: 'rive-gauche', plan: 'cabinet', status: 'impaye', periodEnd: '28 août', trialEnd: '', trialEndsAt: null, periodEndAt: '2026-08-28T12:00:00Z', enRegle: false, ...SANS_EXCEPTION, facturationIaOverride: 'cle_cabinet' },
   reyt: { cabinetId: 'reyt', plan: 'essentiel', status: 'actif', periodEnd: '6 octobre', trialEnd: '', trialEndsAt: null, periodEndAt: '2026-10-06T12:00:00Z', enRegle: true, ...SANS_EXCEPTION },
 }
 

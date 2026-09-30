@@ -53,12 +53,19 @@ export const ETAT_REVENDEUR_DEMO: EtatRevendeurJetons = {
     { action: 'affirmations', appels: 64, parAppelCentimesUsd: 0.13, parActionCentimesEur: 0.12 },
     { action: 'hypnose', appels: 36, parAppelCentimesUsd: 10.34, parActionCentimesEur: 38.05 },
   ],
-  cabinets: CABINETS.filter((c) => !c.archived).map((c, i) => ({
-    cabinetId: c.id,
-    nom: c.name,
-    consommesMois: [214, 36, 1187, 0, 95][i] ?? 0,
-    solde: [586, 64, 813, 0, 205][i] ?? 0,
-  })),
+  /* Un cabinet gardé sur sa clé par exception (0070) : la démonstration
+     montre les deux modes côte à côte, comme son portefeuille (data/reseller). */
+  cabinets: CABINETS.filter((c) => !c.archived).map((c, i) => {
+    const override = c.id === 'rive-gauche' ? ('cle_cabinet' as const) : null
+    return {
+      cabinetId: c.id,
+      nom: c.name,
+      consommesMois: [214, 36, 1187, 0, 95][i] ?? 0,
+      solde: [586, 64, 813, 0, 205][i] ?? 0,
+      modeEffectif: override ?? ('jetons' as const),
+      override,
+    }
+  }),
   chiffrement: true,
   // La démonstration se lit, elle ne se règle pas : aucune session derrière.
   proprietaire: false,
@@ -68,6 +75,7 @@ export const ETAT_REVENDEUR_DEMO: EtatRevendeurJetons = {
 export function etatJetonsDemo(maintenant = new Date()): EtatJetons {
   return {
     mode: 'jetons',
+    pret: true,
     enRegle: true,
     solde: 312,
     mensuel: { total: 800, restant: 212, renouvellement: premierDuMoisSuivant(maintenant) },

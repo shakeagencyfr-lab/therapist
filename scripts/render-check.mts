@@ -623,7 +623,18 @@ for (const rView of VUES) {
    pas : elle le dit. */
 {
   const fiche = rendu('revendeur/fiche-marchal', { space: 'reseller', rView: 'fiche', rSel: 'marchal' })
-  const attendus = ['Cabinet Hélène Marchal', 'Contrat et offre', 'Historique du contrat', 'Praticiennes', 'Analyse']
+  /* La facturation de l'IA se règle aussi cabinet par cabinet (0070) : les
+     trois choix, le réglage du revendeur dit tel qu'il est. */
+  const attendus = [
+    'Cabinet Hélène Marchal',
+    'Contrat et offre',
+    'Historique du contrat',
+    'Praticiennes',
+    'Analyse',
+    'Facturation de l&#x27;IA',
+    'Selon le réglage du revendeur (actuellement : Jetons)',
+    'Clé Anthropic du cabinet (BYOK)',
+  ]
   const manque = attendus.filter((t) => !fiche.includes(t))
   if (manque.length) {
     console.error(`✗ revendeur/fiche : il manque ${manque.join(', ')}`)
@@ -1696,6 +1707,10 @@ try {
   if (!onglet.includes('Réglages de démonstration')) manque.push('la démonstration ne se dit pas en lecture seule')
   if (/sk-ant-[A-Za-z0-9]|sk_live_[A-Za-z0-9]/.test(onglet)) manque.push("un morceau de clé apparaît à l'écran")
   if (onglet.includes('Enregistrer le barème')) manque.push('la démonstration propose de régler ce qu’elle ne peut pas enregistrer')
+  // Chaque cabinet dit son mode effectif, et l'exception quand il en a une (0070).
+  if (!onglet.includes('Clé du cabinet, par exception') || !onglet.includes('>Jetons<')) {
+    manque.push('la consommation du mois ne dit pas le mode de chaque cabinet')
+  }
 
   // Le propriétaire connecté, posé à la main : lui seul voit les champs et les gestes.
   const proprietaire: JetonsRevendeurData = {
@@ -1755,6 +1770,13 @@ try {
     manque.push('sans paiement en ligne, la carte ne renvoie pas au revendeur')
   }
   if (sansPaiement.includes('>Acheter<')) manque.push('sans paiement en ligne, un bouton « Acheter » reste')
+  /* Placé en jetons par exception, revendeur sans clé (0070) : la carte dit
+     que l'analyse attend, au lieu d'un solde qui ne sert à rien. */
+  const sansCle = avecStore(h(VueJetons, { etat: { ...etat, pret: false }, titulaire: true, enCours: '', echec: '' }))
+  if (!sansCle.includes('sa clé d&#x27;analyse n&#x27;est pas posée')) {
+    manque.push('des jetons sans la clé du revendeur ne disent pas que l’analyse est suspendue')
+  }
+  if (carte.includes('sa clé d&#x27;analyse n&#x27;est pas posée')) manque.push('des jetons prêts se disent suspendus')
   const consoeur = avecStore(h(VueJetons, { etat, titulaire: false, enCours: '', echec: '' }))
   if (consoeur.includes('>Acheter<') || !consoeur.includes('Seule la titulaire du cabinet')) {
     manque.push('une consœur voit des achats réservés à la titulaire')

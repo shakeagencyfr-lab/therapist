@@ -12,6 +12,8 @@
  * DEUX MODES. En « cle_cabinet », rien ne change : le cabinet paie ses appels
  * avec sa propre clé Anthropic, et il n'y a pas de jetons. En « jetons », la
  * clé du revendeur paie tout, et chaque action coûte ce que dit le barème.
+ * Le revendeur choisit le mode de tous ses cabinets, et peut en placer un
+ * dans l'autre mode par exception (0070).
  */
 
 /** Les actions que le barème met à prix. */
@@ -63,7 +65,14 @@ export interface LigneHistorique {
 
 /** L'état des jetons d'un cabinet — rien de secret, rien du revendeur au-delà de ses prix. */
 export interface EtatJetons {
+  /** Le mode effectif DE CE CABINET : le réglage du revendeur, ou l'exception de son contrat (0070). */
   mode: ModeFacturation
+  /**
+   * En jetons, la clé du revendeur est-elle posée ? Faux quand le cabinet a
+   * été placé en jetons et que le revendeur a retiré sa clé depuis :
+   * l'analyse est suspendue, et l'écran le dit. Toujours faux en clé du cabinet.
+   */
+  pret: boolean
   /** Le contrat court-il ? Hors contrat, rien ne se dépense ni ne s'achète. */
   enRegle: boolean
   /** Tout ce qui reste, lots non expirés compris. */
@@ -157,12 +166,19 @@ export interface CabinetJetons {
   /** Jetons décomptés depuis le premier du mois (Europe/Paris). */
   consommesMois: number
   solde: number
+  /** Ce qui paie vraiment son analyse : le réglage du revendeur, ou l'exception de son contrat (0070). */
+  modeEffectif: ModeFacturation
+  /** L'exception posée sur son contrat ; null quand le réglage du revendeur décide. */
+  override: ModeFacturation | null
 }
 
 export interface EtatRevendeurJetons {
   /** Le revendeur a activé les jetons. */
   actif: boolean
-  /** Ce qui vaut vraiment : activés ET une clé posée. */
+  /**
+   * Le réglage du revendeur, celui de tout cabinet sans exception : activés
+   * ET une clé posée. Chaque cabinet dit son mode effectif (`cabinets`).
+   */
   mode: ModeFacturation
   /** La clé Anthropic : posée ou non, et depuis quand. Jamais un caractère de la clé. */
   cle: { posee: boolean; poseeLe: string | null }

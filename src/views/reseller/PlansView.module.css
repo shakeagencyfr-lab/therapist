@@ -295,6 +295,24 @@
 .exceptionMax input {
   min-width: 0;
 }
+/* La facturation de l'IA : trois choix aux libellés longs, sur toute la largeur. */
+.exceptionLarge {
+  grid-column: 1 / -1;
+}
+.choixFacturation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  /* Remises à zéro du `fieldset` : bordure, marges et largeur minimale. */
+  border: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.choixFacturation:disabled button {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 .exceptionEtats {
   display: flex;
   flex-wrap: wrap;

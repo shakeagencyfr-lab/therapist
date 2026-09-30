@@ -29,13 +29,15 @@ import {
 import { useStore } from '@/state/store'
 import { LEVIERS } from '@/types/reseller'
 import type { Exceptions, ReglageContrat, ReglageOffre, StatutContrat } from '@/reseller/useReseller'
+import type { ModeFacturation } from '@/types/jetons'
 import type { Levier, Plan, PlanCode, PortfolioRow } from '@/types/reseller'
 import s from './PlansView.module.css'
 
 /* Le catalogue se règle ici : trois offres, un prix, un plafond de fiches,
    quatre leviers — et, depuis 0065, un forfait mensuel de jetons, qui ne
    vaut que lorsque le revendeur paie l'analyse avec sa clé (onglet Jetons
-   IA). Sans jetons activés, l'analyse reste payée par la thérapeute. */
+   IA). Sans jetons activés, l'analyse reste payée par la thérapeute — sauf
+   pour un cabinet placé en jetons par exception (0070), et inversement. */
 
 /** Le forfait mensuel le plus haut que la base accepte (plans_jetons_mois_borne). */
 const FORFAIT_MAX = 1_000_000
@@ -549,6 +551,8 @@ export function LigneException({
         </p>
       </div>
 
+      <FacturationDuCabinet row={row} occupe={enCours} poser={poser} />
+
       {LEVIERS.map((l) => {
         const brut = overrideDe(row.subscription, l.code)
         return (
@@ -582,6 +586,114 @@ export function LigneException({
       })}
 
       <JetonsDuCabinet row={row} />
+    </div>
+  )
+}
+
+/** Les trois choix de la facturation d'un cabinet : le réglage du revendeur, ou l'un des deux modes. */
+type ChoixFacturation = 'revendeur' | ModeFacturation
+
+/** « Jetons », « Clé du cabinet » : le mode dit en deux mots, pour une étiquette. */
+function modeCourt(mode: ModeFacturation): string {
+  return mode === 'jetons' ? 'Jetons' : 'Clé du cabinet'
+}
+
+/**
+ * Qui paie l'analyse de CE cabinet (0070) : le réglage du revendeur — la
+ * règle de tous ses cabinets —, ou l'un des deux modes par exception.
+ *
+ * Garder un cabinet sur sa propre clé chez un revendeur en jetons, ou en
+ * passer un seul en jetons pour essayer avant les autres : c'est le même
+ * geste que les autres exceptions, au propriétaire seul (0063), et le
+ * journal du contrat le garde.
+ *
+ * LES JETONS DEMANDENT LA CLÉ DU REVENDEUR. Sans elle, le choix est grisé et
+ * dit pourquoi — la base le refuserait de toute façon. Retirée après coup,
+ * le cabinet reste en jetons (jamais de repli silencieux sur sa clé) et son
+ * analyse est suspendue : l'écran le dit en clair.
+ */
+function FacturationDuCabinet({
+  row,
+  occupe,
+  poser,
+}: {
+  row: PortfolioRow
+  occupe: boolean
+  poser: (champs: Exceptions) => Promise<void>
+}) {
+  const jetons = useJetonsRevendeur()
+  const proprietaire = useMaybeAuth()?.context?.reseller?.role === 'owner'
+  const etat = jetons?.etat ?? null
+  /* Le réglage du revendeur, et sa clé : inconnus tant que l'état n'est pas
+     lu. On ne grise alors rien — la base tranche. */
+  const defaut = etat?.mode ?? null
+  const clePosee = etat ? etat.cle.posee : true
+  const actuel = row.subscription.facturationIaOverride
+  const choix: ChoixFacturation = actuel ?? 'revendeur'
+  // La règle même de la base : l'exception, sinon le réglage du revendeur.
+  const effectif: ModeFacturation | null = actuel ?? defaut
+
+  const options: Array<{ value: ChoixFacturation; label: string; bloque: boolean }> = [
+    {
+      value: 'revendeur',
+      label: defaut
+        ? `Selon le réglage du revendeur (actuellement : ${modeCourt(defaut)})`
+        : 'Selon le réglage du revendeur',
+      bloque: false,
+    },
+    { value: 'cle_cabinet', label: 'Clé Anthropic du cabinet (BYOK)', bloque: false },
+    // Déjà en jetons, le choix reste allumé : on ne grise pas l'état en place.
+    { value: 'jetons', label: 'Jetons', bloque: !clePosee && actuel !== 'jetons' },
+  ]
+
+  async function choisir(valeur: ChoixFacturation) {
+    if (valeur === choix) return
+    await poser({ facturationIaOverride: valeur === 'revendeur' ? null : valeur })
+    // Le mode effectif se relit chez le serveur : l'onglet Jetons IA le montre aussi.
+    void jetons?.recharger()
+  }
+
+  return (
+    <div className={`${s.exceptionLevier} ${s.exceptionLarge}`}>
+      <FieldLabel>Facturation de l'IA</FieldLabel>
+      {/* Un `fieldset` désactivé neutralise ses boutons pour de bon, souris et
+          clavier compris : `Chip` n'a pas de `disabled`. */}
+      <fieldset className={s.choixFacturation} disabled={!proprietaire || occupe}>
+        {options.map((o) => (
+          <fieldset key={o.value} className={s.choixFacturation} disabled={o.bloque}>
+            <Chip
+              on={choix === o.value}
+              onClick={() => void choisir(o.value)}
+              title={
+                o.bloque
+                  ? "Posez d'abord votre clé Anthropic dans l'onglet Jetons IA."
+                  : `Facturation de l'IA pour ${row.cabinet.name} : ${o.label}`
+              }
+            >
+              {o.label}
+            </Chip>
+          </fieldset>
+        ))}
+      </fieldset>
+      {actuel === 'jetons' && !clePosee ? (
+        <p className={s.probleme}>
+          Votre clé Anthropic n'est plus posée : l'analyse de ce cabinet est suspendue. Reposez-la
+          dans l'onglet Jetons IA, ou rendez-lui sa propre clé.
+        </p>
+      ) : (
+        <p className={s.exceptionNote}>
+          {effectif === 'jetons'
+            ? 'Ce cabinet paie son analyse en jetons, avec votre clé.'
+            : effectif === 'cle_cabinet'
+              ? 'Ce cabinet paie son analyse avec sa propre clé Anthropic.'
+              : ''}
+          {actuel === 'jetons' && defaut === 'cle_cabinet'
+            ? " Il passe en jetons avant vos autres cabinets : son forfait mensuel s'applique."
+            : ''}
+          {!clePosee && actuel !== 'jetons' ? " Jetons : posez d'abord votre clé Anthropic dans l'onglet Jetons IA." : ''}
+          {proprietaire ? '' : ' Réservé au compte propriétaire.'}
+        </p>
+      )}
     </div>
   )
 }
@@ -635,7 +747,12 @@ function JetonsDuCabinet({ row }: { row: PortfolioRow }) {
       </p>
       <p className={s.exceptionNote}>
         Forfait : {jetonsDits(jetonsMoisOf(row.subscription, row.plan))} par mois
-        {jetons.etat.mode === 'jetons' ? '.' : ' — sans effet tant que vos jetons ne sont pas activés.'}
+        {/* Le mode DE CE CABINET (0070), pas celui du revendeur : un cabinet
+            passé seul en jetons reçoit son forfait, un cabinet gardé sur sa
+            clé n'en reçoit pas. */}
+        {(row.subscription.facturationIaOverride ?? jetons.etat.mode) === 'jetons'
+          ? '.'
+          : ' — sans effet tant que ce cabinet paie avec sa propre clé.'}
       </p>
       {proprietaire ? (
         <form
@@ -824,7 +941,8 @@ export function PlansView() {
             row.subscription.marqueBlancheOverride !== null ||
             row.subscription.siteOverride !== null ||
             row.subscription.jetonsMoisOverride !== null ||
-            row.subscription.hypnoseOverride !== null
+            row.subscription.hypnoseOverride !== null ||
+            row.subscription.facturationIaOverride !== null
           return (
             <div key={row.cabinet.id} className={s.bloc}>
               <div className={s.row}>
@@ -900,7 +1018,8 @@ export function PlansView() {
           Une offre règle ce que l'application ouvre : le nombre de fiches actives, la boutique, la
           marque blanche, le site vitrine et l'hypnose. L'analyse est payée de deux façons, selon
           l'onglet Jetons IA : par chaque cabinet avec sa propre clé Anthropic, ou par la vôtre — et
-          chaque offre verse alors son forfait mensuel de jetons. Un plafond de fiches atteint
+          chaque offre verse alors son forfait mensuel de jetons. L'exception « Facturation de
+          l'IA » place un cabinet dans l'autre mode, cabinet par cabinet. Un plafond de fiches atteint
           n'enferme rien : le cabinet clôt un suivi terminé, ou vous relevez le plafond ici. Un
           contrat hors règle — essai fini, impayé, suspendu, résilié — suspend{' '}
           {CE_QUI_EST_SUSPENDU} ; les dossiers restent entiers.

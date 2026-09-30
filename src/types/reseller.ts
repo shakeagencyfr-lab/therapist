@@ -156,6 +156,11 @@ export interface Subscription {
   hypnoseOverride: boolean | null
   /** Fin du pass Hypnose acheté (ISO), s'il y en a un. */
   hypnoseJusquAu: string | null
+  /**
+   * Qui paie l'analyse de ce cabinet, contre le réglage du revendeur (0070) :
+   * sa propre clé Anthropic, ou les jetons. Null = le réglage du revendeur.
+   */
+  facturationIaOverride: 'cle_cabinet' | 'jetons' | null
 }
 
 /** Les droits effectifs d'un cabinet : l'offre, corrigée de ses exceptions. */

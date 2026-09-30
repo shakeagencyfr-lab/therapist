@@ -256,6 +256,18 @@ describe('le journal des offres et des contrats', () => {
     )
   })
 
+  it('dit la facturation de l’IA posée, changée et retirée, cabinet par cabinet (0070)', () => {
+    expect(
+      phraseDuJournal(entree('contrat.exception', { facturation_ia: { avant: null, apres: 'cle_cabinet' } }), nom),
+    ).toBe("Cabinet Fontaine : exception — facturation de l'IA selon le revendeur → clé du cabinet.")
+    expect(
+      phraseDuJournal(entree('contrat.exception', { facturation_ia: { avant: 'cle_cabinet', apres: 'jetons' } }), nom),
+    ).toBe("Cabinet Fontaine : exception — facturation de l'IA clé du cabinet → jetons.")
+    expect(phraseDuJournal(entree('contrat.exception', { facturation_ia: { avant: 'jetons', apres: null } }), nom)).toBe(
+      "Cabinet Fontaine : exception — facturation de l'IA jetons → selon le revendeur.",
+    )
+  })
+
   it('nomme l’auteur sans nommer personne', () => {
     expect(auteurDit('vous')).toBe('par vous')
     expect(auteurDit('equipe')).toBe('par votre équipe')

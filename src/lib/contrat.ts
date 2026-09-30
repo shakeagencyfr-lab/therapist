@@ -224,6 +224,10 @@ function forfaitDit(valeur: unknown): string {
 function exceptionDite(champ: string, valeur: unknown): string {
   if (champ === 'max_patients') return valeur === null ? "selon l'offre" : plural(Number(valeur), 'fiche', 'fiches')
   if (champ === 'jetons_mois') return valeur === null ? "selon l'offre" : forfaitDit(valeur)
+  // 0070 : qui paie l'analyse — le revendeur décide, ou l'exception.
+  if (champ === 'facturation_ia') {
+    return valeur === 'jetons' ? 'jetons' : valeur === 'cle_cabinet' ? 'clé du cabinet' : 'selon le revendeur'
+  }
   const f = LEVIERS_DITS[champ]?.feminin ?? false
   if (valeur === null) return "selon l'offre"
   return valeur ? (f ? 'ouverte' : 'ouvert') : f ? 'fermée' : 'fermé'
@@ -291,7 +295,13 @@ export function phraseDuJournal(e: EntreeJournal, nomOffre: (code: string) => st
       const parties = Object.entries(m).map(([champ, v]) => {
         const { avant, apres } = paire((v ?? {}) as Record<string, unknown>)
         const nom =
-          champ === 'max_patients' ? 'plafond' : champ === 'jetons_mois' ? 'forfait' : (LEVIERS_DITS[champ]?.nom ?? champ)
+          champ === 'max_patients'
+            ? 'plafond'
+            : champ === 'jetons_mois'
+              ? 'forfait'
+              : champ === 'facturation_ia'
+                ? "facturation de l'IA"
+                : (LEVIERS_DITS[champ]?.nom ?? champ)
         return `${nom} ${exceptionDite(champ, avant)} → ${exceptionDite(champ, apres)}`
       })
       return `${qui} : exception — ${parties.join(' ; ')}.`

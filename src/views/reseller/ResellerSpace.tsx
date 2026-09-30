@@ -41,7 +41,7 @@ const TITLES: Record<ResellerView, { title: string; intro: string }> = {
   jetons: {
     title: 'Jetons IA',
     intro:
-      "Votre clé d'analyse peut payer l'IA de tous vos cabinets. Chaque action coûte alors des jetons, au prix de votre barème : chaque offre en verse un forfait par mois, et vos praticiennes rechargent sur votre compte Stripe. Tant que vous ne l'activez pas, rien ne change pour elles.",
+      "Votre clé d'analyse peut payer l'IA de tous vos cabinets. Chaque action coûte alors des jetons, au prix de votre barème : chaque offre en verse un forfait par mois, et vos praticiennes rechargent sur votre compte Stripe. Tant que vous ne l'activez pas, rien ne change pour elles. Un cabinet peut aussi être réglé à part, dans ses exceptions (Offres).",
   },
   fiche: {
     title: 'Fiche du cabinet',

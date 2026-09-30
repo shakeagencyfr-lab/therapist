@@ -78,6 +78,15 @@ export function VueJetons({ etat, titulaire, enCours, echec, cleCabinetPosee = f
         utilise des jetons, décomptés de votre solde. Aucune clé Anthropic n'est nécessaire.
       </p>
 
+      {/* Placé en jetons par son revendeur (0070), qui a retiré sa clé depuis :
+          le cabinet ne retombe pas sur la sienne, et l'analyse attend. */}
+      {!etat.pret ? (
+        <Notice tone="warn">
+          Votre revendeur a placé votre cabinet en jetons, mais sa clé d'analyse n'est pas posée :
+          l'analyse est suspendue jusqu'à ce qu'il la pose. Prévenez-le ; vos jetons sont gardés.
+        </Notice>
+      ) : null}
+
       {!etat.enRegle ? (
         <Notice tone="warn">
           Votre contrat n'est pas en cours : vos jetons sont gardés, mais aucune analyse ne s'écrit

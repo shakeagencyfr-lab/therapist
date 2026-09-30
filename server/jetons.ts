@@ -1,16 +1,21 @@
 /**
  * Les jetons : qui paie une analyse, et combien elle coûte.
  *
- * DEUX MODES, décidés par le revendeur (0065) :
+ * DEUX MODES, décidés par le revendeur (0065) — et, depuis 0070, cabinet
+ * par cabinet quand il le veut :
  *
  *   cle_cabinet  ce qui a toujours été : chaque cabinet branche sa clé
  *                Anthropic et paie ses appels. Rien n'est décompté. C'est
  *                le mode de tout revendeur qui n'a pas activé les jetons ou
  *                n'a pas posé sa clé — donc de tout le monde au déploiement.
  *
- *   jetons       la clé DU REVENDEUR paie tous ses cabinets, et chaque
- *                action coûte ce que dit son barème. Le forfait du mois, les
+ *   jetons       la clé DU REVENDEUR paie ses cabinets, et chaque action
+ *                coûte ce que dit son barème. Le forfait du mois, les
  *                recharges et les gestes du revendeur alimentent le solde.
+ *
+ * Le réglage du revendeur vaut pour tous ses cabinets ; une exception au
+ * contrat (`subscriptions.facturation_ia_override`) le contredit pour l'un
+ * d'eux (`modeEffectif`).
  *
  * LA BASE TIENT LE COMPTE, CE MODULE LE PRÉSENTE. Le solde, les lots, la
  * réservation, le remboursement — et, depuis 0068, ce qu'un forfait de
@@ -45,6 +50,7 @@ import type {
   JetonsDeLAppel,
   LigneHistorique,
   LotJetons,
+  ModeFacturation,
   OrigineLot,
   RechargeProposee,
   StatutConsommation,
@@ -176,31 +182,65 @@ function panneDeLecture(cause: string): HttpError {
   return new HttpError(503, "Vos jetons n'ont pas pu être lus. Réessayez dans un instant : rien n'a été produit.")
 }
 
+/** L'exception de facturation d'un contrat, lue telle quelle : null si elle ne dit rien de connu. */
+export function overrideLu(valeur: unknown): ModeFacturation | null {
+  return valeur === 'jetons' || valeur === 'cle_cabinet' ? valeur : null
+}
+
+/**
+ * Le mode effectif d'un cabinet — pure, et la règle de la base
+ * (`facturation_ia_du_cabinet`, 0070) :
+ *
+ *   l'exception du contrat, si elle est posée ;
+ *   sinon le réglage du revendeur : jetons activés ET sa clé posée (0065).
+ *
+ * Des jetons FORCÉS restent des jetons même sans la clé du revendeur :
+ * retomber sur la clé du cabinet ferait payer la praticienne pour ce que son
+ * revendeur a promis de payer. `facturationDuCabinet` refuse alors l'appel.
+ */
+export function modeEffectif(o: { override: unknown; actif: boolean; clePosee: boolean }): ModeFacturation {
+  return overrideLu(o.override) ?? (o.actif && o.clePosee ? 'jetons' : 'cle_cabinet')
+}
+
+/**
+ * Le refus d'un cabinet placé en jetons dont le revendeur n'a plus de clé.
+ * Un 503 : ce n'est ni la faute de la praticienne, ni un manque de jetons —
+ * c'est un réglage de son revendeur, qu'elle peut seulement lui signaler.
+ */
+export const REFUS_JETONS_SANS_CLE =
+  "Votre revendeur a placé votre cabinet en jetons, mais sa clé d'analyse n'est pas posée : l'analyse en jetons est suspendue jusqu'à ce qu'il la pose. Prévenez-le ; rien n'a été produit, ni décompté."
+
 /**
  * Le mode de facturation d'un cabinet, et de quoi l'appliquer.
  *
- * La règle est celle de la base (`jetons_mode_actif`, 0065) : activés ET une
- * clé posée. L'un sans l'autre, le cabinet garde sa clé — un revendeur qui
+ * La règle est celle de la base (`facturation_ia_du_cabinet`, 0070) :
+ * l'exception du contrat, sinon jetons activés ET une clé posée. Sans
+ * exception, l'un sans l'autre laisse au cabinet sa clé — un revendeur qui
  * active les jetons avant d'avoir branché la sienne ne coupe l'analyse de
  * personne.
  *
  * UNE PANNE NE VAUT PAS « CLÉ DU CABINET ». Retomber sur la clé du cabinet
  * quand les réglages ne se lisent pas, c'est faire payer la praticienne pour
  * une analyse que son revendeur a promis de payer. On refuse, et l'on dit de
- * réessayer.
+ * réessayer. De même pour des jetons forcés sans la clé du revendeur : un
+ * 503 qui le dit, jamais un repli.
  */
 export async function facturationDuCabinet(
   cabinetId: string,
   db: SupabaseClient | null = clientAdmin(),
 ): Promise<Facturation> {
   if (!db) return { mode: 'cle_cabinet' }
-  const { data: cabinet, error: e1 } = await db
-    .from('cabinets')
-    .select('reseller_id')
-    .eq('id', cabinetId)
-    .maybeSingle<{ reseller_id: string | null }>()
-  if (e1) throw panneDeLecture(e1.message)
-  const resellerId = cabinet?.reseller_id
+  const [cabinet, contrat] = await Promise.all([
+    db.from('cabinets').select('reseller_id').eq('id', cabinetId).maybeSingle<{ reseller_id: string | null }>(),
+    db
+      .from('subscriptions')
+      .select('facturation_ia_override')
+      .eq('cabinet_id', cabinetId)
+      .maybeSingle<{ facturation_ia_override: string | null }>(),
+  ])
+  if (cabinet.error) throw panneDeLecture(cabinet.error.message)
+  if (contrat.error) throw panneDeLecture(contrat.error.message)
+  const resellerId = cabinet.data?.reseller_id
   if (!resellerId) return { mode: 'cle_cabinet' }
 
   const [reglages, secrets] = await Promise.all([
@@ -213,7 +253,17 @@ export async function facturationDuCabinet(
   ])
   if (reglages.error) throw panneDeLecture(reglages.error.message)
   if (secrets.error) throw panneDeLecture(secrets.error.message)
-  if (!reglages.data?.actif || !secrets.data?.anthropic_key_enc) return { mode: 'cle_cabinet' }
+  const mode = modeEffectif({
+    override: contrat.data?.facturation_ia_override,
+    actif: reglages.data?.actif === true,
+    clePosee: Boolean(secrets.data?.anthropic_key_enc),
+  })
+  if (mode === 'cle_cabinet') return { mode: 'cle_cabinet' }
+  if (!secrets.data?.anthropic_key_enc) {
+    // Seuls des jetons forcés arrivent ici : sans exception, pas de clé veut dire clé du cabinet.
+    console.error(`[jetons] cabinet ${cabinetId} placé en jetons, revendeur ${resellerId} sans clé`)
+    throw new HttpError(503, REFUS_JETONS_SANS_CLE)
+  }
 
   let cle: string
   try {
@@ -536,6 +586,7 @@ export function jetonsDeLAppel(reservation: Reservation, solde: number | null): 
 
 interface EtatJetonsBrut {
   mode?: string
+  pret?: boolean
   en_regle?: boolean
   solde?: number
   mensuel?: { total?: number; restant?: number; renouvellement?: string } | null
@@ -558,6 +609,9 @@ export function versEtatJetons(brut: unknown): EtatJetons {
   const bareme = b.bareme ?? {}
   return {
     mode: b.mode === 'jetons' ? 'jetons' : 'cle_cabinet',
+    /* Une base d'avant 0070 ne dit pas « pret » : ses jetons ne valaient
+       qu'avec la clé du revendeur, ils l'étaient donc. */
+    pret: b.mode === 'jetons' && b.pret !== false,
     enRegle: b.en_regle === true,
     solde: nombre(b.solde),
     mensuel: b.mensuel
@@ -840,14 +894,20 @@ export async function demarrerAchatJetons(
     if ((abo?.hypnose_override ?? offre?.hypnose_incluse) === true) {
       throw new HttpError(409, "L'hypnose est déjà comprise dans votre offre : il n'y a rien à acheter.")
     }
-    /* Le mode se lit par la règle de la base, sans déchiffrer la clé du
-       revendeur : une clé illisible ne doit pas empêcher d'acheter un pass. */
-    const { data: modeJetons, error: eMode } = await db.rpc('jetons_mode_actif', { p_reseller: resellerId })
+    /* Le mode DU CABINET (0070), par la règle de la base, sans déchiffrer la
+       clé du revendeur : une clé illisible ne doit pas empêcher d'acheter un
+       pass. Un cabinet gardé sur sa clé chez un revendeur en jetons n'a que
+       faire des jetons du pass ; un cabinet passé seul en jetons, si. */
+    const { data: mode, error: eMode } = await db.rpc('facturation_ia_du_cabinet', { p_cabinet: cabinetId })
     if (eMode) throw panneDeLecture(eMode.message)
-    commande = commandeDuPass(r, modeJetons === true)
+    commande = commandeDuPass(r, mode === 'jetons')
   } else {
     const rechargeId = uuidDe(body.recharge)
     if (!rechargeId) throw new HttpError(400, 'Choisissez une recharge.')
+    /* PAS DE RECHARGE EN CLÉ DU CABINET : c'est le mode effectif du cabinet
+       qui compte (0070), pas celui du revendeur. Des jetons forcés sans la
+       clé du revendeur refusent ici aussi (503) : on ne vend pas des jetons
+       que rien ne peut dépenser. */
     const facturation = await facturationDuCabinet(cabinetId, db)
     if (facturation.mode !== 'jetons') {
       throw new HttpError(

@@ -132,6 +132,7 @@ Relevé du 28 septembre 2026 (base `koytgcbpeorupdklswxd`).
 | `0067_les_conditions_acceptees.sql` | 20260930074507 | 0067_les_conditions_acceptees |
 | `0068_les_jetons_sous_verrou.sql` | 20260930115309 | 0068_les_jetons_sous_verrou |
 | `0069_l_ancienne_demande_d_essai_se_retire.sql` | 20260930125054 | 0069_l_ancienne_demande_d_essai_se_retire |
+| `0070_la_facturation_par_cabinet.sql` | 20260930134829 | 0070_la_facturation_par_cabinet |
 
 `0060` (demandes d'essai) a été appliquée avant `0055` à `0059` : elles ne se touchent pas.
 
@@ -286,6 +287,20 @@ persiste, et le message dit ce qui a été vérifié.
   forfait du mois ou l'essai, puis les jetons du pass, puis achats et gestes
   par ancienneté. Une consommation prend l'heure de son inscription
   (`clock_timestamp()`), sous le verrou (`tests/jetons_0068.sql`).
+- **La facturation se règle cabinet par cabinet** (`0070`). Le réglage du
+  revendeur reste le défaut ; `subscriptions.facturation_ia_override` le
+  contredit pour un cabinet : `'cle_cabinet'` (sa propre clé, même chez un
+  revendeur en jetons) ou `'jetons'` (la clé du revendeur, même sans jetons
+  activés — pour essayer sur un cabinet). Le mode effectif se lit par
+  `facturation_ia_du_cabinet` ; `jetons_actifs_pour_cabinet` ajoute qu'il
+  faut la clé du revendeur pour verser un forfait. `jetons_assurer_periode`,
+  `cabinet_jetons` (`mode`, et `pret`), `revendeur_jetons_apercu`
+  (`mode_effectif`, `override`) et `declencher_affirmations` les lisent.
+  Poser `'jetons'` sans clé du revendeur est refusé
+  (`facturation_ia_exige_la_cle`) ; une clé retirée après laisse le cabinet
+  en jetons, sans repli silencieux sur sa clé. L'équipe n'ouvre pas d'essai
+  avec cette exception ; le journal du contrat la dit
+  (`tests/facturation_0070.sql`).
 - **Un avis sur l'IA ne dit ni sur qui, ni quoi** (`0066`). `retours_ia`
   compte les pouces levés ou baissés par type de texte (hypnose, synthèse,
   module…), sans patient ni contenu, comme `ai_usage`. `preferences_ia`

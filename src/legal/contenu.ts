@@ -803,7 +803,7 @@ const CONDITIONS: PageLegale = {
         {
           type: 'paragraphe',
           texte:
-            'À la demande du cabinet, Klaro envoie le texte d’une séance ou des éléments du dossier à Anthropic pour en tirer une proposition : note de séance, profil, exercice, hypnose, affirmations, ou la révision de l’une d’elles. La rédaction se fait avec la clé de la plateforme ou du revendeur, et se paie alors en jetons — inclus chaque mois dans l’abonnement, ou achetés en recharge ; ou, pour les cabinets qui l’utilisent encore, avec la clé que le cabinet a posée dans ses réglages, les appels étant alors payés par lui directement à Anthropic.',
+            'À la demande du cabinet, Klaro envoie le texte d’une séance ou des éléments du dossier à Anthropic pour en tirer une proposition : note de séance, profil, exercice, hypnose, affirmations, ou la révision de l’une d’elles. La rédaction se fait avec la clé de la plateforme ou du revendeur, et se paie alors en jetons — inclus chaque mois dans l’abonnement, ou achetés en recharge ; ou, pour les cabinets qui l’utilisent encore, avec la clé que le cabinet a posée dans ses réglages, les appels étant alors payés par lui directement à Anthropic. Le revendeur choisit l’un ou l’autre mode pour l’ensemble de ses cabinets, et peut aussi le régler cabinet par cabinet.',
         },
         {
           type: 'paragraphe',
@@ -1137,7 +1137,7 @@ const ARTICLES: SectionLegale[] = [
         `Barème. Le barème peut évoluer. Tout changement est annoncé au moins ${PREAVIS} à l’avance, par courriel ou dans l’espace du Client, et n’a jamais d’effet rétroactif : il ne touche ni les rédactions déjà faites, ni leur débit.`,
         `Nature des jetons. Les jetons n’ont aucune valeur monétaire : ils ne sont ni remboursables, ni échangeables contre de l’argent, ni cessibles à un autre cabinet, et ne s’utilisent qu’au sein du Service, auprès de nul autre que le Prestataire. Ils ne constituent ni de la monnaie électronique, ni un moyen de paiement. Les jetons non utilisés à leur date d’expiration sont perdus, sans indemnité, sous la seule réserve du remboursement des recharges payées que prévoit ${article('resiliation')} en cas d’arrêt du Service, de résiliation par le Prestataire pour convenance ou de résiliation par le Client pour manquement grave du Prestataire.`,
         'Essai. Lorsque les rédactions se paient en jetons, l’essai comprend une petite dotation de jetons, valable pendant sa seule durée.',
-        'Revendeur. Lorsque le Client a souscrit par un Revendeur, le prix des recharges et, le cas échéant, le barème sont fixés par ce Revendeur, qui en répond seul envers ses clients.',
+        'Revendeur. Lorsque le Client a souscrit par un Revendeur, le prix des recharges et, le cas échéant, le barème sont fixés par ce Revendeur, qui en répond seul envers ses clients. Ce Revendeur choisit aussi si les rédactions se paient en jetons ou par la propre clé du Client : pour l’ensemble de ses clients, ou client par client.',
       ],
     },
   ]),

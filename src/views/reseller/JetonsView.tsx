@@ -133,7 +133,6 @@ function CleAnalyse({ etat, peutRegler, enCours, agir }: SectionProps) {
   const [remplacer, setRemplacer] = useState(false)
   const posee = etat.cle.posee
   const occupe = enCours !== ''
-  const cabinets = etat.cabinets.length
 
   async function enregistrer() {
     const ok = await agir(
@@ -147,12 +146,33 @@ function CleAnalyse({ etat, peutRegler, enCours, agir }: SectionProps) {
     }
   }
 
+  /* LE RÉGLAGE DE TOUS, ET LES EXCEPTIONS (0070). Un cabinet peut être placé
+     dans l'autre mode depuis ses exceptions (écran Offres) : le compte des
+     cabinets en jetons est donc celui de leur mode effectif, et la phrase
+     dit combien suivent leur propre réglage. */
+  const enJetons = etat.cabinets.filter((c) => c.modeEffectif === 'jetons').length
+  const aPart = etat.cabinets.filter((c) => c.override !== null).length
+  const forcesEnJetons = etat.cabinets.filter((c) => c.override === 'jetons').length
+  const exceptionsDites =
+    aPart === 0
+      ? ''
+      : aPart === 1
+        ? ' Un cabinet a son propre réglage (ses exceptions, écran Offres).'
+        : ` ${aPart} cabinets ont leur propre réglage (leurs exceptions, écran Offres).`
   const etatDuMode =
-    etat.mode === 'jetons'
-      ? `Activé : ${plural(cabinets, 'cabinet analyse', 'cabinets analysent')} avec votre clé et paie${cabinets > 1 ? 'nt' : ''} en jetons.`
+    (etat.mode === 'jetons'
+      ? `Activé : ${plural(enJetons, 'cabinet analyse', 'cabinets analysent')} avec votre clé et paie${enJetons > 1 ? 'nt' : ''} en jetons.`
       : etat.actif
         ? "Activé, mais sans clé enregistrée : chaque cabinet garde la sienne tant que vous n'en posez pas une."
-        : 'Désactivé : chaque cabinet branche sa propre clé Anthropic et paie ses appels.'
+        : 'Désactivé : chaque cabinet branche sa propre clé Anthropic et paie ses appels.') + exceptionsDites
+  /* Les cabinets placés en jetons par exception ne retombent pas sur leur
+     clé : retirer la vôtre les arrête. Le geste le dit avant d'agir. */
+  const forcesDits =
+    forcesEnJetons === 0
+      ? ''
+      : forcesEnJetons === 1
+        ? ' Le cabinet placé en jetons par exception ne pourra plus rien analyser tant que la clé ne sera pas reposée.'
+        : ` Les ${forcesEnJetons} cabinets placés en jetons par exception ne pourront plus rien analyser tant que la clé ne sera pas reposée.`
 
   return (
     <section className={s.panel}>
@@ -193,7 +213,7 @@ function CleAnalyse({ etat, peutRegler, enCours, agir }: SectionProps) {
                 onConfirmer={() =>
                   void agir('cle-retirer', { action: 'cle', retirer: true }, 'Clé retirée. Les jetons sont désactivés : chaque cabinet reprend sa clé.')
                 }
-                consequence="Les jetons se coupent aussitôt : chaque cabinet reprend sa propre clé Anthropic, et ceux qui n'en ont pas ne peuvent plus rien analyser. Pour la reposer, il faudra la recopier depuis votre console Anthropic."
+                consequence={`Les jetons se coupent aussitôt : chaque cabinet reprend sa propre clé Anthropic, et ceux qui n'en ont pas ne peuvent plus rien analyser.${forcesDits} Pour la reposer, il faudra la recopier depuis votre console Anthropic.`}
               />
             </span>
           ) : null}
@@ -249,7 +269,7 @@ function CleAnalyse({ etat, peutRegler, enCours, agir }: SectionProps) {
           <span className={s.aide}>
             Activé, vos cabinets n'ont plus besoin de leur propre clé : chaque analyse est payée par
             la vôtre et décomptée de leurs jetons — le forfait mensuel de leur offre, puis ce qu'ils
-            rachètent.
+            rachètent. Un cabinet peut aussi être réglé à part, dans ses exceptions (écran Offres).
           </span>
         </span>
         {!peutRegler ? (
@@ -264,7 +284,7 @@ function CleAnalyse({ etat, peutRegler, enCours, agir }: SectionProps) {
             onConfirmer={() =>
               void agir('actif', { action: 'reglages', actif: false }, 'Jetons désactivés : chaque cabinet reprend sa propre clé.')
             }
-            consequence="Chaque cabinet repaie ses analyses avec sa propre clé Anthropic dès maintenant ; ceux qui n'en ont pas posé ne peuvent plus rien analyser. Leurs jetons restants sont gardés pour une prochaine activation."
+            consequence={`Chaque cabinet repaie ses analyses avec sa propre clé Anthropic dès maintenant ; ceux qui n'en ont pas posé ne peuvent plus rien analyser. Leurs jetons restants sont gardés pour une prochaine activation.${forcesEnJetons ? ' Les cabinets placés en jetons par exception y restent.' : ''}`}
           />
         ) : (
           <Button
@@ -781,8 +801,8 @@ function Consommation({ etat }: { etat: EtatRevendeurJetons }) {
         <span className={s.compte}>{jetonsDits(total)} depuis le 1er</span>
       </div>
       <p className={s.panelSub}>
-        {etat.mode === 'jetons'
-          ? 'Les jetons décomptés depuis le premier du mois, et ce qui reste à chaque cabinet.'
+        {etat.mode === 'jetons' || etat.cabinets.some((c) => c.modeEffectif === 'jetons')
+          ? 'Les jetons décomptés depuis le premier du mois, et ce qui reste à chaque cabinet. Un cabinet sur sa propre clé ne décompte rien.'
           : "Les jetons ne sont pas activés : rien n'est décompté. Les soldes offerts attendent l'activation."}
       </p>
       {etat.cabinets.length === 0 ? (
@@ -791,7 +811,15 @@ function Consommation({ etat }: { etat: EtatRevendeurJetons }) {
         <ul className={s.liste}>
           {etat.cabinets.map((c) => (
             <li key={c.cabinetId} className={s.ligne}>
-              <span className={s.nom}>{c.nom}</span>
+              {/* Le mode effectif du cabinet (0070) : c'est lui qui dit si ses
+                  chiffres comptent. « par exception » quand il ne suit pas
+                  votre réglage. */}
+              <span className={s.qui}>
+                <span className={s.nom}>{c.nom}</span>
+                <span className={s.modeCabinet}>
+                  {`${c.modeEffectif === 'jetons' ? 'Jetons' : 'Clé du cabinet'}${c.override !== null ? ', par exception' : ''}`}
+                </span>
+              </span>
               <span className={s.chiffres}>
                 <span>
                   <strong>{c.consommesMois.toLocaleString('fr-FR')}</strong> ce mois-ci

@@ -981,7 +981,10 @@ export async function analyserPourCabinet(
   const preferences = mock ? SANS_PREFERENCES : preferencesDuCabinet(cabinetId)
 
   /* QUI PAIE. Hors maquette, le revendeur décide : sa clé et des jetons, ou
-     la clé de chaque cabinet. Ce second cas est le chemin d'avant, inchangé. */
+     la clé de chaque cabinet — pour tous ses cabinets, ou pour celui-ci par
+     exception au contrat (0070, `facturationDuCabinet`). Le second cas est le
+     chemin d'avant, inchangé. Des jetons forcés sans la clé du revendeur
+     lèvent un 503 : jamais de repli sur la clé du cabinet. */
   const facturation: Facturation =
     mock || !cabinetId ? { mode: 'cle_cabinet' } : await facturationDuCabinet(cabinetId, clientAdmin())
   if (facturation.mode === 'jetons' && cabinetId) {

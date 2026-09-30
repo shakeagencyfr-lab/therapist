@@ -1,8 +1,10 @@
 /**
  * L'espace du revendeur, côté serveur : ses jetons.
  *
- * Le revendeur y branche la clé Anthropic qui paiera l'analyse de TOUS ses
- * cabinets, le compte Stripe qui encaissera leurs recharges, fixe ce que
+ * Le revendeur y branche la clé Anthropic qui paiera l'analyse de ses
+ * cabinets en jetons — tous par défaut, ou ceux qu'il y place par exception
+ * au contrat (0070, écran Offres) —, le compte Stripe qui encaissera leurs
+ * recharges, fixe ce que
  * coûte chaque action (le barème), l'essai, l'option Hypnose et ses
  * recharges — et peut offrir des jetons à l'un de ses cabinets.
  *
@@ -24,6 +26,7 @@ import type {
   CabinetJetons,
   CoutReel,
   EtatRevendeurJetons,
+  ModeFacturation,
   RechargeRevendeur,
 } from '../src/types/jetons.js'
 import { TAUX_EURO } from '../src/lib/coutIA.js'
@@ -38,7 +41,15 @@ import {
 } from './auth.js'
 import { HttpError } from './errors.js'
 import { eprouverAnthropic, eprouverStripe } from './integrations.js'
-import { ACTIONS_JETONS, baremeDe, exigerAucunPaiementEnCours, uuidDe, type ReglagesJetons } from './jetons.js'
+import {
+  ACTIONS_JETONS,
+  baremeDe,
+  exigerAucunPaiementEnCours,
+  modeEffectif,
+  overrideLu,
+  uuidDe,
+  type ReglagesJetons,
+} from './jetons.js'
 import { chiffrementConfigure, chiffrer, dechiffrer } from './secrets.js'
 
 function admin(): SupabaseClient {
@@ -124,6 +135,36 @@ async function reglagesDe(resellerId: string, db: SupabaseClient): Promise<Regla
   return data as ReglagesJetons
 }
 
+/**
+ * Un cabinet de l'aperçu (`revendeur_jetons_apercu`), à la forme de l'écran
+ * — pure.
+ *
+ * Le mode effectif vient de la base (0070). Une base d'avant 0070 ne le dit
+ * pas : sans exception possible, c'est alors le réglage du revendeur. Une
+ * exception illisible ne vaut rien — ni ne se montre comme posée.
+ */
+export function cabinetDeLApercu(
+  c: {
+    cabinet_id?: string
+    nom?: string
+    consommes_mois?: number
+    solde?: number
+    mode_effectif?: string
+    override?: string | null
+  },
+  modeParDefaut: ModeFacturation,
+): CabinetJetons {
+  const override = overrideLu(c.override)
+  return {
+    cabinetId: String(c.cabinet_id ?? ''),
+    nom: String(c.nom ?? ''),
+    consommesMois: Number(c.consommes_mois ?? 0) || 0,
+    solde: Number(c.solde ?? 0) || 0,
+    modeEffectif: overrideLu(c.mode_effectif) ?? override ?? modeParDefaut,
+    override,
+  }
+}
+
 async function etatPour(appelant: Appelant, resellerId: string): Promise<EtatRevendeurJetons> {
   const db = admin()
   const [reglages, secrets, recharges, apercu, proprietaire] = await Promise.all([
@@ -153,11 +194,20 @@ async function etatPour(appelant: Appelant, resellerId: string): Promise<EtatRev
   const stripePose = Boolean(secrets.data?.stripe_secret_enc)
   const vue = (apercu.data ?? {}) as {
     couts?: Array<{ kind?: string; appels?: number; moyen_cents?: number | string }>
-    cabinets?: Array<{ cabinet_id?: string; nom?: string; consommes_mois?: number; solde?: number }>
+    cabinets?: Array<{
+      cabinet_id?: string
+      nom?: string
+      consommes_mois?: number
+      solde?: number
+      mode_effectif?: string
+      override?: string | null
+    }>
   }
+  // Le réglage du revendeur : celui de tout cabinet sans exception.
+  const modeParDefaut = modeEffectif({ override: null, actif: reglages.actif === true, clePosee })
   return {
     actif: reglages.actif === true,
-    mode: reglages.actif === true && clePosee ? 'jetons' : 'cle_cabinet',
+    mode: modeParDefaut,
     cle: { posee: clePosee, poseeLe: clePosee ? (reglages.cle_posee_le ?? null) : null },
     stripe: {
       pose: stripePose,
@@ -183,14 +233,7 @@ async function etatPour(appelant: Appelant, resellerId: string): Promise<EtatRev
       }),
     ),
     coutsReels: coutsReels(vue.couts ?? []),
-    cabinets: (vue.cabinets ?? []).map(
-      (c): CabinetJetons => ({
-        cabinetId: String(c.cabinet_id ?? ''),
-        nom: String(c.nom ?? ''),
-        consommesMois: Number(c.consommes_mois ?? 0) || 0,
-        solde: Number(c.solde ?? 0) || 0,
-      }),
-    ),
+    cabinets: (vue.cabinets ?? []).map((c) => cabinetDeLApercu(c, modeParDefaut)),
     chiffrement: chiffrementConfigure(),
     proprietaire: proprietaire.data === true,
   }
@@ -374,7 +417,10 @@ export interface OffrirBody {
  *
  *   cle       { cle } pose la clé Anthropic, éprouvée ; { retirer: true } la
  *             retire — et désactive les jetons, qui n'auraient plus rien
- *             pour payer : chaque cabinet retrouve sa clé.
+ *             pour payer : chaque cabinet retrouve sa clé. Sauf ceux placés
+ *             en jetons par exception (0070) : ils ne retombent pas en
+ *             silence sur leur clé, leur analyse est refusée (503) tant
+ *             qu'une clé n'est pas reposée ou l'exception retirée.
  *   stripe    { cle } ou { retirer: true } : le compte qui encaisse — ni
  *             retiré ni changé tant qu'un paiement de jetons est en cours.
  *   reglages  { actif?, bareme?, essaiJetons?, optionHypnose? }. Activer
