@@ -4,7 +4,10 @@ import { plural } from '@/lib/format'
 import { buildPatientContext, generateAffirmations, messageDEchec } from '@/services/aiClient'
 import { patientOf } from '@/state/selectors'
 import { useMaybeCabinet } from '@/cabinet/context'
+import { useDevis } from '@/cabinet/useJetons'
+import { jetonsDits } from '@/lib/jetonsIA'
 import { useStore } from '@/state/store'
+import { CoutEnJetons } from '@/views/jetons/CoutEnJetons'
 import s from './Affirmations.module.css'
 
 /**
@@ -77,6 +80,9 @@ export function Affirmations() {
   /** Tout retirer attend sa confirmation. */
   const [aVider, setAVider] = useState(false)
   const [envoi, setEnvoi] = useState(false)
+  /* En jetons (0065), une série d'affirmations a son prix au barème — celle
+     du lundi aussi, que la tâche automatique décompte de la même façon. */
+  const devis = useDevis('affirmations')
   const key = state.sel
   const p = patientOf(state)
 
@@ -258,6 +264,7 @@ export function Affirmations() {
             {auto
               ? "L'IA les écrit d'après son dossier et les publie chaque lundi matin. Vous pouvez les corriger à tout moment."
               : 'Vous les écrivez ou les faites proposer, puis vous les envoyez vous-même.'}
+            {auto && devis ? ` Chaque série du lundi utilise ${jetonsDits(devis.cout)} ; sans jetons, elle attend la semaine suivante.` : ''}
           </span>
           <span className={s.autoRule}>
             Présent, affirmatif, aucun mot de doute : l'inconscient n'entend pas la négation.
@@ -301,13 +308,15 @@ export function Affirmations() {
       </button>
 
       <div className={s.actions}>
-        <button type="button" className={s.propose} disabled={busy} onClick={propose}>
+        <button type="button" className={s.propose} disabled={busy || Boolean(devis?.manque)} onClick={propose}>
           {busy ? 'Écriture…' : auto ? 'Regénérer maintenant' : 'Proposer avec l\'IA'}
         </button>
         <button type="button" className={s.publish} disabled={envoi} onClick={() => void publish()}>
           {envoi ? 'Envoi…' : 'Envoyer au patient'}
         </button>
       </div>
+
+      <CoutEnJetons devis={devis} sujet="Cette proposition" />
 
       {/* Tout retirer vide l'écran d'accueil du patient : cela se confirme. */}
       {aVider ? (

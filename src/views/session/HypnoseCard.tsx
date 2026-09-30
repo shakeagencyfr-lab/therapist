@@ -2,10 +2,13 @@ import { useState } from 'react'
 import { Button, Notice, Title } from '@/components/ui'
 import { MOUVEMENTS_HYPNOSE, NOM_MOUVEMENT } from '@/services/aiClient'
 import { useMaybeCabinet } from '@/cabinet/context'
+import { hypnoseOuverte, useDroits } from '@/cabinet/droits'
+import { useDevis } from '@/cabinet/useJetons'
 import { useEcritureHypnose } from '@/cabinet/useEcritureHypnose'
 import { bilanHypnose, libelleReprise } from '@/lib/texteHypnose'
 import { useStore } from '@/state/store'
 import { TexteMouvement } from '@/views/therapist/TexteMouvement'
+import { CoutEnJetons } from '@/views/jetons/CoutEnJetons'
 import { HypnoseToggle } from './HypnoseToggle'
 import s from './HypnoseCard.module.css'
 
@@ -30,6 +33,10 @@ import s from './HypnoseCard.module.css'
  * ELLE NE S'OUVRE PAS TOUJOURS. C'est une option que la thérapeute règle
  * patient par patient : tous n'en ont pas besoin, et elle coûte plus
  * cher que tout le reste de la séance réuni.
+ *
+ * ET L'OFFRE DOIT L'OUVRIR (0065). Hors de l'offre, sans exception ni pass,
+ * la case laisse la place au verrou (HypnoseToggle) et rien ne s'écrit —
+ * sauf ce qui était déjà à l'écran, qui ne disparaît pas.
  */
 export function HypnoseCard() {
   const { state } = useStore()
@@ -48,6 +55,10 @@ export function HypnoseCard() {
    */
   const [ouverteIci, setOuverteIci] = useState<boolean | null>(null)
   const cabinet = useMaybeCabinet()
+  const verrouillee = !hypnoseOuverte(useDroits())
+  /* Une hypnose se paie une fois, à son premier mouvement : la reprise
+     d'une écriture interrompue est comprise, elle n'a pas de prix à dire. */
+  const devis = useDevis('hypnose')
   const {
     ecriture,
     enCours,
@@ -66,7 +77,8 @@ export function HypnoseCard() {
   if (!patient) return null
 
   const prenom = patient.name.split(' ')[0] ?? patient.name
-  const ouverte = ouverteIci ?? patient.hypnoseActivee
+  const ouverte =
+    (ouverteIci ?? patient.hypnoseActivee) && (!verrouillee || ecriture || ecrits.length > 0 || Boolean(erreur))
   const draft = state.draft
   const bilan = bilanHypnose(
     { fini, conservee, ecrits: ecrits.length, interrompue: !!erreur, reel: !!cabinet?.reel },
@@ -107,11 +119,16 @@ export function HypnoseCard() {
               <Button
                 variant="primary"
                 onClick={() => draft && void ecrire(key, draft, intention)}
-                disabled={!draft || ecriture}
+                disabled={!draft || ecriture || Boolean(devis?.manque)}
               >
                 {ecriture ? 'Écriture en cours…' : "Écrire l'hypnose"}
               </Button>
             </div>
+          ) : null}
+          {/* Le prix avant d'écrire — et, après un refus faute de jetons, le
+              chemin de la recharge : rien n'a été payé, tout reste à écrire. */}
+          {!ecriture && ecrits.length === 0 && (!erreur || devis?.manque) ? (
+            <CoutEnJetons devis={devis} sujet="Cette hypnose" />
           ) : null}
 
           {erreur ? <Notice tone="warn">{erreur}</Notice> : null}

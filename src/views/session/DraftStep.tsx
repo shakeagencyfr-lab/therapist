@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Notice, Title } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
+import { useDevis } from '@/cabinet/useJetons'
 import { dateDuJour, plural } from '@/lib/format'
 import { momentDuMessage } from '@/lib/seance'
 import {
@@ -13,6 +14,7 @@ import { nouvelleSeance, profileOf } from '@/state/selectors'
 import { useStore } from '@/state/store'
 import { useEcritureConsignes } from '@/cabinet/useEcritureConsignes'
 import type { LibraryAudio, PatientModule, PsychProfile } from '@/types/domain'
+import { CoutEnJetons } from '@/views/jetons/CoutEnJetons'
 import { HypnoseCard } from './HypnoseCard'
 import s from './DraftStep.module.css'
 
@@ -42,6 +44,10 @@ export function DraftStep() {
   /* Un crochet ne se pose pas après un retour anticipé : l'écriture des
      consignes était déclarée sous le `return null` ci-dessous. */
   const consignes = useEcritureConsignes(cabinet?.majConsigne ?? (async () => ({ ok: false })))
+  /* EN JETONS (0065), L'ACTUALISATION QUI SUIT LA SÉANCE EST COMPRISE : le
+     serveur la compte dans le forfait de la séance qu'elle cite. Sans séance
+     en base (démonstration, séance non enregistrée), elle a son prix. */
+  const devisProfil = useDevis('profil', state.sessionPatient !== '' && Boolean(state.sessionId))
 
   /* La fiche de la séance, pas celle de la barre latérale : c'est elle qui
      recevra la note, les modules et les audios, même si la sélection a
@@ -697,12 +703,13 @@ export function DraftStep() {
                 : "Reprend le profil psychologique et les conseils d'accompagnement à partir des notes et de la synthèse de cette séance."}
           </span>
           {profil?.ton === 'warn' ? <Notice tone="warn">{profil.texte}</Notice> : null}
+          <CoutEnJetons devis={devisProfil} sujet="Cette actualisation" />
         </div>
         <button
           type="button"
           className={cx(s.profBtn, profBusy && s.profBtnBusy)}
           onClick={() => void refreshProfil()}
-          disabled={profBusy}
+          disabled={profBusy || Boolean(devisProfil?.manque)}
         >
           {profBusy ? 'Analyse des notes…' : 'Actualiser le profil'}
         </button>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Card, Notice, Overline } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
+import { useDevis } from '@/cabinet/useJetons'
 import {
   buildPatientContext,
   derniereReponseEstMaquette as derniereEstMaquette,
@@ -10,6 +11,7 @@ import {
 import { axisBand, profileOf, profilePrecision } from '@/state/selectors'
 import { useStore } from '@/state/store'
 import type { PsychProfile as Profile } from '@/types/domain'
+import { CoutEnJetons } from '@/views/jetons/CoutEnJetons'
 import s from './PsychProfile.module.css'
 
 /**
@@ -110,6 +112,9 @@ export function PsychProfile() {
      porte la clé du patient, et l'échec de l'un ne s'affiche pas chez
      l'autre. */
   const [echec, setEchec] = useState('')
+  /* Depuis la fiche, l'actualisation n'est pas celle d'une séance : en
+     jetons (0065), elle a son prix au barème. */
+  const devis = useDevis('profil')
 
   async function refresh() {
     // Une seule actualisation à la fois, tous patients confondus — et le
@@ -213,11 +218,12 @@ export function PsychProfile() {
         <div className={s.actions}>
           <span className={s.maturity}>{precision.label}</span>
           <span className={s.updated}>{profile.updated}</span>
-          <button type="button" className={s.refresh} onClick={refresh} disabled={busy}>
+          <button type="button" className={s.refresh} onClick={refresh} disabled={busy || Boolean(devis?.manque)}>
             {busy ? 'Analyse des notes…' : 'Actualiser le profil'}
           </button>
         </div>
       </div>
+      <CoutEnJetons devis={devis} sujet="Cette actualisation" className={s.cout} />
 
       <div className={s.body}>
         <div className={s.left}>

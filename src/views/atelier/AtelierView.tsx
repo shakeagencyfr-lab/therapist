@@ -6,6 +6,8 @@ import { plural } from '@/lib/format'
 import { preparerModule } from '@/lib/moduleAtelier'
 import { generateModule, messageDEchec } from '@/services/aiClient'
 import { useMaybeCabinet } from '@/cabinet/context'
+import { useDevis } from '@/cabinet/useJetons'
+import { CoutEnJetons } from '@/views/jetons/CoutEnJetons'
 import { useStore } from '@/state/store'
 import type { AppState } from '@/state/state'
 import type { CustomModule, PatientId, QuizQuestion } from '@/types/domain'
@@ -102,6 +104,9 @@ export function AtelierView() {
   const [refus, setRefus] = useState('')
   const mod = state.aMod
   const rows = libraryRows(state)
+  /* En jetons (0065), le module a son prix au barème : il se dit sous le
+     bouton, et le bouton se ferme quand le solde ne le couvre plus. */
+  const devis = useDevis('module')
   const selected = state.patientOrder.filter((key) => state.aAssign[key])
 
   /** Corrige le brouillon affiché, champ par champ. */
@@ -282,11 +287,12 @@ export function AtelierView() {
               variant="primary"
               block
               className={s.gen}
-              disabled={state.aGen}
+              disabled={state.aGen || Boolean(devis?.manque)}
               onClick={() => void generate()}
             >
               {state.aGen ? 'Rédaction du module…' : 'Générer le module'}
             </Button>
+            <CoutEnJetons devis={devis} sujet="Ce module" />
             {state.aNotice ? <div className={s.notice}>{state.aNotice}</div> : null}
           </Card>
 

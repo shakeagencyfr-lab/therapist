@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Button, Card, Notice, Overline, Title } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
+import { hypnoseOuverte, useDroits } from '@/cabinet/droits'
+import { useDevis } from '@/cabinet/useJetons'
 import { useEcritureHypnose } from '@/cabinet/useEcritureHypnose'
 import { MOUVEMENTS_HYPNOSE, NOM_MOUVEMENT, pointDeReprise } from '@/services/aiClient'
 import { plural } from '@/lib/format'
@@ -11,6 +13,8 @@ import { patientOf } from '@/state/selectors'
 import { useAppState } from '@/state/store'
 import { useMaybeAuth } from '@/auth/session'
 import type { Hypnose, HypnoseMouvement } from '@/types/domain'
+import { CoutEnJetons } from '@/views/jetons/CoutEnJetons'
+import { VerrouHypnose } from '@/views/jetons/VerrouHypnose'
 import { TexteMouvement } from './TexteMouvement'
 import s from './HypnosesFiche.module.css'
 
@@ -38,6 +42,10 @@ function dateLongue(iso: string): string {
  * fermer, aucun pour repartir du mouvement manquant. Il dit maintenant ce qui
  * est gardé, reprend au premier manquant, ou se ferme ; et une hypnose restée
  * interrompue en base se reprend depuis sa ligne.
+ *
+ * QUAND L'OFFRE NE L'OUVRE PLUS (0065), on n'écrit plus — mais ce qui est
+ * écrit reste à elle : la liste se lit, se télécharge et s'efface comme
+ * avant, et le verrou dit comment rouvrir l'écriture.
  */
 export function HypnosesFiche() {
   const state = useAppState()
@@ -64,6 +72,8 @@ export function HypnosesFiche() {
   } = useEcritureHypnose()
   /** L'hypnose dont le PDF se fabrique : jsPDF se charge à la demande. */
   const [pdf, setPdf] = useState('')
+  const verrouillee = !hypnoseOuverte(useDroits())
+  const devis = useDevis('hypnose')
 
   async function enregistrerPdf(h: Hypnose) {
     if (pdf) return
@@ -136,7 +146,11 @@ export function HypnosesFiche() {
       {notice ? <Notice tone="warn">{notice}</Notice> : null}
       {erreur ? <Notice tone="warn">{erreur}</Notice> : null}
 
-      {hypnoses.length === 0 && !ecriture && ecrits.length === 0 && !erreur ? (
+      {verrouillee && !ecriture && ecrits.length === 0 && !erreur ? (
+        <VerrouHypnose dejaEcrites={hypnoses.length > 0} />
+      ) : null}
+
+      {!verrouillee && hypnoses.length === 0 && !ecriture && ecrits.length === 0 && !erreur ? (
         <p className={s.vide}>
           L'hypnose est activée pour {prenom}. Elle s'écrira à sa prochaine séance — ou dès
           maintenant, à partir de la dernière.
@@ -147,7 +161,7 @@ export function HypnosesFiche() {
           refait avec une autre intention ; une tournure qui ne passe pas se
           corrige dans le texte. Masqué tant qu'une écriture est à l'écran —
           en cours, finie, ou interrompue : elle se ferme d'abord. */}
-      {!ecriture && ecrits.length === 0 && !erreur ? (
+      {!verrouillee && !ecriture && ecrits.length === 0 && !erreur ? (
         <div className={s.relance}>
           <label className={s.champ}>
             <span className={s.label}>Ce que vous voulez travailler (facultatif)</span>
@@ -161,15 +175,18 @@ export function HypnosesFiche() {
           </label>
           <Button
             variant={hypnoses.length ? 'secondary' : 'primary'}
-            disabled={!brouillon || !cabinet?.reel}
+            disabled={!brouillon || !cabinet?.reel || Boolean(devis?.manque)}
             onClick={() => brouillon && void ecrire(cle, brouillon, intention)}
           >
             {hypnoses.length ? 'En écrire une autre' : 'Écrire une hypnose'}
           </Button>
         </div>
       ) : null}
+      {!verrouillee && brouillon && !ecriture && ecrits.length === 0 && (!erreur || devis?.manque) ? (
+        <CoutEnJetons devis={devis} sujet="Cette hypnose" />
+      ) : null}
 
-      {!brouillon ? (
+      {!brouillon && !verrouillee ? (
         <p className={s.hint}>
           Aucune séance analysée pour {prenom} : une hypnose se bâtit sur les formulations et la
           synthèse d'une séance. Captez-en une, et elle pourra s'écrire.
@@ -264,9 +281,15 @@ export function HypnosesFiche() {
                     <button
                       type="button"
                       className={s.pdf}
-                      disabled={ecriture || !brouillon || !cabinet?.reel}
+                      disabled={ecriture || !brouillon || !cabinet?.reel || verrouillee}
                       onClick={() => brouillon && void reprendreHypnose(cle, brouillon, h)}
-                      title={brouillon ? undefined : 'Il faut une séance analysée pour reprendre l’écriture.'}
+                      title={
+                        verrouillee
+                          ? 'L’hypnose n’est plus comprise dans votre offre : l’écriture ne se reprend pas.'
+                          : brouillon
+                            ? undefined
+                            : 'Il faut une séance analysée pour reprendre l’écriture.'
+                      }
                     >
                       {manquant ? libelleReprise(manquant) : 'Terminer'}
                     </button>

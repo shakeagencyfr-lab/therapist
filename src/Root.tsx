@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { App } from './App'
 import { CabinetProvider } from './cabinet/context'
 import { DroitsProvider } from './cabinet/droits'
+import { JetonsProvider } from './cabinet/useJetons'
 import { DeuxiemeFacteur } from './auth/DeuxiemeFacteur'
 import { GardeInactivite, prendreNoteDeSortie } from './auth/Inactivite'
 import { SignIn } from './auth/SignIn'
@@ -12,6 +13,7 @@ import { KLARO, variablesKlaro } from './theme/klaro'
 import { codeADemander } from './lib/doubleAuthentification'
 import { lireDelai, phraseDeSortie, type DelaiInactivite } from './lib/inactivite'
 import { verifierCodeDeConnexion } from './services/securiteDuCompte'
+import { lireRetourDePaiement } from './services/jetons'
 import { cheminEspacePatient } from './lib/domaine'
 import { cheminSousIdentifiant } from './lib/identifiant'
 import { DOSSIER_AVANT_LECTURE } from './state/state'
@@ -296,13 +298,24 @@ function Portail() {
   // L'espace ouvert découle du rôle, pas d'un choix : un revendeur qui n'est
   // pas praticienne n'a pas d'espace cabinet à ouvrir, et inversement.
   // Un vrai cabinet part d'un dossier vide, jamais des fiches de démonstration.
+  /* LE RETOUR DE LA PAGE DE PAIEMENT. Stripe renvoie à la racine avec
+     `?jetons=…` : c'est dans Intégrations que la praticienne lit ce qu'il
+     a confirmé (src/cabinet/useJetons.ts), on l'y ouvre donc d'emblée. */
+  const retourDePaiement = context.cabinet ? lireRetourDePaiement(window.location.search) : null
+
   return (
     <AppStoreProvider
-      initial={context.cabinet ? { space: 'cabinet', ...DOSSIER_AVANT_LECTURE } : { space: 'reseller' }}
+      initial={
+        context.cabinet
+          ? { space: 'cabinet', ...DOSSIER_AVANT_LECTURE, ...(retourDePaiement ? { mode: 'integrations' as const } : {}) }
+          : { space: 'reseller' }
+      }
     >
       <CabinetProvider cabinetId={context.cabinet?.id ?? null}>
         <DroitsProvider actif={Boolean(context.cabinet)}>
-          <App />
+          <JetonsProvider actif={Boolean(context.cabinet)}>
+            <App />
+          </JetonsProvider>
         </DroitsProvider>
       </CabinetProvider>
       {/* Un poste de cabinet est souvent partagé : la session se ferme sur

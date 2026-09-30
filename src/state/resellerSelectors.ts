@@ -25,7 +25,19 @@ export function maxPatientsOf(subscription: Subscription, plan: Plan): number | 
 export function overrideDe(subscription: Subscription, levier: Levier): boolean | null {
   if (levier === 'shop') return subscription.shopOverride
   if (levier === 'marqueBlanche') return subscription.marqueBlancheOverride
+  if (levier === 'hypnoseIncluse') return subscription.hypnoseOverride
   return subscription.siteOverride
+}
+
+/** Le forfait mensuel de jetons : celui négocié, sinon celui de l'offre (0065). */
+export function jetonsMoisOf(subscription: Subscription, plan: Plan): number {
+  return subscription.jetonsMoisOverride ?? plan.jetonsMois
+}
+
+/** Le pass Hypnose acheté court-il encore ? */
+export function passHypnoseEnCours(subscription: Subscription, maintenant = Date.now()): boolean {
+  const fin = subscription.hypnoseJusquAu ? Date.parse(subscription.hypnoseJusquAu) : Number.NaN
+  return Number.isFinite(fin) && fin > maintenant
 }
 
 /** Un levier est-il ouvert à ce cabinet ? L'exception l'emporte sur l'offre. */

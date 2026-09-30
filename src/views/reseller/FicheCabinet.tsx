@@ -21,6 +21,7 @@ import {
   praticiennesDites,
 } from '@/lib/revendeur'
 import { useResellerData } from '@/reseller/context'
+import { useJetonsRevendeur } from '@/reseller/useJetonsRevendeur'
 import type { Exceptions, ReglageContrat, Resultat } from '@/reseller/useReseller'
 import { adherenceLabel, levierOuvert, maxPatientsOf } from '@/state/resellerSelectors'
 import { useStore } from '@/state/store'
@@ -104,6 +105,9 @@ function Fiche({ row }: { row: PortfolioRow }) {
   /* Fermer et rouvrir sont au PROPRIÉTAIRE du compte (0057) : on ne montre
      pas le bouton à qui la base le refuserait. */
   const proprietaire = useMaybeAuth()?.context?.reseller?.role === 'owner'
+  /* En jetons (0065), la dépense d'analyse n'est plus celle du cabinet : c'est
+     la clé du revendeur qui la paie. La note sous les chiffres le dit. */
+  const modeJetons = useJetonsRevendeur()?.etat?.mode === 'jetons'
 
   const id = row.cabinet.id
   const nom = row.cabinet.name
@@ -250,8 +254,9 @@ function Fiche({ row }: { row: PortfolioRow }) {
         />
       </div>
       <p className={s.note}>
-        La dépense d'analyse est réglée par le cabinet, sur sa propre clé : elle ne vous est pas
-        imputée. Elle sert à répondre à une praticienne qui s'étonne de sa facture.
+        {modeJetons
+          ? "Vos jetons sont activés : cette dépense d'analyse est payée par votre clé, et le cabinet la règle en jetons (onglet Jetons IA)."
+          : "La dépense d'analyse est réglée par le cabinet, sur sa propre clé : elle ne vous est pas imputée. Elle sert à répondre à une praticienne qui s'étonne de sa facture."}
       </p>
 
       <div className={s.grille}>

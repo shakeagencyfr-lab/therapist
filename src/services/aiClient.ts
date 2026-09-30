@@ -97,9 +97,13 @@ export function buildPatientContext(state: AppState, id: PatientId): PatientCont
 
 /** Échec d'une fonction IA. Le message est en français, prêt à afficher. */
 export class AiError extends Error {
-  constructor(message: string) {
+  /** Le statut HTTP, quand le serveur a répondu : 402, ce sont les jetons qui manquent. */
+  readonly status: number | null
+
+  constructor(message: string, status: number | null = null) {
     super(message)
     this.name = 'AiError'
+    this.status = status
   }
 }
 
@@ -133,7 +137,8 @@ interface Envelope<T> {
 /**
  * L'évènement que chaque analyse payée en jetons émet sur `window`, avec
  * `{ solde, utilises }` pour détail : le compteur de l'écran se met à jour
- * sans relire la base, d'où que parte l'analyse.
+ * sans relire la base, d'où que parte l'analyse. Un refus faute de jetons
+ * (402) l'émet aussi, sans solde : c'est la demande de relire.
  */
 export const EVENEMENT_JETONS = 'klaro:jetons'
 
@@ -212,7 +217,12 @@ async function post<T>(route: string, body: unknown, fallback: string): Promise<
     throw new AiError(messageDeLHebergeur(response.status) ?? fallback)
   }
   if (!response.ok || payload?.data === undefined) {
-    throw new AiError(payload?.error ?? messageDeLHebergeur(response.status) ?? fallback)
+    /* UN REFUS FAUTE DE JETONS FAIT RELIRE LE SOLDE. Le compteur de l'écran
+       pouvait dire assez quand une consœur venait de dépenser le reste :
+       l'évènement, sans solde, demande au fournisseur des jetons de relire
+       — et la phrase « il vous reste… » paraît avec le chemin de la recharge. */
+    if (response.status === 402) annoncerJetons({ utilises: 0, solde: null })
+    throw new AiError(payload?.error ?? messageDeLHebergeur(response.status) ?? fallback, response.status)
   }
   dernierEstMaquette = payload.mock === true
   if (payload.jetons && typeof payload.jetons.utilises === 'number') annoncerJetons(payload.jetons)

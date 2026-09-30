@@ -14,27 +14,43 @@ import {
   tonContrat,
   versChampDate,
 } from '@/lib/contrat'
-import { euroCents, plural } from '@/lib/format'
+import { dateLongue, euroCents, plural } from '@/lib/format'
+import { entierSaisi, jetonsDits } from '@/lib/jetonsIA'
 import { useResellerData } from '@/reseller/context'
-import { levierOuvert, maxPatientsOf, mrrCents, overrideDe } from '@/state/resellerSelectors'
+import { useJetonsRevendeur } from '@/reseller/useJetonsRevendeur'
+import {
+  jetonsMoisOf,
+  levierOuvert,
+  maxPatientsOf,
+  mrrCents,
+  overrideDe,
+  passHypnoseEnCours,
+} from '@/state/resellerSelectors'
 import { useStore } from '@/state/store'
 import { LEVIERS } from '@/types/reseller'
 import type { Exceptions, ReglageContrat, ReglageOffre, StatutContrat } from '@/reseller/useReseller'
 import type { Levier, Plan, PlanCode, PortfolioRow } from '@/types/reseller'
 import s from './PlansView.module.css'
 
-/* Le catalogue se règle ici : trois offres, un prix, un plafond de fiches et
-   trois leviers. C'est tout ce qu'un abonnement décide — l'analyse reste
-   payée par la thérapeute avec sa propre clé. */
+/* Le catalogue se règle ici : trois offres, un prix, un plafond de fiches,
+   quatre leviers — et, depuis 0065, un forfait mensuel de jetons, qui ne
+   vaut que lorsque le revendeur paie l'analyse avec sa clé (onglet Jetons
+   IA). Sans jetons activés, l'analyse reste payée par la thérapeute. */
+
+/** Le forfait mensuel le plus haut que la base accepte (plans_jetons_mois_borne). */
+const FORFAIT_MAX = 1_000_000
 
 /** L'offre en cours d'édition, telle qu'on la saisit (donc en texte). */
 interface Brouillon {
   label: string
   prix: string
   max: string
+  /** Les jetons versés chaque mois, tels que saisis. */
+  jetons: string
   shop: boolean
   marqueBlanche: boolean
   site: boolean
+  hypnoseIncluse: boolean
 }
 
 function versBrouillon(p: Plan): Brouillon {
@@ -42,9 +58,11 @@ function versBrouillon(p: Plan): Brouillon {
     label: p.label,
     prix: versEuros(p.priceCents),
     max: p.maxPatients === null ? '' : String(p.maxPatients),
+    jetons: String(p.jetonsMois),
     shop: p.shop,
     marqueBlanche: p.marqueBlanche,
     site: p.site,
+    hypnoseIncluse: p.hypnoseIncluse,
   }
 }
 
@@ -70,7 +88,7 @@ function plafond(saisie: string): number | null | 'invalide' {
 
 /** De quoi savoir si l'offre a bougé sous nos pieds (rechargement, autre onglet). */
 function signature(p: Plan): string {
-  return [p.label, p.priceCents, p.maxPatients ?? '∞', p.shop, p.marqueBlanche, p.site].join('|')
+  return [p.label, p.priceCents, p.maxPatients ?? '∞', p.shop, p.marqueBlanche, p.site, p.jetonsMois, p.hypnoseIncluse].join('|')
 }
 
 function CarteOffre({
@@ -99,8 +117,9 @@ function CarteOffre({
   const prix = centimes(brouillon.prix)
   const saisi = plafond(brouillon.max)
   const max = saisi === 'invalide' ? plan.maxPatients : saisi
+  const jetons = entierSaisi(brouillon.jetons, 0, FORFAIT_MAX)
   const nom = brouillon.label.trim()
-  const invalide = prix === null || saisi === 'invalide' || nom.length < 2
+  const invalide = prix === null || saisi === 'invalide' || jetons === null || nom.length < 2
   const modifie =
     !invalide &&
     signature({
@@ -111,6 +130,8 @@ function CarteOffre({
       shop: brouillon.shop,
       marqueBlanche: brouillon.marqueBlanche,
       site: brouillon.site,
+      jetonsMois: jetons ?? plan.jetonsMois,
+      hypnoseIncluse: brouillon.hypnoseIncluse,
     }) !== sig
 
   function bascule(levier: Levier) {
@@ -118,7 +139,7 @@ function CarteOffre({
   }
 
   async function enregistrer() {
-    if (prix === null || saisi === 'invalide' || !modifie || enCours) return
+    if (prix === null || saisi === 'invalide' || jetons === null || !modifie || enCours) return
     setEnCours(true)
     await onSave({
       label: nom,
@@ -127,6 +148,8 @@ function CarteOffre({
       shop: brouillon.shop,
       marqueBlanche: brouillon.marqueBlanche,
       site: brouillon.site,
+      jetonsMois: jetons,
+      hypnoseIncluse: brouillon.hypnoseIncluse,
     })
     setEnCours(false)
   }
@@ -174,11 +197,24 @@ function CarteOffre({
               <span className={s.unite}>max</span>
             </div>
           </div>
+          <div className={s.reglage}>
+            <FieldLabel>Jetons IA par mois</FieldLabel>
+            <div className={s.champUnite}>
+              <TextInput
+                inputMode="numeric"
+                value={brouillon.jetons}
+                onChange={(e) => setBrouillon((b) => ({ ...b, jetons: e.target.value }))}
+                aria-label={`Jetons IA versés chaque mois par l'offre ${plan.label}`}
+              />
+              <span className={s.unite}>jetons</span>
+            </div>
+          </div>
         </div>
       ) : (
         <div>
           <span className={s.price}>{euroCents(plan.priceCents)}</span>
           <span className={s.priceUnit}>par mois et par cabinet</span>
+          <span className={s.forfait}>{jetonsDits(plan.jetonsMois)} IA par mois</span>
         </div>
       )}
 
@@ -213,7 +249,9 @@ function CarteOffre({
                   ? 'Le prix se saisit en euros, par exemple 79 ou 79,50.'
                   : saisi === 'invalide'
                     ? 'Un plafond est un nombre entier — ou rien du tout pour « sans limite ».'
-                    : "Une offre a besoin d'un nom."}
+                    : jetons === null
+                      ? 'Le forfait est un nombre entier de jetons, zéro compris.'
+                      : "Une offre a besoin d'un nom."}
               </span>
             ) : (
               <span className={s.planPiedNote}>
@@ -238,7 +276,14 @@ function CarteOffre({
 function exceptionPour(levier: Levier, valeur: boolean | null): Exceptions {
   if (levier === 'shop') return { shopOverride: valeur }
   if (levier === 'marqueBlanche') return { marqueBlancheOverride: valeur }
+  if (levier === 'hypnoseIncluse') return { hypnoseOverride: valeur }
   return { siteOverride: valeur }
+}
+
+/** Ce que l'offre dit d'un levier : l'hypnose se « comprend », le reste s'« ouvre ». */
+function levierDansLOffre(levier: Levier, dansLOffre: boolean): string {
+  if (levier === 'hypnoseIncluse') return dansLOffre ? "Comprise dans l'offre." : "Pas comprise dans l'offre."
+  return dansLOffre ? "Ouvert dans l'offre." : "Fermé dans l'offre."
 }
 
 /** Les trois états d'une exception : l'offre décide, ou on décide contre elle. */
@@ -426,10 +471,17 @@ export function LigneException({
   const [max, setMax] = useState(
     row.subscription.maxPatientsOverride === null ? '' : String(row.subscription.maxPatientsOverride),
   )
+  const [forfait, setForfait] = useState(
+    row.subscription.jetonsMoisOverride === null ? '' : String(row.subscription.jetonsMoisOverride),
+  )
   const [enCours, setEnCours] = useState(false)
 
   const saisi = plafond(max)
   const change = saisi !== 'invalide' && saisi !== row.subscription.maxPatientsOverride
+  /* Le forfait négocié : vide, c'est l'offre qui décide. */
+  const forfaitSaisi = forfait.trim() === '' ? null : entierSaisi(forfait, 0, FORFAIT_MAX)
+  const forfaitInvalide = forfait.trim() !== '' && forfaitSaisi === null
+  const forfaitChange = !forfaitInvalide && forfaitSaisi !== row.subscription.jetonsMoisOverride
 
   async function poser(champs: Exceptions) {
     if (enCours) return
@@ -470,6 +522,31 @@ export function LigneException({
         </p>
       </div>
 
+      <div className={s.exceptionMax}>
+        <FieldLabel>Jetons IA par mois pour ce cabinet</FieldLabel>
+        <div className={s.champUnite}>
+          <TextInput
+            inputMode="numeric"
+            value={forfait}
+            placeholder={String(row.plan.jetonsMois)}
+            onChange={(e) => setForfait(e.target.value)}
+            aria-label={`Forfait mensuel de jetons pour ${row.cabinet.name}`}
+          />
+          <Button
+            variant="ghost"
+            onClick={() => void poser({ jetonsMoisOverride: forfaitSaisi })}
+            disabled={!forfaitChange || enCours}
+          >
+            {enCours ? '…' : 'Appliquer'}
+          </Button>
+        </div>
+        <p className={forfaitInvalide ? s.probleme : s.exceptionNote}>
+          {forfaitInvalide
+            ? 'Un nombre entier de jetons — ou rien pour revenir à l’offre.'
+            : `Vide, c'est l'offre qui décide : ${jetonsDits(row.plan.jetonsMois)}. Le forfait déjà versé ce mois-ci ne change pas.`}
+        </p>
+      </div>
+
       {LEVIERS.map((l) => {
         const brut = overrideDe(row.subscription, l.code)
         return (
@@ -490,12 +567,104 @@ export function LigneException({
               ))}
             </div>
             <p className={s.exceptionNote}>
-              {row.plan[l.code] ? "Ouvert dans l'offre." : "Fermé dans l'offre."}{' '}
+              {levierDansLOffre(l.code, row.plan[l.code])}{' '}
               {levierOuvert(row.subscription, row.plan, l.code) ? 'Actif pour ce cabinet.' : 'Inactif pour ce cabinet.'}
+              {/* Le pass acheté ouvre l'hypnose quoi qu'en dise l'offre : il se
+                  lit ici, à côté de l'exception qu'il rend inutile. */}
+              {l.code === 'hypnoseIncluse' && passHypnoseEnCours(row.subscription)
+                ? ` Pass Hypnose acheté, jusqu'au ${dateLongue(row.subscription.hypnoseJusquAu)}.`
+                : ''}
             </p>
           </div>
         )
       })}
+
+      <JetonsDuCabinet row={row} />
+    </div>
+  )
+}
+
+/**
+ * Les jetons d'un cabinet : son solde, ce qu'il a consommé ce mois-ci, et le
+ * geste du propriétaire qui lui en offre.
+ *
+ * Offrir crée un lot valable douze mois, inscrit au journal (server/
+ * revendeur.ts). Un membre de l'équipe voit le solde, sans le geste.
+ */
+function JetonsDuCabinet({ row }: { row: PortfolioRow }) {
+  const jetons = useJetonsRevendeur()
+  const [nombre, setNombre] = useState('')
+  const [note, setNote] = useState('')
+  const [sortie, setSortie] = useState<{ ton: 'ok' | 'warn'; texte: string } | null>(null)
+  if (!jetons?.etat) return null
+
+  const lu = jetons.duCabinet(row.cabinet.id)
+  const proprietaire = jetons.reel && jetons.etat.proprietaire
+  const n = entierSaisi(nombre, 1, 100_000)
+  const cle = `offrir-${row.cabinet.id}`
+
+  async function offrir() {
+    if (!jetons || n === null) return
+    setSortie(null)
+    const r = await jetons.agir(
+      cle,
+      { action: 'offrir', cabinetId: row.cabinet.id, jetons: n, ...(note.trim() ? { note: note.trim() } : {}) },
+      `${jetonsDits(n)} offert${n > 1 ? 's' : ''} à ${row.cabinet.name}, valables douze mois.`,
+    )
+    setSortie({ ton: r.ok ? 'ok' : 'warn', texte: r.message })
+    if (r.ok) {
+      setNombre('')
+      setNote('')
+    }
+  }
+
+  return (
+    <div className={s.exceptionLevier}>
+      <FieldLabel>Jetons IA</FieldLabel>
+      <p className={s.jetonsSolde}>
+        {lu ? (
+          <>
+            <strong>{jetonsDits(lu.solde)}</strong> en solde · {lu.consommesMois.toLocaleString('fr-FR')} consommés ce
+            mois-ci
+          </>
+        ) : (
+          'Solde non lu.'
+        )}
+      </p>
+      <p className={s.exceptionNote}>
+        Forfait : {jetonsDits(jetonsMoisOf(row.subscription, row.plan))} par mois
+        {jetons.etat.mode === 'jetons' ? '.' : ' — sans effet tant que vos jetons ne sont pas activés.'}
+      </p>
+      {proprietaire ? (
+        <form
+          className={s.offrir}
+          onSubmit={(e) => {
+            e.preventDefault()
+            void offrir()
+          }}
+        >
+          <TextInput
+            inputMode="numeric"
+            value={nombre}
+            placeholder="100"
+            onChange={(e) => setNombre(e.target.value)}
+            aria-label={`Jetons à offrir à ${row.cabinet.name}`}
+          />
+          <TextInput
+            value={note}
+            maxLength={200}
+            placeholder="Note (facultative)"
+            onChange={(e) => setNote(e.target.value)}
+            aria-label="Note du geste, pour le journal"
+          />
+          <Button variant="secondary" type="submit" disabled={n === null || jetons.enCours !== ''}>
+            {jetons.enCours === cle ? 'Envoi…' : 'Offrir des jetons'}
+          </Button>
+        </form>
+      ) : (
+        <p className={s.exceptionNote}>Offrir des jetons est réservé au compte propriétaire.</p>
+      )}
+      {sortie ? <p className={sortie.ton === 'ok' ? s.exceptionNote : s.probleme}>{sortie.texte}</p> : null}
     </div>
   )
 }
@@ -651,7 +820,9 @@ export function PlansView() {
             row.subscription.maxPatientsOverride !== null ||
             row.subscription.shopOverride !== null ||
             row.subscription.marqueBlancheOverride !== null ||
-            row.subscription.siteOverride !== null
+            row.subscription.siteOverride !== null ||
+            row.subscription.jetonsMoisOverride !== null ||
+            row.subscription.hypnoseOverride !== null
           return (
             <div key={row.cabinet.id} className={s.bloc}>
               <div className={s.row}>
@@ -725,10 +896,11 @@ export function PlansView() {
 
         <p className={s.foot}>
           Une offre règle ce que l'application ouvre : le nombre de fiches actives, la boutique, la
-          marque blanche et le site vitrine. L'analyse, elle, reste payée par chaque cabinet avec sa
-          propre clé Anthropic — vous ne facturez ni ne plafonnez sa consommation. Un plafond de
-          fiches atteint n'enferme rien : le cabinet clôt un suivi terminé, ou vous relevez le
-          plafond ici. Un contrat hors règle — essai fini, impayé, suspendu, résilié — suspend{' '}
+          marque blanche, le site vitrine et l'hypnose. L'analyse est payée de deux façons, selon
+          l'onglet Jetons IA : par chaque cabinet avec sa propre clé Anthropic, ou par la vôtre — et
+          chaque offre verse alors son forfait mensuel de jetons. Un plafond de fiches atteint
+          n'enferme rien : le cabinet clôt un suivi terminé, ou vous relevez le plafond ici. Un
+          contrat hors règle — essai fini, impayé, suspendu, résilié — suspend{' '}
           {CE_QUI_EST_SUSPENDU} ; les dossiers restent entiers.
         </p>
       </section>

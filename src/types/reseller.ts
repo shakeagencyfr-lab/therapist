@@ -97,13 +97,23 @@ export interface Plan {
   includes: string[]
 }
 
-/** Ce qu'une offre ouvre, à part son plafond de fiches. */
-export type Levier = 'shop' | 'marqueBlanche' | 'site'
+/**
+ * Ce qu'une offre ouvre, à part son plafond de fiches et son forfait de
+ * jetons. `hypnoseIncluse` (0065) porte le nom de sa colonne : l'offre la
+ * comprend ou non, et un cabinet peut l'acheter en pass quand elle ne la
+ * comprend pas — ce pass ne se règle pas ici.
+ */
+export type Levier = 'shop' | 'marqueBlanche' | 'site' | 'hypnoseIncluse'
 
 export const LEVIERS: Array<{ code: Levier; label: string; detail: string }> = [
   { code: 'shop', label: 'Boutique en ligne', detail: 'Vendre audios, séances et programmes depuis l’espace patient.' },
   { code: 'marqueBlanche', label: 'Marque blanche totale', detail: 'Son domaine à elle, et ses courriels partis de son adresse.' },
   { code: 'site', label: 'Site vitrine', detail: 'Une page d’accueil publique, nourrie par sa fiche Google.' },
+  {
+    code: 'hypnoseIncluse',
+    label: 'Option Hypnose incluse',
+    detail: 'L’hypnose personnalisée de trente minutes, sans pass à acheter.',
+  },
 ]
 
 export interface Subscription {

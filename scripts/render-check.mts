@@ -61,6 +61,14 @@ import { VueProposerParcours } from '../src/views/programmes/ProposerParcours'
 import { instantDeParis } from '../src/lib/agenda'
 import { jourDeParis } from '../src/lib/assiduite'
 import { DOSSIER_AVANT_LECTURE, type AppState, type ResellerView, type ViewMode } from '../src/state/state'
+import { VueJetons } from '../src/views/jetons/CarteJetons'
+import { CoutEnJetons } from '../src/views/jetons/CoutEnJetons'
+import { VerrouHypnose } from '../src/views/jetons/VerrouHypnose'
+import { etatJetonsDemo } from '../src/data/jetons'
+import { devisJetons } from '../src/lib/jetonsIA'
+import { ETAT_REVENDEUR_DEMO } from '../src/data/jetons'
+import { JetonsRevendeurContexte, type JetonsRevendeurData } from '../src/reseller/useJetonsRevendeur'
+import { JetonsView } from '../src/views/reseller/JetonsView'
 
 const noms = Object.values(PATIENTS).map((p) => p.name)
 const extraits = Object.values(PATIENTS).flatMap((p) => [
@@ -552,7 +560,7 @@ if (compteRevendeur && !compteRevendeur.includes('Mon compte')) {
 }
 
 // 2. Les quatre vues du revendeur rendent, et ne montrent aucun patient.
-const VUES: ResellerView[] = ['portfolio', 'brand', 'plans', 'demandes', 'fiche', 'equipe']
+const VUES: ResellerView[] = ['portfolio', 'brand', 'plans', 'jetons', 'demandes', 'fiche', 'equipe']
 for (const rView of VUES) {
   const html = rendu(`revendeur/${rView}`, { space: 'reseller', rView })
   if (!html) continue
@@ -1553,6 +1561,121 @@ try {
     echecs++
   } else {
     console.log(`✓ agenda           ${String(liste.length).padStart(6)} octets · séances du jour, liste datée, rappel dit, parcours proposé sans rien imposer`)
+  }
+}
+
+/* 9. LES JETONS IA (0065). L'onglet du revendeur montre ses sept réglages et
+   des marges calculées sur des coûts réels ; la carte du cabinet dit son
+   solde, quand son forfait se renouvelle, ce que coûte chaque action et
+   comment racheter — ou à qui demander ; la phrase posée à côté d'un bouton
+   d'analyse dit le prix et, quand le solde manque, le chemin de la recharge.
+   Rien de cela ne s'affiche hors du mode jetons : la démonstration du
+   cabinet, sans fournisseur de jetons, garde les textes de la clé. */
+{
+  const manque: string[] = []
+  const onglet = rendu('revendeur/jetons-contenu', { space: 'reseller', rView: 'jetons' })
+  for (const titre of [
+    'Votre clé d&#x27;analyse',
+    'Alimenter tous mes cabinets avec cette clé',
+    'Barème des jetons',
+    'Recharges',
+    'Option Hypnose',
+    'Essai',
+    'Encaissement',
+    'Consommation du mois',
+    'Séance complète (note, consignes des exercices retenus, mise à jour du profil)',
+    'Hypnose de 30 minutes',
+  ]) {
+    if (!onglet.includes(titre)) manque.push(`l'onglet revendeur ne dit pas « ${titre} »`)
+  }
+  if (!/\d+ %/.test(onglet)) manque.push("aucune marge n'est calculée")
+  if (!onglet.includes('Réglages de démonstration')) manque.push('la démonstration ne se dit pas en lecture seule')
+  if (/sk-ant-[A-Za-z0-9]|sk_live_[A-Za-z0-9]/.test(onglet)) manque.push("un morceau de clé apparaît à l'écran")
+  if (onglet.includes('Enregistrer le barème')) manque.push('la démonstration propose de régler ce qu’elle ne peut pas enregistrer')
+
+  // Le propriétaire connecté, posé à la main : lui seul voit les champs et les gestes.
+  const proprietaire: JetonsRevendeurData = {
+    etat: { ...ETAT_REVENDEUR_DEMO, proprietaire: true },
+    reel: true,
+    chargement: false,
+    erreur: '',
+    enCours: '',
+    recharger: async () => {},
+    agir: async () => ({ ok: true, message: '' }),
+    duCabinet: () => null,
+  }
+  const reglable = renderToString(
+    h(
+      AppStoreProvider,
+      { initial: { space: 'reseller', rView: 'jetons' } },
+      h(JetonsRevendeurContexte.Provider, { value: proprietaire }, h(JetonsView)),
+    ),
+  )
+  for (const geste of [
+    'Enregistrer le barème',
+    'aria-label="Jetons pour : Hypnose de 30 minutes"',
+    'Désactiver',
+    'Remplacer',
+    'Ajouter',
+    'Déconnecter',
+  ]) {
+    if (!reglable.includes(geste)) manque.push(`le propriétaire ne trouve pas « ${geste} »`)
+  }
+  if (reglable.includes('Réservé au compte propriétaire')) manque.push('le propriétaire lit que le réglage lui est réservé… à quelqu’un d’autre')
+
+  const avecStore = (el: ReturnType<typeof h>) =>
+    renderToString(h(AppStoreProvider, { initial: { space: 'cabinet' } }, el))
+  const etat = etatJetonsDemo()
+  const carte = avecStore(h(VueJetons, { etat, titulaire: true, enCours: '', echec: '' }))
+  for (const attendu of [
+    'Jetons IA',
+    '312',
+    'se renouvellent le',
+    'ceux qui restent ne se reportent pas',
+    'Ce que coûte chaque action',
+    'Acheter',
+    'Activer l&#x27;option — 19 € pour 30 jours, 200 jetons offerts',
+    'Dernières consommations',
+  ]) {
+    if (!carte.includes(attendu)) manque.push(`la carte du cabinet ne dit pas « ${attendu} »`)
+  }
+  if (carte.includes('Retouche')) manque.push('la carte vend une retouche qui n’a pas encore de bouton')
+  const sansPaiement = avecStore(
+    h(VueJetons, { etat: { ...etat, paiementPossible: false }, titulaire: true, enCours: '', echec: '' }),
+  )
+  if (!sansPaiement.includes('Pour recharger, contactez votre revendeur.')) {
+    manque.push('sans paiement en ligne, la carte ne renvoie pas au revendeur')
+  }
+  if (sansPaiement.includes('>Acheter<')) manque.push('sans paiement en ligne, un bouton « Acheter » reste')
+  const consoeur = avecStore(h(VueJetons, { etat, titulaire: false, enCours: '', echec: '' }))
+  if (consoeur.includes('>Acheter<') || !consoeur.includes('Seule la titulaire du cabinet')) {
+    manque.push('une consœur voit des achats réservés à la titulaire')
+  }
+
+  const cout = avecStore(h(CoutEnJetons, { devis: devisJetons(etat, 'seance'), sujet: 'Cette analyse' }))
+  if (!cout.includes('Cette analyse utilisera 12 jetons (il vous en reste 312).')) {
+    manque.push('le prix de la séance ne se dit pas avant le clic')
+  }
+  const court = avecStore(
+    h(CoutEnJetons, { devis: devisJetons({ ...etat, solde: 3 }, 'seance'), sujet: 'Cette analyse' }),
+  )
+  if (!court.includes('Il vous reste 3 jetons, et cette analyse en demande 12.') || !court.includes('Voir vos jetons')) {
+    manque.push('un solde trop court ne dit pas où trouver des jetons')
+  }
+  const cle = avecStore(h(CoutEnJetons, { devis: devisJetons({ ...etat, mode: 'cle_cabinet' }, 'seance') }))
+  if (cle.includes('jeton')) manque.push('un cabinet qui paie avec sa clé lit un prix en jetons')
+  const verrou = avecStore(h(VerrouHypnose, { dejaEcrites: true }))
+  if (!verrou.includes('n&#x27;est pas comprise dans votre offre') || !verrou.includes('restent lisibles et téléchargeables')) {
+    manque.push("le verrou de l'hypnose ne dit ni pourquoi, ni que les hypnoses écrites restent")
+  }
+
+  if (manque.length) {
+    console.error(`✗ jetons : ${manque.join(' ; ')}`)
+    echecs++
+  } else {
+    console.log(
+      `✓ jetons           ${String(carte.length).padStart(6)} octets · onglet revendeur, carte du cabinet, prix avant le clic, verrou de l'hypnose`,
+    )
   }
 }
 

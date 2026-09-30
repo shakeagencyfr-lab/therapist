@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Button, Card, Chip, Notice, TextInput, Title } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
-import { useDroits } from '@/cabinet/droits'
+import { hypnoseOuverte, useDroits } from '@/cabinet/droits'
 import { etatAcces, libelleAcces, normaliserAdresse } from '@/lib/accesPatient'
 import { instantDeParis, jourEtHeure, refusSeance } from '@/lib/agenda'
 import { patientOf } from '@/state/selectors'
@@ -451,6 +451,11 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
                   Chaque séance produira une hypnose complète — environ trente minutes à lire à
                   voix haute — bâtie sur les formulations relevées pendant la captation. Elle
                   reste consultable depuis cette fiche.
+                  {/* 0065 : l'hypnose est une option de l'offre. Le réglage de la
+                      fiche se garde ; c'est l'écriture qui attend l'option. */}
+                  {hypnoseOuverte(droits)
+                    ? ''
+                    : " Elle n'est pas comprise dans votre offre : ce réglage se garde, mais aucune hypnose ne s'écrira tant que l'option Hypnose n'est pas ouverte pour votre cabinet."}
                 </span>
               </span>
             </label>

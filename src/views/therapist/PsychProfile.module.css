@@ -73,6 +73,12 @@
   color: var(--c-text-disabled);
 }
 
+/* Le prix en jetons, sous le bouton qui le dépense. */
+.cout {
+  margin: -8px 0 16px;
+  text-align: right;
+}
+
 /* Corps ---------------------------------------------------------------- */
 .body {
   display: grid;
