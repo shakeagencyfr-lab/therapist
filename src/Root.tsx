@@ -4,6 +4,7 @@ import { CabinetProvider } from './cabinet/context'
 import { DroitsProvider } from './cabinet/droits'
 import { JetonsProvider } from './cabinet/useJetons'
 import { DeuxiemeFacteur } from './auth/DeuxiemeFacteur'
+import { GardeConditions } from './auth/GardeConditions'
 import { GardeInactivite, prendreNoteDeSortie } from './auth/Inactivite'
 import { SignIn } from './auth/SignIn'
 import { SessionProvider, useAuth } from './auth/session'
@@ -216,6 +217,7 @@ function Portail() {
         titre="Entrer dans votre espace"
         intro="Cet espace est réservé à la praticienne et à son cabinet. Entrez l'adresse qui a reçu votre invitation : vous recevrez un lien de connexion."
         avis={avis}
+        pro
       />
     )
     if (pageDeVenteIci()) return <VenteOuPorte porte={porte} />
@@ -314,7 +316,13 @@ function Portail() {
       <CabinetProvider cabinetId={context.cabinet?.id ?? null}>
         <DroitsProvider actif={Boolean(context.cabinet)}>
           <JetonsProvider actif={Boolean(context.cabinet)}>
-            <App />
+            {/* LES CONDITIONS, AVANT L'ESPACE (0067). Sous le fournisseur des
+                droits : une marque blanche ne voit pas Klaro sur cette carte.
+                Au-dessus de l'application : rien de l'espace ne s'ouvre avant
+                l'accord — sauf panne de lecture, qui laisse entrer. */}
+            <GardeConditions>
+              <App />
+            </GardeConditions>
           </JetonsProvider>
         </DroitsProvider>
       </CabinetProvider>

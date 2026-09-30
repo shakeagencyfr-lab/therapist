@@ -12,9 +12,10 @@
  * rendu refuse ces mots (scripts/render-check.mts).
  */
 import { PLANS } from '@/data/reseller'
+import { BAREME_PAR_DEFAUT_ECRAN } from '@/lib/jetonsIA'
 import { LIENS_LEGAUX } from '@/legal/chemins'
-import { COUT_HYPNOSE, estimationBrouillon } from '@/lib/coutIA'
-import { euro } from '@/lib/format'
+import { COURRIEL } from '@/legal/identite'
+import type { PlanCode } from '@/types/reseller'
 
 /**
  * La typographie française : une espace insécable avant « : ; ? ! » et à
@@ -47,14 +48,15 @@ export function typographie<T>(valeur: T, cle = ''): T {
  * l'exploite. L'identité légale de l'éditeur (raison sociale, forme,
  * SIREN, siège) a sa place dans les mentions légales (src/legal), pas ici.
  *
- * L'adresse de contact PUBLIQUE n'est pas connue du code et ne s'invente
- * pas : tant qu'elle est vide, la page ne l'affiche pas, et
- * `aFournirAvantLaMiseEnLigne()` le rappelle au banc de rendu.
+ * L'adresse de contact PUBLIQUE est celle des pages légales
+ * (src/legal/identite.ts) : une seule boîte, au nom du service, pour les
+ * questions, les données personnelles et les signalements. Vide, la page ne
+ * l'afficherait pas, et `aFournirAvantLaMiseEnLigne()` le rappellerait.
  */
 export const EDITEUR = {
   nom: 'Klaro',
   /** Une adresse de contact publique (pas une boîte personnelle). */
-  contact: '',
+  contact: COURRIEL,
 } as const
 
 /* ------------------------------------------------------------------ *
@@ -65,32 +67,122 @@ export const EDITEUR = {
  * LA MENTION DES PRIX — à changer ici, et nulle part ailleurs.
  *
  * Les prix de la table `plans` s'entendent hors taxes, par cabinet et par
- * mois : c'est tranché (29 septembre).
+ * mois : c'est tranché (29 septembre). L'éditrice est une micro-entreprise
+ * en franchise en base (confirmé le 30 septembre) : aucune TVA ne s'y ajoute,
+ * et ses factures le disent (CGI, art. 293 B) — la page le dit aussi. Si la
+ * franchise cessait (seuil dépassé, option), c'est cette phrase et l'article
+ * « prix » des conditions de vente (src/legal/contenu.ts) qui changeraient.
  */
-export const MENTION_PRIX = typographie('Prix par cabinet et par mois, hors taxes.')
+export const MENTION_PRIX = typographie(
+  'Prix par cabinet et par mois, hors taxes. L’éditrice bénéficie de la franchise en base de TVA : aucune TVA ne s’y ajoute (TVA non applicable, art. 293 B du CGI).',
+)
 
 /** Pour les données structurées : les prix affichés ne comprennent pas la TVA. */
 export const PRIX_TTC = false
 
 /**
- * Comment on paie, et s'il y a un engagement. Rien dans le code ne le dit :
- * vide, la page se tait ; rempli (« Prélèvement mensuel, sans engagement,
- * résiliable à tout moment »), il s'affiche sous les offres.
+ * Comment on s'abonne, et s'il y a un engagement : ce que disent les
+ * conditions de vente (souscription, résiliation), en une ligne sous les
+ * offres.
  */
-export const MODALITES = ''
+export const MODALITES = typographie(
+  'Abonnement mensuel, sans engagement : résiliable à tout moment, avec effet à la fin du mois en cours. Essai de 14 jours, sans carte bancaire.',
+)
 
 /**
  * Ce qui manque encore pour mettre la page en ligne sans mentir par
  * omission. Le banc de rendu l'affiche ; la page, elle, se tait sur ce
- * qu'elle ne sait pas.
+ * qu'elle ne sait pas. Vide depuis le 30 septembre 2026.
  */
 export function aFournirAvantLaMiseEnLigne(): string[] {
   const manque: string[] = []
   if (/à confirmer/.test(MENTION_PRIX)) manque.push('prix hors taxes ou toutes taxes comprises (MENTION_PRIX)')
   if (!MODALITES) manque.push('mode de paiement et engagement (MODALITES)')
   if (!EDITEUR.contact) manque.push('adresse de contact publique (EDITEUR.contact)')
-  manque.push('durée de conservation des demandes d’essai (à fixer, puis dire dans la politique de confidentialité)')
   return manque
+}
+
+/* ------------------------------------------------------------------ *
+ * Les jetons d'IA — ce que coûte une rédaction, dit en jetons
+ * ------------------------------------------------------------------ */
+
+/**
+ * LES JETONS INCLUS CHAQUE MOIS, PAR OFFRE — lus dans le catalogue.
+ *
+ * `PLANS` porte la colonne `jetons_mois` des offres (0065) : la page la lit,
+ * elle ne la recopie pas. Une offre sans entrée ne passe pas l'épreuve
+ * (contenu.test.ts).
+ */
+export const JETONS_PAR_MOIS = Object.fromEntries(PLANS.map((p) => [p.code, p.jetonsMois])) as Record<
+  PlanCode,
+  number
+>
+
+/**
+ * Le barème, en jetons par rédaction — à l'ordre de grandeur, pour se
+ * repérer. L'écran affiche le chiffre exact avant chaque rédaction ; il peut
+ * évoluer avec un préavis de trente jours (conditions de vente, « jetons »).
+ */
+export const BAREME = {
+  /** Une séance complète : la note, les consignes, le profil. */
+  seance: BAREME_PAR_DEFAUT_ECRAN.seance,
+  /** Un module d'exercice rédigé à part. */
+  module: BAREME_PAR_DEFAUT_ECRAN.module,
+  /** Une hypnose de trente minutes, en quatre mouvements. */
+  hypnose: BAREME_PAR_DEFAUT_ECRAN.hypnose,
+} as const
+
+/** Les recharges, valables douze mois, consommées après les jetons du mois. */
+export const RECHARGES: ReadonlyArray<{ jetons: number; prixEuros: number }> = [
+  { jetons: 100, prixEuros: 12 },
+  { jetons: 300, prixEuros: 30 },
+  { jetons: 1000, prixEuros: 85 },
+]
+
+/** L'option Hypnose : incluse dans certaines offres, sinon un accès de trente jours. */
+export const OPTION_HYPNOSE = {
+  /** Les offres dont la colonne `hypnose_incluse` (0065) est vraie. */
+  incluseDans: PLANS.filter((p) => p.hypnoseIncluse).map((p) => p.code) as PlanCode[],
+  prixEuros: 19,
+  jours: 30,
+  /** Les jetons offerts avec l'accès, valables le temps de l'accès. */
+  jetons: 200,
+} as const
+
+/** « 2 000 » : les milliers séparés d'une espace insécable, comme on les écrit. */
+export function nombre(n: number): string {
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+}
+
+/** Combien de séances complètes tiennent dans un mois de jetons — arrondi par défaut. */
+function seancesParMois(jetons: number): number {
+  return Math.floor(jetons / BAREME.seance)
+}
+
+/** « 100 jetons 12 €, 300 jetons 30 € et 1 000 jetons 85 € » */
+function recharges(): string {
+  const r = RECHARGES.map((x) => `${nombre(x.jetons)} jetons ${x.prixEuros} €`)
+  return r.length > 1 ? `${r.slice(0, -1).join(', ')} et ${r.at(-1)}` : (r[0] ?? '')
+}
+
+/** Les offres qui incluent l'option Hypnose, par leur nom. */
+function offresAvecHypnose(): string {
+  return PLANS.filter((p) => OPTION_HYPNOSE.incluseDans.includes(p.code))
+    .map((p) => p.label)
+    .join(' et ')
+}
+
+/**
+ * L'encart sous les offres : ce qu'il faut savoir des jetons avant de
+ * choisir. Il remplace celui qui demandait d'ouvrir un compte chez Anthropic
+ * et d'y coller une clé : les rédactions passent désormais par la clé de la
+ * plateforme, et se paient en jetons.
+ */
+export function encartJetons(): { titre: string; texte: string } {
+  return typographie({
+    titre: 'Les jetons d’IA, inclus chaque mois',
+    texte: `Chaque rédaction de l’IA consomme des jetons, affichés avant de lancer : une séance complète environ ${BAREME.seance}, un module ${BAREME.module}, une hypnose de 30 minutes ${BAREME.hypnose}. Rien n’est débité si la rédaction échoue. Chaque offre en inclut chaque mois ; au-delà, des recharges valables douze mois : ${recharges()} HT. L’option Hypnose est incluse dans ${offresAvecHypnose()} ; sinon, ${OPTION_HYPNOSE.prixEuros} € HT pour ${OPTION_HYPNOSE.jours} jours, avec ${OPTION_HYPNOSE.jetons} jetons.`,
+  })
 }
 
 /** La durée de l'essai, bornée en base (0049 : quatorze jours à l'ouverture). */
@@ -136,6 +228,10 @@ function offresBrutes(): OffreAffichee[] {
     const lignes: string[] = []
     if (p.code === 'cabinet') lignes.push('Tout l’Essentiel')
     if (p.code === 'reseau') lignes.push('Tout le Cabinet')
+    // Les jetons du mois, et ce qu'ils représentent : c'est ce qui se compare.
+    const jetons = JETONS_PAR_MOIS[p.code]
+    lignes.push(`${nombre(jetons)} jetons d’IA par mois, soit environ ${seancesParMois(jetons)} séances complètes`)
+    if (OPTION_HYPNOSE.incluseDans.includes(p.code)) lignes.push('Option Hypnose incluse : scripts de 30 minutes')
     if (p.code === 'essentiel') {
       lignes.push('Notes de séance et consignes rédigées par l’IA, relues par vous')
       lignes.push('Espace patient à votre nom et à vos couleurs')
@@ -156,25 +252,6 @@ function offresBrutes(): OffreAffichee[] {
       repere,
     }
   })
-}
-
-/* ------------------------------------------------------------------ *
- * Ce que coûte l'IA — calculé par le module qui l'estime à l'écran
- * ------------------------------------------------------------------ */
-
-/**
- * La fourchette d'une note de séance, de la séance courte (quelques minutes
- * de matière) à l'heure pleine, et l'hypnose de trente minutes. Les chiffres
- * viennent de src/lib/coutIA.ts — le module qui estime le coût à l'écran
- * AVANT D'ANALYSER UNE SÉANCE (RecordStep) OU D'ÉCRIRE UNE HYPNOSE
- * (HypnoseToggle), et nulle part ailleurs — et bougent avec lui.
- */
-export function coutsIA(): { noteMin: string; noteMax: string; hypnose: string } {
-  return {
-    noteMin: euro(estimationBrouillon('x'.repeat(5_000)).euros),
-    noteMax: euro(estimationBrouillon('x'.repeat(60_000)).eurosMax),
-    hypnose: euro(COUT_HYPNOSE),
-  }
 }
 
 /* ------------------------------------------------------------------ *
@@ -231,16 +308,15 @@ export const PARCOURS: Etape[] = typographie([
 
 /**
  * Ce que la section « Après la séance » dit à côté du brouillon de
- * démonstration. La clé Anthropic y est dite en clair : sans elle, rien ne
- * se rédige (server/ai.ts n'a aucun repli), et c'est la première chose sur
- * laquelle une thérapeute en essai buterait.
+ * démonstration. Les jetons y sont dits en clair : ce qu'une séance
+ * consomme, qu'on le voit avant de lancer, et ce qui se passe quand il n'y
+ * en a plus — la première question d'une thérapeute qui essaie.
  */
 export function pointsDeLaNote(): string[] {
-  const c = coutsIA()
   return typographie([
-    'Rédigé à partir de la transcription et de vos notes, quand vous lancez l’analyse. Vous corrigez, décochez, validez : rien ne part chez votre patient avant.',
-    `L’analyse est payée à l’usage à Anthropic, avec la clé de votre cabinet : de ${c.noteMin} à ${c.noteMax} environ par note. L’écran l’estime avant de lancer.`,
-    'Sans clé Anthropic, l’espace patient et le suivi fonctionnent, mais aucune note n’est rédigée.',
+    'Rédigé à partir de la transcription et de vos notes, quand vous lancez la rédaction. Vous corrigez, décochez, validez : rien ne part chez votre patient avant.',
+    `Chaque rédaction se paie en jetons, inclus chaque mois dans votre offre : une séance complète en consomme environ ${BAREME.seance}. L’écran affiche le nombre avant de lancer, et rien n’est débité si la rédaction échoue.`,
+    'Sans jetons disponibles, l’espace patient et le suivi fonctionnent, mais aucune note n’est rédigée — jusqu’au mois suivant, ou jusqu’à une recharge.',
   ])
 }
 
@@ -369,7 +445,7 @@ export const CONFIDENTIALITE: Engagement[] = typographie([
   {
     titre: 'Le texte est analysé aux États-Unis',
     texte:
-      'Pour rédiger le brouillon, la transcription et vos notes sont envoyées à Anthropic, aux États-Unis — avec la clé de votre cabinet.',
+      'Pour rédiger le brouillon, la transcription et vos notes sont envoyées à Anthropic, aux États-Unis. Ni Klaro ni Anthropic ne s’en servent pour entraîner un modèle.',
     preuve: 'server/ai.ts',
   },
   {
@@ -401,7 +477,7 @@ export const CONFIDENTIALITE: Engagement[] = typographie([
  * rappels, ni les courriels.
  */
 export const AUTRES_PRESTATAIRES = typographie(
-  'Autres prestataires : Stripe, pour les paiements de la boutique, sur le compte Stripe de votre cabinet ; les services de notification des fabricants (Apple, Google, Mozilla, Microsoft), qui portent les rappels chiffrés sans pouvoir les lire ; un service de messagerie pour les courriels de connexion et d’invitation — le vôtre, avec la marque blanche ; votre outil de rendez-vous, si vous en reliez un ; et hCaptcha, quand la vérification anti-robot est activée à l’entrée.',
+  'Autres prestataires : Stripe, pour les paiements de la boutique, sur le compte Stripe de votre cabinet ; les services de notification des fabricants (Apple, Google, Mozilla, Microsoft), qui portent les rappels chiffrés sans pouvoir les lire ; un service de messagerie pour les courriels de connexion et d’invitation — Resend, ou le vôtre avec la marque blanche ; votre outil de rendez-vous, si vous en reliez un ; et hCaptcha, quand la vérification anti-robot est activée à l’entrée.',
 )
 
 /** Ce que la page ne prétend pas. */
@@ -427,18 +503,23 @@ export function questions(): Question[] {
   return typographie(questionsBrutes())
 }
 
+/** « 300 pour Essentiel, 800 pour Cabinet et 2 000 pour Réseau » */
+function jetonsDesOffres(): string {
+  const parOffre = PLANS.map((p) => `${nombre(JETONS_PAR_MOIS[p.code])} pour ${p.label}`)
+  return parOffre.length > 1 ? `${parOffre.slice(0, -1).join(', ')} et ${parOffre.at(-1)}` : (parOffre[0] ?? '')
+}
+
 function questionsBrutes(): Question[] {
-  const c = coutsIA()
   return [
     {
       id: 'essai-deroulement',
       question: 'Comment se passe l’essai ?',
-      reponse: `Vous remplissez le formulaire en bas de page. ${EDITEUR.nom} vous recontacte, ouvre votre cabinet en essai de ${JOURS_ESSAI} jours et vous envoie une invitation par courriel. Pour que les notes se rédigent, votre cabinet ouvre un compte chez Anthropic, où l’analyse se paie à l’usage, et colle sa clé dans Réglages › Intégrations. Sans clé, l’espace patient et le suivi fonctionnent, mais aucune note n’est rédigée.`,
+      reponse: `Vous remplissez le formulaire en bas de page. ${EDITEUR.nom} vous recontacte, ouvre votre cabinet en essai de ${JOURS_ESSAI} jours, sans carte bancaire, et vous envoie une invitation par courriel. L’essai comprend des jetons pour essayer les rédactions de l’IA : aucun compte à ouvrir ailleurs, aucune clé à coller.`,
     },
     {
       id: ANCRE_COUT_IA,
       question: 'Que coûte l’IA ?',
-      reponse: `L’abonnement paie le logiciel ; l’analyse est payée par votre cabinet directement à Anthropic, avec sa propre clé. Klaro ne prend rien dessus. Avant d’analyser une séance ou d’écrire une hypnose, l’écran estime ce qu’elle coûtera : de ${c.noteMin} à ${c.noteMax} environ pour une note de séance selon sa longueur, autour de ${c.hypnose} pour une hypnose de 30 minutes. Les autres écrits — profil, consignes, affirmations, y compris la série automatique du lundi si vous l’activez — passent par la même clé et sont facturés de la même façon, sans estimation affichée.`,
+      reponse: `Elle se paie en jetons, et chaque offre en inclut chaque mois, crédités le 1er : ${jetonsDesOffres()}. Une séance complète en consomme environ ${BAREME.seance}, un module ${BAREME.module}, une hypnose de 30 minutes ${BAREME.hypnose}. Le nombre s’affiche avant de lancer, et rien n’est débité si la rédaction échoue. Les jetons du mois ne se reportent pas ; au-delà, des recharges valables douze mois : ${recharges()} HT, consommées après ceux du mois. L’option Hypnose est incluse dans ${offresAvecHypnose()} ; sinon, ${OPTION_HYPNOSE.prixEuros} € HT pour ${OPTION_HYPNOSE.jours} jours, avec ${OPTION_HYPNOSE.jetons} jetons. Les rédactions passent par Anthropic, sous le compte de ${EDITEUR.nom} : vous n’avez aucune clé à fournir.`,
     },
     {
       id: 'apres-essai',
@@ -455,7 +536,7 @@ function questionsBrutes(): Question[] {
       id: 'responsable',
       question: 'Qui est responsable des données ?',
       reponse:
-        'Vous êtes responsable du traitement des dossiers de vos patients ; Klaro les traite pour votre compte, comme sous-traitant. Pour l’analyse, Anthropic travaille avec le compte et la clé de votre cabinet : c’est un contrat entre votre cabinet et Anthropic.',
+        'Vous êtes responsable du traitement des dossiers de vos patients ; Klaro les traite pour votre compte, comme sous-traitant, selon l’accord annexé à nos conditions générales de vente. Pour la rédaction, Anthropic intervient comme sous-traitant ultérieur, sous le compte de Klaro, et ne se sert pas de ces textes pour entraîner ses modèles.',
     },
     {
       id: 'hds',
@@ -473,12 +554,12 @@ function questionsBrutes(): Question[] {
       id: 'recuperer',
       question: 'Puis-je récupérer mes dossiers ?',
       reponse:
-        'Oui, fiche par fiche : l’export fabrique un PDF avec l’identité et le programme, la synthèse de chaque séance envoyée, le profil, les notes du soir, les pages de journal partagées, votre anamnèse et vos notes de suivi. Chaque export laisse une trace — qui, quel dossier, quand — sans son contenu.',
+        'Oui, fiche par fiche : l’export fabrique un PDF avec l’identité et le programme, la synthèse de chaque séance envoyée, le profil, les notes du soir, les pages de journal partagées, votre anamnèse et vos notes de suivi. Chaque export laisse une trace — qui, quel dossier, quand — sans son contenu. À la fin de l’abonnement, vous pouvez aussi demander une copie de vos données dans un format structuré.',
     },
     {
       id: 'arreter',
       question: 'Peut-on arrêter ?',
-      reponse: `Oui : vous le demandez à ${EDITEUR.nom}, qui a ouvert votre cabinet. Vos dossiers restent accessibles, et chaque fiche s’exporte en PDF. Votre patient, lui, peut fermer son compte depuis son espace, à tout moment.`,
+      reponse: `Oui, à tout moment : l’abonnement est mensuel et sans engagement, et la résiliation prend effet à la fin du mois en cours. Vous le demandez à ${EDITEUR.nom}, qui a ouvert votre cabinet. Vos dossiers restent accessibles et exportables pendant trois mois, et chaque fiche s’exporte en PDF. Votre patient, lui, peut fermer son compte depuis son espace, à tout moment.`,
     },
   ]
 }
@@ -496,7 +577,7 @@ export const ENSUITE: Array<{ titre: string; texte: string }> = typographie([
   {
     titre: 'Votre cabinet s’ouvre',
     texte:
-      'Une invitation arrive par courriel. Pour la rédaction des notes, vous ouvrez un compte chez Anthropic et collez sa clé dans Réglages › Intégrations.',
+      'Une invitation arrive par courriel. Vous acceptez les conditions à votre première connexion ; les jetons d’essai sont déjà là pour vos premières notes.',
   },
   {
     titre: 'Votre premier patient',
@@ -510,10 +591,11 @@ export const ENSUITE: Array<{ titre: string; texte: string }> = typographie([
 
 /**
  * Les pages légales, lues dans la liste de celui qui les publie
- * (src/legal/chemins.ts) : `/confidentialite`, `/cgu`, `/mentions`. Trois
- * mots que la base refuse déjà comme identifiant de cabinet (0037) — aucune
- * adresse de cabinet ne peut les prendre, et aucune réservation n'est à
- * ajouter. reserves.test.ts le vérifie pour chacun.
+ * (src/legal/chemins.ts) : `/confidentialite`, `/cgu`, `/cgv`, `/mentions`.
+ * Quatre mots que la base refuse déjà comme identifiant de cabinet (0037) —
+ * aucune adresse de cabinet ne peut les prendre, et aucune réservation n'est
+ * à ajouter. reserves.test.ts le vérifie pour chacun. La page de vente
+ * s'adresse à des professionnels : elle montre aussi les conditions de vente.
  */
 export const PAGES_LEGALES: ReadonlyArray<{ chemin: string; libelle: string }> = LIENS_LEGAUX.map((l) => ({
   chemin: l.chemin,
@@ -523,3 +605,7 @@ export const PAGES_LEGALES: ReadonlyArray<{ chemin: string; libelle: string }> =
 /** Le chemin de la politique de confidentialité — le formulaire y renvoie. */
 export const CHEMIN_CONFIDENTIALITE =
   LIENS_LEGAUX.find((l) => l.cle === 'confidentialite')?.chemin ?? '/confidentialite'
+
+/** Les deux documents que la case du formulaire fait accepter. */
+export const CHEMIN_CGV = LIENS_LEGAUX.find((l) => l.cle === 'cgv')?.chemin ?? '/cgv'
+export const CHEMIN_CGU = LIENS_LEGAUX.find((l) => l.cle === 'conditions')?.chemin ?? '/cgu'

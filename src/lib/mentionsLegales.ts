@@ -16,8 +16,14 @@
  * elle.
  */
 
-/** L'hébergeur de l'application. À changer ici, et seulement ici, s'il change. */
-export const HEBERGEUR = 'Vercel Inc., 440 N Barranca Ave #4133, Covina, CA 91723, États-Unis'
+/**
+ * L'hébergeur de l'application. À changer ici, et seulement ici, s'il change.
+ *
+ * Son nom, son adresse ET son téléphone : c'est ce que la loi demande de
+ * l'hébergeur (LCEN, article 1-1, anciennement 6-III). Les mentions légales
+ * de la plateforme (src/legal/contenu.ts) le citent tel quel.
+ */
+export const HEBERGEUR = 'Vercel Inc., 440 N Barranca Ave #4133, Covina, CA 91723, États-Unis, tél. +1 951 383 6898'
 
 /** Ce que les mentions lisent de la page. */
 export interface SourceMentions {

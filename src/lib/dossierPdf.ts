@@ -38,6 +38,7 @@ import {
   type SeanceDuDossier,
 } from '@/lib/dossier'
 import { pourPdf, segmentDeFichier } from '@/lib/pdfTexte'
+import { PROPRIETES_IA_DOSSIER } from '@/lib/transparenceIA'
 
 /** Ce que l'export lit de la fiche : la forme des écrans, réduite. */
 export interface FicheExportee {
@@ -273,6 +274,15 @@ export async function telechargerDossier(e: EntreeExport): Promise<void> {
 export async function composerDossier(e: EntreeExport) {
   const { jsPDF } = await import('jspdf')
   const doc = new jsPDF({ unit: 'pt', format: 'a4' })
+  /* Une partie du dossier vient de l'IA (synthèses, profil) : le fichier le
+     dit dans ses propriétés, lisibles par une machine (règlement européen sur
+     l'IA, art. 50). Sans marque ni modèle nommés. */
+  doc.setProperties({
+    title: pourPdf(`Dossier de ${e.fiche.name}`),
+    author: pourPdf(e.cabinet),
+    subject: PROPRIETES_IA_DOSSIER.subject,
+    keywords: PROPRIETES_IA_DOSSIER.keywords,
+  })
   const largeur = LARGEUR - MARGE * 2
   let y = MARGE + 10
 

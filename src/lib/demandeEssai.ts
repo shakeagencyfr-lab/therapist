@@ -53,6 +53,13 @@ export interface SaisieDemande {
   offre: string
   message: string
   consentement: boolean
+  /**
+   * « J'ai lu et j'accepte les conditions générales de vente et
+   * d'utilisation » : une case à part, jamais cochée d'avance. Accepter
+   * d'être recontacté n'est pas accepter un contrat (code civil, art. 1119 et
+   * 1127-1) — deux accords, deux cases.
+   */
+  conditions: boolean
 }
 
 export type ChampDemande = keyof SaisieDemande
@@ -68,6 +75,7 @@ export interface DemandePropre {
   offre: OffreDemandee
   message: string | null
   consentement: true
+  conditions: true
 }
 
 export type Verdict =
@@ -102,6 +110,7 @@ export const SAISIE_VIDE: SaisieDemande = {
   offre: '',
   message: '',
   consentement: false,
+  conditions: false,
 }
 
 /**
@@ -142,6 +151,9 @@ export function validerDemande(brut: unknown): Verdict {
   if (s.consentement !== true) {
     erreurs.consentement = 'Cochez cette case pour que nous puissions vous recontacter.'
   }
+  if (s.conditions !== true) {
+    erreurs.conditions = 'Cochez cette case : l’essai s’ouvre aux conditions générales de vente et d’utilisation.'
+  }
 
   if (Object.keys(erreurs).length) return { ok: false, erreurs }
   return {
@@ -156,6 +168,7 @@ export function validerDemande(brut: unknown): Verdict {
       offre: offre as OffreDemandee,
       message: message || null,
       consentement: true,
+      conditions: true,
     },
   }
 }
@@ -171,6 +184,7 @@ export const ORDRE_DES_CHAMPS: ChampDemande[] = [
   'offre',
   'message',
   'consentement',
+  'conditions',
 ]
 
 export function premierChampEnDefaut(erreurs: Partial<Record<ChampDemande, string>>): ChampDemande | null {

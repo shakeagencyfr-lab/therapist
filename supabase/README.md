@@ -128,6 +128,7 @@ Relevé du 28 septembre 2026 (base `koytgcbpeorupdklswxd`).
 | `0063_le_pentest_referme.sql` | 20260929104448 | 0063_le_pentest_referme |
 | `0064_la_note_part_par_courriel.sql` | 20260929131737 | 0064_la_note_part_par_courriel |
 | `0065_les_jetons.sql` | 20260930081336 | 0065_les_jetons |
+| `0067_les_conditions_acceptees.sql` | 20260930074507 | 0067_les_conditions_acceptees |
 
 `0060` (demandes d'essai) a été appliquée avant `0055` à `0059` : elles ne se touchent pas.
 

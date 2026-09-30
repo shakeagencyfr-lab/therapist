@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { Hypnose } from '@/types/domain'
 import { accentLisible, composerHypnose, nomDuFichier } from './hypnosePdf'
+import { PROPRIETES_IA } from './transparenceIA'
+import { revendicationsInterdites } from '@/legal/contenu'
 
 /**
  * Le nom du fichier finit dans un dossier de téléchargements, à côté de
@@ -67,6 +69,21 @@ describe('composerHypnose — la marque du cabinet', () => {
     for (const texte of ['La barque qui rentre au port', 'Installez-vous.', 'Sebastien Tedeschi']) {
       expect(avec).toContain(texte)
     }
+  })
+
+  /* Le texte est écrit avec l'IA et relu par la praticienne : le fichier le
+     dit dans ses propriétés, lisibles par une machine (règlement européen
+     sur l'IA, art. 50) — sans nommer ni la plateforme ni le modèle. */
+  it('se déclare rédigé avec l’IA et validé par le praticien, dans ses propriétés', async () => {
+    const brut = (await composerHypnose(HYPNOSE, 'Test', 'Cabinet Fontaine')).output()
+    expect(brut).toContain(`/Subject (${PROPRIETES_IA.subject})`)
+    expect(brut).toContain(`/Keywords (${PROPRIETES_IA.keywords})`)
+    expect(brut).toContain('/Title (La barque qui rentre au port)')
+    expect(brut).toContain('/Author (Cabinet Fontaine)')
+    expect(PROPRIETES_IA.subject).toMatch(/intelligence artificielle[\s\S]*validé par le praticien/)
+    const proprietes = (brut.match(/\/(?:Subject|Keywords|Title|Author) \([^)]*\)/g) ?? []).join('\n')
+    expect(proprietes).not.toMatch(/Klaro/i)
+    expect(revendicationsInterdites(proprietes)).toEqual([])
   })
 
   it('met la couleur du cabinet sur les repères', async () => {

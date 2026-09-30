@@ -22,6 +22,7 @@ const BONNE: SaisieDemande = {
   offre: 'cabinet',
   message: '',
   consentement: true,
+  conditions: true,
 }
 
 describe('une demande d’essai', () => {
@@ -48,12 +49,24 @@ describe('une demande d’essai', () => {
     expect(validerDemande({ ...BONNE, consentement: 'true' }).ok).toBe(false)
   })
 
+  /* Deux accords, deux cases : être recontacté, et accepter les conditions
+     générales. L'une ne vaut pas l'autre. */
+  it('ne passe pas sans les conditions générales acceptées', () => {
+    for (const conditions of [false, undefined, 'true']) {
+      const v = validerDemande({ ...BONNE, conditions })
+      expect(v.ok, String(conditions)).toBe(false)
+      if (v.ok) continue
+      expect(Object.keys(v.erreurs)).toEqual(['conditions'])
+    }
+    expect(SAISIE_VIDE.conditions).toBe(false)
+  })
+
   it('dit chaque champ manquant, dans l’ordre du formulaire', () => {
     const v = validerDemande(SAISIE_VIDE)
     expect(v.ok).toBe(false)
     if (v.ok) return
     expect(Object.keys(v.erreurs).sort()).toEqual(
-      ['cabinet', 'consentement', 'email', 'nom', 'offre', 'patients', 'ville'].sort(),
+      ['cabinet', 'conditions', 'consentement', 'email', 'nom', 'offre', 'patients', 'ville'].sort(),
     )
     expect(premierChampEnDefaut(v.erreurs)).toBe('nom')
   })

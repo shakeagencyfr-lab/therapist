@@ -43,6 +43,7 @@ export function SignIn({
   cabinet = 'Klaro',
   tagline = KLARO.slogan,
   avis = null,
+  pro = false,
 }: {
   titre: string
   intro: string
@@ -50,6 +51,12 @@ export function SignIn({
   logoUrl?: string | null
   cabinet?: string
   tagline?: string
+  /**
+   * La porte des professionnels, à l'identité du produit : elle montre aussi
+   * les conditions de vente. Jamais sur la porte d'un cabinet ni sur celle
+   * de l'espace patient (src/legal/chemins.ts, `pro`).
+   */
+  pro?: boolean
   /**
    * Pourquoi on revient à la porte, quand ce n'est pas un choix : la
    * session s'est fermée après un temps sans activité (src/auth/Inactivite).
@@ -337,7 +344,7 @@ export function SignIn({
             c'est ici qu'on confie son adresse. Dans la carte, pour rester
             sous les yeux ; dans un nouvel onglet, pour ne pas perdre le code
             qu'on attend peut-être (src/legal/LiensLegaux.tsx). */}
-        <LiensLegaux className={s.legal} />
+        <LiensLegaux className={s.legal} pro={pro} />
       </div>
     </div>
   )

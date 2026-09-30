@@ -1,14 +1,20 @@
 import type { CSSProperties } from 'react'
-import { LIENS_LEGAUX } from './chemins'
+import { liensLegauxPour } from './chemins'
 import s from './LiensLegaux.module.css'
 
 /**
- * Les trois liens vers les pages légales de la plateforme, en pied d'écran.
+ * Les liens vers les pages légales de la plateforme, en pied d'écran.
  *
  * Posés sur toutes les portes : l'écran de connexion (cabinet et patient),
  * le pied de l'espace patient, le widget que les cabinets encadrent sur leur
  * site, et le pied de leur page publique. Ce module ne tire que les chemins
  * (./chemins) : aucune de ces surfaces ne télécharge le texte des pages.
+ *
+ * LES CONDITIONS DE VENTE, SEULEMENT CHEZ LES PROFESSIONNELS (`pro`). La
+ * porte des thérapeutes les montre ; l'espace patient, le widget et la page
+ * d'un cabinet, non — une personne suivie n'achète rien à l'éditrice, et le
+ * lien s'y lirait comme les conditions de la boutique du cabinet
+ * (voir `pro` dans ./chemins).
  *
  * UN NOUVEL ONGLET PAR DÉFAUT, ET CE N'EST PAS UN CAPRICE.
  *   - Dans le widget, c'est la seule façon de sortir du cadre : une page
@@ -26,15 +32,18 @@ export function LiensLegaux({
   court = false,
   nouvelOnglet = true,
   gauche = false,
+  pro = false,
   intro,
   className,
   style,
 }: {
-  /** Les libellés courts — « Conditions » plutôt que « Conditions d'utilisation ». */
+  /** Les libellés courts — « Conditions » plutôt que « Conditions générales d’utilisation ». */
   court?: boolean
   nouvelOnglet?: boolean
   /** Alignés à gauche, pour un pied qui l'est déjà (la page d'un cabinet). */
   gauche?: boolean
+  /** Une surface de professionnels : les conditions de vente s'ajoutent. */
+  pro?: boolean
   /** Une amorce avant les liens, quand le contexte ne dit pas de quoi ils parlent. */
   intro?: string
   className?: string
@@ -45,7 +54,7 @@ export function LiensLegaux({
     <nav className={classes} style={style} aria-label="Informations légales">
       {intro ? <span className={s.intro}>{intro}</span> : null}
       <ul className={s.liste}>
-        {LIENS_LEGAUX.map((l) => (
+        {liensLegauxPour(pro).map((l) => (
           <li key={l.cle} className={s.element}>
             <a
               className={s.lien}

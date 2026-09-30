@@ -16,6 +16,8 @@ import {
 } from './dossierPdf'
 import { crc32, deflateSync } from 'node:zlib'
 import { composerNote, preparerNotePdf } from './honorairesPdf'
+import { PROPRIETES_IA_DOSSIER } from './transparenceIA'
+import { revendicationsInterdites } from '@/legal/contenu'
 
 const ici = dirname(fileURLToPath(import.meta.url))
 const fiche = Object.values(PATIENTS)[0]!
@@ -158,6 +160,19 @@ describe('le PDF composé', () => {
     expect(brut).not.toMatch(illisible)
     expect(brut).toContain(`Dossier de ${fiche.name}`)
     expect(brut).toContain(`1 / ${doc.getNumberOfPages()}`)
+  })
+
+  /* Une partie du dossier vient de l'IA : le fichier le dit dans ses
+     propriétés, lisibles par une machine (règlement européen sur l'IA,
+     art. 50) — sans nommer ni la plateforme ni un modèle. */
+  it('se déclare en partie rédigé avec l’IA, dans ses propriétés', async () => {
+    const brut = (await composerDossier(entree())).output()
+    expect(brut).toContain(`/Subject (${PROPRIETES_IA_DOSSIER.subject})`)
+    expect(brut).toContain(`/Keywords (${PROPRIETES_IA_DOSSIER.keywords})`)
+    expect(brut).toContain(`/Title (Dossier de ${fiche.name})`)
+    const proprietes = (brut.match(/\/(?:Subject|Keywords|Title|Author) \([^)]*\)/g) ?? []).join('\n')
+    expect(proprietes).not.toMatch(/Klaro/i)
+    expect(revendicationsInterdites(proprietes)).toEqual([])
   })
 
   it('la note d’honoraires porte son numéro, et « ANNULÉE » une fois annulée', async () => {

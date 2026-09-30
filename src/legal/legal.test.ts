@@ -6,9 +6,10 @@ import { DELAI_PURGE_JOURS } from '@/lib/seance'
 import { CHEMINS_RESERVES, slugDuChemin } from '@/lib/vitrine'
 import { problemeIdentifiant } from '@/lib/identifiant'
 import { PAGES_LEGALES as LIENS_DE_LA_VENTE } from '@/vente/contenu'
-import { LIENS_LEGAUX, cheminLegal, pageLegaleDuChemin, type CleLegale } from './chemins'
+import { LIENS_LEGAUX, cheminLegal, liensLegauxPour, pageLegaleDuChemin, type CleLegale } from './chemins'
 import {
   LIBELLES_CITES,
+  MISE_A_JOUR,
   PAGES_LEGALES,
   VALIDE_JURIDIQUEMENT,
   champsACompleter,
@@ -16,6 +17,16 @@ import {
   revendicationsInterdites,
   textesDe,
 } from './contenu'
+import {
+  ADRESSE,
+  COURRIEL,
+  EDITRICE,
+  SIREN,
+  SIRET,
+  TELEPHONE,
+  TVA_INTRACOMMUNAUTAIRE,
+} from './identite'
+import { FORME_DE_VERSION, MISE_A_JOUR as VERSION } from './version'
 
 const racine = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const lire = (chemin: string) => readFileSync(join(racine, chemin), 'utf8')
@@ -30,8 +41,10 @@ describe('les adresses des pages légales', () => {
     expect(pageLegaleDuChemin('/confidentialite')).toBe('confidentialite')
     expect(pageLegaleDuChemin('/confidentialite/')).toBe('confidentialite')
     expect(pageLegaleDuChemin('/CGU')).toBe('conditions')
+    expect(pageLegaleDuChemin('/cgv')).toBe('cgv')
+    expect(pageLegaleDuChemin('/CGV/')).toBe('cgv')
     expect(pageLegaleDuChemin('/mentions')).toBe('mentions')
-    for (const autre of ['/', '', '/mon', '/connexion', '/cabinet-fontaine', '/e/cgu', '/cgu/mon', '/mentions-legales']) {
+    for (const autre of ['/', '', '/mon', '/connexion', '/cabinet-fontaine', '/e/cgu', '/e/cgv', '/cgu/mon', '/mentions-legales']) {
       expect(pageLegaleDuChemin(autre), autre).toBeNull()
     }
   })
@@ -88,6 +101,32 @@ describe('les adresses des pages légales', () => {
 
   it('sont celles que la page de vente annonce', () => {
     expect(LIENS_DE_LA_VENTE.map((p) => p.chemin).sort()).toEqual(LIENS_LEGAUX.map((l) => l.chemin).sort())
+  })
+
+  /* Les conditions de vente lient l'éditrice et les cabinets : sur une
+     surface de patient, elles se liraient comme celles de la boutique. */
+  it('gardent les conditions de vente pour les surfaces des professionnels', () => {
+    expect(liensLegauxPour(true).map((l) => l.cle)).toContain('cgv')
+    expect(liensLegauxPour(false).map((l) => l.cle)).toEqual(['confidentialite', 'conditions', 'mentions'])
+  })
+
+  /* La date affichée et la version acceptée sont une seule et même chose. */
+  it('datent les quatre pages de la version que l’on accepte', () => {
+    expect(MISE_A_JOUR).toBe(VERSION)
+    expect(VERSION).toMatch(FORME_DE_VERSION)
+  })
+
+  /* La base refuse une version d'une autre forme (0067) : la date affichée
+     et le motif de la base doivent rester les mêmes, sinon plus personne ne
+     peut accepter. */
+  it('ont une version que la base accepte', () => {
+    const migration = lire('supabase/migrations/0067_les_conditions_acceptees.sql')
+    const motif = FORME_DE_VERSION.source
+    expect(migration.split(`'${motif}'`).length - 1).toBe(2)
+    for (const forme of ['1er octobre 2026', '9 mars 2027']) expect(forme).toMatch(FORME_DE_VERSION)
+    for (const forme of ['', 'v2', '32 mars 2026', '30 septembre 26', '30 Septembre 2026']) {
+      expect(forme).not.toMatch(FORME_DE_VERSION)
+    }
   })
 
   /* Les pages s'ouvrent sans l'application : main.tsx les reconnaît AVANT
@@ -170,6 +209,39 @@ const SECTIONS: Record<CleLegale, string[]> = {
     'fin',
     'modifications',
     'droit',
+  ],
+  cgv: [
+    'parties',
+    'objet',
+    'acceptation',
+    'souscription',
+    'resiliation',
+    'prix',
+    'retard',
+    'jetons',
+    'option-hypnose',
+    'revendeurs',
+    'obligations-client',
+    'ia',
+    'disponibilite',
+    'securite',
+    'donnees',
+    'propriete',
+    'responsabilite',
+    'force-majeure',
+    'prescription',
+    'confidentialite',
+    'dispositions',
+    'modifications',
+    'signalement',
+    'droit',
+    'annexe-rgpd',
+    'annexe-engagements',
+    'annexe-sous-traitants',
+    'annexe-violations',
+    'annexe-fin',
+    'annexe-audits',
+    'annexe-hds',
   ],
   mentions: ['editeur', 'publication', 'hebergement', 'donnees', 'cabinets', 'propriete'],
 }
@@ -300,20 +372,190 @@ describe('les gestes cités', () => {
 })
 
 describe('les mentions légales', () => {
-  it('laissent en évidence ce que le code ne peut pas savoir', () => {
-    const champs = champsACompleter(PAGES_LEGALES.mentions).join('\n')
-    if (VALIDE_JURIDIQUEMENT) return
-    for (const attendu of [/raison sociale/, /SIREN/, /siège/, /directeur ou de la directrice de la publication/, /contact/]) {
-      expect(champs).toMatch(attendu)
+  /* Ce que la loi exige de l'éditrice (LCEN, art. 1-1) : complété, il se
+     lit en clair ; pas encore, il reste en évidence. Jamais entre les deux. */
+  it('disent qui édite, sous quel numéro, où, qui dirige la publication et comment la joindre', () => {
+    if (!VALIDE_JURIDIQUEMENT) {
+      const champs = champsACompleter(PAGES_LEGALES.mentions).join('\n')
+      for (const attendu of [/raison sociale/, /SIREN/, /siège/, /directeur ou de la directrice de la publication/, /contact/]) {
+        expect(champs).toMatch(attendu)
+      }
+      return
+    }
+    const t = texte('mentions')
+    expect(t).toContain(EDITRICE)
+    expect(t).toContain(`SIREN ${SIREN}`)
+    expect(t).toContain(SIRET)
+    expect(t).toContain('Registre national des entreprises')
+    expect(t).toContain(TVA_INTRACOMMUNAUTAIRE)
+    expect(t).toContain(ADRESSE)
+    expect(t).toContain(TELEPHONE)
+    expect(t).toContain(COURRIEL)
+    expect(t).toMatch(/Directrice de la publication[\s\S]*Laetitia OLLIVIER/)
+  })
+
+  it('nomment les hébergeurs, leur adresse, un moyen de les joindre et leur région', () => {
+    const t = texte('mentions')
+    expect(t).toMatch(/Vercel Inc\./)
+    expect(t).toContain('+1 951 383 6898')
+    expect(t).toMatch(/Supabase Pte\. Ltd\./)
+    expect(t).toMatch(/Singapour 318992/)
+    expect(t).toContain('https://supabase.com/support')
+    expect(t).toContain('cdg1')
+    expect(t).toContain('eu-west-3')
+  })
+})
+
+/* ------------------------------------------------------------------ *
+ * L'éditrice, partout la même
+ * ------------------------------------------------------------------ */
+
+describe('l’éditrice', () => {
+  /* Une EI se désigne par le nom de la personne, suivi ou précédé de « EI »
+     (C. com., R526-26) : « LO HYPNOSE » seul ne suffit pas. */
+  it('porte le nom de l’exploitante et la mention EI', () => {
+    expect(EDITRICE).toMatch(/Laetitia OLLIVIER, entrepreneur individuel \(EI\)/)
+    expect(EDITRICE).toContain('LO HYPNOSE')
+  })
+
+  it('est nommée de la même façon sur les quatre pages', () => {
+    for (const cle of ['confidentialite', 'conditions', 'cgv', 'mentions'] as const) {
+      expect(texte(cle), cle).toContain(EDITRICE)
     }
   })
 
-  it('nomment les hébergeurs et leur région', () => {
-    const t = texte('mentions')
-    expect(t).toMatch(/Vercel Inc\./)
-    expect(t).toMatch(/Supabase, Inc\./)
-    expect(t).toContain('cdg1')
-    expect(t).toContain('eu-west-3')
+  /* Le modèle a changé : l'IA passe par la clé de la plateforme ou du
+     revendeur, en jetons — ou par celle du cabinet, pour qui l'a encore.
+     Aucune page ne doit promettre l'ancien modèle comme le seul. */
+  it('ne promet plus que l’IA passe seulement par la clé du cabinet', () => {
+    for (const cle of Object.keys(PAGES_LEGALES) as CleLegale[]) {
+      expect(texte(cle), cle).not.toMatch(/ne prélève rien/)
+      expect(texte(cle), cle).not.toMatch(/n’est possible qu’avec la clé/)
+    }
+    expect(texte('conditions')).toMatch(/jetons/)
+    expect(texte('confidentialite')).toMatch(/compte de la plateforme ou du revendeur/)
+  })
+
+  it('n’écrit plus aucun champ à compléter', () => {
+    for (const cle of Object.keys(PAGES_LEGALES) as CleLegale[]) {
+      expect(texte(cle), cle).not.toContain('À COMPLÉTER')
+    }
+  })
+})
+
+/* ------------------------------------------------------------------ *
+ * Les conditions générales de vente
+ * ------------------------------------------------------------------ */
+
+describe('les conditions générales de vente', () => {
+  const t = texte('cgv')
+  const page = PAGES_LEGALES.cgv
+
+  it('désignent l’éditrice comme « le Prestataire », une fois', () => {
+    expect(t.match(/ci-après « le Prestataire »/g)).toHaveLength(1)
+  })
+
+  /* Les renvois « l'article 7 » se calculent : chaque titre porte son rang. */
+  it('numérotent leurs articles dans l’ordre, puis l’annexe', () => {
+    const articles = page.sections.filter((s) => !s.id.startsWith('annexe-'))
+    articles.forEach((s, i) => expect(s.titre, s.id).toMatch(new RegExp(`^${i + 1}\\. `)))
+    const annexe = page.sections.filter((s) => s.id.startsWith('annexe-'))
+    for (const s of annexe) expect(s.titre, s.id).toMatch(/^Annexe — /)
+    expect(page.sections.at(-annexe.length - 1)?.id).toBe('droit')
+  })
+
+  it('disent la version acceptée, et comment on l’accepte', () => {
+    expect(t).toContain(MISE_A_JOUR)
+    expect(t).toContain('« J’ai lu et j’accepte les conditions générales de vente et d’utilisation »')
+    expect(t).toMatch(/sans qu’elle soit cochée d’avance/)
+  })
+
+  it('disent la TVA telle qu’elle se facture', () => {
+    expect(t).toMatch(/hors taxes/)
+    expect(t).toContain('« TVA non applicable, art. 293 B du CGI »')
+    expect(t).toMatch(/franchise en base/)
+  })
+
+  it('posent les pénalités de retard que le code de commerce impose', () => {
+    expect(t).toMatch(/Banque centrale européenne[\s\S]*majoré de dix points/)
+    expect(t).toMatch(/indemnité forfaitaire pour frais de recouvrement de 40 euros/)
+    expect(t).toMatch(/L441-10 et D441-5/)
+    expect(t).toMatch(/Aucun escompte/)
+  })
+
+  it('suspendent pour impayé sans rien effacer, et laissent lire et exporter', () => {
+    const retard = page.sections.find((s) => s.id === 'retard')
+    const r = retard ? textesDe({ ...page, sections: [retard] }).join('\n') : ''
+    expect(r).toMatch(/huit jours/)
+    expect(r).toMatch(/accès en lecture/)
+    expect(r).toMatch(/rien n’est effacé/)
+    expect(r).toMatch(/trente jours après la mise en demeure/)
+  })
+
+  it('disent les règles des jetons', () => {
+    for (const regle of [
+      /premier jour de chaque mois civil \(heure de Paris\)/,
+      /ne se cumulent pas et ne se reportent pas/,
+      /valables douze mois à compter de l’achat/,
+      /la recharge la plus ancienne d’abord/,
+      /affiché avant qu’on la lance/,
+      /ne sont débités que si la rédaction aboutit/,
+      /au moins trente jours à l’avance/,
+      /effet rétroactif/,
+      /aucune valeur monétaire/,
+      /ni de la monnaie électronique/,
+    ]) {
+      expect(t).toMatch(regle)
+    }
+  })
+
+  it('tiennent le changement de fournisseur du règlement européen sur les données', () => {
+    expect(t).toMatch(/2023\/2854/)
+    expect(t).toMatch(/format structuré, couramment utilisé et lisible par machine/)
+    expect(t).toMatch(/période de transition de trente jours/)
+    expect(t).toMatch(/n’excède jamais deux mois/)
+  })
+
+  it('limitent la responsabilité sans toucher aux dommages corporels ni aux personnes', () => {
+    expect(t).toMatch(/faute prouvée/)
+    expect(t).toMatch(/dommages directs et prévisibles/)
+    expect(t).toMatch(/Sauf faute lourde ou dolosive/)
+    expect(t).toMatch(/douze mois qui précèdent le fait générateur/)
+    expect(t).toMatch(/ne s’appliquent pas aux dommages corporels/)
+    expect(t).toMatch(/article 82/)
+  })
+
+  it('abrègent la prescription à un an, à partir de la connaissance des faits', () => {
+    expect(t).toMatch(/se prescrit par un an à compter du jour où le Client a connu, ou aurait dû connaître/)
+  })
+
+  /* Entre non-commerçants, une clause attributive de juridiction est réputée
+     non écrite (CPC, art. 48) : les CGV n'en écrivent pas. */
+  it('ne désignent pas de tribunal, et passent d’abord par l’amiable', () => {
+    expect(t).not.toMatch(/tribunal de commerce|seuls compétents|compétence exclusive/i)
+    expect(t).toMatch(/trente jours à compter de sa réception/)
+    expect(t).toMatch(/règles du droit commun/)
+  })
+
+  it('posent la destination non médicale du service', () => {
+    expect(t).toMatch(/n’est pas un dispositif médical/)
+    expect(t).toMatch(/finalité non médicale/)
+    expect(t).toMatch(/article 50/)
+  })
+
+  it('annexent l’accord de sous-traitance, avec ses sous-traitants et ses délais', () => {
+    for (const nom of ['Vercel Inc.', 'Supabase Pte. Ltd.', 'Anthropic, PBC', 'Resend, Inc.', 'Stripe', 'hCaptcha', 'SerpApi']) {
+      expect(t).toContain(nom)
+    }
+    expect(t).toMatch(/quarante-huit heures après en avoir pris connaissance/)
+    expect(t).toMatch(/au plus une fois par an/)
+    expect(t).toMatch(/pendant trois mois/)
+    expect(t).toMatch(/Aucune certification d’hébergeur de données de santé \(HDS\) n’est revendiquée/)
+  })
+
+  it('ouvrent un point de contact et une procédure de signalement', () => {
+    expect(t).toMatch(/2022\/2065/)
+    expect(t).toContain(COURRIEL)
   })
 })
 

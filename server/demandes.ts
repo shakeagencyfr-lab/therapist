@@ -12,7 +12,8 @@
  *   1. le champ piège — un robot qui le remplit reçoit un « merci », rien
  *      n'est écrit, et il n'apprend pas qu'il a été reconnu ;
  *   2. la relecture de chaque champ (src/lib/demandeEssai.ts, la même que
- *      celle de l'écran) ;
+ *      celle de l'écran), dont les deux cases : le recontact, et les
+ *      conditions générales de vente et d'utilisation ;
  *   3. le CAPTCHA, si `HCAPTCHA_SECRET` est posé — sinon, rien : les bornes
  *      de la base sont alors la seule garde, et elles tiennent ;
  *   4. la base, qui relit tout encore une fois et borne : trois demandes par
@@ -22,6 +23,7 @@
  * cabinet sont des données personnelles.
  */
 import { confirmation, reponseAuRefus, validerDemande, type DemandePropre } from '../src/lib/demandeEssai.js'
+import { MISE_A_JOUR } from '../src/legal/version.js'
 import { clientAdmin } from './auth.js'
 
 export interface ReponseDemande {
@@ -66,9 +68,21 @@ async function verifierAupresDeHcaptcha(jeton: string, secret: string, ip: strin
   }
 }
 
+/**
+ * La version des conditions que la case a fait accepter.
+ *
+ * FIXÉE ICI, JAMAIS REÇUE DE LA PAGE. Le serveur et la page partent du même
+ * déploiement : la version qu'il écrit est celle que la page affichait. Lue
+ * dans la requête, elle aurait laissé un robot inscrire n'importe quelle
+ * date — ou une version qui n'a jamais existé.
+ */
+export const VERSION_DES_CONDITIONS = MISE_A_JOUR
+
 async function deposerEnBase(demande: DemandePropre): Promise<{ ok?: boolean; motif?: string } | null> {
   const admin = clientAdmin()
   if (!admin) return null
+  /* La forme à dix arguments (0067) refuse une demande sans version
+     acceptée : c'est la base qui tient la case, pas seulement l'écran. */
   const { data, error } = await admin.rpc('deposer_demande_essai', {
     p_nom: demande.nom,
     p_email: demande.email,
@@ -79,6 +93,8 @@ async function deposerEnBase(demande: DemandePropre): Promise<{ ok?: boolean; mo
     p_offre: demande.offre,
     p_message: demande.message,
     p_consentement: demande.consentement,
+    // `demande` a passé validerDemande : la case des conditions y est cochée.
+    p_conditions_version: VERSION_DES_CONDITIONS,
   })
   if (error) {
     // Le code seulement : jamais le contenu de la demande.
