@@ -66,15 +66,14 @@ export const EDITEUR = {
  * LA MENTION DES PRIX — à changer ici, et nulle part ailleurs.
  *
  * Les prix de la table `plans` s'entendent hors taxes, par cabinet et par
- * mois : c'est tranché (29 septembre). L'éditrice est une micro-entreprise :
- * tant qu'elle relève de la franchise en base, aucune TVA ne s'y ajoute, et
- * ses factures le disent (CGI, art. 293 B) — la page le dit aussi, au
- * conditionnel du droit, puisque la franchise tient à un seuil de chiffre
- * d'affaires. Les conditions de vente (src/legal/contenu.ts, « prix ») disent
- * la même chose.
+ * mois : c'est tranché (29 septembre). L'éditrice est une micro-entreprise
+ * en franchise en base (confirmé le 30 septembre) : aucune TVA ne s'y ajoute,
+ * et ses factures le disent (CGI, art. 293 B) — la page le dit aussi. Si la
+ * franchise cessait (seuil dépassé, option), c'est cette phrase et l'article
+ * « prix » des conditions de vente (src/legal/contenu.ts) qui changeraient.
  */
 export const MENTION_PRIX = typographie(
-  'Prix par cabinet et par mois, hors taxes. Tant que l’éditrice bénéficie de la franchise en base de TVA, aucune TVA ne s’y ajoute (TVA non applicable, art. 293 B du CGI).',
+  'Prix par cabinet et par mois, hors taxes. L’éditrice bénéficie de la franchise en base de TVA : aucune TVA ne s’y ajoute (TVA non applicable, art. 293 B du CGI).',
 )
 
 /** Pour les données structurées : les prix affichés ne comprennent pas la TVA. */

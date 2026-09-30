@@ -23,7 +23,7 @@ export const EXPLOITANTE = 'Laetitia OLLIVIER'
 export const EDITRICE = `${NOM_COMMERCIAL} — ${EXPLOITANTE}, entrepreneur individuel (EI)`
 
 /** L'adresse de l'établissement, qui est aussi le siège. */
-export const ADRESSE = 'Cabinet médical, 2 avenue Saint-Augustin, 06200 Nice, France'
+export const ADRESSE = '2 avenue Saint-Augustin, 06200 Nice, France'
 
 export const SIREN = '532 308 228'
 export const SIRET = '532 308 228 00024'

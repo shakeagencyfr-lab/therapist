@@ -95,12 +95,13 @@ describe('les offres de la page', () => {
     expect(MENTION_PRIX).not.toMatch(/à confirmer|indicatifs/)
   })
 
-  /* L'éditrice est une micro-entreprise : tant qu'elle relève de la
-     franchise, ses factures portent la mention de l'article 293 B — et la
-     page le dit comme les conditions de vente le disent. */
-  it('disent la franchise de TVA, au conditionnel du droit', () => {
+  /* L'éditrice est une micro-entreprise en franchise en base : ses
+     factures portent la mention de l'article 293 B — et la page le dit
+     comme les conditions de vente le disent, sans conditionnel. */
+  it('disent la franchise de TVA', () => {
     expect(MENTION_PRIX).toMatch(/TVA non applicable, art\. 293 B du CGI/)
-    expect(MENTION_PRIX).toMatch(/Tant que/)
+    expect(MENTION_PRIX).toMatch(/bénéficie de la franchise en base/)
+    expect(MENTION_PRIX).not.toMatch(/Tant que/)
   })
 
   it('disent l’engagement et l’essai', () => {

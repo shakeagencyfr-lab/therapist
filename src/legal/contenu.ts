@@ -58,7 +58,8 @@ import { MISE_A_JOUR } from './version'
  * par l'exploitante et d'une recherche juridique (textes, jurisprudence,
  * articles de praticiens). Ils n'ont pas été relus par un avocat, et cette
  * relecture reste recommandée — d'abord sur l'hébergement des données de
- * santé, le classement de l'activité et la franchise de TVA. Le drapeau dit
+ * santé et le classement de l'activité (la franchise de TVA, elle, est
+ * confirmée par l'exploitante le 30 septembre 2026). Le drapeau dit
  * seulement qu'il ne reste aucun « [À COMPLÉTER : …] » : l'épreuve refuse un
  * document déclaré complet qui en garde un seul, et le bandeau « Document à
  * faire valider juridiquement » s'efface avec lui.
@@ -1071,7 +1072,7 @@ const ARTICLES: SectionLegale[] = [
       type: 'liste',
       elements: [
         `Les prix des offres, des recharges et de l’option Hypnose, ainsi que le barème des jetons, sont ceux affichés sur la page de présentation du Service (${DOMAINE_CABINETS}) et dans l’espace du Client au moment de la commande — ou, pour une souscription par un Revendeur, ceux que ce Revendeur communique. Ils sont exprimés en euros et hors taxes.`,
-        'Tant que le Prestataire bénéficie de la franchise en base de TVA, aucune TVA n’est facturée, et les factures portent la mention « TVA non applicable, art. 293 B du CGI ». Dès qu’il n’en bénéficie plus, la TVA au taux en vigueur s’ajoute aux prix hors taxes ; le Client en est informé avant la facture concernée.',
+        'Le Prestataire bénéficie de la franchise en base de TVA : aucune TVA n’est facturée, et les factures portent la mention « TVA non applicable, art. 293 B du CGI ». Si ce régime venait à cesser, la TVA au taux en vigueur s’ajouterait aux prix hors taxes ; le Client en serait informé avant la facture concernée.',
         'L’abonnement se paie d’avance, pour chaque période mensuelle ; les recharges et l’option Hypnose, à la commande. Les factures sont émises par le vendeur — le Prestataire, ou le Revendeur quand c’est lui qui vend — et adressées par voie électronique. Elles sont payables à réception, par les moyens de paiement proposés.',
         'Aucun escompte n’est accordé en cas de paiement anticipé.',
         `Le Prestataire peut modifier ses prix. Toute hausse est annoncée au Client au moins ${PREAVIS} avant de s’appliquer, par courriel ou dans son espace, et ne vaut que pour les périodes qui commencent après ce délai. Le Client qui la refuse peut résilier sans frais avant qu’elle prenne effet.`,
