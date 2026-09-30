@@ -11,7 +11,7 @@
  * d'écriture sur ces tables ; la lecture passe sous la RLS du cabinet.
  */
 import { supabase } from '@/lib/supabase'
-import { estCibleRetouche, preferenceRetenue, type CibleRetouche, type CibleVote, type Vote } from '@/lib/retouche'
+import { estCibleRetouche, nomDansLaConsigne, type CibleRetouche, type CibleVote, type Vote } from '@/lib/retouche'
 
 interface Resultat {
   ok: boolean
@@ -37,8 +37,13 @@ export type LecturePreferences = PreferenceIA[] | 'indisponible' | null
 export interface GestesRetouches {
   /** Un avis sur un type de texte. Un échec ne se dit pas : c'est un avis, pas un geste de soin. */
   voter: (cible: CibleVote, vote: Vote) => Promise<Resultat>
-  /** Retient ce que la praticienne attendait, pour les prochaines générations du même type. */
-  retenir: (cible: CibleRetouche, attendu: string) => Promise<Resultat>
+  /**
+   * Retient la consigne que la praticienne a relue, pour les prochaines
+   * générations du même type — chez tous les patients du cabinet.
+   * `patient` : le nom du patient dont le texte parlait, quand l'écran le
+   * connaît ; une consigne qui le contient ne part pas.
+   */
+  retenir: (cible: CibleRetouche, consigne: string, patient?: string | null) => Promise<Resultat>
   lire: () => Promise<LecturePreferences>
   oublier: (id: string) => Promise<Resultat>
 }
@@ -83,20 +88,36 @@ export function gestesRetouches(cabinetId: string | null): GestesRetouches {
       }
     },
 
-    async retenir(cible, attendu) {
+    async retenir(cible, texte, patient) {
       const db = supabase()
       if (!db || !cabinetId) return { ok: false, message: 'Les préférences se retiennent depuis votre cabinet.' }
-      const consigne = preferenceRetenue(attendu)
+      /* RIEN NE SE COUPE. La fenêtre a déjà compté les caractères ; une
+         consigne trop longue qui passerait quand même est refusée par la
+         base, et sa phrase se dit — la tronquer ici effaçait en silence ce
+         qu'elle disait en dernier. */
+      const consigne = texte.trim()
       if (!consigne) return { ok: false, message: 'Une préférence vide ne se retient pas.' }
+      // La base ne connaît pas le patient : ce contrôle-là ne se fait qu'ici.
+      const nom = nomDansLaConsigne(consigne, patient)
+      if (nom) {
+        return {
+          ok: false,
+          message: `Préférence non retenue : « ${nom} » est le nom de ce patient, et elle s'appliquerait à tous. La retouche, elle, est faite.`,
+        }
+      }
       const { error } = await db.rpc('cabinet_retenir_preference', {
         p_cabinet: cabinetId,
         p_cible: cible,
         p_consigne: consigne,
       })
       if (error) {
+        // La phrase de la base (« …raccourcissez-la »), quand elle en a une.
+        const dit = messageRefusRetouche(error.message, '')
         return {
           ok: false,
-          message: messageRefusRetouche(error.message, "La préférence n'a pas pu être retenue. La retouche, elle, est faite."),
+          message: dit
+            ? `${dit} La retouche, elle, est faite.`
+            : "La préférence n'a pas pu être retenue. La retouche, elle, est faite.",
         }
       }
       return { ok: true, message: 'Préférence retenue pour les prochaines générations.' }

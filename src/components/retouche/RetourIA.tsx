@@ -27,6 +27,14 @@ export interface RetourIAProps {
   version?: string
   /** Une écriture, un enregistrement en cours : les gestes attendent. */
   occupe?: boolean
+  /**
+   * Le nom du patient dont le texte parle (sa fiche : « Camille Laurent »),
+   * quand l'écran le connaît. Une consigne retenue part chez TOUS les
+   * patients : celle qui porte son prénom ou son nom est refusée avant
+   * d'être retenue. Absent — l'atelier écrit pour personne en particulier —,
+   * ce contrôle-là ne se fait pas ; l'avertissement, lui, reste.
+   */
+  patient?: string
   className?: string
 }
 
@@ -48,7 +56,15 @@ type Reussie = Extract<IssueRetouche, { ok: true }>
  * s'enfoncent sans rien écrire. Les écrans ne les montrent de toute façon
  * que dans un cabinet réel.
  */
-export function RetourIA({ cible, libelle = 'ce texte', onRetoucher, version, occupe = false, className }: RetourIAProps) {
+export function RetourIA({
+  cible,
+  libelle = 'ce texte',
+  onRetoucher,
+  version,
+  occupe = false,
+  patient,
+  className,
+}: RetourIAProps) {
   const cabinet = useMaybeCabinet()
   const retouchable = Boolean(onRetoucher) && estCibleRetouche(cible)
   const devis = useDevis(estCibleRetouche(cible) ? actionDeLaRetouche(cible) : 'retouche')
@@ -84,7 +100,7 @@ export function RetourIA({ cible, libelle = 'ce texte', onRetoucher, version, oc
     }
   }
 
-  async function optimiser(retour: RetourDeLaPraticienne, retenir: boolean): Promise<IssueRetouche> {
+  async function optimiser(retour: RetourDeLaPraticienne, consigne: string | null): Promise<IssueRetouche> {
     if (!onRetoucher || !estCibleRetouche(cible)) return { ok: false, message: 'Ce texte ne se retouche pas.' }
     let r: IssueRetouche
     try {
@@ -97,10 +113,12 @@ export function RetourIA({ cible, libelle = 'ce texte', onRetoucher, version, oc
     setReussie(r)
     setNote('')
     /* RETENUE APRÈS LA RÉUSSITE SEULEMENT : une retouche qui échoue n'a rien
-       appris à personne, et ne laisse rien en base. */
-    if (retenir && cabinet) {
+       appris à personne, et ne laisse rien en base. Ce qui se retient est la
+       consigne relue dans la fenêtre — jamais la réponse brute, qui parlait
+       de ce patient et partirait chez tous. */
+    if (consigne && cabinet) {
       try {
-        setNote((await cabinet.retouches.retenir(cible, retour.attendu)).message)
+        setNote((await cabinet.retouches.retenir(cible, consigne, patient)).message)
       } catch {
         setNote("La préférence n'a pas pu être retenue. La retouche, elle, est faite.")
       }
@@ -186,6 +204,7 @@ export function RetourIA({ cible, libelle = 'ce texte', onRetoucher, version, oc
           cible={cible}
           libelle={libelle}
           devis={devis}
+          patient={patient}
           onFermer={() => setOuverte(false)}
           onOptimiser={optimiser}
         />

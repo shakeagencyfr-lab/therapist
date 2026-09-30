@@ -49,7 +49,12 @@ export const BORNE_RETOUR = 2000
 export const BORNE_PREFERENCE = 400
 /** Actives au plus, par cabinet et par type — la base retire les plus anciennes (0066). */
 export const PREFERENCES_ACTIVES = 20
-/** Relues à chaque génération : les plus récentes, pour ne pas noyer la demande. */
+/**
+ * Relues à chaque génération, PAR TYPE : les plus récentes de chacun, pour
+ * ne pas noyer la demande. Une génération de séance relit trois types
+ * (synthèse, message, propositions) : dix en tout laisserait les messages
+ * récents chasser toutes les synthèses (server/preferences.ts).
+ */
 export const PREFERENCES_LUES = 10
 
 export function estCibleRetouche(x: unknown): x is CibleRetouche {
@@ -149,12 +154,87 @@ export function retourLu(
 }
 
 /**
- * Ce qui se retient d'une retouche réussie : la réponse à « Que se serait-il
- * dû passer ? ». C'est une consigne pour la suite ; le constat, lui, portait
- * sur un texte précis et ne vaut que pour lui.
+ * Les particules d'un nom : trop courantes dans une phrase pour y désigner
+ * quelqu'un (« Marie de la Tour » ne fait pas refuser « de la lenteur »).
  */
-export function preferenceRetenue(attendu: string): string {
-  return attendu.trim().slice(0, BORNE_PREFERENCE)
+const PARTICULES = new Set([
+  'de', 'du', 'des', 'la', 'le', 'les', 'di', 'da', 'do', 'dos', 'das', 'del', 'della',
+  'van', 'von', 'der', 'den', 'ten', 'ter', 'el', 'al', 'ben', 'bin', 'ibn',
+  'saint', 'sainte', 'st', 'ste', 'et', 'y', 'un', 'une', 'en', 'au', 'aux', 'ma', 'sa',
+])
+
+/** Les mots d'un texte, sans accents ni majuscules : « Hélène » et « helene » se valent. */
+function motsDe(texte: string): string[] {
+  return texte
+    .normalize('NFD')
+    .replace(/\p{M}+/gu, '')
+    .toLocaleLowerCase('fr-FR')
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean)
+}
+
+/**
+ * Le prénom ou le nom du patient que la consigne contient, tel qu'il
+ * s'écrit sur sa fiche — null s'il n'y est pas, ou si le patient n'est pas
+ * connu de l'écran.
+ *
+ * Mot à mot, pas en sous-chaîne : « Marie » n'est pas dans « mariée ».
+ * Chaque partie d'un nom composé compte (« Jean-Pierre » : « Jean » seul
+ * désigne encore ce patient). Une partie d'une lettre ou une particule ne
+ * compte pas. Un nom qui est aussi un mot (« Pierre », « Rose ») fera
+ * refuser une consigne qui l'emploie comme mot : le message dit lequel, et
+ * un synonyme suffit — c'est le prix d'une consigne qui part chez tous.
+ */
+export function nomDansLaConsigne(consigne: string, patient: string | null | undefined): string | null {
+  if (!patient?.trim() || !consigne.trim()) return null
+  const mots = new Set(motsDe(consigne))
+  for (const partie of patient.split(/[^\p{L}\p{N}]+/u)) {
+    const [mot] = motsDe(partie)
+    if (!mot || mot.length < 2 || PARTICULES.has(mot)) continue
+    if (mots.has(mot)) return partie
+  }
+  return null
+}
+
+/**
+ * La consigne à retenir, relue avant l'envoi.
+ *
+ * ELLE PART CHEZ TOUS LES PATIENTS. Une préférence n'a pas de patient
+ * (`preferences_ia`, 0066) : le serveur la pose dans chaque génération du
+ * même type, pour chaque patient du cabinet. La réponse à « Que se
+ * serait-il dû passer ? » parle souvent d'une personne — un souvenir, un
+ * lieu, un deuil : la fenêtre la recopie dans un champ à part, que la
+ * praticienne relit et corrige, et ce champ-là seul se retient.
+ *
+ * Rien ne se coupe : une consigne tronquée perd ce qu'elle disait en
+ * dernier (« …et surtout pas d'image d'eau »). Trop longue, elle est
+ * refusée ici, avec son compte, avant que la retouche soit payée ; la base
+ * refuse de même, en seconde ligne. Et le prénom ou le nom du patient,
+ * quand l'écran le connaît, la fait refuser : c'est le signe le plus sûr
+ * d'un détail qui lui est propre.
+ */
+export function consigneLue(
+  consigne: unknown,
+  patient?: string | null,
+): { ok: true; consigne: string } | { ok: false; message: string } {
+  const c = typeof consigne === 'string' ? consigne.trim() : ''
+  if (!c) {
+    return { ok: false, message: 'Écrivez la consigne à retenir, ou décochez « Retenir cette préférence ».' }
+  }
+  if (c.length > BORNE_PREFERENCE) {
+    return {
+      ok: false,
+      message: `Une consigne retenue tient en ${BORNE_PREFERENCE} caractères au plus (${c.length} / ${BORNE_PREFERENCE}) : raccourcissez-la, ou décochez « Retenir cette préférence ».`,
+    }
+  }
+  const nom = nomDansLaConsigne(c, patient)
+  if (nom) {
+    return {
+      ok: false,
+      message: `« ${nom} » est le nom de ce patient : la consigne s'appliquerait à tous vos patients. Retirez-le, ou décochez « Retenir cette préférence ».`,
+    }
+  }
+  return { ok: true, consigne: c }
 }
 
 /**

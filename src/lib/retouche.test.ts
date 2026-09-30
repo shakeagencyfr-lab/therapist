@@ -7,9 +7,10 @@ import {
   EXEMPLES_RETOUR,
   LIBELLE_CIBLE,
   actionDeLaRetouche,
+  consigneLue,
   estCibleDeVote,
   estCibleRetouche,
-  preferenceRetenue,
+  nomDansLaConsigne,
   retourLu,
   versionDe,
 } from './retouche'
@@ -34,10 +35,70 @@ describe('retourLu — les deux réponses de la fenêtre', () => {
   })
 })
 
-describe('ce qui se retient', () => {
-  it('la réponse à « que se serait-il dû passer ? », 400 caractères au plus', () => {
-    expect(preferenceRetenue('  Des pauses  ')).toBe('Des pauses')
-    expect(preferenceRetenue('x'.repeat(900))).toHaveLength(BORNE_PREFERENCE)
+/* Une consigne retenue part chez TOUS les patients du cabinet : elle se relit
+   avant l'envoi, rien ne s'y coupe, et le nom du patient la fait refuser. */
+describe('consigneLue — ce qui se retient', () => {
+  it('la consigne relue, sans ses blancs', () => {
+    expect(consigneLue('  Des pauses  ')).toEqual({ ok: true, consigne: 'Des pauses' })
+    expect(consigneLue('x'.repeat(BORNE_PREFERENCE))).toEqual({ ok: true, consigne: 'x'.repeat(BORNE_PREFERENCE) })
+  })
+
+  it('vide : refusée, avec de quoi s’en sortir', () => {
+    for (const vide of ['', '   ', undefined, 42]) {
+      const lu = consigneLue(vide)
+      expect(lu.ok).toBe(false)
+      if (!lu.ok) expect(lu.message).toContain('décochez')
+    }
+  })
+
+  it('trop longue : refusée avec son compte, JAMAIS coupée', () => {
+    const lu = consigneLue('Des phrases lentes. '.repeat(30) + 'Et surtout aucune image d’eau.')
+    expect(lu.ok).toBe(false)
+    if (!lu.ok) {
+      expect(lu.message).toContain(`${BORNE_PREFERENCE} caractères au plus`)
+      expect(lu.message).toMatch(/\(\d+ \/ 400\)/)
+      expect(lu.message).toContain('raccourcissez-la')
+    }
+  })
+
+  it('porte le prénom ou le nom du patient : refusée, en disant lequel', () => {
+    const prenom = consigneLue('Reprendre le jardin de la grand-mère de Marie, à Quimper', 'Marie Dupont')
+    expect(prenom.ok).toBe(false)
+    if (!prenom.ok) {
+      expect(prenom.message).toContain('« Marie »')
+      expect(prenom.message).toContain('tous vos patients')
+    }
+    const nom = consigneLue('Comme pour M. dupont : des pauses', 'Marie Dupont')
+    expect(nom).toMatchObject({ ok: false })
+    if (!nom.ok) expect(nom.message).toContain('« Dupont »')
+    // Sans patient connu, la même consigne passe : le contrôle ne se fait que là où le nom est su.
+    expect(consigneLue('Reprendre le jardin de Marie', undefined).ok).toBe(true)
+    expect(consigneLue('Des pauses marquées', 'Marie Dupont')).toEqual({ ok: true, consigne: 'Des pauses marquées' })
+  })
+})
+
+describe('nomDansLaConsigne — le nom, mot à mot', () => {
+  it('sans majuscules ni accents', () => {
+    expect(nomDansLaConsigne('penser à helene', 'Hélène Martin')).toBe('Hélène')
+    expect(nomDansLaConsigne('Pour ÉLODIE, plus lent', 'Elodie Roy')).toBe('Elodie')
+  })
+
+  it('un mot entier, pas un morceau de mot', () => {
+    expect(nomDansLaConsigne('Une voix mariée au silence', 'Marie Dupont')).toBeNull()
+    expect(nomDansLaConsigne('Des années lentes', 'Anne Roy')).toBeNull()
+  })
+
+  it('chaque partie d’un nom composé, mais ni les particules ni les initiales', () => {
+    expect(nomDansLaConsigne('Pour Jean, plus lent', 'Jean-Pierre Martin')).toBe('Jean')
+    expect(nomDansLaConsigne('Un rythme de la mer, plus lent', 'Marie de la Tour')).toBeNull()
+    expect(nomDansLaConsigne('Des pauses, et un souffle', 'Camille L.')).toBeNull()
+    expect(nomDansLaConsigne('La tour du souffle', 'Marie de la Tour')).toBe('Tour')
+  })
+
+  it('rien à comparer : rien de trouvé', () => {
+    expect(nomDansLaConsigne('Marie', '')).toBeNull()
+    expect(nomDansLaConsigne('Marie', null)).toBeNull()
+    expect(nomDansLaConsigne('', 'Marie')).toBeNull()
   })
 })
 

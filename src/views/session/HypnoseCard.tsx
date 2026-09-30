@@ -173,6 +173,7 @@ export function HypnoseCard() {
                 cabinet?.reel
                   ? {
                       occupe: ecriture,
+                      patient: patient.name,
                       onRetoucher: verrouillee ? undefined : (retour) => retoucher(e.mouvement, retour),
                     }
                   : undefined

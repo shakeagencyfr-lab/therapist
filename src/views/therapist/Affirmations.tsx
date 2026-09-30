@@ -349,6 +349,7 @@ export function Affirmations() {
           libelle="la liste des affirmations"
           version={versionDe(work.filter((x) => x.trim()).map((x) => x.trim()))}
           occupe={busy || envoi}
+          patient={p.name}
           onRetoucher={retoucherLaListe}
         />
       ) : null}

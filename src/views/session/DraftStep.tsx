@@ -569,6 +569,7 @@ export function DraftStep() {
             cible="synthese"
             libelle="la synthèse de séance"
             version={draft.synthese}
+            patient={patient.name}
             onRetoucher={retoucherTexte('synthese')}
           />
         ) : null}
@@ -704,6 +705,7 @@ export function DraftStep() {
                     cible="proposition"
                     libelle={`le module « ${proposal.titre} »`}
                     version={versionDe(proposal)}
+                    patient={patient.name}
                     onRetoucher={state.sent ? undefined : retoucherProposition(i)}
                     className={s.rowRetour}
                   />
@@ -817,6 +819,7 @@ export function DraftStep() {
             libelle="le message au patient"
             version={draft.message}
             occupe={envoiMessage === 'en-cours'}
+            patient={patient.name}
             onRetoucher={retoucherTexte('message')}
           />
         ) : null}

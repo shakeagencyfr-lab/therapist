@@ -192,6 +192,7 @@ export function WeekModules() {
                 module={m}
                 onFerme={() => setACorriger('')}
                 dossier={() => (read().patients[key] ? buildPatientContext(read(), key) : undefined)}
+                patient={state.patients[key]?.name}
               />
             ) : null}
             </div>

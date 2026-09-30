@@ -28,6 +28,8 @@ interface Props {
     /** Absent — l'option Hypnose fermée — : les pouces seuls. */
     onRetoucher?: (retour: RetourDeLaPraticienne) => Promise<IssueRetouche>
     occupe?: boolean
+    /** Le nom du patient de cette hypnose : une consigne retenue qui le porte est refusée. */
+    patient?: string
   }
 }
 
@@ -142,6 +144,7 @@ export function TexteMouvement({ ecrit, classes, onCorriger, retouche }: Props) 
               libelle={`le mouvement « ${nom} »`}
               version={ecrit.texte}
               occupe={retouche.occupe}
+              patient={retouche.patient}
               onRetoucher={retouche.onRetoucher}
             />
           ) : null}
