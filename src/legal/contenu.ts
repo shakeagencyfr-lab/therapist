@@ -183,9 +183,20 @@ const NOMS_DES_OFFRES = (() => {
   return noms.length > 1 ? `${noms.slice(0, -1).join(', ')} et ${noms.at(-1)}` : (noms[0] ?? '')
 })()
 
-/** L'hébergeur de la base, tel que la loi demande de le désigner (LCEN, art. 1-1). */
+/**
+ * L'hébergeur de la base, tel que la loi demande de le désigner (LCEN, art. 1-1).
+ *
+ * L'ADRESSE EST CELLE QUE LA SOCIÉTÉ DONNE ELLE-MÊME — dans ses conditions
+ * d'utilisation et son accord de sous-traitance (Supabase Pte. Ltd.,
+ * immatriculée à Singapour sous le n° 202005760H). AUCUN NUMÉRO N'EST
+ * INVENTÉ : au 30 septembre 2026, ni son site ni ses documents juridiques
+ * n'en publient ; les numéros qui circulent sur des annuaires tiers ne sont
+ * pas les siens de source sûre. La phrase le dit, et donne à la place les
+ * moyens de la joindre qu'elle publie : sa page de contact, et l'adresse
+ * électronique que ses conditions désignent pour les questions juridiques.
+ */
 const HEBERGEUR_BASE =
-  'Supabase Pte. Ltd., 970 Toa Payoh North #07-04, Singapour 318992. La société ne publie pas de numéro de téléphone : elle se joint par sa page de contact, https://supabase.com/support'
+  'Supabase Pte. Ltd., 65 Chulia Street #38-02/03, OCBC Centre, Singapour 049513. La société ne publie aucun numéro de téléphone : elle se joint par courrier à cette adresse, par sa page de contact, https://supabase.com/support, et, pour les questions juridiques, par courriel à legal@supabase.io'
 
 /**
  * Les délais que les pages promettent, écrits une fois. Les quatre pages se
@@ -314,7 +325,7 @@ const CONFIDENTIALITE: PageLegale = {
             {
               terme: 'L’analyse du texte',
               valeur:
-                'Rédiger, à la demande du cabinet, un brouillon de note, un profil, un exercice, une hypnose ou des affirmations, et les réviser quand il le demande. Rien ne part sans cette demande — un geste à l’écran, ou le renouvellement des affirmations chaque lundi quand le cabinet l’a activé. Ce qui revient est une proposition que la thérapeute relit avant de s’en servir. Ni l’éditrice ni Anthropic ne se servent de ces textes pour entraîner un modèle.',
+                'Rédiger, à la demande du cabinet, un brouillon de note, un profil, un exercice, une hypnose ou des affirmations, et les réviser quand il le demande. Rien ne part sans cette demande — un geste à l’écran, ou le renouvellement des affirmations chaque lundi quand le cabinet l’a activé. Ce qui revient est une proposition que la thérapeute relit avant de s’en servir — sauf ces affirmations renouvelées automatiquement, que le cabinet a choisi de faire publier sans relecture préalable, et qu’il peut corriger à tout moment. Ni l’éditrice ni Anthropic ne se servent de ces textes pour entraîner un modèle.',
             },
             {
               terme: 'Les retours sur l’IA',
@@ -376,7 +387,7 @@ const CONFIDENTIALITE: PageLegale = {
         },
         {
           type: 'paragraphe',
-          texte: `Seuls disposent d’un accès technique à la base, nécessaire à sa maintenance : l’exploitante, ${EXPLOITANTE}, et le prestataire technique qu’elle mandate pour développer et exploiter le service, tenu par écrit à la confidentialité. Ils ne consultent pas les dossiers. Un accès exceptionnel au contenu d’un dossier n’a lieu que sur la demande écrite du cabinet — pour l’aider à résoudre un incident — ou pour répondre à une obligation légale ; il se limite au strict nécessaire et il est consigné : qui, quand, pourquoi.`,
+          texte: `Seuls disposent d’un accès technique à la base — un accès d’administration, nécessaire à sa maintenance : l’exploitante, ${EXPLOITANTE}, et le prestataire technique qui développe et administre la plateforme pour le compte de l’éditrice, lié par un engagement de confidentialité ; ce prestataire est un sous-traitant ultérieur, désigné comme tel dans l’accord de sous-traitance, et son identité et ses coordonnées sont communiquées à tout cabinet qui en fait la demande. Ils ne consultent pas les dossiers. Un accès exceptionnel au contenu d’un dossier n’a lieu que sur la demande écrite du cabinet — pour l’aider à résoudre un incident — ou pour répondre à une obligation légale ; il se limite au strict nécessaire et il est consigné : qui, quand, pourquoi.`,
         },
         { type: 'paragraphe', texte: 'Le service s’appuie sur les prestataires suivants.' },
         {
@@ -401,19 +412,6 @@ const CONFIDENTIALITE: PageLegale = {
               lieu: 'États-Unis. Chaque rédaction est un transfert hors de l’Union européenne.',
               donnees:
                 'Pour une note de séance : la transcription et les notes prises pendant la séance. Pour les autres rédactions : le nom inscrit sur la fiche, le programme, l’assiduité, les notes du soir, les exercices, les pages de journal partagées, le profil et, pour l’actualiser, la dernière synthèse avec un extrait de la transcription. Pour une révision : la proposition à reprendre, la remarque de la thérapeute et les préférences retenues par le cabinet. Jamais une page de journal privée.',
-            },
-            {
-              nom: 'L’éditeur de votre navigateur',
-              role: 'Reconnaissance vocale, quand on dicte un texte — dans les champs où la thérapeute écrit — ou qu’on enregistre une séance : Google pour Chrome, Microsoft pour Edge, Apple pour Safari.',
-              lieu: 'Selon l’éditeur, souvent hors de l’Union européenne.',
-              donnees: 'Le son de la voix, que le navigateur lui envoie pour le transcrire. Klaro ne reçoit que le texte.',
-            },
-            {
-              nom: 'Services de notification des navigateurs',
-              role: 'Acheminement des rappels jusqu’au téléphone : Google, Apple, Mozilla ou Microsoft, selon l’appareil.',
-              lieu: 'Selon le fabricant.',
-              donnees:
-                'Un message chiffré pour ce seul téléphone : le service le porte sans pouvoir le lire. Un rappel qui n’a pas pu être remis dans les deux heures est abandonné.',
             },
             {
               nom: 'Stripe',
@@ -450,6 +448,30 @@ const CONFIDENTIALITE: PageLegale = {
             },
           ],
         },
+        {
+          type: 'paragraphe',
+          texte:
+            'Deux services, enfin, ne sont pas des prestataires de l’éditrice : ce sont ceux de l’éditeur du navigateur ou du téléphone que chacun a choisi. Ils n’interviennent que sur un geste de l’utilisateur, selon les conditions propres à cet éditeur, et l’éditrice n’a pas de contrat avec eux.',
+        },
+        {
+          type: 'prestataires',
+          prestataires: [
+            {
+              nom: 'La reconnaissance vocale du navigateur',
+              role: 'Transcrire la voix, seulement quand on lance la dictée — dans les champs où la thérapeute écrit — ou l’enregistrement d’une séance : Google pour Chrome, Microsoft pour Edge, Apple pour Safari.',
+              lieu: 'Selon l’éditeur du navigateur, souvent hors de l’Union européenne.',
+              donnees:
+                'Le son de la voix, que le navigateur lui envoie pour le transcrire : Klaro ne reçoit jamais le son, seulement le texte. C’est au cabinet de décider s’il dicte des contenus cliniques ; s’il n’accepte pas que la voix parte chez l’éditeur du navigateur, il ne dicte aucune donnée de santé qui permette d’identifier une personne.',
+            },
+            {
+              nom: 'Le service de notification du téléphone',
+              role: 'Acheminer les rappels, seulement sur un téléphone où l’on a autorisé les notifications : Google, Apple, Mozilla ou Microsoft, selon l’appareil.',
+              lieu: 'Selon le fabricant.',
+              donnees:
+                'Un message chiffré pour ce seul téléphone : le service le porte sans pouvoir le lire. Un rappel qui n’a pas pu être remis dans les deux heures est abandonné.',
+            },
+          ],
+        },
       ],
     },
     {
@@ -461,7 +483,7 @@ const CONFIDENTIALITE: PageLegale = {
           type: 'liste',
           elements: [
             'le texte envoyé à Anthropic, aux États-Unis, pour chaque rédaction demandée à l’IA — c’est le seul transfert qui porte le contenu d’un dossier ;',
-            'le son de la voix, quand on dicte, chez l’éditeur du navigateur ;',
+            'le son de la voix, quand on lance la dictée ou l’enregistrement d’une séance, chez l’éditeur du navigateur ;',
             'les rappels, chiffrés pour le seul téléphone qui les reçoit, qui transitent par le service de notification de son fabricant ;',
             'les courriels de la plateforme, envoyés par Resend, aux États-Unis ;',
             'les signaux de vérification anti-robot, quand hCaptcha est activé.',
@@ -470,7 +492,7 @@ const CONFIDENTIALITE: PageLegale = {
         {
           type: 'paragraphe',
           texte:
-            'Par ailleurs, Vercel est une société établie aux États-Unis et Supabase à Singapour, même lorsque leurs serveurs sont à Paris : leurs équipes peuvent intervenir sur les systèmes depuis l’étranger. Ces transferts reposent sur les clauses contractuelles types de la Commission européenne, intégrées aux contrats de ces prestataires, et, lorsque le prestataire y adhère, sur le cadre de protection des données UE–États-Unis (Data Privacy Framework).',
+            'Par ailleurs, Vercel est une société établie aux États-Unis et Supabase à Singapour, même lorsque leurs serveurs sont à Paris : leurs équipes peuvent intervenir sur les systèmes depuis l’étranger. Ces transferts reposent sur les clauses contractuelles types de la Commission européenne, intégrées aux contrats de ces prestataires, et, lorsque le prestataire y adhère, sur le cadre de protection des données UE–États-Unis (Data Privacy Framework). Le son de la voix et les rappels, eux, relèvent des conditions de l’éditeur du navigateur ou du fabricant du téléphone, avec qui l’éditrice n’a pas de contrat.',
         },
         {
           type: 'paragraphe',
@@ -749,7 +771,8 @@ const CONDITIONS: PageLegale = {
             'recueillir leur consentement explicite au traitement de leurs données de santé, et en particulier avant d’enregistrer une séance ; en garder la trace, et respecter son retrait ;',
             'ne verser au dossier que ce qui est utile au suivi, et fixer la durée de sa conservation ;',
             'répondre aux demandes des personnes sur leurs données, avec les outils prévus : la copie du dossier, la suppression d’une fiche ;',
-            'relire, corriger et valider tout texte proposé par l’IA avant de s’en servir ou de le transmettre : c’est une proposition, et le cabinet reste seul responsable de ce qu’il valide, écrit ou dit ;',
+            'relire, corriger et valider tout texte proposé par l’IA avant de s’en servir ou de le transmettre : c’est une proposition, et le cabinet reste seul responsable de ce qu’il valide, écrit ou dit — y compris des affirmations dont il choisit le renouvellement automatique, qu’il accepte alors de voir publiées sans relecture préalable et qu’il relit ensuite ;',
+            'décider s’il dicte des contenus cliniques, la voix partant alors chez l’éditeur du navigateur, selon ses conditions ; s’il ne l’accepte pas, ne dicter aucune donnée de santé qui permette d’identifier une personne ;',
             'n’utiliser Klaro qu’à des fins non médicales : ni pour poser un diagnostic ou traiter une pathologie, ni pour tenir le dossier médical d’une profession de santé réglementée ;',
             'tenir à jour les mentions légales de sa propre page, et répondre de ce qu’il y publie ;',
             'respecter les conditions des services qu’il branche lui-même : son compte Stripe, son serveur de messagerie, son agenda de réservation et, s’il utilise encore sa propre clé, son compte Anthropic et sa politique d’usage.',
@@ -767,7 +790,7 @@ const CONDITIONS: PageLegale = {
             'Votre espace est personnel : ne le partagez pas, et déconnectez-vous d’un appareil prêté.',
             'Votre journal est privé ; votre thérapeute ne lit que les pages que vous choisissez de partager. Votre note du soir, elle, lui est toujours visible.',
             'Les exercices et les audios vous sont proposés par votre thérapeute, pour votre usage personnel : ne les diffusez pas.',
-            'Certains contenus de votre espace sont préparés avec l’aide d’un outil d’intelligence artificielle, puis relus et validés par votre praticien.',
+            'Certains contenus de votre espace sont préparés avec l’aide d’un outil d’intelligence artificielle, sous la responsabilité de votre praticien, qui les relit ou choisit d’en publier certains automatiquement.',
             `Vous pouvez fermer votre espace à tout moment, depuis « ${L.ongletPatient} ».`,
           ],
         },
@@ -785,7 +808,7 @@ const CONDITIONS: PageLegale = {
         {
           type: 'paragraphe',
           texte:
-            'Le nombre de jetons qu’une rédaction consomme s’affiche avant qu’on la lance, et n’est débité que si elle aboutit. Ce qui revient n’entre pas au dossier sans que la thérapeute l’ait relu — à l’exception des affirmations de la semaine, quand le cabinet a choisi leur renouvellement automatique ; il peut alors les corriger à tout moment.',
+            'Le nombre de jetons qu’une rédaction consomme s’affiche avant qu’on la lance, et n’est débité que si elle aboutit : ceux d’une rédaction interrompue reviennent d’eux-mêmes dans les dix minutes. Ce qui revient n’entre pas au dossier sans que la thérapeute l’ait relu — à l’exception des affirmations de la semaine, quand le cabinet a choisi leur renouvellement automatique ; il peut alors les corriger à tout moment.',
         },
         {
           type: 'paragraphe',
@@ -1043,7 +1066,7 @@ const ARTICLES: SectionLegale[] = [
       type: 'liste',
       elements: [
         `Le Client souscrit l’une des offres présentées — à la date des CGV : ${NOMS_DES_OFFRES} —, directement auprès du Prestataire ou par un Revendeur. L’offre fixe le prix mensuel, le nombre de personnes suivies actives, les fonctions ouvertes et les jetons inclus.`,
-        'Un essai gratuit de quatorze jours peut être accordé à l’ouverture du cabinet, sans carte bancaire ; il comprend une petite dotation de jetons d’essai. À son terme, si aucun abonnement ne prend le relais, aucune donnée n’est effacée : les dossiers restent accessibles et exportables, mais l’ouverture de nouvelles fiches, la boutique, le domaine et le site du cabinet se ferment jusqu’à la souscription.',
+        'Un essai gratuit de quatorze jours peut être accordé à l’ouverture du cabinet, sans carte bancaire ; lorsque les rédactions se paient en jetons, il comprend une petite dotation de jetons d’essai. À son terme, si aucun abonnement ne prend le relais, aucune donnée n’est effacée : les dossiers restent accessibles et exportables, mais l’ouverture de nouvelles fiches, la boutique, le domaine et le site du cabinet se ferment jusqu’à la souscription.',
         'L’abonnement est conclu pour une durée d’un mois, renouvelée tacitement de mois en mois, sans engagement de durée.',
         'Un changement d’offre prend effet à la date convenue avec le Prestataire ou le Revendeur ; le nouveau prix s’applique à compter de la période mensuelle suivante, sauf accord contraire.',
       ],
@@ -1058,7 +1081,7 @@ const ARTICLES: SectionLegale[] = [
         `Le Prestataire peut résilier l’abonnement pour convenance, en respectant un préavis d’au moins ${PREAVIS}, notifié par courriel ; la résiliation prend effet à la fin de la période mensuelle au cours de laquelle le préavis expire.`,
         `En cas de manquement grave d’une partie à ses obligations, non réparé quinze jours après une mise en demeure restée sans effet, l’autre partie peut résilier le contrat de plein droit, par écrit, sans préjudice des dommages et intérêts qu’elle pourrait réclamer. Le défaut de paiement suit la procédure de ${article('retard')}.`,
         'Le Prestataire peut suspendre sans délai l’accès d’un Utilisateur qui porte atteinte à la sécurité du Service, en fait un usage illicite ou contraire aux CGV, ou met en danger les données d’autrui ; il en informe aussitôt le Client et, faute de régularisation, peut résilier dans les conditions ci-dessus.',
-        'Le Prestataire peut cesser de fournir le Service en prévenant le Client au moins trois mois à l’avance. En ce cas, comme en cas de résiliation par le Prestataire pour convenance, les recharges payées et non consommées sont remboursées.',
+        'Le Prestataire peut cesser de fournir le Service en prévenant le Client au moins trois mois à l’avance. En ce cas, comme en cas de résiliation par le Prestataire pour convenance ou de résiliation par le Client pour manquement grave du Prestataire, les recharges payées et non consommées sont remboursées au prorata des jetons qui en restent, par le vendeur qui les a encaissées — le Prestataire, ou le Revendeur quand c’est lui qui les a vendues.',
       ],
     },
     {
@@ -1108,11 +1131,12 @@ const ARTICLES: SectionLegale[] = [
       type: 'liste',
       elements: [
         'Jetons inclus. Chaque offre comprend un nombre de jetons par mois, crédités le premier jour de chaque mois civil (heure de Paris). Ils sont valables jusqu’à la fin de ce mois, ne se cumulent pas et ne se reportent pas sur le mois suivant.',
-        'Recharges. Le Client peut acheter des recharges. Leurs jetons sont valables douze mois à compter de l’achat, et ne sont consommés qu’après les jetons inclus du mois, la recharge la plus ancienne d’abord.',
-        'Débit. Chaque rédaction débite le nombre de jetons que fixe le barème, affiché avant qu’on la lance. Les jetons ne sont débités que si la rédaction aboutit : une rédaction qui échoue ne coûte rien. Sans jetons disponibles, les rédactions attendent le mois suivant ou une recharge ; le reste du Service continue de fonctionner.',
+        'Recharges. Le Client peut acheter des recharges. Leurs jetons sont valables douze mois à compter de l’achat.',
+        'Ordre de consommation. Chaque rédaction puise d’abord dans les jetons inclus du mois, puis dans ceux qui accompagnent l’option Hypnose, puis dans ceux des recharges et dans les jetons offerts à titre de geste commercial, en commençant par ceux dont l’échéance est la plus proche.',
+        'Débit. Chaque rédaction débite le nombre de jetons que fixe le barème, affiché avant qu’on la lance. Les jetons ne sont débités que si la rédaction aboutit : une rédaction qui échoue ne coûte rien. Ils sont réservés quand la rédaction commence ; si elle échoue, ils sont rendus aussitôt, et si elle est interrompue avant d’avoir pu les rendre, ils reviennent automatiquement dans les dix minutes. Sans jetons disponibles, les rédactions attendent le mois suivant ou une recharge ; le reste du Service continue de fonctionner.',
         `Barème. Le barème peut évoluer. Tout changement est annoncé au moins ${PREAVIS} à l’avance, par courriel ou dans l’espace du Client, et n’a jamais d’effet rétroactif : il ne touche ni les rédactions déjà faites, ni leur débit.`,
-        `Nature des jetons. Les jetons n’ont aucune valeur monétaire : ils ne sont ni remboursables, ni échangeables contre de l’argent, ni cessibles à un autre cabinet, et ne s’utilisent qu’au sein du Service, auprès de nul autre que le Prestataire. Ils ne constituent ni de la monnaie électronique, ni un moyen de paiement. Les jetons non utilisés à leur date d’expiration sont perdus, sans indemnité, sous la seule réserve du remboursement que prévoit ${article('resiliation')} en cas d’arrêt du Service ou de résiliation par le Prestataire pour convenance.`,
-        'Essai. L’essai comprend une petite dotation de jetons, valable pendant sa seule durée.',
+        `Nature des jetons. Les jetons n’ont aucune valeur monétaire : ils ne sont ni remboursables, ni échangeables contre de l’argent, ni cessibles à un autre cabinet, et ne s’utilisent qu’au sein du Service, auprès de nul autre que le Prestataire. Ils ne constituent ni de la monnaie électronique, ni un moyen de paiement. Les jetons non utilisés à leur date d’expiration sont perdus, sans indemnité, sous la seule réserve du remboursement des recharges payées que prévoit ${article('resiliation')} en cas d’arrêt du Service, de résiliation par le Prestataire pour convenance ou de résiliation par le Client pour manquement grave du Prestataire.`,
+        'Essai. Lorsque les rédactions se paient en jetons, l’essai comprend une petite dotation de jetons, valable pendant sa seule durée.',
         'Revendeur. Lorsque le Client a souscrit par un Revendeur, le prix des recharges et, le cas échéant, le barème sont fixés par ce Revendeur, qui en répond seul envers ses clients.',
       ],
     },
@@ -1162,7 +1186,8 @@ const ARTICLES: SectionLegale[] = [
       elements: [
         'recueillir et documenter le consentement explicite des personnes qu’il suit au traitement de leurs données de santé (RGPD, article 9, 2, a), y compris avant tout enregistrement et toute transcription d’une séance, et respecter son retrait ;',
         'informer ces personnes de l’usage du Service, de ses prestataires et du recours à l’intelligence artificielle pour préparer certains contenus, ainsi que du transfert aux États-Unis qu’il implique ;',
-        'relire, corriger et valider chaque contenu généré avant tout usage ou toute transmission ;',
+        `relire, corriger et valider chaque contenu généré avant tout usage ou toute transmission, sous la seule réserve des affirmations dont il choisit le renouvellement automatique (${article('ia')}) ;`,
+        'décider s’il utilise la dictée pour des contenus cliniques, dans les conditions de l’annexe ;',
         'utiliser le Service pour une finalité non médicale : ne pas s’en servir pour poser un diagnostic, prescrire, ou traiter une pathologie, ni pour tenir le dossier médical d’une profession de santé réglementée ; orienter vers un professionnel de santé la personne dont l’état le requiert ;',
         'ne verser au Service que les données utiles au suivi, en fixer la durée de conservation, et répondre aux demandes des personnes avec les outils prévus ;',
         'exporter et conserver régulièrement ses propres copies des dossiers auxquels il tient ;',
@@ -1184,7 +1209,7 @@ const ARTICLES: SectionLegale[] = [
     {
       type: 'paragraphe',
       texte:
-        'Les contenus générés par l’intelligence artificielle — propositions de séance, notes, synthèses, profils, exercices, consignes, scripts d’hypnose, affirmations, notifications, révisions — sont des brouillons d’aide à la rédaction, susceptibles d’erreurs, d’omissions ou d’inexactitudes. Le Client s’engage à les relire, les corriger et les valider avant tout usage ou toute transmission, et il en demeure seul responsable. Ils ne constituent ni un avis médical, ni un diagnostic, ni une prescription, et ne remplacent pas une consultation médicale.',
+        'Les contenus générés par l’intelligence artificielle — propositions de séance, notes, synthèses, profils, exercices, consignes, scripts d’hypnose, affirmations, notifications, révisions — sont des brouillons d’aide à la rédaction, susceptibles d’erreurs, d’omissions ou d’inexactitudes. Le Client s’engage à les relire, les corriger et les valider avant tout usage ou toute transmission, et il en demeure seul responsable. S’il choisit le renouvellement automatique des affirmations de la semaine, il accepte que chaque nouvelle série soit publiée dans l’espace de la personne suivie sans relecture préalable ; il la relit ensuite, peut la corriger à tout moment, et en demeure également seul responsable. Les contenus générés ne constituent ni un avis médical, ni un diagnostic, ni une prescription, et ne remplacent pas une consultation médicale.',
     },
     {
       type: 'paragraphe',
@@ -1199,7 +1224,7 @@ const ARTICLES: SectionLegale[] = [
     {
       type: 'paragraphe',
       texte:
-        'Transparence (règlement (UE) 2024/1689 sur l’intelligence artificielle, article 50). Le Service présente aux Utilisateurs les contenus générés comme des propositions de l’IA, et indique aux personnes suivies, dans leur espace, que certains contenus y sont préparés avec l’aide d’un outil d’intelligence artificielle, puis relus et validés par leur praticien ; les documents d’hypnose exportés portent la même indication dans leurs propriétés. Le Client ne retire pas ces indications.',
+        'Transparence (règlement (UE) 2024/1689 sur l’intelligence artificielle, article 50). Le Service présente aux Utilisateurs les contenus générés comme des propositions de l’IA, et indique aux personnes suivies, dans leur espace, que certains contenus y sont préparés avec l’aide d’un outil d’intelligence artificielle, sous la responsabilité de leur praticien, qui les relit ou choisit d’en publier certains automatiquement ; les documents exportés portent une indication semblable dans leurs propriétés. Le Client ne retire pas ces indications.',
     },
     {
       type: 'paragraphe',
@@ -1293,7 +1318,7 @@ const ARTICLES: SectionLegale[] = [
     {
       type: 'paragraphe',
       texte:
-        'Sauf faute lourde ou dolosive, la responsabilité totale du Prestataire, toutes causes confondues, est plafonnée au montant hors taxes effectivement payé par le Client pour le Service — au Prestataire ou à son Revendeur — au cours des douze mois qui précèdent le fait générateur du dommage.',
+        'Sauf faute lourde ou dolosive, la responsabilité totale du Prestataire, toutes causes confondues, est plafonnée à un montant égal aux sommes hors taxes effectivement payées par le Client pour le Service — au Prestataire ou à son Revendeur — au cours des douze mois qui précèdent le fait générateur du dommage, sans pouvoir être inférieur à 500 euros.',
     },
     {
       type: 'paragraphe',
@@ -1451,7 +1476,7 @@ const ANNEXE: SectionLegale[] = [
         type: 'liste',
         elements: [
           'ne traiter les données que sur instruction documentée du Client, y compris pour les transferts hors de l’Union européenne, sauf obligation légale dont il l’informe alors, si la loi le permet ; l’avertir immédiatement si une instruction lui paraît enfreindre la réglementation ;',
-          `veiller à ce que les personnes autorisées à traiter les données — l’exploitante, ${EXPLOITANTE}, et le prestataire technique qu’elle mandate — soient tenues à la confidentialité, et n’y accèdent que dans la mesure nécessaire ;`,
+          `veiller à ce que les personnes autorisées à traiter les données — l’exploitante, ${EXPLOITANTE}, et, chez le prestataire technique désigné parmi les sous-traitants ultérieurs, les personnes qui administrent la plateforme — soient tenues à la confidentialité, et n’y accèdent que dans la mesure nécessaire ;`,
           'mettre en œuvre les mesures de sécurité appropriées prévues à l’article 32 du RGPD, décrites dans la politique de confidentialité ;',
           'ne recourir à un sous-traitant ultérieur que dans les conditions ci-dessous, en lui imposant les mêmes obligations de protection des données, et répondre de lui envers le Client ;',
           'aider le Client, par des mesures techniques et organisationnelles appropriées, à répondre aux demandes d’exercice des droits des personnes — l’export d’un dossier et la suppression d’une fiche sont disponibles à l’écran — et lui transmettre sans délai toute demande reçue directement ;',
@@ -1478,6 +1503,13 @@ const ANNEXE: SectionLegale[] = [
       {
         type: 'prestataires',
         prestataires: [
+          {
+            nom: 'Le prestataire technique de l’éditrice',
+            role: 'Le prestataire technique qui développe et administre la plateforme pour le compte de l’éditrice, lié par un engagement de confidentialité ; son identité et ses coordonnées sont communiquées à tout cabinet qui en fait la demande.',
+            lieu: 'Intervient à distance sur les systèmes des hébergeurs ci-dessous, où les données restent stockées.',
+            donnees:
+              'Un accès d’administration à la base, donc techniquement à toutes les données du Service, réservé à son développement et à sa maintenance. Il ne consulte pas les dossiers ; un accès au contenu d’un dossier n’a lieu que sur la demande écrite du Client ou pour répondre à une obligation légale, et il est consigné.',
+          },
           {
             nom: 'Vercel Inc.',
             role: 'Hébergement de l’application et exécution du serveur.',
@@ -1520,18 +1552,22 @@ const ANNEXE: SectionLegale[] = [
             lieu: 'États-Unis.',
             donnees: 'Des informations publiques ; aucune donnée de personne suivie.',
           },
-          {
-            nom: 'Services vocaux et de notification des navigateurs',
-            role: 'Transcription de la voix quand on dicte ou qu’on enregistre une séance (Google pour Chrome, Microsoft pour Edge, Apple pour Safari) ; acheminement des rappels chiffrés (Google, Apple, Mozilla, Microsoft).',
-            lieu: 'Selon l’éditeur du navigateur ou le fabricant de l’appareil, souvent hors de l’Union européenne.',
-            donnees: 'Le son de la voix, le temps de la transcription ; un message chiffré que le service ne peut pas lire.',
-          },
         ],
       },
       {
         type: 'paragraphe',
         texte:
-          'Les transferts hors de l’Union européenne reposent sur les clauses contractuelles types de la Commission européenne et, lorsque le prestataire y adhère, sur le cadre de protection des données UE–États-Unis. Le Client qui utilise sa propre clé Anthropic contracte lui-même avec Anthropic pour ces rédactions.',
+          'Les transferts hors de l’Union européenne vers les sous-traitants ultérieurs ci-dessus reposent sur les clauses contractuelles types de la Commission européenne et, lorsque le prestataire y adhère, sur le cadre de protection des données UE–États-Unis. Le Client qui utilise sa propre clé Anthropic contracte lui-même avec Anthropic pour ces rédactions.',
+      },
+      {
+        type: 'paragraphe',
+        texte:
+          'Services du navigateur et du téléphone. La reconnaissance vocale du navigateur (Google pour Chrome, Microsoft pour Edge, Apple pour Safari) et le service de notification du téléphone (Google, Apple, Mozilla ou Microsoft, selon l’appareil) ne sont pas des sous-traitants ultérieurs du Prestataire : ce sont les services de l’éditeur du navigateur ou du téléphone que l’Utilisateur a choisi. Ils ne sont sollicités que lorsque l’Utilisateur lance la dictée ou l’enregistrement d’une séance, ou autorise les notifications, et relèvent des conditions propres à cet éditeur. Le Prestataire n’a pas de contrat avec eux, ne leur impose pas les obligations du présent accord et n’en répond pas ; il ne reçoit jamais le son, seulement le texte transcrit, et ne confie au service de notification qu’un rappel chiffré que celui-ci ne peut pas lire.',
+      },
+      {
+        type: 'paragraphe',
+        texte:
+          'Il appartient au Client, responsable du traitement, de décider s’il utilise la dictée pour des contenus cliniques et d’en informer les personnes qu’il suit. S’il n’accepte pas que la voix parte chez l’éditeur du navigateur, il ne dicte aucune donnée de santé qui permette d’identifier une personne, et saisit ces contenus au clavier.',
       },
     ],
   },
@@ -1562,7 +1598,27 @@ const ANNEXE: SectionLegale[] = [
       {
         type: 'paragraphe',
         texte:
-          'Le Prestataire met à la disposition du Client, sur demande, la documentation nécessaire pour démontrer le respect du présent accord : description des mesures de sécurité, liste des sous-traitants ultérieurs, registre des traitements pour ce qui le concerne. Le Client peut, à ses frais et au plus une fois par an — sauf violation de données avérée —, faire procéder à un audit sur pièces, en prévenant le Prestataire au moins trente jours à l’avance. L’audit est mené par le Client ou par un auditeur indépendant tenu à la confidentialité, qui n’est pas un concurrent du Prestataire, sans perturber le Service ni donner accès aux données d’autres clients. Les sous-traitants ultérieurs sont audités au travers de leurs propres rapports et attestations.',
+          'Le Prestataire met à la disposition du Client, sur demande, la documentation nécessaire pour démontrer le respect du présent accord : description des mesures de sécurité, liste des sous-traitants ultérieurs, registre des traitements pour ce qui le concerne.',
+      },
+      {
+        type: 'paragraphe',
+        texte:
+          'Le Client peut en outre faire procéder à un audit, y compris à des inspections — sur pièces, à distance ou sur place —, dans les conditions suivantes :',
+      },
+      {
+        type: 'liste',
+        elements: [
+          'à ses frais ;',
+          'en prévenant le Prestataire au moins trente jours à l’avance ;',
+          'au plus une fois par an, sauf à la suite d’une violation de données ou à la demande d’une autorité de contrôle ;',
+          'par le Client lui-même ou par un auditeur indépendant tenu à la confidentialité, qui n’est pas un concurrent du Prestataire ;',
+          'pendant les heures ouvrées, sans perturber le Service, et sans accès aux données d’autres clients.',
+        ],
+      },
+      {
+        type: 'paragraphe',
+        texte:
+          'Le Prestataire y coopère de bonne foi. Les sous-traitants ultérieurs sont audités au travers de leurs propres rapports et attestations.',
       },
     ],
   },

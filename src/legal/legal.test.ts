@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { DELAI_PURGE_JOURS } from '@/lib/seance'
+import { MENTION_IA } from '@/lib/transparenceIA'
 import { CHEMINS_RESERVES, slugDuChemin } from '@/lib/vitrine'
 import { problemeIdentifiant } from '@/lib/identifiant'
 import { PAGES_LEGALES as LIENS_DE_LA_VENTE } from '@/vente/contenu'
@@ -399,8 +400,12 @@ describe('les mentions légales', () => {
     expect(t).toMatch(/Vercel Inc\./)
     expect(t).toContain('+1 951 383 6898')
     expect(t).toMatch(/Supabase Pte\. Ltd\./)
-    expect(t).toMatch(/Singapour 318992/)
+    expect(t).toContain('65 Chulia Street #38-02/03, OCBC Centre, Singapour 049513')
+    /* Aucun numéro n'est inventé : l'hébergeur n'en publie pas, la page le
+       dit, et donne les moyens de le joindre qu'il publie lui-même. */
+    expect(t).toMatch(/ne publie aucun numéro de téléphone/)
     expect(t).toContain('https://supabase.com/support')
+    expect(t).toContain('legal@supabase.io')
     expect(t).toContain('cdg1')
     expect(t).toContain('eu-west-3')
   })
@@ -497,9 +502,11 @@ describe('les conditions générales de vente', () => {
       /premier jour de chaque mois civil \(heure de Paris\)/,
       /ne se cumulent pas et ne se reportent pas/,
       /valables douze mois à compter de l’achat/,
-      /la recharge la plus ancienne d’abord/,
+      /d’abord dans les jetons inclus du mois, puis dans ceux qui accompagnent l’option Hypnose, puis dans ceux des recharges/,
+      /en commençant par ceux dont l’échéance est la plus proche/,
       /affiché avant qu’on la lance/,
       /ne sont débités que si la rédaction aboutit/,
+      /reviennent automatiquement dans les dix minutes/,
       /au moins trente jours à l’avance/,
       /effet rétroactif/,
       /aucune valeur monétaire/,
@@ -521,6 +528,9 @@ describe('les conditions générales de vente', () => {
     expect(t).toMatch(/dommages directs et prévisibles/)
     expect(t).toMatch(/Sauf faute lourde ou dolosive/)
     expect(t).toMatch(/douze mois qui précèdent le fait générateur/)
+    /* Un plafond qui tombe à zéro (l'essai, le premier mois) viderait
+       l'obligation essentielle : il a un plancher (code civil, art. 1170). */
+    expect(t).toMatch(/sans pouvoir être inférieur à 500 euros/)
     expect(t).toMatch(/ne s’appliquent pas aux dommages corporels/)
     expect(t).toMatch(/article 82/)
   })
@@ -553,9 +563,83 @@ describe('les conditions générales de vente', () => {
     expect(t).toMatch(/Aucune certification d’hébergeur de données de santé \(HDS\) n’est revendiquée/)
   })
 
+  /* RGPD, art. 28, 3, h : des audits, « y compris des inspections ». */
+  it('permettent les inspections, encadrées', () => {
+    const audits = page.sections.find((s) => s.id === 'annexe-audits')
+    const a = audits ? textesDe({ ...page, sections: [audits] }).join('\n') : ''
+    expect(a).toMatch(/y compris à des inspections/)
+    expect(a).toMatch(/sur place/)
+    expect(a).toMatch(/à ses frais/)
+    expect(a).toMatch(/au moins trente jours à l’avance/)
+    expect(a).toMatch(/au plus une fois par an, sauf à la suite d’une violation de données ou à la demande d’une autorité de contrôle/)
+    expect(a).toMatch(/auditeur indépendant tenu à la confidentialité/)
+    expect(a).toMatch(/heures ouvrées/)
+    expect(a).toMatch(/sans accès aux données d’autres clients/)
+  })
+
+  /* Celui qui administre la base y a accès : il est un sous-traitant
+     ultérieur, et l'accord le dit — sans rien inventer de son identité. */
+  it('désignent le prestataire technique comme sous-traitant ultérieur', () => {
+    const sousTraitants = page.sections.find((s) => s.id === 'annexe-sous-traitants')
+    const liste = sousTraitants?.blocs.find((b) => b.type === 'prestataires')
+    const noms = liste?.type === 'prestataires' ? liste.prestataires.map((p) => `${p.nom} ${p.role}`) : []
+    expect(noms.join('\n')).toMatch(
+      /prestataire technique qui développe et administre la plateforme pour le compte de l’éditrice, lié par un engagement de confidentialité ; son identité et ses coordonnées sont communiquées à tout cabinet qui en fait la demande/,
+    )
+    expect(texte('confidentialite')).toMatch(/prestataire technique qui développe et administre la plateforme[\s\S]*sous-traitant ultérieur/)
+  })
+
+  /* La voix et les rappels passent par l'éditeur du navigateur ou du
+     téléphone, sous ses propres conditions : l'éditrice n'a pas de contrat
+     avec lui, et ne peut pas le présenter comme son sous-traitant. */
+  it('ne comptent pas les services du navigateur parmi les sous-traitants ultérieurs', () => {
+    const sousTraitants = page.sections.find((s) => s.id === 'annexe-sous-traitants')
+    const liste = sousTraitants?.blocs.find((b) => b.type === 'prestataires')
+    const entrees = liste?.type === 'prestataires' ? liste.prestataires.map((p) => Object.values(p).join(' ')).join('\n') : ''
+    expect(entrees).not.toMatch(/Chrome|Safari|Edge|notification/)
+    expect(t).toMatch(/Google pour Chrome, Microsoft pour Edge, Apple pour Safari/)
+    expect(t).toMatch(/ne sont pas des sous-traitants ultérieurs du Prestataire/)
+    expect(t).toMatch(/ne dicte aucune donnée de santé qui permette d’identifier une personne/)
+  })
+
+  /* Le Client qui résilie parce que le Prestataire a manqué ne perd pas ce
+     qu'il a payé d'avance. */
+  it('remboursent les recharges payées quand le Client résilie pour manquement du Prestataire', () => {
+    expect(t).toMatch(
+      /résiliation par le Client pour manquement grave du Prestataire, les recharges payées et non consommées sont remboursées au prorata/,
+    )
+  })
+
   it('ouvrent un point de contact et une procédure de signalement', () => {
     expect(t).toMatch(/2022\/2065/)
     expect(t).toContain(COURRIEL)
+  })
+})
+
+/* ------------------------------------------------------------------ *
+ * L'IA, dite à la personne suivie
+ * ------------------------------------------------------------------ */
+
+describe('la mention de l’IA', () => {
+  /* Les affirmations renouvelées automatiquement arrivent sans relecture :
+     aucune page ne peut dire que tout est « relu et validé ». */
+  it('ne dit pas que tout est relu et validé', () => {
+    expect(MENTION_IA).not.toMatch(/relus? et validés?/)
+    for (const cle of Object.keys(PAGES_LEGALES) as CleLegale[]) {
+      expect(texte(cle), cle).not.toMatch(/relus et validés/)
+    }
+  })
+
+  it('est la même à l’écran, dans les conditions d’utilisation et dans les conditions de vente', () => {
+    const suite = 'sous la responsabilité de votre praticien, qui les relit ou choisit d’en publier certains automatiquement'
+    expect(MENTION_IA).toContain(suite)
+    expect(texte('conditions')).toContain(suite)
+    expect(texte('cgv')).toContain(suite.replace('votre praticien', 'leur praticien'))
+  })
+
+  it('ne nomme ni la plateforme ni un modèle', () => {
+    expect(MENTION_IA).not.toMatch(/klaro/i)
+    expect(revendicationsInterdites(MENTION_IA)).toEqual([])
   })
 })
 
