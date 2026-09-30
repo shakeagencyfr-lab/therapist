@@ -7,13 +7,17 @@ import { momentDuMessage } from '@/lib/seance'
 import {
   buildPatientContext,
   derniereReponseEstMaquette as derniereEstMaquette,
+  echecDeRetouche,
   messageDEchec,
   refreshProfile,
+  retoucher,
 } from '@/services/aiClient'
+import { RetourIA } from '@/components/retouche/RetourIA'
+import { versionDe, type IssueRetouche, type RetourDeLaPraticienne } from '@/lib/retouche'
 import { nouvelleSeance, profileOf } from '@/state/selectors'
 import { useStore } from '@/state/store'
 import { useEcritureConsignes } from '@/cabinet/useEcritureConsignes'
-import type { LibraryAudio, PatientModule, PsychProfile } from '@/types/domain'
+import type { LibraryAudio, PatientModule, PsychProfile, SessionDraft } from '@/types/domain'
 import { CoutEnJetons } from '@/views/jetons/CoutEnJetons'
 import { HypnoseCard } from './HypnoseCard'
 import s from './DraftStep.module.css'
@@ -149,6 +153,111 @@ export function DraftStep() {
   function choixCourants() {
     const now = read()
     return { proposalOff: now.proposalOff, sugOff: now.sugOff, syntheseOk: now.syntheseOk }
+  }
+
+  /* ---- Les retouches par l'IA (0066) ----------------------------------- *
+   * Une pièce du brouillon à la fois : la synthèse, le message, un module
+   * proposé. Le reste du brouillon et la matière de la séance partent en
+   * contexte ; la pièce retouchée prend la place de l'ancienne à l'écran,
+   * puis dans la séance en base, comme une correction à la main. La version
+   * d'avant reste ici, en mémoire, pour « Annuler la retouche ».            */
+
+  /** Ce qui accompagne chaque retouche : le dossier, la séance, le reste du brouillon. */
+  function contexteDeRetouche() {
+    const now = read()
+    const d = now.draft
+    return {
+      context: buildPatientContext(now, key),
+      extra: {
+        // Le serveur n'en relit qu'un extrait : inutile d'envoyer trois heures de parole.
+        transcript: now.transcript.slice(0, 20_000),
+        notes: now.sessionNotes.slice(0, 8_000),
+        brouillon: d
+          ? {
+              synthese: d.synthese,
+              mots: d.mots,
+              themes: d.themes,
+              message: d.message,
+              propositions: (d.propositions ?? []).map((p) => ({ titre: p.titre, type: p.type })),
+            }
+          : {},
+      },
+      sessionId: now.sessionPatient === key ? now.sessionId : null,
+    }
+  }
+
+  /**
+   * Le brouillon retouché rejoint la séance en base. Un échec ne se dit pas
+   * ici, pas plus qu'à la sortie d'un champ (garderLesCorrections) : le
+   * texte est à l'écran, et l'envoi le réécrira.
+   */
+  async function garderLaRetouche() {
+    const now = read()
+    if (!cabinet?.reel || !now.sessionId || !now.draft) return
+    await cabinet.majBrouillon(now.sessionId, now.draft, now.sent ? undefined : choixCourants())
+  }
+
+  function poserDansLeBrouillon(patch: Partial<SessionDraft>, relu: Partial<{ syntheseOk: boolean; msgOk: boolean }> = {}) {
+    set((prev) => (prev.draft ? { draft: { ...prev.draft, ...patch }, ...relu } : {}))
+  }
+
+  /** Retouche la synthèse ou le message : un texte seul. */
+  function retoucherTexte(cible: 'synthese' | 'message') {
+    const relu = cible === 'synthese' ? { syntheseOk: false } : { msgOk: false }
+    return async (retour: RetourDeLaPraticienne): Promise<IssueRetouche> => {
+      const avant = read().draft?.[cible] ?? ''
+      let texte: string
+      try {
+        texte = (await retoucher({ cible, ...retour, actuel: avant, ...contexteDeRetouche() })).texte.trim()
+      } catch (err) {
+        return echecDeRetouche(err)
+      }
+      if (!texte) return { ok: false, message: "La retouche est revenue vide : le texte d'avant reste en place." }
+      poserDansLeBrouillon({ [cible]: texte }, relu)
+      await garderLaRetouche()
+      return {
+        ok: true,
+        version: texte,
+        annuler: async () => {
+          poserDansLeBrouillon({ [cible]: avant }, relu)
+          await garderLaRetouche()
+          return { ok: true, message: '' }
+        },
+      }
+    }
+  }
+
+  /** Retouche un module proposé, et lui seul : les autres ne bougent pas. */
+  function retoucherProposition(i: number) {
+    return async (retour: RetourDeLaPraticienne): Promise<IssueRetouche> => {
+      const avant = read().draft?.propositions?.[i]
+      if (!avant) return { ok: false, message: "Ce module n'est plus dans le brouillon." }
+      let rendu: SessionDraft['propositions'][number]
+      try {
+        rendu = await retoucher({ cible: 'proposition', ...retour, actuel: avant, ...contexteDeRetouche() })
+      } catch (err) {
+        return echecDeRetouche(err)
+      }
+      if (!rendu.titre?.trim()) return { ok: false, message: "La retouche est revenue vide : le module d'avant reste en place." }
+      const nouvelle = { titre: rendu.titre.trim(), pourquoi: (rendu.pourquoi ?? '').trim(), type: rendu.type }
+      const poser = (p: SessionDraft['propositions'][number]) =>
+        set((prev) =>
+          prev.draft
+            ? { draft: { ...prev.draft, propositions: prev.draft.propositions.map((x, j) => (j === i ? p : x)) } }
+            : {},
+        )
+      poser(nouvelle)
+      await garderLaRetouche()
+      return {
+        ok: true,
+        version: versionDe(nouvelle),
+        annuler: async () => {
+          poser(avant)
+          await garderLaRetouche()
+          return { ok: true, message: '' }
+        },
+      }
+    }
   }
 
   /**
@@ -455,6 +564,14 @@ export function DraftStep() {
           dictee
           onDicteeFin={garderLesCorrections}
         />
+        {cabinet?.reel ? (
+          <RetourIA
+            cible="synthese"
+            libelle="la synthèse de séance"
+            version={draft.synthese}
+            onRetoucher={retoucherTexte('synthese')}
+          />
+        ) : null}
       </section>
 
       {/* Notes écrites pendant la séance -------------------------------- */}
@@ -489,6 +606,8 @@ export function DraftStep() {
               patient », pendant la séance, horodate les formulations que vous voulez retenir.
             </p>
           )}
+          {/* Relevés, pas rédigés : un avis, pas de retouche. */}
+          {cabinet?.reel && draft.mots.length ? <RetourIA cible="mots" /> : null}
         </section>
         <section className={s.card}>
           <h2 className={s.h21}>Fil rouge</h2>
@@ -520,6 +639,7 @@ export function DraftStep() {
               </div>
             ))}
           </div>
+          {cabinet?.reel ? <RetourIA cible="vigilance" /> : null}
         </section>
       ) : null}
 
@@ -536,6 +656,7 @@ export function DraftStep() {
               </div>
             ))}
           </div>
+          {cabinet?.reel ? <RetourIA cible="questions" /> : null}
         </section>
       ) : null}
 
@@ -553,25 +674,41 @@ export function DraftStep() {
         <div className={s.rows}>
           {proposals.map((proposal, i) => {
             const on = !state.proposalOff[i]
+            /* La clé est la place du module, pas son titre : une retouche
+               qui le renomme ne doit pas remonter la ligne et perdre ses
+               pouces. */
             return (
-              <button
-                type="button"
-                key={`${i}-${proposal.titre}`}
-                className={cx(s.row, !on && s.rowOff)}
-                aria-pressed={on}
-                onClick={() =>
-                  set((prev) => ({ proposalOff: { ...prev.proposalOff, [i]: !prev.proposalOff[i] } }))
-                }
-              >
-                <span className={cx(s.box, on && s.boxOn)} aria-hidden>
-                  {on ? '✓' : ''}
-                </span>
-                <span className={s.rowText}>
-                  <span className={s.rowTitle}>{proposal.titre}</span>
-                  <span className={s.rowWhy}>{proposal.pourquoi}</span>
-                </span>
-                <span className={s.kind}>{proposal.type}</span>
-              </button>
+              <div key={i} className={s.rowWrap}>
+                <button
+                  type="button"
+                  className={cx(s.row, !on && s.rowOff)}
+                  aria-pressed={on}
+                  onClick={() =>
+                    set((prev) => ({ proposalOff: { ...prev.proposalOff, [i]: !prev.proposalOff[i] } }))
+                  }
+                >
+                  <span className={cx(s.box, on && s.boxOn)} aria-hidden>
+                    {on ? '✓' : ''}
+                  </span>
+                  <span className={s.rowText}>
+                    <span className={s.rowTitle}>{proposal.titre}</span>
+                    <span className={s.rowWhy}>{proposal.pourquoi}</span>
+                  </span>
+                  <span className={s.kind}>{proposal.type}</span>
+                </button>
+                {/* À côté du bouton, jamais dedans : un bouton dans un bouton
+                    ne se clique pas. Envoyée, la séance a versé ses modules
+                    au parcours : il n'y a plus rien à retoucher ici. */}
+                {cabinet?.reel ? (
+                  <RetourIA
+                    cible="proposition"
+                    libelle={`le module « ${proposal.titre} »`}
+                    version={versionDe(proposal)}
+                    onRetoucher={state.sent ? undefined : retoucherProposition(i)}
+                    className={s.rowRetour}
+                  />
+                ) : null}
+              </div>
             )
           })}
         </div>
@@ -673,6 +810,16 @@ export function DraftStep() {
           dictee
           onDicteeFin={garderLesCorrections}
         />
+        {/* Parti, le message est chez le patient : il ne se retouche plus. */}
+        {cabinet?.reel && !state.msgEnvoye ? (
+          <RetourIA
+            cible="message"
+            libelle="le message au patient"
+            version={draft.message}
+            occupe={envoiMessage === 'en-cours'}
+            onRetoucher={retoucherTexte('message')}
+          />
+        ) : null}
         <div className={s.sendRow}>
           <button
             type="button"

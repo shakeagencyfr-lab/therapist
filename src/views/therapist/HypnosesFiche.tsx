@@ -4,11 +4,19 @@ import { useMaybeCabinet } from '@/cabinet/context'
 import { hypnoseOuverte, useDroits } from '@/cabinet/droits'
 import { useDevis } from '@/cabinet/useJetons'
 import { useEcritureHypnose } from '@/cabinet/useEcritureHypnose'
-import { MOUVEMENTS_HYPNOSE, NOM_MOUVEMENT, pointDeReprise } from '@/services/aiClient'
+import {
+  MOUVEMENTS_HYPNOSE,
+  NOM_MOUVEMENT,
+  buildPatientContext,
+  echecDeRetouche,
+  pointDeReprise,
+  retoucherMouvement,
+} from '@/services/aiClient'
 import { plural } from '@/lib/format'
 import { telechargerHypnose } from '@/lib/hypnosePdf'
 import { logoPourPdf } from '@/lib/logoPdf'
-import { bilanHypnose, libelleReprise, rangDuMouvement } from '@/lib/texteHypnose'
+import type { IssueRetouche, RetourDeLaPraticienne } from '@/lib/retouche'
+import { bilanHypnose, corrigerTexte, libelleReprise, rangDuMouvement } from '@/lib/texteHypnose'
 import { patientOf } from '@/state/selectors'
 import { useAppState } from '@/state/store'
 import { useMaybeAuth } from '@/auth/session'
@@ -111,15 +119,48 @@ export function HypnosesFiche() {
    * que la fiche — et le PDF — lisent le texte corrigé.
    */
   async function corrigerEnBase(h: Hypnose, m: HypnoseMouvement, texte: string) {
+    return ecrireMouvement(h, { ...m, texte })
+  }
+
+  /** Remplace un mouvement en base — texte et titre —, puis relit le dossier. */
+  async function ecrireMouvement(h: Hypnose, m: HypnoseMouvement) {
     if (!cabinet?.reel) {
       return { ok: false, message: 'En démonstration, aucune correction ne s’enregistre.' }
     }
-    const r = await cabinet.ajouterMouvement(h.id, { ...m, texte }, rangDuMouvement(m.mouvement))
+    const r = await cabinet.ajouterMouvement(h.id, m, rangDuMouvement(m.mouvement))
     if (!r.ok) {
       return { ok: false, message: "La correction n'a pas pu être enregistrée : le dossier garde le texte d'avant." }
     }
     await cabinet.recharger()
     return { ok: true, message: '' }
+  }
+
+  /**
+   * Fait retoucher un mouvement d'une hypnose en base (0066), les trois
+   * autres en contexte, et l'enregistre comme une correction. La version
+   * d'avant reste ici, en mémoire : « Annuler la retouche » la réécrit.
+   */
+  async function retoucherEnBase(h: Hypnose, m: HypnoseMouvement, retour: RetourDeLaPraticienne): Promise<IssueRetouche> {
+    let rendu: { titre: string; texte: string }
+    try {
+      rendu = await retoucherMouvement({
+        context: buildPatientContext(state, cle),
+        brouillon: brouillon ?? null,
+        intention: h.intention,
+        hypnoseId: h.id,
+        ecrit: m,
+        autres: h.mouvements,
+        retour,
+      })
+    } catch (err) {
+      return echecDeRetouche(err)
+    }
+    const correction = corrigerTexte(rendu.texte)
+    if (!correction.ok) return { ok: false, message: "La retouche est revenue vide : le texte d'avant reste en place." }
+    const retouche: HypnoseMouvement = { ...m, titre: rendu.titre.trim() || m.titre, texte: correction.texte }
+    const r = await ecrireMouvement(h, retouche)
+    if (!r.ok) return { ok: false, message: r.message }
+    return { ok: true, version: retouche.texte, annuler: () => ecrireMouvement(h, m) }
   }
 
   function fermer() {
@@ -349,6 +390,15 @@ export function HypnosesFiche() {
                         classes={{ article: s.mouvement, titre: s.mouvementTitre, para: s.para }}
                         onCorriger={
                           cabinet?.reel && !ecriture ? (texte) => corrigerEnBase(h, m, texte) : undefined
+                        }
+                        retouche={
+                          cabinet?.reel
+                            ? {
+                                occupe: ecriture,
+                                // Hors de l'option Hypnose, l'avis seul : la retouche est refusée.
+                                onRetoucher: verrouillee ? undefined : (retour) => retoucherEnBase(h, m, retour),
+                              }
+                            : undefined
                         }
                       />
                     ))}

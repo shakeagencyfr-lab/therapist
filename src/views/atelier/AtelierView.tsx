@@ -4,13 +4,15 @@ import { ATELIER_SEEDS, ATELIER_SEED_BRIEFS, ATELIER_TYPES } from '@/data/atelie
 import { DEFINITION_DU_TYPE } from '@/lib/typesDeModules'
 import { plural } from '@/lib/format'
 import { preparerModule } from '@/lib/moduleAtelier'
-import { generateModule, messageDEchec } from '@/services/aiClient'
+import { echecDeRetouche, generateModule, messageDEchec, retoucher } from '@/services/aiClient'
+import { RetourIA } from '@/components/retouche/RetourIA'
+import { versionDe, type IssueRetouche, type RetourDeLaPraticienne } from '@/lib/retouche'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { useDevis } from '@/cabinet/useJetons'
 import { CoutEnJetons } from '@/views/jetons/CoutEnJetons'
 import { useStore } from '@/state/store'
 import type { AppState } from '@/state/state'
-import type { CustomModule, PatientId, QuizQuestion } from '@/types/domain'
+import type { CustomModule, GeneratedModule, PatientId, QuizQuestion } from '@/types/domain'
 import s from './AtelierView.module.css'
 
 /* Bibliothèque du cabinet ------------------------------------------- */
@@ -95,7 +97,7 @@ function QuizItem({ question }: { question: QuizQuestion }) {
  * qui ne se montre qu'à l'assignation, reste tel que proposé.
  */
 export function AtelierView() {
-  const { state, set } = useStore()
+  const { state, set, read } = useStore()
   const cabinet = useMaybeCabinet()
   /** Assignation en cours : le bouton ne se reclique pas. */
   const [assignation, setAssignation] = useState(false)
@@ -197,6 +199,37 @@ export function AtelierView() {
         aLastAssigned: selected.map((key) => state.patients[key].name).join(', '),
       }
     })
+  }
+
+  /**
+   * Fait retoucher le module entier par l'IA (0066) — quiz compris : c'est le
+   * seul moyen de le corriger, il ne s'édite pas ici. Rien ne s'écrit en base
+   * avant l'assignation : le module retouché remplace le brouillon à
+   * l'écran, et l'ancien reste en mémoire pour « Annuler la retouche ».
+   */
+  async function retoucherModule(retour: RetourDeLaPraticienne): Promise<IssueRetouche> {
+    const avant = read().aMod
+    if (!avant) return { ok: false, message: "Il n'y a plus de module à retoucher." }
+    const { type, ...actuel } = avant
+    let rendu: GeneratedModule
+    try {
+      rendu = await retoucher({ cible: 'module', ...retour, actuel, extra: { brief: read().aIntent.trim(), type } })
+    } catch (err) {
+      return echecDeRetouche(err)
+    }
+    if (!rendu.steps?.some((e) => e.trim()) && !rendu.pourquoi?.trim()) {
+      return { ok: false, message: "La retouche est revenue vide : le module d'avant reste en place." }
+    }
+    const nouveau: CustomModule = { ...rendu, type }
+    set({ aMod: nouveau })
+    return {
+      ok: true,
+      version: versionDe(nouveau),
+      annuler: async () => {
+        set({ aMod: avant })
+        return { ok: true, message: '' }
+      },
+    }
   }
 
   function reopen(made: CustomModule) {
@@ -429,6 +462,19 @@ export function AtelierView() {
                   </ul>
                 </div>
               )}
+
+              {/* Le module entier, quiz compris : une étape ne se retouche pas
+                  sans que les autres la suivent. */}
+              {cabinet?.reel ? (
+                <RetourIA
+                  cible="module"
+                  libelle="le module entier, quiz compris"
+                  version={versionDe(mod)}
+                  occupe={state.aGen || assignation}
+                  onRetoucher={retoucherModule}
+                  className={s.retour}
+                />
+              ) : null}
             </Card>
 
             <Card padded={false} className={s.assign}>

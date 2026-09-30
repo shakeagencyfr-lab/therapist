@@ -107,4 +107,11 @@ describe('ce que coûte vraiment une action', () => {
     expect(couts[0]).toEqual({ action: 'seance', appels: 2, parAppelCentimesUsd: 5.56, parActionCentimesEur: 5.12 })
     expect(couts[1]).toMatchObject({ action: 'hypnose', parAppelCentimesUsd: 10.34, parActionCentimesEur: 38.05 })
   })
+
+  /* 0066 : la retouche se compte sous le genre « revision ». Sans cette
+     ligne, le barème des retouches restait « non mesuré » chez le revendeur. */
+  it('lit une retouche comme une retouche, au prix d’un seul appel', () => {
+    const couts = coutsReels([{ kind: 'revision', appels: 5, moyen_cents: 2 }])
+    expect(couts).toEqual([{ action: 'retouche', appels: 5, parAppelCentimesUsd: 2, parActionCentimesEur: 1.84 }])
+  })
 })

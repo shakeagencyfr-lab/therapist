@@ -267,7 +267,8 @@ export function uuidDe(valeur: unknown): string | null {
  *   hypnose        l'hypnose doit être ouverte en base et être du cabinet ;
  *                  le premier appel de chaque série de huit se paie, les
  *                  suivants sont compris.
- *   revision       une retouche (route à venir) : plus chère sur une hypnose.
+ *   revision       une retouche (0066, server/retouche.ts) : plus chère sur
+ *                  un mouvement d'hypnose, toujours au barème.
  *
  * La PREUVE est côté serveur : l'identifiant envoyé par le navigateur n'est
  * cru que si la base le reconnaît au cabinet, et le forfait ne s'ouvre que

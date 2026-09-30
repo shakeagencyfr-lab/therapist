@@ -128,11 +128,12 @@ Relevé du 28 septembre 2026 (base `koytgcbpeorupdklswxd`).
 | `0063_le_pentest_referme.sql` | 20260929104448 | 0063_le_pentest_referme |
 | `0064_la_note_part_par_courriel.sql` | 20260929131737 | 0064_la_note_part_par_courriel |
 | `0065_les_jetons.sql` | 20260930081336 | 0065_les_jetons |
+| `0066_les_retouches.sql` | 20260930092908 | 0066_les_retouches |
 | `0067_les_conditions_acceptees.sql` | 20260930074507 | 0067_les_conditions_acceptees |
 
 `0060` (demandes d'essai) a été appliquée avant `0055` à `0059` : elles ne se touchent pas.
 
-`0065` (les jetons) a été appliquée après `0067` : elles ne se touchent pas.
+`0065` (les jetons) et `0066` (les retouches) ont été appliquées après `0067` : elles ne se touchent pas.
 
 Les écarts, et ce qu'ils recouvrent — le contenu, lui, est en place :
 
@@ -270,6 +271,18 @@ persiste, et le message dit ce qui a été vérifié.
   par `cabinet_jetons()`. L'hypnose devient une option (`hypnose_ouverte`,
   et la clé `hypnose` de `cabinet_droits`) ; les cabinets qui en avaient déjà
   écrit une la gardent par exception (`hypnose_override = true`).
+- **Un avis sur l'IA ne dit ni sur qui, ni quoi** (`0066`). `retours_ia`
+  compte les pouces levés ou baissés par type de texte (hypnose, synthèse,
+  module…), sans patient ni contenu, comme `ai_usage`. `preferences_ia`
+  garde ce que la praticienne a demandé de retenir après une retouche :
+  1 à 400 caractères, vingt actives au plus par cabinet et par type (la plus
+  ancienne se retire), relues par le serveur avec la clé de service et
+  posées dans la demande de chaque génération du même type — jamais dans
+  les règles du système. Le cabinet lit les deux tables ; il n'y écrit que
+  par `cabinet_voter_ia`, `cabinet_retenir_preference` et
+  `cabinet_oublier_preference`, qui vérifient qu'il en est membre. Ni le
+  revendeur, ni le patient, ni l'anonyme n'y lisent rien
+  (`tests/retouches_0066.sql`).
 - **`reseller_secrets` n'a ni politique ni droit pour `authenticated`**, comme
   `cabinet_secrets` (0009) : la clé Anthropic et la clé Stripe du revendeur
   vivent chiffrées, et ne sortent que côté serveur. `reseller_ai_settings` se

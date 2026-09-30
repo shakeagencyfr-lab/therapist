@@ -69,6 +69,10 @@ const ACTION_DU_GENRE: Record<string, ActionJetons> = {
   profil: 'profil',
   affirmations: 'affirmations',
   hypnose: 'hypnose',
+  /* Une retouche (0066). `ai_usage` ne dit pas ce qu'elle retouchait — il ne
+     garde ni patient ni contenu — : sa moyenne mêle les mouvements d'hypnose
+     aux autres textes, et se lit comme le coût d'une retouche ordinaire. */
+  revision: 'retouche',
 }
 
 /** Une hypnose, ce sont quatre mouvements : quatre appels pour une action. */

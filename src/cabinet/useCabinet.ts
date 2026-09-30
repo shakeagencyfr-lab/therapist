@@ -27,6 +27,7 @@ import { effacerDuStockage } from '@/lib/stockage'
 import { gestesDossier, type GestesDossier } from './dossier'
 import { gestesRappels, type GestesRappels } from './rappelsReguliers'
 import { gestesParcoursTypes, type GestesParcoursTypes } from './parcoursTypes'
+import { gestesRetouches, type GestesRetouches } from './retouches'
 import { libelleProchaineSeance } from '@/lib/agenda'
 import {
   marquerLue,
@@ -750,6 +751,11 @@ export interface CabinetData {
    * src/cabinet/parcoursTypes.ts.
    */
   parcoursTypes: GestesParcoursTypes
+  /**
+   * Les avis sur les textes de l'IA et les préférences retenues (0066),
+   * écrits et lus À LA DEMANDE — voir src/cabinet/retouches.ts.
+   */
+  retouches: GestesRetouches
 }
 
 export function useCabinet(cabinetId: string | null): CabinetData {
@@ -769,6 +775,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
   const dossier = useMemo(() => gestesDossier(cabinetId), [cabinetId])
   const rappels = useMemo(() => gestesRappels(cabinetId), [cabinetId])
   const parcoursTypes = useMemo(() => gestesParcoursTypes(cabinetId), [cabinetId])
+  const retouches = useMemo(() => gestesRetouches(cabinetId), [cabinetId])
 
   const recharger = useCallback(async () => {
     const db = supabase()
@@ -2634,6 +2641,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     dossier,
     rappels,
     parcoursTypes,
+    retouches,
   }
 }
 

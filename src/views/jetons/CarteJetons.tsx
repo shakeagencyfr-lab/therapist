@@ -19,11 +19,11 @@ import type { ActionJetons, EtatJetons } from '@/types/jetons'
 import s from './Jetons.module.css'
 
 /**
- * Les actions que la praticienne peut lancer aujourd'hui. Les retouches ont
- * leur prix au barème, mais pas encore leur bouton : les afficher, ce serait
- * vendre ce qui n'existe pas.
+ * Les actions que la praticienne peut lancer aujourd'hui — toutes, depuis
+ * que les retouches ont leur bouton : le pouce baissé sous chaque texte de
+ * l'IA (0066).
  */
-const ACTIONS_OUVERTES: ActionJetons[] = ['seance', 'module', 'profil', 'affirmations', 'hypnose']
+const ACTIONS_OUVERTES: ActionJetons[] = ['seance', 'module', 'profil', 'affirmations', 'hypnose', 'retouche', 'retouche_hypnose']
 
 /** Au-delà, l'historique se déplie. */
 const LIGNES_VISIBLES = 8

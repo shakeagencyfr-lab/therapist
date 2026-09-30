@@ -1,16 +1,34 @@
 import { useState } from 'react'
 import { Card, Notice, Overline } from '@/components/ui'
+import { RetourIA } from '@/components/retouche/RetourIA'
 import { useMaybeCabinet } from '@/cabinet/context'
+import type { ProfilGenere } from '@/cabinet/useCabinet'
 import { useDevis } from '@/cabinet/useJetons'
+import type { IssueRetouche, RetourDeLaPraticienne } from '@/lib/retouche'
 import {
   buildPatientContext,
   derniereReponseEstMaquette as derniereEstMaquette,
+  echecDeRetouche,
   messageDEchec,
   refreshProfile,
+  retoucher,
 } from '@/services/aiClient'
 import { axisBand, profileOf, profilePrecision } from '@/state/selectors'
 import { useStore } from '@/state/store'
-import type { PsychProfile as Profile } from '@/types/domain'
+import type { GeneratedProfile, PsychProfile as Profile } from '@/types/domain'
+
+/** Ce qui s'enregistre d'un profil : sans sa date d'écran ni son historique. */
+function versionEnregistrable(p: Profile): ProfilGenere {
+  return {
+    portrait: p.portrait,
+    axes: p.axes,
+    levers: p.levers,
+    dynamique: p.dynamique,
+    alliance: p.alliance,
+    care: p.care,
+    resume: p.resume ?? '',
+  }
+}
 import { CoutEnJetons } from '@/views/jetons/CoutEnJetons'
 import s from './PsychProfile.module.css'
 
@@ -98,7 +116,7 @@ function Courbe({ suite, titre }: { suite: number[]; titre: string }) {
  * réussite. Il a maintenant son encadré, et le résumé n'y est pas mêlé.
  */
 export function PsychProfile() {
-  const { state, set } = useStore()
+  const { state, set, read } = useStore()
   const cabinet = useMaybeCabinet()
   const key = state.sel
   const profile = profileOf(state, key)
@@ -197,6 +215,72 @@ export function PsychProfile() {
       set({ profGen: '' })
       setEchec(messageDEchec(error, "L'actualisation a échoué. Le profil en place n'a pas bougé."))
     }
+  }
+
+  /**
+   * Fait retoucher le profil ENTIER par l'IA (0066) : les axes se tiennent
+   * entre eux, on ne les corrige pas un par un. Comme une actualisation
+   * depuis la fiche, la retouche s'enregistre en NOUVELLE VERSION, sans
+   * séance — elle ne compte pas une séance de plus. La version d'avant reste
+   * ici : « Annuler la retouche » la réenregistre, en version elle aussi.
+   */
+  async function retoucherProfil(retour: RetourDeLaPraticienne): Promise<IssueRetouche> {
+    const now = read()
+    const avant = profileOf(now, key)
+    if (!avant || !cabinet?.reel) return { ok: false, message: 'Le profil se retouche depuis votre cabinet.' }
+    if (now.profGen) return { ok: false, message: "Un profil s'actualise en ce moment : attendez qu'il soit prêt." }
+    // La séance en mémoire n'est la matière de ce profil que si elle est la sienne.
+    const memeFiche = now.sessionPatient === key
+    let rendu: GeneratedProfile
+    try {
+      rendu = await retoucher({
+        cible: 'profil',
+        ...retour,
+        actuel: versionEnregistrable(avant),
+        context: buildPatientContext(now, key),
+        extra: {
+          notes: memeFiche ? now.sessionNotes : '',
+          synthese: memeFiche && now.draft ? now.draft.synthese : '',
+          transcript: memeFiche ? now.transcript : '',
+        },
+      })
+    } catch (err) {
+      return echecDeRetouche(err)
+    }
+    const nouveau: ProfilGenere = {
+      portrait: rendu.portrait || avant.portrait,
+      axes: (rendu.axes ?? [])
+        .filter((a) => !!a && !!a.label)
+        .map((a) => ({ label: a.label, value: Math.max(0, Math.min(100, Math.round(a.value))), note: a.note || '' })),
+      levers: (rendu.levers ?? []).filter((l) => !!l && !!l.title),
+      dynamique: rendu.dynamique || avant.dynamique,
+      alliance: rendu.alliance || avant.alliance,
+      care: (rendu.care ?? []).filter((c) => typeof c === 'string'),
+      resume: rendu.resume || 'Profil retouché.',
+    }
+    const ecrit = await verserLeProfil(nouveau)
+    if (!ecrit.ok) return { ok: false, message: ecrit.message }
+    return {
+      ok: true,
+      version: nouveau.portrait,
+      annuler: () => verserLeProfil({ ...versionEnregistrable(avant), resume: 'Retour à la version d’avant la retouche.' }),
+    }
+  }
+
+  /** Une version de plus en base, sans séance ; puis le dossier fait foi. */
+  async function verserLeProfil(p: ProfilGenere): Promise<{ ok: boolean; message: string }> {
+    if (!cabinet?.reel) return { ok: false, message: '' }
+    const r = await cabinet.enregistrerProfil(key, null, p)
+    if (!r.ok) {
+      return { ok: false, message: `${r.message || "Le profil n'a pas pu être enregistré."} Le profil en place n'a pas bougé.` }
+    }
+    await cabinet.recharger()
+    set((prev) => {
+      const profNew = { ...prev.profNew }
+      delete profNew[key]
+      return { profNew, profNote: { ...prev.profNote, [key]: p.resume } }
+    })
+    return { ok: true, message: '' }
   }
 
   const sessionsWord = precision.sessions > 1 ? 'séances' : 'séance'
@@ -318,6 +402,18 @@ export function PsychProfile() {
 
           {echec ? <Notice tone="warn">{echec}</Notice> : null}
           {resume ? <Notice tone="ok">{resume}</Notice> : null}
+
+          {/* Le profil entier, pas un bloc : une retouche des leviers qui
+              laisserait les axes en l'état se contredirait. */}
+          {cabinet?.reel ? (
+            <RetourIA
+              cible="profil"
+              libelle="le profil entier — une nouvelle version, sans séance de plus"
+              version={profile.portrait}
+              occupe={busy}
+              onRetoucher={retoucherProfil}
+            />
+          ) : null}
         </div>
 
         <div className={s.right}>

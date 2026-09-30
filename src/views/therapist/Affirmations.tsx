@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { Button, Card, Notice, TextInput, Title, type NoticeTone } from '@/components/ui'
 import { plural } from '@/lib/format'
-import { buildPatientContext, generateAffirmations, messageDEchec } from '@/services/aiClient'
+import { buildPatientContext, echecDeRetouche, generateAffirmations, messageDEchec, retoucher } from '@/services/aiClient'
+import { RetourIA } from '@/components/retouche/RetourIA'
+import { versionDe, type IssueRetouche, type RetourDeLaPraticienne } from '@/lib/retouche'
 import { patientOf } from '@/state/selectors'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { useDevis } from '@/cabinet/useJetons'
@@ -72,7 +74,7 @@ export function envoiDesAffirmations(
  * les confirmations.
  */
 export function Affirmations() {
-  const { state, set } = useStore()
+  const { state, set, read } = useStore()
   const cabinet = useMaybeCabinet()
   /* Le retour du dernier geste, et sa couleur. Local à la carte, qui porte
      la clé de la fiche : il ne suit pas sur la fiche suivante. */
@@ -198,6 +200,44 @@ export function Affirmations() {
     }
   }
 
+  /**
+   * Fait retoucher la liste par l'IA (0066). Le résultat devient la liste en
+   * attente, comme une proposition : rien ne part chez le patient avant
+   * « Envoyer au patient », même en automatique. La liste d'avant reste ici,
+   * pour « Annuler la retouche ».
+   */
+  async function retoucherLaListe(retour: RetourDeLaPraticienne): Promise<IssueRetouche> {
+    const now = read()
+    const avantEnAttente = now.affPending[key]
+    const avant = (avantEnAttente ?? now.affs[key] ?? []).filter((x) => x.trim())
+    if (!avant.length) return { ok: false, message: "Il n'y a pas encore d'affirmation à retoucher." }
+    let liste: string[]
+    try {
+      const rendu = await retoucher({ cible: 'affirmations', ...retour, actuel: avant, context: buildPatientContext(now, key) })
+      liste = (rendu.affirmations ?? []).filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim())
+    } catch (err) {
+      return echecDeRetouche(err)
+    }
+    if (!liste.length) return { ok: false, message: "La retouche n'a rendu aucune affirmation : la liste d'avant reste en place." }
+    set((prev) => ({ affPending: { ...prev.affPending, [key]: liste } }))
+    setRetour(null)
+    setAVider(false)
+    return {
+      ok: true,
+      version: versionDe(liste),
+      libelle: `Version retouchée par l'IA, à relire avant de l'envoyer à ${first}`,
+      annuler: async () => {
+        set((prev) => {
+          const affPending = { ...prev.affPending }
+          if (avantEnAttente === undefined) delete affPending[key]
+          else affPending[key] = avantEnAttente
+          return { affPending }
+        })
+        return { ok: true, message: '' }
+      },
+    }
+  }
+
   async function publish(confirme = false) {
     if (envoi) return
     const decision = envoiDesAffirmations(work, published.length, confirme)
@@ -300,6 +340,17 @@ export function Affirmations() {
             </div>
           ))}
         </div>
+      ) : null}
+
+      {/* La liste entière : quatre phrases se tiennent, une retouche les relit ensemble. */}
+      {cabinet?.reel && work.some((x) => x.trim()) ? (
+        <RetourIA
+          cible="affirmations"
+          libelle="la liste des affirmations"
+          version={versionDe(work.filter((x) => x.trim()).map((x) => x.trim()))}
+          occupe={busy || envoi}
+          onRetoucher={retoucherLaListe}
+        />
       ) : null}
 
       <button type="button" className={s.add} onClick={() => writeAff((cur) => cur.concat(['']))}>

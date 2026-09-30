@@ -7,10 +7,13 @@ import {
   genererHypnose,
   messageDEchec,
   pointDeReprise,
+  echecDeRetouche,
+  retoucherMouvement,
   type MouvementEcrit,
   type MouvementHypnose,
 } from '@/services/aiClient'
 import { corrigerTexte, rangDuMouvement } from '@/lib/texteHypnose'
+import type { IssueRetouche, RetourDeLaPraticienne } from '@/lib/retouche'
 import { useStore } from '@/state/store'
 import type { Hypnose, PatientId, SessionDraft } from '@/types/domain'
 
@@ -113,6 +116,12 @@ export interface EcritureHypnose {
    * se reprendre avant la séance, pas se contourner en la lisant.
    */
   corriger: (mouvement: MouvementHypnose, texte: string) => Promise<Resultat>
+  /**
+   * Faire réécrire un mouvement par l'IA, sur le retour de la praticienne
+   * (0066), les autres en contexte. Enregistré comme une correction ; la
+   * version d'avant reste en mémoire, et `annuler` la réenregistre.
+   */
+  retoucher: (mouvement: MouvementHypnose, retour: RetourDeLaPraticienne) => Promise<IssueRetouche>
   /**
    * Repartir d'un écran vierge, sans toucher à ce qui est en base. Une
    * hypnose interrompue y reste : le dossier est relu pour que la fiche la
@@ -306,19 +315,14 @@ export function useEcritureHypnose(): EcritureHypnose {
     [derouler],
   )
 
-  const corriger = useCallback(
-    async (mouvement: MouvementHypnose, texte: string): Promise<Resultat> => {
-      // Un mouvement écrit sert de précédent au suivant : on ne le change
-      // pas sous les pieds d'une écriture en cours.
-      if (enVol.current) {
-        return { ok: false, message: "Attendez la fin de l'écriture pour corriger un mouvement." }
-      }
-      const correction = corrigerTexte(texte)
-      if (!correction.ok) return correction
-      const avant = acquis.current.find((e) => e.mouvement === mouvement)
-      if (!avant) return { ok: false, message: "Ce mouvement n'est pas encore écrit." }
-      const corrige: MouvementEcrit = { ...avant, texte: correction.texte }
-
+  /**
+   * Remplace un mouvement écrit — son texte, et son titre quand une retouche
+   * l'a changé : en base s'il y est, puis à l'écran. La correction à la main,
+   * la retouche et son annulation passent toutes par ici.
+   */
+  const remplacer = useCallback(
+    async (corrige: MouvementEcrit): Promise<Resultat> => {
+      const mouvement = corrige.mouvement
       const ch = chantier.current
       if (ch?.hypnoseId && cabinet?.reel) {
         const r = await cabinet.ajouterMouvement(ch.hypnoseId, corrige, rangDuMouvement(mouvement))
@@ -338,6 +342,57 @@ export function useEcritureHypnose(): EcritureHypnose {
       return { ok: true, message: '' }
     },
     [cabinet, estConservee, poser],
+  )
+
+  const corriger = useCallback(
+    async (mouvement: MouvementHypnose, texte: string): Promise<Resultat> => {
+      // Un mouvement écrit sert de précédent au suivant : on ne le change
+      // pas sous les pieds d'une écriture en cours.
+      if (enVol.current) {
+        return { ok: false, message: "Attendez la fin de l'écriture pour corriger un mouvement." }
+      }
+      const correction = corrigerTexte(texte)
+      if (!correction.ok) return correction
+      const avant = acquis.current.find((e) => e.mouvement === mouvement)
+      if (!avant) return { ok: false, message: "Ce mouvement n'est pas encore écrit." }
+      return remplacer({ ...avant, texte: correction.texte })
+    },
+    [remplacer],
+  )
+
+  const retoucher = useCallback(
+    async (mouvement: MouvementHypnose, retour: RetourDeLaPraticienne): Promise<IssueRetouche> => {
+      if (enVol.current) return { ok: false, message: "Attendez la fin de l'écriture pour retoucher un mouvement." }
+      const ch = chantier.current
+      const avant = acquis.current.find((e) => e.mouvement === mouvement)
+      if (!ch || !avant) return { ok: false, message: "Ce mouvement n'est pas encore écrit." }
+      let rendu: { titre: string; texte: string }
+      try {
+        rendu = await retoucherMouvement({
+          context: buildPatientContext(read(), ch.patientId),
+          brouillon: ch.brouillon,
+          intention: ch.intention,
+          hypnoseId: ch.hypnoseId,
+          ecrit: avant,
+          autres: acquis.current,
+          retour,
+        })
+      } catch (err) {
+        return echecDeRetouche(err)
+      }
+      const correction = corrigerTexte(rendu.texte)
+      if (!correction.ok) return { ok: false, message: "La retouche est revenue vide : le texte d'avant reste en place." }
+      const retouche: MouvementEcrit = { ...avant, titre: rendu.titre.trim() || avant.titre, texte: correction.texte }
+      const r = await remplacer(retouche)
+      if (!r.ok) return { ok: false, message: r.message }
+      return {
+        ok: true,
+        version: retouche.texte,
+        // La version d'avant, gardée ici : « Annuler la retouche » la réenregistre.
+        annuler: () => remplacer(avant),
+      }
+    },
+    [read, remplacer],
   )
 
   const reinitialiser = useCallback(() => {
@@ -374,6 +429,7 @@ export function useEcritureHypnose(): EcritureHypnose {
     reprendre,
     reprendreHypnose,
     corriger,
+    retoucher,
     reinitialiser,
   }
 }
