@@ -113,6 +113,7 @@ export function ChampProchaineSeance({
             </Notice>
           ) : null}
           <TextInput
+            dictee
             value={saisie.texte}
             onChange={(e) => onChange({ ...saisie, texte: e.target.value })}
             placeholder="Sans date précise : « début novembre, pour consolider »"

@@ -132,6 +132,7 @@ export function VueParcoursType({
                       <label className={s.champ}>
                         <span className={s.label}>Titre</span>
                         <TextInput
+                          dictee
                           value={e.titre}
                           maxLength={120}
                           placeholder="Respiration carrée"
@@ -161,6 +162,7 @@ export function VueParcoursType({
                     <label className={s.champ}>
                       <span className={s.label}>Consigne courte</span>
                       <TextArea
+                        dictee
                         className={s.consigne}
                         value={e.consigne}
                         maxLength={LIMITE_CONSIGNE}

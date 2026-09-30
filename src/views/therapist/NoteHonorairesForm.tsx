@@ -274,7 +274,13 @@ export function NoteHonorairesForm({
 
       <label className={s.champ}>
         <span className={s.label}>Prestation</span>
-        <TextInput value={prestation} maxLength={200} onChange={(e) => setPrestation(e.target.value)} disabled={envoi} />
+        <TextInput
+          dictee
+          value={prestation}
+          maxLength={200}
+          onChange={(e) => setPrestation(e.target.value)}
+          disabled={envoi}
+        />
       </label>
 
       <fieldset className={s.mentions} disabled={envoi}>
