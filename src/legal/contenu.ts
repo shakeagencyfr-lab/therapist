@@ -142,7 +142,17 @@ export const LIBELLES_CITES = {
 } as const
 
 const L = LIBELLES_CITES
-const RAISON_SOCIALE = aCompleter('raison sociale de l’éditeur')
+/**
+ * L'éditrice : une entrepreneuse individuelle. Depuis le 15 mai 2022, une EI
+ * se désigne par le nom de la personne suivi de « entrepreneur individuel »
+ * ou « EI » (code de commerce, art. R526-26 et suivants) : le nom commercial
+ * seul ne suffit pas.
+ */
+const RAISON_SOCIALE = 'LO HYPNOSE — Laetitia OLLIVIER, entrepreneur individuel (EI)'
+/** L'adresse de contact publique : questions, données, signalements. */
+const CONTACT = 'contact@klaroweb.site'
+/** L'établissement de l'éditrice. */
+const ADRESSE_EDITRICE = '2 avenue Saint-Augustin, 06200 Nice, France'
 
 /* ------------------------------------------------------------------ *
  * Politique de confidentialité
@@ -521,7 +531,7 @@ const CONFIDENTIALITE: PageLegale = {
         },
         {
           type: 'paragraphe',
-          texte: `Vous êtes thérapeute ou membre d’un revendeur, ou vous avez demandé un essai : écrivez à ${aCompleter('adresse de contact pour les données personnelles, ou du délégué à la protection des données')}.`,
+          texte: `Vous êtes thérapeute ou membre d’un revendeur, ou vous avez demandé un essai : écrivez à ${CONTACT}.`,
         },
         {
           type: 'paragraphe',
@@ -803,13 +813,22 @@ const MENTIONS: PageLegale = {
         {
           type: 'lignes',
           lignes: [
-            { terme: 'Raison sociale', valeur: aCompleter('raison sociale') },
-            { terme: 'Forme juridique et capital', valeur: aCompleter('forme juridique et montant du capital social') },
-            { terme: 'Siège social', valeur: aCompleter('adresse du siège social') },
-            { terme: 'Immatriculation', valeur: aCompleter('numéro SIREN et ville du RCS') },
-            { terme: 'TVA intracommunautaire', valeur: aCompleter('numéro de TVA, s’il y a lieu') },
-            { terme: 'Téléphone', valeur: aCompleter('numéro de téléphone') },
-            { terme: 'Courriel', valeur: aCompleter('adresse de contact') },
+            { terme: 'Dénomination', valeur: RAISON_SOCIALE },
+            {
+              terme: 'Forme juridique',
+              valeur: 'Entreprise individuelle (EI), sous le régime de la micro-entreprise — sans capital social.',
+            },
+            { terme: 'Établissement', valeur: ADRESSE_EDITRICE },
+            {
+              terme: 'Immatriculation',
+              valeur: 'SIREN 532 308 228 — SIRET 532 308 228 00024 — inscrite au Registre national des entreprises (RNE) — code APE 86.90F.',
+            },
+            {
+              terme: 'TVA intracommunautaire',
+              valeur: 'FR19532308228 — franchise en base : TVA non applicable, art. 293 B du CGI.',
+            },
+            { terme: 'Téléphone', valeur: '+33 6 20 71 96 30' },
+            { terme: 'Courriel', valeur: CONTACT },
             { terme: 'Adresse du service', valeur: DOMAINE_CABINETS },
           ],
         },
@@ -823,8 +842,8 @@ const MENTIONS: PageLegale = {
           type: 'lignes',
           lignes: [
             {
-              terme: 'Directeur ou directrice de la publication',
-              valeur: aCompleter('nom et qualité du directeur ou de la directrice de la publication'),
+              terme: 'Directrice de la publication',
+              valeur: 'Laetitia OLLIVIER, exploitante de LO HYPNOSE.',
             },
           ],
         },
@@ -843,11 +862,11 @@ const MENTIONS: PageLegale = {
           lignes: [
             {
               terme: 'Application et serveur',
-              valeur: `${HEBERGEUR}. Serveur exécuté dans la région de Paris (cdg1). ${aCompleter('téléphone de l’hébergeur')}`,
+              valeur: `${HEBERGEUR} — téléphone : +1 951 383 6898. Serveur exécuté dans la région de Paris (cdg1).`,
             },
             {
               terme: 'Base de données, fichiers et connexion',
-              valeur: `Supabase, Inc. — ${aCompleter('adresse et téléphone')}. Données stockées dans la région de Paris (eu-west-3), sur l’infrastructure d’Amazon Web Services.`,
+              valeur: 'Supabase Pte. Ltd., 970 Toa Payoh North #07-04, Singapour 318992 — contact : https://supabase.com/support. Données stockées dans la région de Paris (eu-west-3), sur l’infrastructure d’Amazon Web Services.',
             },
           ],
         },
@@ -859,7 +878,7 @@ const MENTIONS: PageLegale = {
       blocs: [
         {
           type: 'paragraphe',
-          texte: `Contact pour les données personnelles, ou délégué ou déléguée à la protection des données : ${aCompleter('nom et adresse de contact')}.`,
+          texte: `Contact pour les données personnelles : ${RAISON_SOCIALE}, ${ADRESSE_EDITRICE} — ${CONTACT}.`,
         },
         {
           type: 'paragraphe',
@@ -878,7 +897,7 @@ const MENTIONS: PageLegale = {
         },
         {
           type: 'paragraphe',
-          texte: `Pour signaler un contenu manifestement illicite publié sur la page d’un cabinet : ${aCompleter('adresse de signalement')}.`,
+          texte: `Pour signaler un contenu manifestement illicite publié sur la page d’un cabinet : ${CONTACT}, en précisant l’adresse de la page et le contenu en cause.`,
         },
       ],
     },

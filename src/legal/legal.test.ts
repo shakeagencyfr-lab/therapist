@@ -300,18 +300,21 @@ describe('les gestes cités', () => {
 })
 
 describe('les mentions légales', () => {
-  it('laissent en évidence ce que le code ne peut pas savoir', () => {
-    const champs = champsACompleter(PAGES_LEGALES.mentions).join('\n')
-    if (VALIDE_JURIDIQUEMENT) return
-    for (const attendu of [/raison sociale/, /SIREN/, /siège/, /directeur ou de la directrice de la publication/, /contact/]) {
-      expect(champs).toMatch(attendu)
-    }
+  /* L'identité de l'éditrice est connue depuis le 30 septembre : la page
+     n'en laisse plus rien à compléter, et dit ce que la loi demande à une EI. */
+  it('disent qui édite, sans rien laisser à compléter', () => {
+    expect(champsACompleter(PAGES_LEGALES.mentions)).toEqual([])
+    const t = texte('mentions')
+    expect(t).toContain('Laetitia OLLIVIER, entrepreneur individuel (EI)')
+    expect(t).toContain('SIREN 532 308 228')
+    expect(t).toContain('Directrice de la publication')
+    expect(t).toContain('contact@klaroweb.site')
   })
 
   it('nomment les hébergeurs et leur région', () => {
     const t = texte('mentions')
     expect(t).toMatch(/Vercel Inc\./)
-    expect(t).toMatch(/Supabase, Inc\./)
+    expect(t).toMatch(/Supabase Pte\. Ltd\./)
     expect(t).toContain('cdg1')
     expect(t).toContain('eu-west-3')
   })
