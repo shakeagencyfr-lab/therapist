@@ -12,11 +12,18 @@
  *
  * SANS MARQUE, SANS MODÈLE. L'espace patient et les documents sont à la
  * marque du cabinet : ni Klaro, ni le nom d'un modèle n'y figurent.
+ *
+ * NI « RELUS », NI « VALIDÉS » POUR TOUT. Quand le cabinet a choisi le
+ * renouvellement automatique des affirmations, la série du lundi arrive dans
+ * l'espace sans que personne l'ait relue (server/affirmationsHebdo.ts) : la
+ * phrase dit donc la responsabilité du praticien, et les deux façons dont il
+ * l'exerce — relire, ou choisir de publier d'office. Les conditions (CGU,
+ * CGV, art. « Intelligence artificielle ») reprennent les mêmes mots.
  */
 
 /** La ligne du pied de l'espace patient. */
 export const MENTION_IA =
-  'Certains contenus de cet espace sont préparés avec l’aide d’un outil d’intelligence artificielle, puis relus et validés par votre praticien.'
+  'Certains contenus de cet espace sont préparés avec l’aide d’un outil d’intelligence artificielle, sous la responsabilité de votre praticien, qui les relit ou choisit d’en publier certains automatiquement.'
 
 /**
  * Les propriétés d'un document rédigé avec l'IA (jsPDF `setProperties`) :
