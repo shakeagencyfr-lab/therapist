@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import type { ButtonHTMLAttributes, CSSProperties, ReactNode, TextareaHTMLAttributes, InputHTMLAttributes } from 'react'
+import { isSpeechSupported } from '@/services/speech'
+import { ChampDicte, ZoneDicte, type OptionsDictee } from './Dictee'
 import s from './ui.module.css'
 
 const cx = (...parts: Array<string | false | undefined | null>) => parts.filter(Boolean).join(' ')
@@ -356,12 +358,54 @@ export function FieldLabel({ children }: { children: ReactNode }) {
   return <span className={s.label}>{children}</span>
 }
 
-export function TextInput({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={cx(s.input, className)} {...rest} />
+/**
+ * Ce qu'un champ de texte accepte en plus des attributs HTML.
+ *
+ * `dictee` ajoute un micro dans le champ (voir ./Dictee.tsx). Là où le
+ * navigateur ne sait pas transcrire (Firefox), le champ reste exactement
+ * celui d'avant : un bouton qui ne peut que refuser vaut moins que pas de
+ * bouton du tout.
+ *
+ * `nu` retire l'habillage commun : le champ ne porte que sa propre classe.
+ * Pour les écrans qui dessinent leurs champs eux-mêmes (le brouillon, la
+ * consigne, les notes de séance) et qui passent ici pour la dictée.
+ */
+export interface OptionsChamp extends OptionsDictee {
+  nu?: boolean
 }
 
-export function TextArea({ className, ...rest }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea className={cx(s.textarea, className)} {...rest} />
+export function TextInput({
+  className,
+  dictee,
+  onDicteeFin,
+  onDicteeEnCours,
+  nu = false,
+  ...rest
+}: InputHTMLAttributes<HTMLInputElement> & OptionsChamp) {
+  const classe = nu ? className : cx(s.input, className)
+  if (dictee !== undefined && isSpeechSupported()) {
+    return (
+      <ChampDicte className={classe} dictee={dictee} onDicteeFin={onDicteeFin} onDicteeEnCours={onDicteeEnCours} {...rest} />
+    )
+  }
+  return <input className={classe} {...rest} />
+}
+
+export function TextArea({
+  className,
+  dictee,
+  onDicteeFin,
+  onDicteeEnCours,
+  nu = false,
+  ...rest
+}: TextareaHTMLAttributes<HTMLTextAreaElement> & OptionsChamp) {
+  const classe = nu ? className : cx(s.textarea, className)
+  if (dictee !== undefined && isSpeechSupported()) {
+    return (
+      <ZoneDicte className={classe} dictee={dictee} onDicteeFin={onDicteeFin} onDicteeEnCours={onDicteeEnCours} {...rest} />
+    )
+  }
+  return <textarea className={classe} {...rest} />
 }
 
 /**

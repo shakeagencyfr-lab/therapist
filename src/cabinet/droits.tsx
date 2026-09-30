@@ -23,6 +23,12 @@ export interface DroitsData {
 
 const Ctx = createContext<DroitsData | null>(null)
 
+/**
+ * Le contexte lui-même, pour le banc de rendu seulement : il y pose des
+ * droits à la main (un contrat qui n'est plus en cours) sans base derrière.
+ */
+export const DroitsContexte = Ctx
+
 export function DroitsProvider({ actif, children }: { actif: boolean; children: ReactNode }) {
   const [droits, setDroits] = useState<Droits | null>(null)
   const [chargement, setChargement] = useState(actif)
@@ -72,7 +78,8 @@ export function useDroits(): DroitsData | null {
  * fermer par défaut ferait disparaître des écrans payés le temps d'un appel
  * réseau, ce qui est bien pire qu'un écran montré une seconde de trop.
  */
-export function ouvert(data: DroitsData | null, levier: 'shop' | 'marqueBlanche' | 'site'): boolean {
+export function ouvert(data: DroitsData | null, levier: 'shop' | 'marqueBlanche' | 'site' | 'hypnose'): boolean {
+  if (levier === 'hypnose') return hypnoseOuverte(data)
   return data?.droits ? data.droits[levier] : true
 }
 
@@ -85,6 +92,19 @@ export function ouvert(data: DroitsData | null, levier: 'shop' | 'marqueBlanche'
  */
 export function enRegle(data: DroitsData | null): boolean {
   return data?.droits ? data.droits.enRegle : true
+}
+
+/**
+ * L'hypnose personnalisée est-elle ouverte (0065) ?
+ *
+ * Comprise dans l'offre, accordée par exception, ou achetée en pass — la
+ * base en décide (`cabinet_droits`). Même prudence qu'`ouvert` : sans droits
+ * lus, on répond oui, et le serveur refuse de toute façon l'écriture d'une
+ * hypnose qui n'est pas ouverte. Un droit absent de la réponse (un serveur
+ * plus ancien que 0065) ne ferme rien non plus.
+ */
+export function hypnoseOuverte(data: DroitsData | null): boolean {
+  return data?.droits ? data.droits.hypnose !== false : true
 }
 
 /** Places restantes sur le plafond de fiches actives. null = sans limite. */

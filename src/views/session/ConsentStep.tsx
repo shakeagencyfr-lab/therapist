@@ -182,15 +182,20 @@ export function ConsentStep() {
         </div>
       </Card>
 
-      {/* Sans micro : une vraie porte, pas un lien discret. C'est souvent le
-          choix du patient, et il ne doit pas avoir à se justifier. */}
+      {/* Sans enregistrement : une vraie porte, pas un lien discret. C'est
+          souvent le choix du patient, et il ne doit pas avoir à se justifier.
+          La promesse porte sur la séance : rien n'y est enregistré, et le
+          champ des notes n'a pas de micro. Le brouillon, une fois la séance
+          finie, se corrige aussi à la voix — c'est la praticienne qui dicte,
+          et la phrase le dit plutôt que de promettre « aucun micro ». */}
       <Card className={s.sans}>
         <div className={s.sansTexte}>
           <Title as="h3">Séance sans enregistrement</Title>
           <p className={s.sansCorps}>
-            Aucun micro, aucune transcription : vous écrivez vos notes pendant ou après la séance,
-            et le brouillon de note se rédige à partir d'elles. Si vous le demandez, vos notes
-            partent pour analyse chez Anthropic, comme décrit plus haut — {prenom} doit le savoir.
+            Rien n'est enregistré pendant la séance, rien n'est transcrit : vous écrivez vos notes au
+            clavier, pendant ou après, et le brouillon de note se rédige à partir d'elles — vous
+            pourrez ensuite en dicter les corrections. Si vous le demandez, vos notes partent pour
+            analyse chez Anthropic, comme décrit plus haut — {prenom} doit le savoir.
           </p>
         </div>
         <Button variant="secondary" onClick={() => void signer(true)} disabled={Boolean(envoi)}>

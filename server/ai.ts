@@ -16,9 +16,22 @@
  */
 import Anthropic from '@anthropic-ai/sdk'
 import { HttpError } from './errors.js'
+import { BORNES, asContext, asStrings, asText, nombre } from './lecture.js'
 import { baseConfiguree, clientAdmin, identifierPourGesteSensible, type Appelant } from './auth.js'
 import { cleAnthropicDuCabinet } from './integrations.js'
-import { abonnementEnRegle } from './droits.js'
+import { abonnementEnRegle, hypnoseOuverte, REFUS_HYPNOSE } from './droits.js'
+import {
+  confirmer,
+  coutDeLAppel,
+  facturationDuCabinet,
+  jetonsDeLAppel,
+  recherchesPour,
+  rembourser,
+  reserver,
+  soldeDuCabinet,
+  type Facturation,
+} from './jetons.js'
+import type { JetonsDeLAppel } from '../src/types/jetons.js'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import type { ZodType } from 'zod'
 
@@ -27,8 +40,12 @@ import {
   mockGeneratedModule,
   mockGeneratedProfile,
   mockHypnoseMouvement,
+  mockRetouche,
   mockSessionDraft,
 } from './mock.js'
+import { SANS_PREFERENCES, preferencesDuCabinet, type Preferences } from './preferences.js'
+import { lireRetouche, planDeRetouche, promptDeRetouche, systemeDeRetouche } from './retouche.js'
+import type { CibleRetouche } from '../src/lib/retouche.js'
 import {
   AFFIRMATIONS_SYSTEM,
   HYPNOSE_SYSTEM,
@@ -46,7 +63,6 @@ import {
   sessionMaterial,
 } from './prompts.js'
 import {
-  contexteLuSchema,
   generatedAffirmationsSchema,
   generatedHypnoseSchema,
   generatedModuleSchema,
@@ -55,9 +71,9 @@ import {
 } from './schemas.js'
 import type {
   AffirmationsBody,
+  GeneratedProfileOutput,
   HypnoseBody,
   ModuleContext,
-  PatientContext,
   ProfileBody,
   SessionDraftBody,
 } from './schemas.js'
@@ -127,6 +143,10 @@ const REGLAGES: Record<AiRoute, Reglage> = {
   // modèle ni la moindre réflexion : Haiku refuse output_config.effort (400)
   // et ne raisonne pas par défaut, ce qui est exactement ce qu'on veut.
   affirmations: { model: 'claude-haiku-4-5' },
+  /* La retouche n'a pas de réglage à elle : elle EMPRUNTE celui de l'action
+     qui a écrit le texte (server/retouche.ts) — Haiku pour des affirmations,
+     Opus pour tout le reste. Celui-ci ne sert qu'au journal de démarrage. */
+  revision: { model: MODELE_ANALYSE, effort: 'high' },
 }
 
 /** Les modèles qui acceptent `output_config.effort`. Les autres répondent 400. */
@@ -172,7 +192,8 @@ function mockMode(): boolean {
 }
 
 /**
- * D'où vient la clé d'un appel : DU CABINET, et de nulle part ailleurs.
+ * D'où vient la clé d'un appel : DU CABINET — ou, en mode jetons, de son
+ * revendeur (server/jetons.ts). De nulle part ailleurs.
  *
  * C'est le modèle vendu — l'abonnement paie l'outil, la clé paie l'analyse —
  * et c'était aussi, jusqu'ici, une simple préférence : faute de clé propre,
@@ -187,7 +208,11 @@ function mockMode(): boolean {
  */
 export interface Cle {
   apiKey: string
-  source: 'cabinet'
+  /**
+   * « revendeur » : le mode jetons (0065). La clé qui paie est celle du
+   * revendeur, et ses refus ne se corrigent pas dans l'onglet du cabinet.
+   */
+  source: 'cabinet' | 'revendeur'
 }
 
 async function resoudreCle(cabinetId: string | null): Promise<Cle | null> {
@@ -269,6 +294,11 @@ interface CallOptions<T> {
   route: AiRoute
   maxTokens: number
   cle: Cle | null
+  /**
+   * L'action dont l'appel emprunte le modèle et l'effort, quand ce n'est pas
+   * la sienne : une retouche prend ceux du texte qu'elle réécrit.
+   */
+  reglage?: AiRoute
 }
 
 /**
@@ -321,8 +351,8 @@ export function rejouerLaPanne(model: string, statut: number | undefined): boole
   return statut === 404 || statut === 429 || statut >= 500
 }
 
-async function callClaude<T>({ route, schema, system, prompt, maxTokens, cle }: CallOptions<T>): Promise<Produit<T>> {
-  const { model, effort } = reglageDe(route)
+async function callClaude<T>({ route, schema, system, prompt, maxTokens, cle, reglage }: CallOptions<T>): Promise<Produit<T>> {
+  const { model, effort } = reglageDe(reglage ?? route)
   const format = zodOutputFormat(schema)
   const demander = (modele: string) =>
     client(cle).messages.parse({
@@ -378,6 +408,24 @@ async function callClaude<T>({ route, schema, system, prompt, maxTokens, cle }: 
         "Le crédit de votre clé Anthropic est épuisé. Rechargez-le depuis votre compte Anthropic (rubrique Billing), puis relancez : rien n'a été analysé.",
       )
     }
+    /* EN MODE JETONS, LA CLÉ EST CELLE DU REVENDEUR. Sa panne n'est ni à la
+       praticienne ni à ses jetons : elle se dit au revendeur, et les jetons
+       réservés sont rendus (analyserEnJetons). */
+    if (
+      cle?.source === 'revendeur' &&
+      (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError)
+    ) {
+      throw new HttpError(
+        502,
+        "La clé d'analyse de votre revendeur a été refusée : prévenez-le, c'est un réglage de son espace. Rien n'a été analysé, et vos jetons vous sont rendus.",
+      )
+    }
+    if (cle?.source === 'revendeur' && err instanceof Anthropic.BadRequestError && /credit balance/i.test(err.message)) {
+      throw new HttpError(
+        502,
+        "Le compte d'analyse de votre revendeur est à court de crédit : prévenez-le. Rien n'a été analysé, et vos jetons vous sont rendus.",
+      )
+    }
     throw err
   }
 
@@ -420,7 +468,12 @@ async function callClaude<T>({ route, schema, system, prompt, maxTokens, cle }: 
         }
       : replie
         ? { input: message.usage.input_tokens, output: message.usage.output_tokens, modele: MODELE_DE_REPLI }
-        : { input: message.usage.input_tokens, output: message.usage.output_tokens },
+        : reglage && reglage !== route
+          ? /* Un réglage emprunté : le modèle facturé n'est pas celui de la
+               route — une retouche d'affirmations passe par Haiku, et le
+               compteur doit le savoir pour ne pas la compter au prix d'Opus. */
+            { input: message.usage.input_tokens, output: message.usage.output_tokens, modele: model }
+          : { input: message.usage.input_tokens, output: message.usage.output_tokens },
   }
 }
 
@@ -428,82 +481,52 @@ async function callClaude<T>({ route, schema, system, prompt, maxTokens, cle }: 
  * Lecture des corps de requête
  * ------------------------------------------------------------------ */
 
-function asText(value: unknown): string {
-  return typeof value === 'string' ? value : ''
-}
-
-/**
- * Le dossier du patient, LU et non plus cru sur parole (server/schemas.ts).
- *
- * Un champ d'un mauvais type levait un TypeError au milieu d'un prompt, et
- * l'écran disait « Erreur interne du serveur » : un message qui n'apprend
- * rien à personne. Le refus se dit maintenant, avec le remède — un onglet
- * resté sur une ancienne version de l'application se corrige en rechargeant.
- */
-function asContext(value: unknown): PatientContext {
-  if (!value || typeof value !== 'object') {
-    throw new HttpError(400, 'Le dossier du patient est absent de la requête.')
-  }
-  const lu = contexteLuSchema.safeParse(value)
-  if (!lu.success) {
-    // Les chemins seulement — des noms de champs, jamais leur contenu.
-    const champs = lu.error.issues.map((i) => i.path.join('.') || '(racine)').join(', ')
-    console.warn(`[ia] dossier illisible — ${champs}`)
-    throw new HttpError(
-      400,
-      "Le dossier du patient est arrivé incomplet. Rechargez la page, puis relancez : rien n'a été produit.",
-    )
-  }
-  return lu.data
-}
-
-/** Au plus `combien` chaînes, de `longueur` caractères au plus : le reste est ignoré. */
-function asStrings(value: unknown, combien: number, longueur: number): string[] {
-  return Array.isArray(value)
-    ? value
-        .filter((v): v is string => typeof v === 'string')
-        .map((v) => v.slice(0, longueur))
-        .slice(0, combien)
-    : []
-}
-
-/**
- * Ce que la thérapeute écrit elle-même, borné AVEC REFUS.
- *
- * À l'inverse du dossier, qu'on coupe sans rien dire (server/schemas.ts) :
- * couper en silence la fin d'une séance ferait analyser une séance qui n'a
- * pas eu lieu, couper un brief ferait écrire un module sur la moitié d'une
- * intention. Au-delà, la requête est refusée en disant quoi raccourcir. Les
- * bornes sont larges — trois heures de parole, des pages de notes — : elles
- * n'arrêtent qu'un corps qui n'a plus rien d'une séance, avant qu'il ne
- * devienne une facture.
- */
-const BORNES = {
-  /** Transcription et notes d'une séance : environ trois heures de parole. */
-  matiere: 200_000,
-  brief: 4_000,
-  notes: 50_000,
-  intention: 2_000,
-}
-
-const nombre = (n: number) => n.toLocaleString('fr-FR')
+/* Le dossier, les textes et leurs bornes se lisent dans server/lecture.ts :
+   la retouche (server/retouche.ts) les lit de la même façon. */
 
 /* ------------------------------------------------------------------ *
- * Les quatre fonctions
+ * Les fonctions
  * ------------------------------------------------------------------ */
 
-/** Les quatre chemins exposés, tels que le client les appelle. */
-export type AiRoute = 'session-draft' | 'module' | 'affirmations' | 'profile' | 'hypnose'
+/**
+ * Les chemins exposés, tels que le client les appelle. La retouche (0066)
+ * vient en dernier : elle réécrit ce que les autres ont écrit.
+ */
+export type AiRoute = 'session-draft' | 'module' | 'affirmations' | 'profile' | 'hypnose' | 'revision'
 
-export const AI_ROUTES: AiRoute[] = ['session-draft', 'module', 'affirmations', 'profile', 'hypnose']
+export const AI_ROUTES: AiRoute[] = ['session-draft', 'module', 'affirmations', 'profile', 'hypnose', 'revision']
 
-/** Enveloppe de réponse : les données, et le drapeau du mode maquette. */
+/**
+ * Les préférences que chaque écriture relit (0066) : celles des textes
+ * qu'elle produit. Un brouillon de séance écrit la synthèse, le message et
+ * les propositions ; la route « module » écrit les modules de l'atelier et
+ * les consignes d'après séance. La retouche relit celles du texte retouché.
+ */
+export const CIBLES_DE_LA_ROUTE: Record<Exclude<AiRoute, 'revision'>, readonly CibleRetouche[]> = {
+  'session-draft': ['synthese', 'message', 'proposition'],
+  module: ['module', 'consigne'],
+  affirmations: ['affirmations'],
+  profile: ['profil'],
+  hypnose: ['hypnose'],
+}
+
+/**
+ * Enveloppe de réponse : les données, et le drapeau du mode maquette.
+ *
+ * En mode jetons, elle dit aussi ce que l'appel a coûté et ce qui reste —
+ * une clé de plus, absente sinon : un client d'avant l'ignore.
+ */
 export interface AiResult {
   mock: boolean
   data: unknown
+  jetons?: JetonsDeLAppel
 }
 
-async function sessionDraft(body: Partial<SessionDraftBody>, cle: Cle | null): Promise<Produit<unknown>> {
+async function sessionDraft(
+  body: Partial<SessionDraftBody>,
+  cle: Cle | null,
+  preferences: Preferences,
+): Promise<Produit<unknown>> {
   const context = asContext(body.context)
   // Les rayons de la bibliothèque : une vingtaine d'ordinaire.
   const categories = asStrings(body.categories, 50, 100)
@@ -522,15 +545,18 @@ async function sessionDraft(body: Partial<SessionDraftBody>, cle: Cle | null): P
     )
   }
   if (mockMode()) return { data: mockSessionDraft(context, categories), usage: null }
+  // Ce que la praticienne a demandé de retenir, à la fin de la demande (0066).
+  const retenues = await preferences(CIBLES_DE_LA_ROUTE['session-draft'])
   return callClaude({
     route: 'session-draft',
     schema: sessionDraftSchema,
     system: SESSION_DRAFT_SYSTEM,
     /* Sans transcription, pas de locuteurs à signaler : l'avertissement sur
        les voix mêlées ne concerne que la parole transcrite. */
-    prompt: transcript.trim()
-      ? sessionDraftPrompt(material, categories, hasSpeakerLabels(transcript))
-      : sessionDraftPrompt(material, categories, true, true),
+    prompt:
+      (transcript.trim()
+        ? sessionDraftPrompt(material, categories, hasSpeakerLabels(transcript))
+        : sessionDraftPrompt(material, categories, true, true)) + retenues,
     maxTokens: 6000,
     cle,
   })
@@ -580,27 +606,38 @@ export function briefDuModule(body: Record<string, unknown>): ModuleContext {
   return brief
 }
 
-async function customModule(body: Record<string, unknown>, cle: Cle | null): Promise<Produit<unknown>> {
+async function customModule(
+  body: Record<string, unknown>,
+  cle: Cle | null,
+  preferences: Preferences,
+): Promise<Produit<unknown>> {
   const brief = briefDuModule(body)
   if (mockMode()) return { data: mockGeneratedModule(brief), usage: null }
+  const retenues = await preferences(CIBLES_DE_LA_ROUTE.module)
   return callClaude({
     route: 'module',
     schema: generatedModuleSchema,
     system: MODULE_SYSTEM,
-    prompt: modulePrompt(brief),
+    prompt: modulePrompt(brief) + retenues,
     maxTokens: 6000,
     cle,
   })
 }
 
-async function affirmations(body: Partial<AffirmationsBody>, cle: Cle | null): Promise<Produit<unknown>> {
+async function affirmations(
+  body: Partial<AffirmationsBody>,
+  cle: Cle | null,
+  preferences: Preferences,
+): Promise<Produit<unknown>> {
   const context = asContext(body.context)
   if (mockMode()) return { data: mockGeneratedAffirmations(context), usage: null }
+  // La série du lundi aussi (server/affirmationsHebdo.ts) : elle passe par ici.
+  const retenues = await preferences(CIBLES_DE_LA_ROUTE.affirmations)
   return callClaude({
     route: 'affirmations',
     schema: generatedAffirmationsSchema,
     system: AFFIRMATIONS_SYSTEM,
-    prompt: affirmationsPrompt(context),
+    prompt: affirmationsPrompt(context) + retenues,
     maxTokens: 800,
     cle,
   })
@@ -616,7 +653,11 @@ async function affirmations(body: Partial<AffirmationsBody>, cle: Cle | null): P
  * trois cents secondes accordées aux routes d'analyse (vercel.json) — et le
  * modèle écrit mieux sept minutes qu'il n'en écrit trente d'affilée.
  */
-async function hypnose(body: Partial<HypnoseBody>, cle: Cle | null): Promise<Produit<unknown>> {
+async function hypnose(
+  body: Partial<HypnoseBody>,
+  cle: Cle | null,
+  preferences: Preferences,
+): Promise<Produit<unknown>> {
   const mouvement = asText(body.mouvement).trim() as Mouvement
   if (!MOUVEMENTS.includes(mouvement)) {
     throw new HttpError(400, "Ce mouvement d'hypnose n'existe pas.")
@@ -639,20 +680,22 @@ async function hypnose(body: Partial<HypnoseBody>, cle: Cle | null): Promise<Pro
     .filter((p) => MOUVEMENTS.includes(p.mouvement) && p.texte.trim().length > 0)
     .slice(0, MOUVEMENTS.length - 1)
 
+  const retenues = await preferences(CIBLES_DE_LA_ROUTE.hypnose)
   return callClaude({
     route: 'hypnose',
     schema: generatedHypnoseSchema,
     system: HYPNOSE_SYSTEM,
-    prompt: hypnosePrompt(mouvement, {
-      context,
-      // Ce que la séance a relevé : quatre à huit formulations, deux à
-      // quatre fils. Les bornes n'arrêtent qu'un corps qui n'en est plus un.
-      mots: asStrings(body.mots, 30, 400).filter(Boolean),
-      themes: asStrings(body.themes, 12, 400).filter(Boolean),
-      synthese: asText(body.synthese).trim().slice(0, 8000),
-      intention,
-      precedents,
-    }),
+    prompt:
+      hypnosePrompt(mouvement, {
+        context,
+        // Ce que la séance a relevé : quatre à huit formulations, deux à
+        // quatre fils. Les bornes n'arrêtent qu'un corps qui n'en est plus un.
+        mots: asStrings(body.mots, 30, 400).filter(Boolean),
+        themes: asStrings(body.themes, 12, 400).filter(Boolean),
+        synthese: asText(body.synthese).trim().slice(0, 8000),
+        intention,
+        precedents,
+      }) + retenues,
     // Un mouvement fait 500 à 900 mots. Le plafond laisse de la marge au
     // raisonnement d'Opus 5.5, qui pense un peu plus qu'Opus 5 à effort égal.
     maxTokens: 7000,
@@ -687,7 +730,11 @@ export function profilCreux(p: { axes?: unknown[]; levers?: unknown[]; care?: un
 const RATTRAPAGE =
   "\n\nATTENTION : ta réponse précédente ne contenait pas %s. Ces clés ne sont pas facultatives et un tableau vide n'est pas une réponse. Écris un portrait PLUS COURT — six phrases suffisent — et consacre le reste à « axes » (5), « levers » (4) et « care » (1 à 4). C'est ce que la praticienne lit en premier."
 
-async function profile(body: Partial<ProfileBody>, cle: Cle | null): Promise<Produit<unknown>> {
+async function profile(
+  body: Partial<ProfileBody>,
+  cle: Cle | null,
+  preferences: Preferences,
+): Promise<Produit<unknown>> {
   const context = asContext(body.context)
   const notes = asText(body.notes).trim()
   if (notes.length > BORNES.notes) {
@@ -705,14 +752,26 @@ async function profile(body: Partial<ProfileBody>, cle: Cle | null): Promise<Pro
     synthese: asText(body.synthese).trim().slice(0, 8000),
     transcript: asText(body.transcript).trim().slice(0, 2500),
   })
-  let { data: generated, usage } = await callClaude({
+  return profilSansTrou({
     route: 'profile',
     schema: generatedProfileSchema,
     system: PROFILE_SYSTEM,
-    prompt,
+    // Ce que la praticienne a demandé de retenir, à la fin de la demande (0066).
+    prompt: prompt + (await preferences(CIBLES_DE_LA_ROUTE.profile)),
     maxTokens: 8000,
     cle,
   })
+}
+
+/**
+ * Un profil, repris une fois s'il revient creux, et ses axes bornés.
+ *
+ * L'actualisation et la retouche d'un profil passent par ici : un profil
+ * retouché qui perdrait ses leviers remplacerait, lui aussi, un profil
+ * complet par une carte vide.
+ */
+async function profilSansTrou(appel: CallOptions<GeneratedProfileOutput>): Promise<Produit<unknown>> {
+  let { data: generated, usage } = await callClaude(appel)
 
   /* Une seule reprise. Si elle échoue aussi, on sert ce qu'on a : un profil
      amputé vaut mieux qu'une erreur après deux appels payés — et l'écran
@@ -720,14 +779,7 @@ async function profile(body: Partial<ProfileBody>, cle: Cle | null): Promise<Pro
   const creux = profilCreux(generated)
   if (creux) {
     console.warn(`[ia] profil incomplet, une reprise — manquaient : ${creux}`)
-    const reprise = await callClaude({
-      route: 'profile',
-      schema: generatedProfileSchema,
-      system: PROFILE_SYSTEM,
-      prompt: prompt + RATTRAPAGE.replace('%s', creux),
-      maxTokens: 8000,
-      cle,
-    })
+    const reprise = await callClaude({ ...appel, prompt: appel.prompt + RATTRAPAGE.replace('%s', creux) })
     /* On garde la meilleure des deux réponses, pas forcément la dernière :
        la reprise peut rendre les axes et perdre le portrait. */
     generated = {
@@ -760,6 +812,37 @@ async function profile(body: Partial<ProfileBody>, cle: Cle | null): Promise<Pro
   }
 }
 
+/**
+ * La retouche d'un texte déjà écrit (0066) — server/retouche.ts.
+ *
+ * Placée APRÈS les écritures qu'elle retouche, et appelée sous son propre
+ * nom de route : src/lib/coutIA.test.ts relit le plafond de la PREMIÈRE
+ * écriture du brouillon et de l'hypnose dans ce fichier.
+ *
+ * Le système est celui du texte d'origine, les règles de la retouche en
+ * plus ; le modèle, l'effort et le plafond aussi. Les préférences du cabinet
+ * pour ce type de texte ferment la demande, comme à l'écriture.
+ */
+async function revision(
+  body: Record<string, unknown>,
+  cle: Cle | null,
+  preferences: Preferences,
+): Promise<Produit<unknown>> {
+  const demande = lireRetouche(body)
+  if (mockMode()) return { data: mockRetouche(demande), usage: null }
+  const plan = planDeRetouche(demande.cible)
+  const appel = {
+    route: 'revision' as const,
+    reglage: plan.reglage,
+    system: systemeDeRetouche(demande),
+    prompt: promptDeRetouche(demande, await preferences([demande.cible])),
+    maxTokens: plan.maxTokens,
+    cle,
+  }
+  if (demande.cible === 'profil') return profilSansTrou({ ...appel, schema: generatedProfileSchema })
+  return callClaude({ ...appel, schema: plan.schema })
+}
+
 /* ------------------------------------------------------------------ *
  * Consommation
  * ------------------------------------------------------------------ */
@@ -786,6 +869,16 @@ const GENRES: Record<AiRoute, string> = {
   affirmations: 'affirmations',
   profile: 'profil',
   hypnose: 'hypnose',
+  // 0066 : sans cette valeur dans l'énumération, la retouche ne se compterait pas (0018).
+  revision: 'revision',
+}
+
+/**
+ * L'appel touche-t-il à l'hypnose ? En écrire un mouvement, ou en retoucher
+ * un : l'option ouvre les deux, et ne se contourne pas par la retouche.
+ */
+export function toucheALHypnose(route: AiRoute, body: Record<string, unknown>): boolean {
+  return route === 'hypnose' || (route === 'revision' && body.cible === 'hypnose')
 }
 
 /**
@@ -841,8 +934,9 @@ export async function handleAi(route: AiRoute, raw: unknown, token: string | nul
     )
   }
 
-  // Hors maquette, il faut la clé DU CABINET. Sans elle, le refus est dit
-  // avant tout travail — il n'y a plus de repli qui ferait payer la plateforme.
+  // Hors maquette, il faut la clé DU CABINET — ou les jetons de son revendeur.
+  // Sans l'une ni les autres, le refus est dit avant tout travail : il n'y a
+  // plus de repli qui ferait payer la plateforme.
   return analyserPourCabinet(route, body, appelant?.cabinetId ?? null)
 }
 
@@ -852,8 +946,9 @@ export async function handleAi(route: AiRoute, raw: unknown, token: string | nul
  * C'est ce dont a besoin une tâche planifiée — les affirmations du lundi — :
  * elle n'a pas de jeton d'appelant à présenter, seulement un cabinet et un
  * dossier. Elle ne contourne rien pour autant : la clé reste celle du
- * cabinet, la consommation est inscrite à son compte, et le refus faute de
- * clé est le même qu'à l'écran.
+ * cabinet (ou de son revendeur, jetons décomptés), la consommation est
+ * inscrite à son compte, et le refus faute de clé ou de jetons est le même
+ * qu'à l'écran.
  */
 export async function analyserPourCabinet(
   route: AiRoute,
@@ -872,11 +967,31 @@ export async function analyserPourCabinet(
         "Votre abonnement n'est plus en cours : l'analyse est suspendue. Vos dossiers restent accessibles, et votre revendeur peut réactiver l'offre.",
       )
     }
+    /* L'HYPNOSE EST UNE OPTION (0065) : comprise dans l'offre, accordée par
+       exception, ou achetée pour un temps. Refusée avant toute dépense, dans
+       les deux modes — la clé du cabinet ne l'ouvre pas plus que les jetons.
+       La retouche d'un mouvement non plus. */
+    if (db && toucheALHypnose(route, body) && !(await hypnoseOuverte(cabinetId, db))) {
+      throw new HttpError(403, REFUS_HYPNOSE)
+    }
   }
+
+  /* CE QUE LE CABINET A DEMANDÉ DE RETENIR (0066), relu au moment d'écrire
+     la demande — pas avant, et pas en maquette. */
+  const preferences = mock ? SANS_PREFERENCES : preferencesDuCabinet(cabinetId)
+
+  /* QUI PAIE. Hors maquette, le revendeur décide : sa clé et des jetons, ou
+     la clé de chaque cabinet. Ce second cas est le chemin d'avant, inchangé. */
+  const facturation: Facturation =
+    mock || !cabinetId ? { mode: 'cle_cabinet' } : await facturationDuCabinet(cabinetId, clientAdmin())
+  if (facturation.mode === 'jetons' && cabinetId) {
+    return analyserEnJetons(route, body, cabinetId, facturation, preferences)
+  }
+
   const cle = mock ? null : await resoudreCle(cabinetId)
   if (!mock) client(cle)
 
-  const produit = await produire(route, body, cle)
+  const produit = await produire(route, body, cle, preferences)
 
   if (cabinetId && produit.usage) {
     await compter(route, cabinetId, produit.usage)
@@ -885,18 +1000,66 @@ export async function analyserPourCabinet(
   return { mock, data: produit.data }
 }
 
-function produire(route: AiRoute, body: Record<string, unknown>, cle: Cle | null): Promise<Produit<unknown>> {
+/**
+ * L'analyse en mode jetons : la clé du revendeur, et le prix de l'appel.
+ *
+ * Les jetons sont RÉSERVÉS avant l'appel — deux analyses lancées ensemble ne
+ * passent pas sur un solde qui n'en couvre qu'une —, CONFIRMÉS quand l'appel
+ * a produit, RENDUS s'il a échoué, quelle qu'en soit la raison : un corps mal
+ * formé, un refus du modèle, une sortie coupée. Ce qui n'a rien produit ne
+ * se paie pas.
+ */
+async function analyserEnJetons(
+  route: AiRoute,
+  body: Record<string, unknown>,
+  cabinetId: string,
+  facturation: Extract<Facturation, { mode: 'jetons' }>,
+  preferences: Preferences,
+): Promise<AiResult> {
+  const db = clientAdmin()
+  if (!db) {
+    throw new HttpError(503, "Le serveur n'a pas sa clé de service : il ne peut pas décompter les jetons. Rien n'a été produit.")
+  }
+  const cle: Cle = { apiKey: facturation.cle, source: 'revendeur' }
+  /* La règle et le plein prix d'ici ; le prix PRIS, de la base, qui compte
+     les forfaits sous le verrou du débit (0068). */
+  const cout = await coutDeLAppel(route, body, facturation.bareme, recherchesPour(cabinetId, db))
+  const reservation = await reserver(cabinetId, cout, facturation, db)
+
+  let produit: Produit<unknown>
+  try {
+    produit = await produire(route, body, cle, preferences)
+  } catch (err) {
+    await rembourser(reservation.consommation, db)
+    throw err
+  }
+  await confirmer(reservation.consommation, db)
+
+  if (produit.usage) {
+    await compter(route, cabinetId, produit.usage)
+  }
+  return { mock: false, data: produit.data, jetons: jetonsDeLAppel(reservation, await soldeDuCabinet(cabinetId, db)) }
+}
+
+function produire(
+  route: AiRoute,
+  body: Record<string, unknown>,
+  cle: Cle | null,
+  preferences: Preferences,
+): Promise<Produit<unknown>> {
   switch (route) {
     case 'session-draft':
-      return sessionDraft(body as Partial<SessionDraftBody>, cle)
+      return sessionDraft(body as Partial<SessionDraftBody>, cle, preferences)
     case 'module':
-      return customModule(body, cle)
+      return customModule(body, cle, preferences)
     case 'affirmations':
-      return affirmations(body as Partial<AffirmationsBody>, cle)
+      return affirmations(body as Partial<AffirmationsBody>, cle, preferences)
     case 'profile':
-      return profile(body as Partial<ProfileBody>, cle)
+      return profile(body as Partial<ProfileBody>, cle, preferences)
     case 'hypnose':
-      return hypnose(body as Partial<HypnoseBody>, cle)
+      return hypnose(body as Partial<HypnoseBody>, cle, preferences)
+    case 'revision':
+      return revision(body, cle, preferences)
   }
 }
 

@@ -70,7 +70,7 @@ describe('reglageDe — le bon modèle et le bon effort par action', () => {
   /* Opus 5.5 : l'effort par défaut est « medium », un cran sous Opus 5.
      Omis, il ferait réfléchir moins qu'avant sans que rien ne le dise. */
   it('l’effort est posé explicitement, jamais laissé au défaut du modèle', () => {
-    for (const route of ['session-draft', 'profile', 'module', 'hypnose'] as const) {
+    for (const route of ['session-draft', 'profile', 'module', 'hypnose', 'revision'] as const) {
       expect(reglageDe(route)).toEqual({ model: 'claude-opus-5-5', effort: 'high' })
     }
   })
@@ -83,6 +83,7 @@ describe('reglageDe — le bon modèle et le bon effort par action', () => {
     expect(reglageDe('profile').effort).toBe('high')
     expect(reglageDe('module').effort).toBe('high')
     expect(reglageDe('hypnose').effort).toBe('high')
+    expect(reglageDe('revision').effort).toBe('high')
   })
 
   it('le mode courant nomme chaque action, pour le journal de démarrage', () => {

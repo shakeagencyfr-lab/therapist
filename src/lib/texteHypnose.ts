@@ -27,6 +27,27 @@ export function libelleReprise(mouvement: MouvementHypnose): string {
   return rang <= 1 ? "Relancer l'écriture" : `Reprendre au mouvement ${rang}`
 }
 
+/**
+ * Le titre que la séance doit prendre quand un mouvement est remplacé — ou
+ * null s'il ne change pas.
+ *
+ * Le titre d'une hypnose refermée est celui de son induction : la
+ * métaphore qui la porte d'un bout à l'autre (acheverHypnose). Une retouche
+ * de l'induction peut changer de métaphore, donc de titre, et la séance
+ * suit — son annulation aussi, dans l'autre sens. Un autre mouvement, une
+ * correction à la main (qui garde le titre), un titre rendu vide : rien.
+ */
+export function titreDeSeanceARenommer(
+  mouvement: MouvementHypnose,
+  titreAvant: string,
+  titreApres: string,
+): string | null {
+  if (mouvement !== 'induction') return null
+  const apres = titreApres.trim()
+  if (!apres || apres === titreAvant.trim()) return null
+  return apres
+}
+
 export type Correction = { ok: true; texte: string } | { ok: false; message: string }
 
 /**

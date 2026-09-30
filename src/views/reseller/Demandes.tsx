@@ -161,6 +161,7 @@ function Detail({ demande, donnees }: { demande: DemandeEssai; donnees: DonneesD
           Note interne
         </label>
         <TextArea
+          dictee
           id={`note-${demande.id}`}
           rows={3}
           maxLength={NOTE_MAX}

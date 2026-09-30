@@ -27,6 +27,7 @@ import { effacerDuStockage } from '@/lib/stockage'
 import { gestesDossier, type GestesDossier } from './dossier'
 import { gestesRappels, type GestesRappels } from './rappelsReguliers'
 import { gestesParcoursTypes, type GestesParcoursTypes } from './parcoursTypes'
+import { gestesRetouches, type GestesRetouches } from './retouches'
 import { libelleProchaineSeance } from '@/lib/agenda'
 import {
   marquerLue,
@@ -729,6 +730,12 @@ export interface CabinetData {
   ajouterMouvement: (hypnoseId: string, m: HypnoseMouvement, rang: number) => Promise<Resultat>
   /** Referme l'hypnose : les quatre mouvements sont là. */
   acheverHypnose: (hypnoseId: string, titre: string) => Promise<Resultat>
+  /**
+   * Renomme une hypnose refermée, sans rien relire : l'appelant relit le
+   * dossier une fois ses écritures faites. Son titre est celui de son
+   * induction, qu'une retouche peut changer.
+   */
+  renommerHypnose: (hypnoseId: string, titre: string) => Promise<Resultat>
   /** Supprime une fiche et tout ce qu'elle porte. Irréversible. */
   supprimerPatiente: (patientId: PatientId) => Promise<Resultat>
   /** Supprime une hypnose et ses mouvements. */
@@ -750,6 +757,11 @@ export interface CabinetData {
    * src/cabinet/parcoursTypes.ts.
    */
   parcoursTypes: GestesParcoursTypes
+  /**
+   * Les avis sur les textes de l'IA et les préférences retenues (0066),
+   * écrits et lus À LA DEMANDE — voir src/cabinet/retouches.ts.
+   */
+  retouches: GestesRetouches
 }
 
 export function useCabinet(cabinetId: string | null): CabinetData {
@@ -769,6 +781,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
   const dossier = useMemo(() => gestesDossier(cabinetId), [cabinetId])
   const rappels = useMemo(() => gestesRappels(cabinetId), [cabinetId])
   const parcoursTypes = useMemo(() => gestesParcoursTypes(cabinetId), [cabinetId])
+  const retouches = useMemo(() => gestesRetouches(cabinetId), [cabinetId])
 
   const recharger = useCallback(async () => {
     const db = supabase()
@@ -2447,6 +2460,17 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     [cabinetId, recharger],
   )
 
+  const renommerHypnose = useCallback(
+    async (hypnoseId: string, titre: string): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const { error } = await db.from('hypnoses').update({ titre }).eq('id', hypnoseId)
+      if (error) return { ok: false, message: "Le titre de l'hypnose n'a pas pu suivre." }
+      return { ok: true, message: '' }
+    },
+    [cabinetId],
+  )
+
   /**
    * Supprime une fiche. Tout ce qui s'y rattache part avec elle : la base le
    * fait en cascade, sur les clés étrangères. Le compte de connexion de la
@@ -2629,11 +2653,13 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     creerHypnose,
     ajouterMouvement,
     acheverHypnose,
+    renommerHypnose,
     supprimerPatiente,
     supprimerHypnose,
     dossier,
     rappels,
     parcoursTypes,
+    retouches,
   }
 }
 

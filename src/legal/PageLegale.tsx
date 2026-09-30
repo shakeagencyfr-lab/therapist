@@ -13,7 +13,8 @@ import {
 import s from './PageLegale.module.css'
 
 /**
- * Une page légale de la plateforme : confidentialité, conditions, mentions.
+ * Une page légale de la plateforme : confidentialité, conditions
+ * d'utilisation, conditions de vente, mentions.
  *
  * Servie seule par src/main.tsx, sans l'application : ni client de la base,
  * ni session, ni magasin d'état. On la lit sans être connecté, depuis le

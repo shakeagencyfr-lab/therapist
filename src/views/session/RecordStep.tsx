@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Notice, Overline } from '@/components/ui'
+import { Notice, Overline, TextArea } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
+import { useDevis } from '@/cabinet/useJetons'
 import { lireIntegrations } from '@/services/integrations'
 import { NOTE_TAGS, NOTE_TAG_PREFIXES } from '@/data/session'
 import { clock, euro, plural } from '@/lib/format'
@@ -11,6 +12,7 @@ import {
   messageDEchec,
 } from '@/services/aiClient'
 import { PLAFOND_SORTIE, TARIF, estimationBrouillon } from '@/lib/coutIA'
+import { jetonsDits } from '@/lib/jetonsIA'
 import { CADENCE_SAUVEGARDE_MS, aSauver, type Instantane } from '@/lib/seance'
 import {
   appendSegment,
@@ -19,6 +21,7 @@ import {
   type Transcriber,
 } from '@/services/speech'
 import { useStore } from '@/state/store'
+import { CoutEnJetons } from '@/views/jetons/CoutEnJetons'
 import s from './RecordStep.module.css'
 
 const cx = (...parts: Array<string | false>) => parts.filter(Boolean).join(' ')
@@ -171,13 +174,32 @@ export function RecordStep() {
           memeSeance(prev) ? { transcript: appendSegment(prev.transcript, text, suite), interim: '' } : {},
         ),
       onInterim: (text) => set((prev) => (memeSeance(prev) ? { interim: text } : {})),
-      onError: (code) =>
+      onError: (code) => {
+        // Un silence : la reconnaissance repart d'elle-même, rien à signaler.
+        if (code === 'no-speech') return
         set({
           notice:
-            code === 'not-allowed'
+            code === 'not-allowed' || code === 'service-not-allowed'
               ? `Accès au micro refusé. Autorisez le microphone, ou ${NOTES_SUFFISENT}`
               : `Transcription interrompue (${code}). Relancez le micro, ou ${NOTES_SUFFISENT}`,
-        }),
+        })
+      },
+      /* Le micro s'est refermé sans nous — relance refusée, micro refusé :
+         l'écran le dit au lieu d'afficher un enregistrement qui ne transcrit
+         plus rien, et le minuteur s'arrête avec lui. */
+      onFin: (raison) => {
+        if (transcriber.current !== next) return
+        transcriber.current = null
+        set((prev) => ({
+          recording: false,
+          interim: '',
+          notice:
+            raison === 'refus'
+              ? prev.notice
+              : `La transcription s'est arrêtée d'elle-même. Relancez le micro, ou ${NOTES_SUFFISENT}`,
+        }))
+        void sauverRef.current()
+      },
     })
     if (!next || !next.start()) {
       set({ notice: `Impossible de démarrer le micro ici. En attendant, ${NOTES_SUFFISENT}` })
@@ -230,6 +252,8 @@ export function RecordStep() {
         transcript,
         notes,
         categories: now.cats,
+        // La séance en base : en mode jetons, elle ouvre le forfait de ses consignes.
+        sessionId: now.sessionId,
       })
       const maquette = derniereReponseEstMaquette()
       set({
@@ -294,10 +318,16 @@ export function RecordStep() {
    */
   const devis = estimationBrouillon(state.transcript, state.sessionNotes)
 
+  /* EN JETONS (0065), LA SÉANCE A UN PRIX FIXE. Le revendeur paie l'appel et
+     la praticienne le règle en jetons : l'estimation en euros, calée sur la
+     facture d'Anthropic, ne la concerne plus. Hors du mode jetons — ou tant
+     qu'il n'est pas lu —, `seance` est nul et l'écran reste celui d'avant. */
+  const seance = useDevis('seance')
+
   /* Tant qu'on ne sait pas, on ne dit rien : annoncer le mauvais payeur est
      pire que de ne pas nommer le payeur. */
   const qui =
-    saCle === null
+    saCle === null || seance
       ? ''
       : saCle
         ? " L'appel est facturé sur le compte Anthropic de votre cabinet."
@@ -339,9 +369,10 @@ export function RecordStep() {
         </div>
         {state.sansEnregistrement ? (
           <p className={s.sansMicro}>
-            <strong>Séance ouverte sans enregistrement.</strong> Le micro reste fermé : aucun
-            consentement à la captation n'a été recueilli. Pour enregistrer, abandonnez cette séance
-            et ouvrez-en une nouvelle, avec le consentement de la personne.
+            <strong>Séance ouverte sans enregistrement.</strong> Rien n'est enregistré pendant la
+            séance, et vos notes s'écrivent au clavier : aucun consentement à la captation n'a été
+            recueilli. Pour enregistrer, abandonnez cette séance et ouvrez-en une nouvelle, avec le
+            consentement de la personne.
           </p>
         ) : (
           <div className={s.modes}>
@@ -375,7 +406,8 @@ export function RecordStep() {
             >
               <span className={s.modeTitle}>Sans transcription</span>
               <span className={s.modeBody}>
-                Aucun micro. Vous écrivez vos notes ; le brouillon se rédige à partir d'elles.
+                Aucun enregistrement de la séance. Vous écrivez vos notes ; le brouillon se rédige
+                à partir d'elles.
               </span>
             </button>
           </div>
@@ -419,7 +451,9 @@ export function RecordStep() {
           </div>
           <div className={s.fact}>
             <div className={s.factLabel}>Coût d'analyse</div>
-            <div className={s.factValue}>{devis.euros === 0 ? '—' : `jusqu'à ${euro(devis.eurosMax)}`}</div>
+            <div className={s.factValue}>
+              {seance ? jetonsDits(seance.cout) : devis.euros === 0 ? '—' : `jusqu'à ${euro(devis.eurosMax)}`}
+            </div>
           </div>
         </div>
 
@@ -430,7 +464,9 @@ export function RecordStep() {
               ? "Vos notes s'enregistrent dans la séance toutes les quinze secondes et quand l'onglet passe en arrière-plan : si la page se ferme, la séance vous sera proposée à la reprise quand vous en rouvrirez une pour cette personne."
               : "Aucune limite de durée. Le texte et vos notes s'enregistrent dans la séance toutes les quinze secondes, à chaque pause et quand l'onglet passe en arrière-plan : si la page se ferme, vous perdez au plus les dernières secondes, et la séance vous sera proposée à la reprise quand vous en rouvrirez une pour cette personne. Si la connexion tombe, le texte reste à l'écran et l'enregistrement reprend dès qu'elle revient."}{' '}
           {sauvegarde.etat === 'echec' ? `${sauvegarde.message} ` : ''}
-          {devis.euros === 0
+          {seance
+            ? `Une séance complète utilise ${jetonsDits(seance.cout)} de votre solde : la note, les consignes des exercices que vous retiendrez et une mise à jour du profil. Si l'analyse échoue, ils vous sont rendus.`
+            : devis.euros === 0
             ? notesSeules
               ? "Le coût d'analyse s'affiche dès vos premières notes, et suit ce que vous écrivez."
               : "Le coût d'analyse s'affiche dès les premiers mots transcrits, et suit ce qui est réellement dit."
@@ -471,13 +507,21 @@ export function RecordStep() {
                 </button>
               ))}
             </div>
-            <textarea
+            {/* Le micro du champ se tait pendant l'enregistrement — il couperait
+                la transcription de la séance — et n'existe pas dans une séance
+                ouverte sans enregistrement : aucun consentement n'a été
+                recueilli, et le patient peut encore être là. Le brouillon, à
+                l'étape suivante, garde le sien : la séance est finie, c'est la
+                praticienne qui dicte. */}
+            <TextArea
+              nu
               className={s.notesField}
               rows={notesSeules ? 12 : 6}
               value={state.sessionNotes}
               aria-label="Vos notes écrites"
               placeholder="Observations, mots exacts à retenir, hypothèse de travail, ce que vous voulez donner pour l'entre-séances…"
               onChange={(e) => set({ sessionNotes: e.target.value })}
+              dictee={state.sansEnregistrement ? undefined : !state.recording}
             />
           </div>
 
@@ -486,7 +530,7 @@ export function RecordStep() {
               type="button"
               className={cx(s.generate, state.generating && s.generateBusy)}
               onClick={generate}
-              disabled={state.generating}
+              disabled={state.generating || Boolean(seance?.manque)}
             >
               {state.generating ? 'Rédaction du brouillon…' : 'Terminer et rédiger la note'}
             </button>
@@ -505,12 +549,17 @@ export function RecordStep() {
             {/* Le prix se lit là où l'on décide de le payer. Il est déjà en
                 haut de l'écran, mais personne ne remonte vérifier un chiffre
                 avant de cliquer : c'est ici que la dépense est engagée. */}
-            {devis.euros > 0 ? (
+            {!seance && devis.euros > 0 ? (
               <span className={s.devis}>
                 Cet appel vous coûtera jusqu'à <strong>{euro(devis.eurosMax)}</strong>.
               </span>
             ) : null}
           </div>
+          {/* En jetons, le prix se dit dès l'écran ouvert : il ne dépend pas de
+              la longueur de la séance. Et s'il manque des jetons, le bouton
+              se ferme et la phrase dit où en trouver — les notes et la
+              transcription, elles, restent enregistrées dans la séance. */}
+          <CoutEnJetons devis={seance} sujet="Cette analyse" />
 
           {state.notice ? (
             <div className={s.notice}>

@@ -1,16 +1,34 @@
 import { useState } from 'react'
-import { Button, Card, Notice, Overline, Title } from '@/components/ui'
+import { Button, Card, Notice, Overline, TextInput, Title } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
+import { enRegle, hypnoseOuverte, useDroits } from '@/cabinet/droits'
+import { useDevis } from '@/cabinet/useJetons'
 import { useEcritureHypnose } from '@/cabinet/useEcritureHypnose'
-import { MOUVEMENTS_HYPNOSE, NOM_MOUVEMENT, pointDeReprise } from '@/services/aiClient'
+import {
+  MOUVEMENTS_HYPNOSE,
+  NOM_MOUVEMENT,
+  buildPatientContext,
+  echecDeRetouche,
+  pointDeReprise,
+  retoucherMouvement,
+} from '@/services/aiClient'
 import { plural } from '@/lib/format'
 import { telechargerHypnose } from '@/lib/hypnosePdf'
 import { logoPourPdf } from '@/lib/logoPdf'
-import { bilanHypnose, libelleReprise, rangDuMouvement } from '@/lib/texteHypnose'
+import { RETOUCHE_ABANDONNEE, type IssueRetouche, type RetourDeLaPraticienne } from '@/lib/retouche'
+import {
+  bilanHypnose,
+  corrigerTexte,
+  libelleReprise,
+  rangDuMouvement,
+  titreDeSeanceARenommer,
+} from '@/lib/texteHypnose'
 import { patientOf } from '@/state/selectors'
 import { useAppState } from '@/state/store'
 import { useMaybeAuth } from '@/auth/session'
 import type { Hypnose, HypnoseMouvement } from '@/types/domain'
+import { CoutEnJetons } from '@/views/jetons/CoutEnJetons'
+import { VerrouHypnose } from '@/views/jetons/VerrouHypnose'
 import { TexteMouvement } from './TexteMouvement'
 import s from './HypnosesFiche.module.css'
 
@@ -38,6 +56,10 @@ function dateLongue(iso: string): string {
  * fermer, aucun pour repartir du mouvement manquant. Il dit maintenant ce qui
  * est gardé, reprend au premier manquant, ou se ferme ; et une hypnose restée
  * interrompue en base se reprend depuis sa ligne.
+ *
+ * QUAND L'OFFRE NE L'OUVRE PLUS (0065), on n'écrit plus — mais ce qui est
+ * écrit reste à elle : la liste se lit, se télécharge et s'efface comme
+ * avant, et le verrou dit comment rouvrir l'écriture.
  */
 export function HypnosesFiche() {
   const state = useAppState()
@@ -64,6 +86,11 @@ export function HypnosesFiche() {
   } = useEcritureHypnose()
   /** L'hypnose dont le PDF se fabrique : jsPDF se charge à la demande. */
   const [pdf, setPdf] = useState('')
+  const droits = useDroits()
+  const verrouillee = !hypnoseOuverte(droits)
+  // Fermée par le contrat, pas par l'offre : le titre du bouton de reprise le dit.
+  const horsContrat = !enRegle(droits)
+  const devis = useDevis('hypnose')
 
   async function enregistrerPdf(h: Hypnose) {
     if (pdf) return
@@ -101,15 +128,69 @@ export function HypnosesFiche() {
    * que la fiche — et le PDF — lisent le texte corrigé.
    */
   async function corrigerEnBase(h: Hypnose, m: HypnoseMouvement, texte: string) {
+    return ecrireMouvement(h, { ...m, texte })
+  }
+
+  /**
+   * Remplace un mouvement en base — texte et titre —, puis relit le dossier.
+   *
+   * `titreDeSeance` : le nouveau titre de l'hypnose, quand une retouche de
+   * son induction en a changé la métaphore (titreDeSeanceARenommer) — ou
+   * son ancien, quand on l'annule. Seulement pour une hypnose refermée :
+   * une interrompue prendra le titre de son induction en se refermant.
+   */
+  async function ecrireMouvement(h: Hypnose, m: HypnoseMouvement, titreDeSeance: string | null = null) {
     if (!cabinet?.reel) {
       return { ok: false, message: 'En démonstration, aucune correction ne s’enregistre.' }
     }
-    const r = await cabinet.ajouterMouvement(h.id, { ...m, texte }, rangDuMouvement(m.mouvement))
+    const r = await cabinet.ajouterMouvement(h.id, m, rangDuMouvement(m.mouvement))
     if (!r.ok) {
       return { ok: false, message: "La correction n'a pas pu être enregistrée : le dossier garde le texte d'avant." }
     }
+    const renommee = h.complete && titreDeSeance ? (await cabinet.renommerHypnose(h.id, titreDeSeance)).ok : true
+    // La liste, le PDF et sa page de garde relisent le titre avec le texte.
     await cabinet.recharger()
-    return { ok: true, message: '' }
+    return { ok: true, message: renommee ? '' : "Le texte est enregistré, mais le titre de la séance n'a pas pu suivre." }
+  }
+
+  /**
+   * Fait retoucher un mouvement d'une hypnose en base (0066), les trois
+   * autres en contexte, et l'enregistre comme une correction. La version
+   * d'avant reste ici, en mémoire : « Annuler la retouche » la réécrit.
+   */
+  async function retoucherEnBase(
+    h: Hypnose,
+    m: HypnoseMouvement,
+    retour: RetourDeLaPraticienne,
+    abandon?: AbortSignal,
+  ): Promise<IssueRetouche> {
+    let rendu: { titre: string; texte: string }
+    try {
+      rendu = await retoucherMouvement({
+        context: buildPatientContext(state, cle),
+        brouillon: brouillon ?? null,
+        intention: h.intention,
+        hypnoseId: h.id,
+        ecrit: m,
+        autres: h.mouvements,
+        retour,
+      })
+    } catch (err) {
+      return echecDeRetouche(err)
+    }
+    // La fenêtre refermée pendant l'appel : rien ne se pose, ni ici ni en base.
+    if (abandon?.aborted) return RETOUCHE_ABANDONNEE
+    const correction = corrigerTexte(rendu.texte)
+    if (!correction.ok) return { ok: false, message: "La retouche est revenue vide : le texte d'avant reste en place." }
+    const retouche: HypnoseMouvement = { ...m, titre: rendu.titre.trim() || m.titre, texte: correction.texte }
+    const r = await ecrireMouvement(h, retouche, titreDeSeanceARenommer(m.mouvement, m.titre, retouche.titre))
+    if (!r.ok) return { ok: false, message: r.message }
+    return {
+      ok: true,
+      version: retouche.texte,
+      ...(r.message ? { libelle: `Version retouchée par l'IA. ${r.message}` } : {}),
+      annuler: () => ecrireMouvement(h, m, titreDeSeanceARenommer(m.mouvement, retouche.titre, m.titre)),
+    }
   }
 
   function fermer() {
@@ -136,7 +217,11 @@ export function HypnosesFiche() {
       {notice ? <Notice tone="warn">{notice}</Notice> : null}
       {erreur ? <Notice tone="warn">{erreur}</Notice> : null}
 
-      {hypnoses.length === 0 && !ecriture && ecrits.length === 0 && !erreur ? (
+      {verrouillee && !ecriture && ecrits.length === 0 && !erreur ? (
+        <VerrouHypnose dejaEcrites={hypnoses.length > 0} />
+      ) : null}
+
+      {!verrouillee && hypnoses.length === 0 && !ecriture && ecrits.length === 0 && !erreur ? (
         <p className={s.vide}>
           L'hypnose est activée pour {prenom}. Elle s'écrira à sa prochaine séance — ou dès
           maintenant, à partir de la dernière.
@@ -147,29 +232,34 @@ export function HypnosesFiche() {
           refait avec une autre intention ; une tournure qui ne passe pas se
           corrige dans le texte. Masqué tant qu'une écriture est à l'écran —
           en cours, finie, ou interrompue : elle se ferme d'abord. */}
-      {!ecriture && ecrits.length === 0 && !erreur ? (
+      {!verrouillee && !ecriture && ecrits.length === 0 && !erreur ? (
         <div className={s.relance}>
           <label className={s.champ}>
             <span className={s.label}>Ce que vous voulez travailler (facultatif)</span>
-            <input
+            <TextInput
+              nu
               className={s.input}
               value={intention}
               onChange={(e) => setIntention(e.target.value)}
               placeholder="Une autre métaphore, un angle différent, une séance plus courte…"
               disabled={!brouillon}
+              dictee
             />
           </label>
           <Button
             variant={hypnoses.length ? 'secondary' : 'primary'}
-            disabled={!brouillon || !cabinet?.reel}
+            disabled={!brouillon || !cabinet?.reel || Boolean(devis?.manque)}
             onClick={() => brouillon && void ecrire(cle, brouillon, intention)}
           >
             {hypnoses.length ? 'En écrire une autre' : 'Écrire une hypnose'}
           </Button>
         </div>
       ) : null}
+      {!verrouillee && brouillon && !ecriture && ecrits.length === 0 && (!erreur || devis?.manque) ? (
+        <CoutEnJetons devis={devis} sujet="Cette hypnose" />
+      ) : null}
 
-      {!brouillon ? (
+      {!brouillon && !verrouillee ? (
         <p className={s.hint}>
           Aucune séance analysée pour {prenom} : une hypnose se bâtit sur les formulations et la
           synthèse d'une séance. Captez-en une, et elle pourra s'écrire.
@@ -264,9 +354,17 @@ export function HypnosesFiche() {
                     <button
                       type="button"
                       className={s.pdf}
-                      disabled={ecriture || !brouillon || !cabinet?.reel}
+                      disabled={ecriture || !brouillon || !cabinet?.reel || verrouillee}
                       onClick={() => brouillon && void reprendreHypnose(cle, brouillon, h)}
-                      title={brouillon ? undefined : 'Il faut une séance analysée pour reprendre l’écriture.'}
+                      title={
+                        verrouillee
+                          ? horsContrat
+                            ? 'Votre contrat n’est pas en cours : l’écriture ne se reprend pas.'
+                            : 'L’hypnose n’est plus comprise dans votre offre : l’écriture ne se reprend pas.'
+                          : brouillon
+                            ? undefined
+                            : 'Il faut une séance analysée pour reprendre l’écriture.'
+                      }
                     >
                       {manquant ? libelleReprise(manquant) : 'Terminer'}
                     </button>
@@ -324,6 +422,18 @@ export function HypnosesFiche() {
                         classes={{ article: s.mouvement, titre: s.mouvementTitre, para: s.para }}
                         onCorriger={
                           cabinet?.reel && !ecriture ? (texte) => corrigerEnBase(h, m, texte) : undefined
+                        }
+                        retouche={
+                          cabinet?.reel
+                            ? {
+                                occupe: ecriture,
+                                patient: fiche.name,
+                                // Hors de l'option Hypnose, l'avis seul : la retouche est refusée.
+                                onRetoucher: verrouillee
+                                  ? undefined
+                                  : (retour, abandon) => retoucherEnBase(h, m, retour, abandon),
+                              }
+                            : undefined
                         }
                       />
                     ))}

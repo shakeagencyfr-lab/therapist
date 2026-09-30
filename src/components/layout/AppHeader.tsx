@@ -1,6 +1,8 @@
 import { useState, type CSSProperties } from 'react'
 import { Marque, Segmented } from '@/components/ui'
 import { useMaybeAuth } from '@/auth/session'
+import { useJetons } from '@/cabinet/useJetons'
+import { jetonsDits } from '@/lib/jetonsIA'
 import { couleurSure } from '@/lib/couleurs'
 import { cabinetById } from '@/state/resellerSelectors'
 import { useStore } from '@/state/store'
@@ -89,6 +91,15 @@ export function AppHeader() {
   const deuxRoles = Boolean(enseigne && monCabinet)
   const montrerCommutateur = !identite || deuxRoles
 
+  /* LE COMPTEUR DE JETONS (0065). Seulement quand le revendeur paie
+     l'analyse en jetons, seulement dans l'espace du cabinet — et pas dans
+     l'aperçu de l'espace patient : ce qui s'y montre est ce que la patiente
+     verrait, et elle ne voit jamais les jetons de sa thérapeute. */
+  const jetons = useJetons()
+  const solde = jetons?.mode === 'jetons' ? jetons.solde : null
+  const montrerJetons = !reseller && solde !== null && state.mode !== 'patient'
+  const soldeBas = solde !== null && jetons?.bareme ? solde < jetons.bareme.seance : false
+
   return (
     <header
       className={s.header}
@@ -105,6 +116,17 @@ export function AppHeader() {
           <span className={s.tagline}>{reseller ? 'Espace revendeur' : cabinet.tagline}</span>
         </div>
       </div>
+      {montrerJetons ? (
+        <button
+          type="button"
+          className={soldeBas ? `${s.jetons} ${s.jetonsBas}` : s.jetons}
+          onClick={() => set({ mode: 'integrations' })}
+          title="Vos jetons d'analyse, dans Intégrations"
+        >
+          {jetonsDits(solde ?? 0)}
+        </button>
+      ) : null}
+
       {/* Grand écran : les vues en pilules, à plat. */}
       <div className={s.right}>
         {!reseller && (

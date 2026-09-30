@@ -17,8 +17,10 @@ des deux le sert :
 | Route | Module | Ce qu'elle fait |
 | --- | --- | --- |
 | `/api/ai/{session-draft,module,affirmations,profile,hypnose}` | `ai.ts` | les cinq analyses |
+| `/api/ai/revision` | `ai.ts`, `retouche.ts` | la retouche d'un texte déjà écrit, sur le retour de la praticienne (0066) ; les préférences retenues sont relues par `preferences.ts` à chaque écriture |
 | `/api/integrations` | `integrations.ts` | clés Anthropic et Stripe, agenda, boutique |
-| `/api/cabinet?volet=…` | `cabinet.ts` | offre, domaine, envoi de courriels, site vitrine |
+| `/api/cabinet?volet=…` | `cabinet.ts` | offre, domaine, envoi de courriels, site vitrine, notes d'honoraires, jetons |
+| `/api/revendeur` | `revendeur.ts` | les jetons du revendeur : sa clé, son Stripe, son barème, ses recharges |
 | `/api/shop` | `shop.ts` | paiement d'un produit, et sa vérification |
 | `/api/invitations` | `invitations.ts` | le courriel qui porte le lien de connexion |
 
@@ -43,9 +45,24 @@ au nom de l'appelant, sous la RLS, et celui qui porte la clé de service,
 réservé aux écritures que la base refuse au navigateur.
 
 `droits.ts` lit ensuite ce que l'offre du cabinet ouvre — plafond de fiches,
-boutique, marque blanche, site vitrine — en appelant `cabinet_droits()`. La
-règle est calculée en base et nulle part ailleurs : deux endroits qui
-décideraient du même droit finiraient par ne plus être d'accord.
+boutique, marque blanche, site vitrine, hypnose — en appelant
+`cabinet_droits()`. La règle est calculée en base et nulle part ailleurs :
+deux endroits qui décideraient du même droit finiraient par ne plus être
+d'accord.
+
+`jetons.ts` décide qui paie une analyse (0065). Tant que le revendeur n'a pas
+activé les jetons ET posé sa clé, c'est la clé du cabinet, comme toujours.
+Sinon, la clé du revendeur paie, et chaque appel est réservé en jetons avant
+de partir (`jetons_debiter_forfait`, 0068), confirmé s'il produit, rendu s'il
+échoue — ou rendu par la base au bout de dix minutes si la fonction meurt
+avant. Les forfaits — les consignes et le profil d'une séance payée, les
+quatre mouvements d'une hypnose — se décident EN BASE, sous le verrou du
+débit : ce module vérifie seulement que la séance ou l'hypnose citée est du
+cabinet, et passe la règle et le plein prix. Les recharges et le pass
+Hypnose se paient par carte sur le compte Stripe du revendeur ; la commande
+est relue chez Stripe au retour, puis à chaque lecture de l'état tant
+qu'elle attend, sans webhook — et la clé Stripe du revendeur ne se retire
+ni ne se change tant qu'un paiement est en cours.
 
 
 ## Variables d'environnement
@@ -87,7 +104,7 @@ Pour l'analyse : `ANTHROPIC_API_KEY` est la clé d'accès à l'API Claude : elle
 
 ## Mode maquette
 
-Si `AI_MOCK` vaut `1`, les cinq routes d'analyse répondent depuis `mock.ts` avec des sorties de démonstration bien formées : le brouillon de séance, le module sur mesure, les affirmations, le profil actualisé et les mouvements d'hypnose. Aucun appel réseau n'est fait et aucune donnée de séance ne quitte la machine, ce qui permet de développer et de montrer toute l'interface sans clé. Les réponses portent un drapeau `mock` sur l'enveloppe (`{ "mock": true, "data": … }`) et non dans les données elles-mêmes : l'interface affiche les mêmes objets dans les deux modes, et peut signaler la maquette si elle le souhaite. Ces textes sont de la démonstration ; ils n'ont aucune valeur clinique.
+Si `AI_MOCK` vaut `1`, les six routes d'analyse répondent depuis `mock.ts` avec des sorties de démonstration bien formées : le brouillon de séance, le module sur mesure, les affirmations, le profil actualisé, les mouvements d'hypnose et la retouche (qui rend le texte reçu, marqué comme tel). Aucun appel réseau n'est fait et aucune donnée de séance ne quitte la machine, ce qui permet de développer et de montrer toute l'interface sans clé. Les réponses portent un drapeau `mock` sur l'enveloppe (`{ "mock": true, "data": … }`) et non dans les données elles-mêmes : l'interface affiche les mêmes objets dans les deux modes, et peut signaler la maquette si elle le souhaite. Ces textes sont de la démonstration ; ils n'ont aucune valeur clinique.
 
 ## Avant la production
 

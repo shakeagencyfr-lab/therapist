@@ -70,11 +70,12 @@ export interface CabinetStats {
 }
 
 /**
- * Une offre, et les quatre leviers qu'elle ouvre.
+ * Une offre, les leviers qu'elle ouvre, et ce qu'elle donne en jetons.
  *
- * Le revendeur vend l'application, pas l'analyse : chaque cabinet branche sa
- * propre clé Anthropic et paie ses appels. Une offre ne règle donc que ce que
- * l'application ouvre.
+ * Deux façons de payer l'analyse, au choix du revendeur (0065) : chaque
+ * cabinet branche sa clé Anthropic, ou le revendeur branche la sienne et
+ * chaque offre attribue un forfait mensuel de jetons. Le forfait n'a d'effet
+ * que dans ce second mode.
  */
 export interface Plan {
   code: PlanCode
@@ -88,17 +89,31 @@ export interface Plan {
   marqueBlanche: boolean
   /** La bibliothèque de sites vitrines. */
   site: boolean
+  /** Jetons attribués d'office chaque mois civil, en mode jetons. Ne se cumulent pas. */
+  jetonsMois: number
+  /** L'hypnose personnalisée est comprise. Sinon, elle s'achète en option. */
+  hypnoseIncluse: boolean
   /** Ce que l'offre apporte, pour l'argumentaire de vente. */
   includes: string[]
 }
 
-/** Ce qu'une offre ouvre, à part son plafond de fiches. */
-export type Levier = 'shop' | 'marqueBlanche' | 'site'
+/**
+ * Ce qu'une offre ouvre, à part son plafond de fiches et son forfait de
+ * jetons. `hypnoseIncluse` (0065) porte le nom de sa colonne : l'offre la
+ * comprend ou non, et un cabinet peut l'acheter en pass quand elle ne la
+ * comprend pas — ce pass ne se règle pas ici.
+ */
+export type Levier = 'shop' | 'marqueBlanche' | 'site' | 'hypnoseIncluse'
 
 export const LEVIERS: Array<{ code: Levier; label: string; detail: string }> = [
   { code: 'shop', label: 'Boutique en ligne', detail: 'Vendre audios, séances et programmes depuis l’espace patient.' },
   { code: 'marqueBlanche', label: 'Marque blanche totale', detail: 'Son domaine à elle, et ses courriels partis de son adresse.' },
   { code: 'site', label: 'Site vitrine', detail: 'Une page d’accueil publique, nourrie par sa fiche Google.' },
+  {
+    code: 'hypnoseIncluse',
+    label: 'Option Hypnose incluse',
+    detail: 'L’hypnose personnalisée de trente minutes, sans pass à acheter.',
+  },
 ]
 
 export interface Subscription {
@@ -135,6 +150,12 @@ export interface Subscription {
   shopOverride: boolean | null
   marqueBlancheOverride: boolean | null
   siteOverride: boolean | null
+  /** Forfait mensuel négocié. Null = celui de l'offre. */
+  jetonsMoisOverride: number | null
+  /** Hypnose ouverte ou fermée pour ce cabinet. Null = l'offre décide. */
+  hypnoseOverride: boolean | null
+  /** Fin du pass Hypnose acheté (ISO), s'il y en a un. */
+  hypnoseJusquAu: string | null
 }
 
 /** Les droits effectifs d'un cabinet : l'offre, corrigée de ses exceptions. */

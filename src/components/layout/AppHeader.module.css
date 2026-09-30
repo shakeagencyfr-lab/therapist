@@ -61,6 +61,37 @@
   flex: none;
 }
 
+/* Le compteur de jetons -------------------------------------------------
+   Une pilule discrète, tirée à droite ; la rangée des vues la suit sans
+   repousser l'avatar. Il ouvre la carte des jetons, dans Intégrations. */
+
+.jetons {
+  margin-left: auto;
+  flex: none;
+  padding: 6px 12px;
+  border: 1px solid var(--c-border-accent);
+  border-radius: var(--r-pill);
+  background: var(--c-accent-soft);
+  color: var(--c-accent-deep);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.jetons:hover {
+  border-color: var(--c-accent);
+}
+.jetonsBas {
+  color: var(--c-warn-text-2);
+  background: var(--c-warn-bg);
+  border-color: var(--c-warn-border);
+}
+.jetons + .right {
+  margin-left: 0;
+}
+
 /* Les réglages, derrière un bouton ------------------------------------- */
 
 .reglages {
@@ -324,5 +355,13 @@ button.me {
     display: block;
     margin-left: auto;
     min-width: 0;
+  }
+  /* Le compteur tient la marge : le menu se colle à lui. */
+  .jetons ~ .mobile {
+    margin-left: 0;
+  }
+  .jetons {
+    padding: 5px 10px;
+    font-size: 11.5px;
   }
 }

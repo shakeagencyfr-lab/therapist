@@ -50,6 +50,14 @@ describe('la route des réglages du cabinet', () => {
     expect(await statut(agirVolet({ volet: 'droits', action: 'regler' }, 'jeton'))).toBe(403)
   })
 
+  it('connaît le volet des jetons, et y refuse une action inconnue', async () => {
+    await expect(agirVolet({ volet: 'jetons', action: 'nimporte' }, 'jeton')).rejects.toMatchObject({
+      status: 400,
+      message: 'Action inconnue.',
+    })
+    expect(await statut(lireVolet('jetons', null))).toBe(401)
+  })
+
   it("n'identifie qu'une fois pour un refus", async () => {
     await statut(lireVolet('nimporte', 'jeton'))
     expect(identifier).toHaveBeenCalledTimes(1)

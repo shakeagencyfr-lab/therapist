@@ -400,6 +400,139 @@
   margin-bottom: 7px;
 }
 
+/* Dictée ---------------------------------------------------------------
+   Le champ garde sa place et son allure : l'habillage prend toute la
+   largeur qu'il aurait prise (ligne flexible, colonne, grille), le champ la
+   remplit, et le micro se pose dans son coin droit. */
+.dicteZone {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+.dicteChamp {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+}
+.dicteChamp > input,
+.dicteChamp > textarea {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* Deux classes : l'emporte sur le rembourrage propre à chaque écran, pour
+   que le texte ne passe jamais sous le micro. */
+.dicteChamp > .dicteAvecBouton {
+  padding-right: 40px;
+}
+
+.dicteBouton {
+  position: absolute;
+  top: calc(6px + var(--dicte-haut, 0px));
+  right: calc(6px + var(--dicte-droite, 0px));
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: none;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+/* Sur une ligne, le micro se centre sur la hauteur du champ. */
+.dicteBoutonLigne {
+  top: calc(50% + (var(--dicte-haut, 0px) - var(--dicte-bas, 0px)) / 2);
+  transform: translateY(-50%);
+}
+.dicteBouton:hover:not(:disabled) {
+  color: var(--c-accent-deep);
+  background: var(--c-accent-soft);
+}
+.dicteBouton:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+.dicteBouton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.dicteIcone {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* À l'écoute : le micro porte l'accent du cabinet et respire, pour qu'on
+   voie d'un coup d'œil qu'il est ouvert. */
+.dicteBoutonEcoute,
+.dicteBoutonEcoute:hover:not(:disabled) {
+  background: var(--c-accent);
+  color: var(--c-surface);
+}
+.dicteBoutonEcoute .dicteIcone {
+  animation: dicteSouffle 1.6s ease-in-out infinite;
+}
+@keyframes dicteSouffle {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+/* Un micro ouvert doit rester visible : on n'éteint que le battement. */
+@media (prefers-reduced-motion: reduce) {
+  .dicteBoutonEcoute .dicteIcone {
+    animation: none;
+  }
+}
+
+/* Au doigt, une cible plus large. */
+@media (pointer: coarse) {
+  .dicteBouton {
+    width: 36px;
+    height: 36px;
+    top: calc(4px + var(--dicte-haut, 0px));
+    right: calc(4px + var(--dicte-droite, 0px));
+  }
+  .dicteBoutonLigne {
+    top: calc(50% + (var(--dicte-haut, 0px) - var(--dicte-bas, 0px)) / 2);
+  }
+  .dicteChamp > .dicteAvecBouton {
+    padding-right: 44px;
+  }
+}
+
+.dicteInterim,
+.dicteErreur,
+.dicteMention {
+  display: block;
+  margin-top: 6px;
+  line-height: 1.5;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.dicteInterim {
+  font-size: 13px;
+  font-style: italic;
+  color: var(--c-text-muted);
+}
+.dicteErreur {
+  font-size: 12.5px;
+  color: var(--c-warn-text-2);
+}
+.dicteMention {
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+}
+
 /* Le logo d'un cabinet, dans le carré de sa marque. « contain » plutôt que
    « cover » : un logo se lit en entier, il ne se recadre pas. */
 .marqueImage {

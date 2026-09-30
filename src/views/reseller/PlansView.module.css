@@ -39,6 +39,13 @@
   color: var(--c-text-muted);
   margin-left: 5px;
 }
+/* Le forfait de jetons, sous le prix : ce que l'offre verse chaque mois. */
+.forfait {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--c-text-2);
+}
 
 /* Le nom de l'offre s'édite sur place : c'est un titre, pas un formulaire. */
 .planNameInput {
@@ -364,4 +371,28 @@
     grid-template-columns: minmax(0, 1fr);
     gap: 2px;
   }
+}
+
+/* Les jetons d'un cabinet, dans ses exceptions : le solde, et le geste. */
+.jetonsSolde {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--c-text-2);
+}
+.jetonsSolde strong {
+  font-weight: 600;
+}
+.offrir {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+.offrir input {
+  min-width: 0;
+}
+.offrir button {
+  grid-column: 1 / -1;
+  justify-self: start;
 }

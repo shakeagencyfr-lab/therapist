@@ -453,6 +453,19 @@
 .quiz {
   padding: 22px 24px 24px;
 }
+
+/* Les pouces sous le module, alignés sur ses blocs. Sans quiz, ils suivent
+   le « pourquoi » : le dernier bloc ne leur laisse pas de marge basse. */
+.retour {
+  margin: 0;
+  padding: 12px 24px 18px;
+  border-top: 1px solid var(--c-border-light);
+}
+@media (max-width: 700px) {
+  .retour {
+    padding: 10px 16px 14px;
+  }
+}
 .quizLabel {
   margin-bottom: 13px;
 }

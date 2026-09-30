@@ -1,0 +1,356 @@
+/* L'onglet « Jetons IA » : les panneaux de l'espace revendeur (Équipe,
+   Offres), empilés — la clé et le barème pleine largeur, les réglages
+   secondaires côte à côte. */
+
+.demo {
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+  margin: 0 0 18px;
+}
+
+.pile {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.grille {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.colonne {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.panel {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  padding: 18px 20px;
+  min-width: 0;
+}
+
+.panelHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px 16px;
+  flex-wrap: wrap;
+}
+
+.panelTitle {
+  font-family: var(--font-serif);
+  font-size: 19px;
+  font-weight: 400;
+  margin: 0 0 4px;
+}
+
+.panelSub {
+  max-width: 78ch;
+  font-size: 12px;
+  color: var(--c-text-muted);
+  line-height: 1.5;
+  margin: 0 0 14px;
+}
+
+.compte {
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+}
+
+.muted {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--c-text-muted);
+}
+
+.aide {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+  margin: 0;
+}
+
+.probleme {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--c-warn-text-2);
+  margin: 0;
+}
+
+.lecture {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--c-text-2);
+}
+
+.label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+
+.champ {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.champ input {
+  min-width: 0;
+}
+
+.gestes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Une clé posée : ce qu'on en montre, et la sortie. */
+.posee {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border-light);
+  margin-bottom: 12px;
+}
+.poseeTexte {
+  font-size: 13px;
+  color: var(--c-text-2);
+}
+
+/* Un champ, un bouton, alignés en bas sur grand écran. */
+.formLigne {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.formLigne .champ {
+  flex: 1 1 300px;
+}
+
+/* L'interrupteur du mode jetons : un titre, ce qu'il change, le geste. */
+.bascule {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--c-border-light);
+}
+.basculeTexte {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 64ch;
+  min-width: 0;
+}
+.basculeTitre {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Le barème : une ligne par action, cinq colonnes sur grand écran. */
+.bareme {
+  margin-bottom: 12px;
+}
+.baremeTete,
+.baremeLigne {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px 112px 92px 72px;
+  gap: 12px;
+  align-items: center;
+}
+.baremeTete {
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--c-border-light);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+.baremeTete span:not(:first-child) {
+  text-align: right;
+}
+.baremeListe {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.baremeLigne {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--c-border-light);
+  font-size: 13px;
+}
+.baremeLigne:last-child {
+  border-bottom: none;
+}
+.baremeAction {
+  color: var(--c-text-2);
+  line-height: 1.4;
+}
+.baremeCellule {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text);
+  white-space: nowrap;
+}
+.champJetons {
+  width: 100%;
+  max-width: 96px;
+  text-align: right;
+}
+.muet {
+  color: var(--c-text-muted);
+  font-size: 12px;
+}
+.faible {
+  color: var(--c-warn-text-2);
+  font-weight: 600;
+}
+
+.pied {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--c-border-light);
+}
+
+/* Les listes : recharges, cabinets. */
+.liste {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+.ligne {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 12px;
+  flex-wrap: wrap;
+  padding: 11px 0;
+  border-top: 1px solid var(--c-border-light);
+}
+.ligne:first-child {
+  border-top: none;
+}
+.qui {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.nom {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--c-text);
+  overflow-wrap: anywhere;
+}
+.horsVente {
+  font-weight: 400;
+  color: var(--c-warn-text-2);
+}
+.detail {
+  font-size: 12px;
+  color: var(--c-text-muted);
+}
+.chiffres {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--c-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.chiffres strong {
+  color: var(--c-text);
+  font-weight: 500;
+}
+
+/* Une recharge : trois champs et ses gestes, sur une ligne quand il y a la place. */
+.formRecharge {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.8fr) minmax(0, 0.8fr) auto;
+  gap: 10px;
+  align-items: end;
+  width: 100%;
+}
+.formRecharge > .aide {
+  grid-column: 1 / -1;
+}
+
+.trois {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 1000px) {
+  .grille {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Petit écran : chaque action du barème devient une fiche, les chiffres
+   portent leur nom — un tableau à cinq colonnes ne tient pas dans 375 px. */
+@media (max-width: 700px) {
+  .baremeTete {
+    display: none;
+  }
+  .baremeLigne {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 12px;
+    padding: 12px 0;
+  }
+  .baremeAction {
+    grid-column: 1 / -1;
+    font-weight: 500;
+  }
+  .baremeCellule {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .baremeCellule::before {
+    content: attr(data-libelle);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--c-text-muted);
+    font-weight: 400;
+  }
+  .formRecharge {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .formRecharge > .champ:first-child,
+  .formRecharge > .gestes {
+    grid-column: 1 / -1;
+  }
+  .trois {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

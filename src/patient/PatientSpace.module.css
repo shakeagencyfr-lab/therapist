@@ -754,6 +754,17 @@
   color: var(--c-text-muted);
 }
 
+/* La ligne sur l'IA, juste au-dessus des liens légaux : aussi discrète
+   qu'eux, lisible quand même. */
+.mentionIA {
+  margin: 10px 8px 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+  text-align: center;
+  text-wrap: balance;
+}
+
 /* Le pied de l'espace, sous la mention d'urgence : plus discret qu'elle. */
 .legal {
   padding: 2px 8px 0;

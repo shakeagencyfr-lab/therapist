@@ -1,5 +1,5 @@
 import { useEffect, useState, type ChangeEvent, type KeyboardEvent } from 'react'
-import { Button, Card, Overline } from '@/components/ui'
+import { Button, Card, Overline, TextInput } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { plural } from '@/lib/format'
 import { useStore } from '@/state/store'
@@ -296,13 +296,22 @@ export function AudiosView() {
     }))
   }
 
+  /**
+   * Enregistre le titre saisi. À la sortie du champ, et aussi à la fin
+   * d'une dictée — le champ garde alors le focus, et la praticienne peut
+   * continuer d'écrire ou de dicter pendant l'enregistrement (une écriture
+   * et une relecture du dossier). Ce qu'elle ajoute pendant ce temps reste
+   * dans le champ, pour la prochaine sortie ou la prochaine fin de dictée :
+   * la saisie ne se vide que si elle est encore celle qui est partie.
+   */
   async function commitTitle() {
     if (!reel || !cabinet || !selected || titreSaisi === null) return
-    if (titreSaisi.trim() && titreSaisi.trim() !== selected.title) {
-      const r = await cabinet.renommerAudio(selected.id, titreSaisi)
+    const envoye = titreSaisi
+    if (envoye.trim() && envoye.trim() !== selected.title) {
+      const r = await cabinet.renommerAudio(selected.id, envoye)
       if (!r.ok) set({ libNotice: r.message })
     }
-    setTitreSaisi(null)
+    setTitreSaisi((courant) => (courant === envoye ? null : courant))
   }
 
   async function recategorise(cat: string) {
@@ -393,7 +402,9 @@ export function AudiosView() {
               ))}
               {state.catAdd ? (
                 <span className={s.catForm}>
-                  <input
+                  <TextInput
+                    nu
+                    dictee
                     className={s.catInput}
                     value={state.catName}
                     aria-label="Nom de la catégorie"
@@ -467,12 +478,17 @@ export function AudiosView() {
             <div className={s.detailLabel}>
               <Overline>Audio sélectionné</Overline>
             </div>
-            <input
+            {/* Le titre s'enregistre à la sortie du champ ; le micro ne fait
+                pas sortir : la fin de la dictée enregistre à sa place. */}
+            <TextInput
+              nu
+              dictee
               className={s.detailTitle}
               value={titreSaisi ?? selected.title}
               aria-label="Titre de l'audio"
               onChange={(e) => renameSelected(e.target.value)}
               onBlur={() => void commitTitle()}
+              onDicteeFin={() => void commitTitle()}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
               }}

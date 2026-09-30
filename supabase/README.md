@@ -127,8 +127,14 @@ Relevé du 28 septembre 2026 (base `koytgcbpeorupdklswxd`).
 | `0062_les_rappels_suivent_le_compte_et_le_cabinet.sql` | 20260929092505 | 0062_les_rappels_suivent_le_compte_et_le_cabinet |
 | `0063_le_pentest_referme.sql` | 20260929104448 | 0063_le_pentest_referme |
 | `0064_la_note_part_par_courriel.sql` | 20260929131737 | 0064_la_note_part_par_courriel |
+| `0065_les_jetons.sql` | 20260930081336 | 0065_les_jetons |
+| `0066_les_retouches.sql` | 20260930092908 | 0066_les_retouches |
+| `0067_les_conditions_acceptees.sql` | 20260930074507 | 0067_les_conditions_acceptees |
+| `0068_les_jetons_sous_verrou.sql` | 20260930115309 | 0068_les_jetons_sous_verrou |
 
 `0060` (demandes d'essai) a été appliquée avant `0055` à `0059` : elles ne se touchent pas.
+
+`0065` (les jetons) et `0066` (les retouches) ont été appliquées après `0067` : elles ne se touchent pas.
 
 Les écarts, et ce qu'ils recouvrent — le contenu, lui, est en place :
 
@@ -248,12 +254,49 @@ persiste, et le message dit ce qui a été vérifié.
   dates d'encaissement et de remboursement (deux index partiels). Les ventes
   d'une fiche supprimée partent avec elle (`on delete cascade` de `0010`,
   inchangé) : l'écran invite à exporter avant.
-- **Un solde de crédits ne s'écrit pas, il se somme.** `credit_ledger` est en
-  ajout seul, et `insert`, `update`, `delete` y sont révoqués pour le rôle
-  authentifié : seul le serveur y écrit. Une thérapeute ne peut donc pas se
-  créditer, ni effacer une consommation, et chaque mouvement garde sa raison.
-  `cabinet_credit_balance()` fait la somme ; `cabinet_ai_billing()` rend au
-  cabinet son mode, son solde et son découvert — rien du revendeur.
+- **Un solde de crédits ne s'écrit pas, il se somme** (`0016`, aujourd'hui
+  inerte : ses fonctions sont retirées depuis `0038`, ses tables restent vides
+  et intactes). Les jetons de `0065` l'ont remplacé sans le déterrer.
+- **Les jetons sont des lots, et aucun navigateur n'en écrit un** (`0065`).
+  Le mode ne vaut que si le revendeur l'a activé ET a posé sa clé Anthropic
+  (`jetons_mode_actif`) ; sinon chaque cabinet garde sa clé, et rien ne se
+  verse. Le forfait du mois (`plans.jetons_mois`, ou l'exception du contrat)
+  est versé paresseusement par `jetons_assurer_periode` et expire au premier
+  du mois suivant (Europe/Paris) ; l'essai reçoit un lot unique qui expire
+  avec lui. Le serveur réserve avant l'appel (`jetons_debiter`, verrou par
+  cabinet, SQLSTATE `KL402` quand le solde manque), confirme après, rend en
+  cas d'échec (`jetons_rembourser`, lot par lot). Une commande Stripe ne se
+  dit payée que par `jetons_encaisser`, qui passe la commande et verse la
+  recharge — ou prolonge le pass Hypnose — d'un seul geste, une seule fois.
+  Toutes ces fonctions sont au rôle de service seul ; le cabinet lit son état
+  par `cabinet_jetons()`. L'hypnose devient une option (`hypnose_ouverte`,
+  et la clé `hypnose` de `cabinet_droits`) ; les cabinets qui en avaient déjà
+  écrit une la gardent par exception (`hypnose_override = true`).
+- **Le prix se décide où il se débite** (`0068`). `jetons_debiter_forfait`
+  prend le verrou du cabinet, compte les consommations vivantes, choisit
+  « compris » ou le plein prix (`jetons_prix_du_forfait`), puis débite : deux
+  requêtes simultanées ne passent plus toutes deux comprises. Une séance
+  payée comprend huit consignes et une actualisation du profil ; une hypnose
+  comprend ses quatre mouvements une fois chacun (la consommation s'inscrit
+  `<hypnose>:<mouvement>`, et un mouvement redemandé ouvre une nouvelle
+  hypnose payée). Une réservation restée « reserve » plus de dix minutes est
+  rendue (`jetons_liberer_reservations`, appelée par `jetons_assurer_periode`,
+  donc à la dépense comme à la lecture). La dépense suit l'ordre des CGV : le
+  forfait du mois ou l'essai, puis les jetons du pass, puis achats et gestes
+  par ancienneté. Une consommation prend l'heure de son inscription
+  (`clock_timestamp()`), sous le verrou (`tests/jetons_0068.sql`).
+- **Un avis sur l'IA ne dit ni sur qui, ni quoi** (`0066`). `retours_ia`
+  compte les pouces levés ou baissés par type de texte (hypnose, synthèse,
+  module…), sans patient ni contenu, comme `ai_usage`. `preferences_ia`
+  garde ce que la praticienne a demandé de retenir après une retouche :
+  1 à 400 caractères, vingt actives au plus par cabinet et par type (la plus
+  ancienne se retire), relues par le serveur avec la clé de service et
+  posées dans la demande de chaque génération du même type — jamais dans
+  les règles du système. Le cabinet lit les deux tables ; il n'y écrit que
+  par `cabinet_voter_ia`, `cabinet_retenir_preference` et
+  `cabinet_oublier_preference`, qui vérifient qu'il en est membre. Ni le
+  revendeur, ni le patient, ni l'anonyme n'y lisent rien
+  (`tests/retouches_0066.sql`).
 - **`reseller_secrets` n'a ni politique ni droit pour `authenticated`**, comme
   `cabinet_secrets` (0009) : la clé Anthropic et la clé Stripe du revendeur
   vivent chiffrées, et ne sortent que côté serveur. `reseller_ai_settings` se

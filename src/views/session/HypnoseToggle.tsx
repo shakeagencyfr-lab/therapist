@@ -1,7 +1,11 @@
 import { useMaybeCabinet } from '@/cabinet/context'
+import { hypnoseOuverte, useDroits } from '@/cabinet/droits'
+import { useDevis } from '@/cabinet/useJetons'
 import { COUT_HYPNOSE, COUT_HYPNOSE_MAX } from '@/lib/coutIA'
 import { euro } from '@/lib/format'
+import { jetonsDits, resteDit } from '@/lib/jetonsIA'
 import { useStore } from '@/state/store'
+import { VerrouHypnose } from '@/views/jetons/VerrouHypnose'
 import s from './HypnoseToggle.module.css'
 
 /**
@@ -24,6 +28,10 @@ import s from './HypnoseToggle.module.css'
  * réglage que sur sa fiche, pas un doublon. L'état local mirroite la fiche :
  * l'écran répond au clic sans attendre la base, et la démonstration
  * fonctionne sans base du tout.
+ *
+ * EN JETONS (0065), le prix se dit en jetons — celui du barème du revendeur,
+ * pour les quatre mouvements. Et quand l'offre ne comprend pas l'hypnose, la
+ * case laisse la place au verrou qui dit comment l'ouvrir.
  */
 export function HypnoseToggle({
   actif,
@@ -36,8 +44,11 @@ export function HypnoseToggle({
 }) {
   const { state } = useStore()
   const cabinet = useMaybeCabinet()
+  const droits = useDroits()
+  const devis = useDevis('hypnose')
   const patient = state.patients[state.sessionPatient]
   if (!patient) return null
+  if (!hypnoseOuverte(droits)) return <VerrouHypnose />
 
   const prenom = patient.name.split(' ')[0] ?? patient.name
 
@@ -55,12 +66,21 @@ export function HypnoseToggle({
       />
       <span>
         <span className={s.titre}>Écrire une hypnose pour {prenom}</span>
-        <span className={s.hint}>
-          Une séance complète, bâtie sur les formulations relevées ci-dessus et lisible à voix
-          haute. C'est l'analyse la plus coûteuse du produit — jusqu'à {euro(COUT_HYPNOSE_MAX)}, et
-          autour de {euro(COUT_HYPNOSE)} pour les hypnoses écrites jusqu'ici — alors cochez-la
-          quand elle sert. Le réglage vaut aussi pour ses prochaines séances.
-        </span>
+        {devis ? (
+          <span className={s.hint}>
+            Une séance complète, bâtie sur les formulations relevées ci-dessus et lisible à voix
+            haute. C'est l'analyse la plus coûteuse du produit — {jetonsDits(devis.cout)} pour ses
+            quatre mouvements, {resteDit(devis.solde)} — alors cochez-la quand elle sert. Le réglage
+            vaut aussi pour ses prochaines séances.
+          </span>
+        ) : (
+          <span className={s.hint}>
+            Une séance complète, bâtie sur les formulations relevées ci-dessus et lisible à voix
+            haute. C'est l'analyse la plus coûteuse du produit — jusqu'à {euro(COUT_HYPNOSE_MAX)}, et
+            autour de {euro(COUT_HYPNOSE)} pour les hypnoses écrites jusqu'ici — alors cochez-la
+            quand elle sert. Le réglage vaut aussi pour ses prochaines séances.
+          </span>
+        )}
       </span>
     </label>
   )

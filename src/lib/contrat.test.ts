@@ -228,6 +228,34 @@ describe('le journal des offres et des contrats', () => {
     )
   })
 
+  it('dit le forfait de jetons et l’hypnose, en exception comme dans l’offre (0065)', () => {
+    expect(
+      phraseDuJournal(
+        entree('contrat.exception', { jetons_mois: { avant: null, apres: 1200 }, hypnose: { avant: null, apres: true } }),
+        nom,
+      ),
+    ).toBe("Cabinet Fontaine : exception — forfait selon l'offre → 1200 jetons par mois ; hypnose selon l'offre → ouverte.")
+    expect(
+      phraseDuJournal(
+        {
+          ...entree('offre.reglee', {
+            code: 'reseau',
+            champs: { jetons_mois: { avant: 0, apres: 2000 }, hypnose_incluse: { avant: false, apres: true } },
+          }),
+          cabinet: null,
+          cabinetId: null,
+        },
+        nom,
+      ),
+    ).toBe('Offre Réseau réglée — forfait 0 jeton par mois → 2000 jetons par mois ; hypnose non comprise → comprise.')
+    expect(
+      phraseDuJournal(entree('contrat.option_hypnose', { avant: null, apres: '2026-11-01T12:00:00Z' }), nom),
+    ).toBe("Cabinet Fontaine : option Hypnose ouverte jusqu'au 1 novembre 2026.")
+    expect(phraseDuJournal(entree('contrat.option_hypnose', { avant: '2026-11-01T12:00:00Z', apres: null }), nom)).toBe(
+      'Cabinet Fontaine : option Hypnose retirée.',
+    )
+  })
+
   it('nomme l’auteur sans nommer personne', () => {
     expect(auteurDit('vous')).toBe('par vous')
     expect(auteurDit('equipe')).toBe('par votre équipe')

@@ -159,6 +159,7 @@ export function VueRappelsReguliers({
           }}
         >
           <TextInput
+            dictee
             value={titre}
             maxLength={120}
             onChange={(e) => setTitre(e.target.value)}
@@ -166,6 +167,7 @@ export function VueRappelsReguliers({
             aria-label="Titre du rappel régulier"
           />
           <TextArea
+            dictee
             rows={3}
             value={texte}
             maxLength={1000}

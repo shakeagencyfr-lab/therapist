@@ -53,6 +53,8 @@ import {
   revendicationsInterdites,
 } from '../src/legal/contenu'
 import { PageLegaleVue } from '../src/legal/PageLegale'
+import { MISE_A_JOUR as MISE_A_JOUR_DES_CONDITIONS } from '../src/legal/version'
+import { CarteConditions } from '../src/auth/GardeConditions'
 import { PLANS } from '../src/data/reseller'
 import { SessionProvider } from '../src/auth/session'
 import { ChampProchaineSeance } from '../src/views/therapist/ProchaineSeance'
@@ -61,6 +63,20 @@ import { VueProposerParcours } from '../src/views/programmes/ProposerParcours'
 import { instantDeParis } from '../src/lib/agenda'
 import { jourDeParis } from '../src/lib/assiduite'
 import { DOSSIER_AVANT_LECTURE, type AppState, type ResellerView, type ViewMode } from '../src/state/state'
+import { VueJetons } from '../src/views/jetons/CarteJetons'
+import { CoutEnJetons } from '../src/views/jetons/CoutEnJetons'
+import { VerrouHypnose } from '../src/views/jetons/VerrouHypnose'
+import { DroitsContexte } from '../src/cabinet/droits'
+import { etatJetonsDemo } from '../src/data/jetons'
+import { JetonsContexte, type JetonsData } from '../src/cabinet/useJetons'
+import { devisJetons } from '../src/lib/jetonsIA'
+import { ETAT_REVENDEUR_DEMO } from '../src/data/jetons'
+import { JetonsRevendeurContexte, type JetonsRevendeurData } from '../src/reseller/useJetonsRevendeur'
+import { JetonsView } from '../src/views/reseller/JetonsView'
+import { TexteMouvement } from '../src/views/therapist/TexteMouvement'
+import { RetourIA } from '../src/components/retouche/RetourIA'
+import { FenetreRetouche } from '../src/components/retouche/FenetreRetouche'
+import { VuePreferencesIA } from '../src/views/integrations/PreferencesIA'
 
 const noms = Object.values(PATIENTS).map((p) => p.name)
 const extraits = Object.values(PATIENTS).flatMap((p) => [
@@ -204,6 +220,41 @@ if (avecChoix) {
     echecs++
   } else {
     console.log(`✓ session/choisie     ${String(avecChoix.length).padStart(6)} octets · séance au nom de ${nomChoisi}`)
+  }
+}
+
+/* 1 quater bis. LA RÈGLE DU MICRO. Une séance sans transcription promet
+   que rien n'est enregistré PENDANT la séance — pas « aucun micro » : le
+   champ des notes en a un quand le consentement est signé (la praticienne
+   dicte ses propres notes), et le brouillon, après la séance, garde le sien.
+   Ouverte sans enregistrement, le champ des notes n'en a pas. */
+{
+  const lu = (html: string) => html.replace(/&#x27;/g, "'")
+  const manque: string[] = []
+  const consentement = lu(avecChoix)
+  if (!consentement.includes("Rien n'est enregistré pendant la séance, rien n'est transcrit")) {
+    manque.push("la porte « sans enregistrement » ne dit pas que rien n'est enregistré pendant la séance")
+  }
+  const seance = { space: 'cabinet', mode: 'session', sessionPatient: choisie, consent: true, capture: 'notes' } as const
+  const notes = lu(rendu('session/notes', seance))
+  const sansEnregistrement = lu(rendu('session/sans-enregistrement', { ...seance, sansEnregistrement: true }))
+  if (!notes.includes("Rien n'est enregistré pendant la séance : écrivez vos notes, ou dictez-les")) {
+    manque.push('les notes seules ne disent pas que rien de la séance ne s’enregistre')
+  }
+  if (!sansEnregistrement.includes("Séance sans enregistrement : rien n'est enregistré pendant la séance")) {
+    manque.push('la séance sans enregistrement ne dit pas sa promesse')
+  }
+  if (!sansEnregistrement.includes('vos notes s\'écrivent au clavier')) {
+    manque.push('la séance sans enregistrement ne dit pas que ses notes s’écrivent au clavier')
+  }
+  for (const [nom, html] of [['consentement', consentement], ['notes', notes], ['sans enregistrement', sansEnregistrement]] as const) {
+    if (/Pas de micro|Aucun micro|micro reste fermé/i.test(html)) manque.push(`${nom} promet encore « pas de micro »`)
+  }
+  if (manque.length) {
+    console.error(`✗ session/micro : ${manque.join(' ; ')}`)
+    echecs++
+  } else {
+    console.log(`✓ session/micro      ${String(notes.length).padStart(6)} octets · « rien n'est enregistré pendant la séance », jamais « pas de micro »`)
   }
 }
 
@@ -552,7 +603,7 @@ if (compteRevendeur && !compteRevendeur.includes('Mon compte')) {
 }
 
 // 2. Les quatre vues du revendeur rendent, et ne montrent aucun patient.
-const VUES: ResellerView[] = ['portfolio', 'brand', 'plans', 'demandes', 'fiche', 'equipe']
+const VUES: ResellerView[] = ['portfolio', 'brand', 'plans', 'jetons', 'demandes', 'fiche', 'equipe']
 for (const rView of VUES) {
   const html = rendu(`revendeur/${rView}`, { space: 'reseller', rView })
   if (!html) continue
@@ -1136,9 +1187,26 @@ try {
     if (!page.includes('href="#essai"')) manque.push('« Demander un essai » ne mène pas au formulaire')
     // Une demande, pas un accès : l'essai s'ouvre après un échange.
     if (/Essayer \d+ jours/.test(texte)) manque.push('un bouton promet un essai immédiat (« Essayer 14 jours »)')
-    // Sans clé Anthropic, aucune note : la page le dit près des offres et dans l'essai.
-    if (!/Sans clé, l’espace patient et le suivi fonctionnent, mais aucune note n’est rédigée/.test(texte)) {
-      manque.push('la clé Anthropic du cabinet n’est pas dite nécessaire')
+    // L'IA se paie en jetons : la page le dit près des offres et près de la note.
+    if (!/Les jetons d’IA, inclus chaque mois/.test(texte)) manque.push('les jetons d’IA ne sont pas dits près des offres')
+    if (!/Sans jetons disponibles, l’espace patient et le suivi fonctionnent, mais aucune note n’est rédigée/.test(texte)) {
+      manque.push('la page ne dit pas ce qui se passe sans jetons')
+    }
+    if (/colle(?:z)? sa clé|ne prend rien dessus|la clé Anthropic de votre cabinet/.test(texte)) {
+      manque.push('la page demande encore la clé Anthropic du cabinet')
+    }
+    if (!/TVA non applicable, art\. 293 B du CGI/.test(texte)) manque.push('la franchise de TVA n’est pas dite')
+    if (!/sans engagement/.test(texte)) manque.push('l’engagement n’est pas dit')
+    // Les conditions générales : une case à part, jamais cochée d'avance, et les deux documents.
+    const caseConditions = /<input[^>]*data-champ="conditions"[^>]*>/.exec(page)?.[0] ?? ''
+    if (!caseConditions) manque.push('la case des conditions générales manque au formulaire')
+    else if (!/required/.test(caseConditions) || /checked=""/.test(caseConditions)) {
+      manque.push('la case des conditions générales n’est pas exigée, ou arrive cochée')
+    }
+    for (const chemin of ['/cgv', '/cgu']) {
+      if (!new RegExp(`<label[^>]*>J’ai lu et j’accepte les[\\s\\S]*?<a href="${chemin}" target="_blank"`).test(page)) {
+        manque.push(`la case des conditions ne mène pas à ${chemin} dans un nouvel onglet`)
+      }
     }
     if (/avant chaque analyse/i.test(texte)) manque.push('la page promet une estimation « avant chaque analyse »')
     if (/Plusieurs praticiennes/i.test(texte)) manque.push("l'équipe est vendue comme propre à une offre")
@@ -1377,15 +1445,22 @@ try {
     if (vus.length) manque.push(`${cle} montre des fiches (${vus.join(', ')})`)
   }
 
-  const portes: Array<[string, () => string]> = [
-    ['la porte des praticiennes', () => renderToString(h(SessionProvider, null, h(PortePraticienne)))],
-    ['la page d’un cabinet', () => renderToString(h(VitrinePage, { site: SITE_FICTIF as never }))],
+  /* Les conditions de vente lient l'éditrice et les cabinets : la porte des
+     professionnels y mène, la page d'un cabinet — que lisent ses patients —
+     non (src/legal/chemins.ts, `pro`). */
+  const portes: Array<[string, boolean, () => string]> = [
+    ['la porte des praticiennes', true, () => renderToString(h(SessionProvider, null, h(PortePraticienne)))],
+    ['la page d’un cabinet', false, () => renderToString(h(VitrinePage, { site: SITE_FICTIF as never }))],
   ]
-  for (const [nom, rendre] of portes) {
+  for (const [nom, pro, rendre] of portes) {
     try {
       const html = rendre()
       for (const l of LIENS_LEGAUX) {
         const lien = new RegExp(`<a[^>]*href="${l.chemin}"[^>]*>`).exec(html)?.[0] ?? ''
+        if (l.pro && !pro) {
+          if (lien) manque.push(`${nom} mène à ${l.chemin}, réservé aux professionnels`)
+          continue
+        }
         if (!lien) manque.push(`${nom} ne mène pas à ${l.chemin}`)
         else if (!/target="_blank"/.test(lien) || !/rel="noopener noreferrer"/.test(lien)) {
           manque.push(`${nom} : ${l.chemin} ne s’ouvre pas dans un nouvel onglet`)
@@ -1394,6 +1469,43 @@ try {
     } catch (err) {
       manque.push(`${nom} ne se rend pas : ${(err as Error).message}`)
     }
+  }
+
+  /* LA CARTE DES CONDITIONS (src/auth/GardeConditions.tsx, 0067). Une case
+     jamais cochée d'avance, les deux documents dans un nouvel onglet, le
+     bouton « Accepter et continuer », et une sortie. En marque blanche, ni
+     le nom ni le logo de Klaro. */
+  const sansGeste = async () => true
+  for (const neutre of [false, true]) {
+    let html = ''
+    try {
+      html = renderToString(
+        h(CarteConditions, {
+          neutre,
+          cabinet: neutre ? { nom: 'Cabinet Fontaine', logo: 'CF', logoUrl: null, tagline: 'Hypnose à Nantes' } : null,
+          miseAJour: neutre,
+          accepter: sansGeste,
+          passer: () => undefined,
+          seDeconnecter: () => undefined,
+        }),
+      )
+    } catch (err) {
+      manque.push(`la carte des conditions ne se rend pas : ${(err as Error).message}`)
+      continue
+    }
+    const quelle = neutre ? 'la carte des conditions en marque blanche' : 'la carte des conditions'
+    const caseHtml = /<input[^>]*type="checkbox"[^>]*>/.exec(html)?.[0] ?? ''
+    if (!caseHtml || /checked=""/.test(caseHtml) || !/required/.test(caseHtml)) manque.push(`${quelle} : la case manque, n’est pas exigée, ou arrive cochée`)
+    for (const chemin of ['/cgv', '/cgu']) {
+      if (!new RegExp(`<a href="${chemin}" target="_blank" rel="noopener noreferrer"`).test(html)) {
+        manque.push(`${quelle} ne mène pas à ${chemin} dans un nouvel onglet`)
+      }
+    }
+    if (!html.includes('Accepter et continuer')) manque.push(`${quelle} n’a pas son bouton`)
+    if (!html.includes(MISE_A_JOUR_DES_CONDITIONS)) manque.push(`${quelle} ne dit pas la version`)
+    if (!html.includes('Me déconnecter')) manque.push(`${quelle} n’a pas de sortie`)
+    if (neutre && /Klaro|klaro-/i.test(html)) manque.push(`${quelle} montre Klaro`)
+    if (!neutre && !html.includes('klaro-monogramme')) manque.push(`${quelle} ne porte pas la marque du produit`)
   }
 
   if (manque.length) {
@@ -1553,6 +1665,461 @@ try {
     echecs++
   } else {
     console.log(`✓ agenda           ${String(liste.length).padStart(6)} octets · séances du jour, liste datée, rappel dit, parcours proposé sans rien imposer`)
+  }
+}
+
+/* 9. LES JETONS IA (0065). L'onglet du revendeur montre ses sept réglages et
+   des marges calculées sur des coûts réels ; la carte du cabinet dit son
+   solde, quand son forfait se renouvelle, ce que coûte chaque action et
+   comment racheter — ou à qui demander ; la phrase posée à côté d'un bouton
+   d'analyse dit le prix et, quand le solde manque, le chemin de la recharge.
+   Rien de cela ne s'affiche hors du mode jetons : la démonstration du
+   cabinet, sans fournisseur de jetons, garde les textes de la clé. */
+{
+  const manque: string[] = []
+  const onglet = rendu('revendeur/jetons-contenu', { space: 'reseller', rView: 'jetons' })
+  for (const titre of [
+    'Votre clé d&#x27;analyse',
+    'Alimenter tous mes cabinets avec cette clé',
+    'Barème des jetons',
+    'Recharges',
+    'Option Hypnose',
+    'Essai',
+    'Encaissement',
+    'Consommation du mois',
+    'Séance complète (note, consignes des exercices retenus, mise à jour du profil)',
+    'Hypnose de 30 minutes',
+  ]) {
+    if (!onglet.includes(titre)) manque.push(`l'onglet revendeur ne dit pas « ${titre} »`)
+  }
+  if (!/\d+ %/.test(onglet)) manque.push("aucune marge n'est calculée")
+  if (!onglet.includes('Réglages de démonstration')) manque.push('la démonstration ne se dit pas en lecture seule')
+  if (/sk-ant-[A-Za-z0-9]|sk_live_[A-Za-z0-9]/.test(onglet)) manque.push("un morceau de clé apparaît à l'écran")
+  if (onglet.includes('Enregistrer le barème')) manque.push('la démonstration propose de régler ce qu’elle ne peut pas enregistrer')
+
+  // Le propriétaire connecté, posé à la main : lui seul voit les champs et les gestes.
+  const proprietaire: JetonsRevendeurData = {
+    etat: { ...ETAT_REVENDEUR_DEMO, proprietaire: true },
+    reel: true,
+    chargement: false,
+    erreur: '',
+    enCours: '',
+    recharger: async () => {},
+    agir: async () => ({ ok: true, message: '' }),
+    duCabinet: () => null,
+  }
+  const reglable = renderToString(
+    h(
+      AppStoreProvider,
+      { initial: { space: 'reseller', rView: 'jetons' } },
+      h(JetonsRevendeurContexte.Provider, { value: proprietaire }, h(JetonsView)),
+    ),
+  )
+  for (const geste of [
+    'Enregistrer le barème',
+    'aria-label="Jetons pour : Hypnose de 30 minutes"',
+    'Désactiver',
+    'Remplacer',
+    'Ajouter',
+    'Déconnecter',
+  ]) {
+    if (!reglable.includes(geste)) manque.push(`le propriétaire ne trouve pas « ${geste} »`)
+  }
+  if (reglable.includes('Réservé au compte propriétaire')) manque.push('le propriétaire lit que le réglage lui est réservé… à quelqu’un d’autre')
+
+  const avecStore = (el: ReturnType<typeof h>) =>
+    renderToString(h(AppStoreProvider, { initial: { space: 'cabinet' } }, el))
+  const etat = etatJetonsDemo()
+  const carte = avecStore(h(VueJetons, { etat, titulaire: true, enCours: '', echec: '' }))
+  for (const attendu of [
+    'Jetons IA',
+    '312',
+    'se renouvellent le',
+    'ceux qui restent ne se reportent pas',
+    'Ce que coûte chaque action',
+    'Acheter',
+    'Activer l&#x27;option — 19 € pour 30 jours, 200 jetons offerts',
+    'Dernières consommations',
+  ]) {
+    if (!carte.includes(attendu)) manque.push(`la carte du cabinet ne dit pas « ${attendu} »`)
+  }
+  /* Les retouches ont leur bouton depuis 0066 (le pouce baissé) : leur prix
+     se lit sur la carte, comme celui des autres actions. */
+  if (!carte.includes('Retouche d&#x27;un texte par l&#x27;IA') || !carte.includes('Retouche d&#x27;un mouvement d&#x27;hypnose')) {
+    manque.push('la carte ne dit pas le prix d’une retouche')
+  }
+  const sansPaiement = avecStore(
+    h(VueJetons, { etat: { ...etat, paiementPossible: false }, titulaire: true, enCours: '', echec: '' }),
+  )
+  if (!sansPaiement.includes('Pour recharger, contactez votre revendeur.')) {
+    manque.push('sans paiement en ligne, la carte ne renvoie pas au revendeur')
+  }
+  if (sansPaiement.includes('>Acheter<')) manque.push('sans paiement en ligne, un bouton « Acheter » reste')
+  const consoeur = avecStore(h(VueJetons, { etat, titulaire: false, enCours: '', echec: '' }))
+  if (consoeur.includes('>Acheter<') || !consoeur.includes('Seule la titulaire du cabinet')) {
+    manque.push('une consœur voit des achats réservés à la titulaire')
+  }
+
+  const cout = avecStore(h(CoutEnJetons, { devis: devisJetons(etat, 'seance'), sujet: 'Cette analyse' }))
+  if (!cout.includes('Cette analyse utilisera 12 jetons (il vous en reste 312).')) {
+    manque.push('le prix de la séance ne se dit pas avant le clic')
+  }
+  const court = avecStore(
+    h(CoutEnJetons, { devis: devisJetons({ ...etat, solde: 3 }, 'seance'), sujet: 'Cette analyse' }),
+  )
+  if (!court.includes('Il vous reste 3 jetons, et cette analyse en demande 12.') || !court.includes('Voir vos jetons')) {
+    manque.push('un solde trop court ne dit pas où trouver des jetons')
+  }
+  const cle = avecStore(h(CoutEnJetons, { devis: devisJetons({ ...etat, mode: 'cle_cabinet' }, 'seance') }))
+  if (cle.includes('jeton')) manque.push('un cabinet qui paie avec sa clé lit un prix en jetons')
+  const verrou = avecStore(h(VerrouHypnose, { dejaEcrites: true }))
+  if (!verrou.includes('n&#x27;est pas comprise dans votre offre') || !verrou.includes('restent lisibles et téléchargeables')) {
+    manque.push("le verrou de l'hypnose ne dit ni pourquoi, ni que les hypnoses écrites restent")
+  }
+  /* Hors contrat, l'hypnose se ferme avec le reste — même comprise dans
+     l'offre : le verrou dit le contrat, pas une option qui manquerait, et ne
+     propose aucun pass que le serveur refuserait. */
+  const horsContrat = avecStore(
+    h(
+      DroitsContexte.Provider,
+      {
+        value: {
+          droits: {
+            maxPatients: null,
+            patientesActives: 0,
+            shop: false,
+            marqueBlanche: false,
+            site: false,
+            offre: 'Réseau',
+            offreCode: 'reseau',
+            enRegle: false,
+            statut: 'impaye',
+            echeance: null,
+            revendeur: { nom: 'Klaro', courriel: 'contact@exemple.test' },
+            hypnose: false,
+          },
+          chargement: false,
+          recharger: async () => {},
+        },
+      },
+      h(VerrouHypnose, { dejaEcrites: true }),
+    ),
+  )
+  if (
+    horsContrat.includes('pas comprise dans votre offre') ||
+    !horsContrat.includes('suspendue avec votre contrat') ||
+    !horsContrat.includes('contact@exemple.test') ||
+    horsContrat.includes('Activer l&#x27;option')
+  ) {
+    manque.push("hors contrat, le verrou de l'hypnose accuse l'offre au lieu du contrat")
+  }
+
+  /* Un forfait de zéro jeton n'en est pas un ; les jetons du pass ne durent
+     pas douze mois ; « une » précédente se dit au singulier. */
+  const sansForfait = avecStore(
+    h(VueJetons, {
+      etat: { ...etat, mensuel: { total: 0, restant: 0, renouvellement: etat.mensuel?.renouvellement ?? '' } },
+      titulaire: true,
+      enCours: '',
+      echec: '',
+    }),
+  )
+  if (sansForfait.includes('du mois se renouvel') || sansForfait.includes('Forfait du mois') || !sansForfait.includes('ne comprend pas de forfait mensuel')) {
+    manque.push('un forfait de zéro jeton est annoncé comme un forfait qui se renouvelle')
+  }
+  const avecPass = avecStore(
+    h(VueJetons, {
+      etat: {
+        ...etat,
+        // Ce que cabinet_jetons rend : l'achat ET le pass dans `achete_restant`.
+        acheteRestant: 300,
+        lots: [
+          ...etat.lots,
+          { origine: 'option_hypnose', jetonsInitiaux: 200, restants: 200, expireLe: '2026-10-30T10:00:00Z' },
+        ],
+        historique: [...etat.historique, etat.historique[0], etat.historique[1]],
+      },
+      titulaire: true,
+      enCours: '',
+      echec: '',
+    }),
+  )
+  if (
+    !avecPass.includes('Achetés ou offerts : <strong>100</strong>, valables douze mois') ||
+    !avecPass.includes('Offerts avec l&#x27;option Hypnose : <strong>200</strong>') ||
+    !avecPass.includes('30 octobre 2026')
+  ) {
+    manque.push('les jetons du pass Hypnose sont promis douze mois, ou pas dits à part')
+  }
+  if (!avecPass.includes('Voir la précédente') || avecPass.includes('Voir les 1 ')) {
+    manque.push('« Voir les 1 précédentes »')
+  }
+
+  if (manque.length) {
+    console.error(`✗ jetons : ${manque.join(' ; ')}`)
+    echecs++
+  } else {
+    console.log(
+      `✓ jetons           ${String(carte.length).padStart(6)} octets · onglet revendeur, carte du cabinet, prix avant le clic, verrou de l'hypnose`,
+    )
+  }
+}
+
+/* 10. LES RETOUCHES (0066). Sous un texte de l'IA, deux pouces de la taille
+   d'une icône, nommés pour un lecteur d'écran, qui disent s'ils sont
+   enfoncés ; le pouce baissé annonce une fenêtre. La fenêtre en est une
+   vraie — rôle, nom, titre relié —, ses deux champs sont obligatoires,
+   « Optimiser » reste fermé tant qu'ils sont vides ou que les jetons
+   manquent, et le prix se dit en mode jetons. Rien de cela ne paraît en
+   démonstration ni dans l'espace du patient, et rien n'y montre un dossier. */
+{
+  const manque: string[] = []
+  const avecStore = (el: ReturnType<typeof h>) =>
+    renderToString(h(AppStoreProvider, { initial: { space: 'cabinet' } }, el))
+
+  const mouvement = avecStore(
+    h(TexteMouvement, {
+      ecrit: { mouvement: 'induction', titre: 'Le poids du siège', texte: 'Installez-vous confortablement.\nEt laissez venir.' },
+      classes: { article: 'a', titre: 't', para: 'p' },
+      retouche: { onRetoucher: async () => ({ ok: true }) },
+    }),
+  )
+  for (const attendu of [
+    'aria-label="Ce contenu me convient"',
+    'aria-label="Ce contenu ne me convient pas"',
+    'aria-haspopup="dialog"',
+    'stroke-width="1.6"',
+  ]) {
+    if (!mouvement.includes(attendu)) manque.push(`la rangée sous un mouvement ne porte pas ${attendu}`)
+  }
+  if ((mouvement.match(/aria-pressed="false"/g) ?? []).length !== 2) manque.push('les pouces ne disent pas qu’ils sont relâchés')
+  if (mouvement.indexOf('Et laissez venir.') > mouvement.indexOf('Ce contenu me convient')) {
+    manque.push('les pouces passent avant le texte du mouvement')
+  }
+  const avisSeul = avecStore(h(RetourIA, { cible: 'vigilance' }))
+  if (avisSeul.includes('aria-haspopup') || !avisSeul.includes('Ce contenu ne me convient pas')) {
+    manque.push('un avis sans retouche annonce une fenêtre, ou perd son pouce')
+  }
+
+  const fenetre = (props: Partial<Parameters<typeof FenetreRetouche>[0]> = {}) =>
+    avecStore(
+      h(FenetreRetouche, {
+        cible: 'hypnose',
+        libelle: 'le mouvement « Induction »',
+        devis: null,
+        onFermer: () => {},
+        onOptimiser: async () => ({ ok: true }),
+        ...props,
+      }),
+    )
+  const vide = fenetre()
+  const titre = /<h2 id="([^"]+)"[^>]*>Retour sur l&#x27;IA<\/h2>/.exec(vide)
+  if (!vide.includes('role="dialog"') || !vide.includes('aria-modal="true"')) manque.push('la fenêtre ne se dit pas fenêtre')
+  if (!titre || !vide.includes(`aria-labelledby="${titre[1]}"`)) manque.push('la fenêtre ne porte pas son titre pour nom')
+  for (const attendu of [
+    'Qu&#x27;est-ce que l&#x27;IA a mal fait, et qu&#x27;aurait-elle dû faire ?',
+    'Qu&#x27;est-ce que l&#x27;IA a mal fait ?',
+    'Que se serait-il dû passer ?',
+    'placeholder="Le rythme de l&#x27;induction est trop rapide"',
+    'placeholder="Des phrases plus longues, plus lentes, avec davantage de pauses"',
+    'Retenir cette préférence pour les prochaines générations',
+    'aria-label="Fermer"',
+    '>Annuler<',
+    'aria-required="true"',
+  ]) {
+    if (!vide.includes(attendu)) manque.push(`la fenêtre ne dit pas « ${attendu} »`)
+  }
+  if ((vide.match(/>\*<\/span>/g) ?? []).length !== 2) manque.push('les deux champs ne portent pas leur astérisque')
+  if (/type="checkbox"[^>]*checked/.test(vide)) manque.push('« Retenir cette préférence » est cochée d’office')
+  const optimiser = (html: string) => /<button[^>]*>(?:(?!<\/button>).)*Optimiser<\/button>/.exec(html)?.[0] ?? ''
+  if (!optimiser(vide).includes('disabled')) manque.push('« Optimiser » s’ouvre sur des champs vides')
+  const remplie = fenetre({ initial: { probleme: 'Trop rapide', attendu: 'Plus lent' } })
+  if (optimiser(remplie).includes('disabled')) manque.push('« Optimiser » reste fermé, les deux champs remplis')
+
+  /* « Retenir » cochée : ce qui part chez TOUS les patients se relit dans un
+     champ à part — prérempli, compté, avec l'avertissement —, rien ne s'y
+     coupe, et le nom du patient ferme « Optimiser ». */
+  if (vide.includes('Consigne à retenir')) manque.push('la consigne à retenir paraît sans que « Retenir » soit cochée')
+  const aRetenir = fenetre({ initial: { probleme: 'Trop rapide', attendu: 'Plus lent, avec des pauses', retenir: true } })
+  for (const attendu of [
+    'Consigne à retenir',
+    'Elle s&#x27;appliquera à tous vos patients, pour ce type de texte : n&#x27;y mettez ni nom ni détail propre à ce patient.',
+    '26 / 400 caractères',
+  ]) {
+    if (!aRetenir.includes(attendu)) manque.push(`« Retenir » cochée ne dit pas « ${attendu} »`)
+  }
+  if (!/type="checkbox"[^>]*checked/.test(aRetenir)) manque.push('« Retenir » ne se montre pas cochée')
+  if ((aRetenir.match(/>Plus lent, avec des pauses<\/textarea>/g) ?? []).length !== 2) {
+    manque.push('la consigne à retenir n’est pas préremplie de la seconde réponse')
+  }
+  if (optimiser(aRetenir).includes('disabled')) manque.push('« Optimiser » reste fermé sur une consigne à retenir valable')
+  const tropLongue = fenetre({ initial: { probleme: 'Trop rapide', attendu: 'Plus lent', retenir: true, consigne: 'z'.repeat(450) } })
+  if (
+    !tropLongue.includes('450 / 400 caractères') ||
+    !tropLongue.includes('raccourcissez-la') ||
+    !tropLongue.includes(`>${'z'.repeat(450)}</textarea>`) ||
+    !optimiser(tropLongue).includes('disabled')
+  ) {
+    manque.push('une consigne trop longue se coupe, ou laisse « Optimiser » ouvert sans le dire')
+  }
+  const nommee = fenetre({
+    patient: 'Marie Dupont',
+    initial: { probleme: 'Trop rapide', attendu: 'Reprendre le jardin de Marie', retenir: true },
+  })
+  if (!nommee.includes('« Marie » est le nom de ce patient') || !optimiser(nommee).includes('disabled')) {
+    manque.push('une consigne qui porte le nom du patient laisse « Optimiser » ouvert, ou ne le dit pas')
+  }
+
+  const etat = etatJetonsDemo()
+  const prixHypnose = fenetre({ devis: devisJetons(etat, 'retouche_hypnose') })
+  if (!prixHypnose.includes('Cette retouche utilisera 8 jetons (il vous en reste 312).')) {
+    manque.push("le prix d'une retouche d'hypnose ne se dit pas")
+  }
+  const prixTexte = fenetre({ cible: 'synthese', libelle: 'la synthèse de séance', devis: devisJetons(etat, 'retouche') })
+  if (!prixTexte.includes('Cette retouche utilisera 3 jetons (il vous en reste 312).')) manque.push("le prix d'une retouche ne se dit pas")
+  if (!prixTexte.includes('placeholder="La synthèse interprète au lieu de rapporter"')) manque.push("l'exemple ne parle pas du texte retouché")
+  const court = fenetre({
+    devis: devisJetons({ ...etat, solde: 2 }, 'retouche_hypnose'),
+    initial: { probleme: 'Trop rapide', attendu: 'Plus lent' },
+  })
+  if (!court.includes('Il vous reste 2 jetons, et cette retouche en demande 8.') || !optimiser(court).includes('disabled')) {
+    manque.push('un solde trop court laisse « Optimiser » ouvert, ou ne le dit pas')
+  }
+  const refus402 = fenetre({ initial: { echec: { message: 'Il vous reste 2 jetons, et cette action en demande 8.', statut: 402 } } })
+  if (!refus402.includes('role="alert"') || !refus402.includes('Voir vos jetons')) {
+    manque.push('un refus faute de jetons ne montre pas le chemin de la recharge')
+  }
+  const refus403 = fenetre({ initial: { echec: { message: "L'hypnose n'est pas comprise dans votre offre.", statut: 403 } } })
+  if (refus403.includes('Voir vos jetons')) manque.push('un refus de l’option Hypnose renvoie à la recharge')
+
+  /* Un cabinet qui paie avec SA clé : son 402 dit une clé refusée ou un
+     crédit Anthropic épuisé. La phrase du serveur, seule — pas les jetons
+     d'un revendeur, qu'il n'a pas. */
+  const cleDuCabinet: JetonsData = {
+    etat: null,
+    chargement: false,
+    erreur: '',
+    mode: 'cle_cabinet',
+    solde: null,
+    bareme: null,
+    hypnose: null,
+    recharges: [],
+    optionHypnose: null,
+    paiementPossible: false,
+    retour: null,
+    effacerRetour: () => {},
+    reverifier: async () => {},
+    recharger: async () => {},
+    acheter: async () => null,
+    verifier: async () => ({ ok: false, message: '', solde: null, objet: 'recharge', jetons: 0 }),
+  }
+  const refusCle = renderToString(
+    h(
+      AppStoreProvider,
+      { initial: { space: 'cabinet' } },
+      h(
+        JetonsContexte.Provider,
+        { value: cleDuCabinet },
+        h(FenetreRetouche, {
+          cible: 'synthese',
+          libelle: 'la synthèse de séance',
+          devis: null,
+          onFermer: () => {},
+          onOptimiser: async () => ({ ok: true }),
+          initial: {
+            echec: { message: 'Le crédit de votre clé Anthropic est épuisé. Rechargez-le depuis votre compte Anthropic.', statut: 402 },
+          },
+        }),
+      ),
+    ),
+  )
+  if (!refusCle.includes('Le crédit de votre clé Anthropic est épuisé') || /Voir vos jetons|Recharger vos jetons|Demandez des jetons/.test(refusCle)) {
+    manque.push('un cabinet qui paie avec sa clé est renvoyé vers les jetons de son revendeur')
+  }
+
+  /* Pendant la retouche, le clavier reste dans la fenêtre : « Annuler » et
+     ✕ restent ouverts — ils abandonnent —, « Optimiser » garde le focus en
+     disant qu'il travaille, et la phrase dit ce que l'abandon fait. */
+  const partie = fenetre({ initial: { probleme: 'Trop rapide', attendu: 'Plus lent', envoi: true } })
+  const annulerPartie = /<button[^>]*>Annuler<\/button>/.exec(partie)?.[0] ?? ''
+  if (!annulerPartie || annulerPartie.includes('disabled')) manque.push('« Annuler » se ferme pendant la retouche')
+  if (!partie.includes('aria-label="Abandonner la retouche"')) manque.push('✕ ne dit pas qu’il abandonne la retouche')
+  const optimiserParti = /<button[^>]*aria-busy="true"[^>]*>/.exec(partie)?.[0] ?? ''
+  if (!optimiserParti || / disabled=""/.test(optimiserParti) || !optimiserParti.includes('aria-disabled="true"')) {
+    manque.push('« Optimiser » se ferme pendant la retouche, et le focus tombe hors de la fenêtre')
+  }
+  if (!partie.includes('« Annuler » l&#x27;abandonne : le texte en place ne bougera pas.')) {
+    manque.push('la fenêtre ne dit pas ce que fait « Annuler » pendant la retouche')
+  }
+  const partieEnJetons = fenetre({
+    devis: devisJetons(etat, 'retouche'),
+    initial: { probleme: 'Trop rapide', attendu: 'Plus lent', envoi: true },
+  })
+  if (!partieEnJetons.includes('une retouche déjà partie reste décomptée si elle aboutit')) {
+    manque.push('en jetons, l’abandon ne dit pas qu’une retouche partie peut être décomptée')
+  }
+
+  const preferences = avecStore(
+    h(VuePreferencesIA, {
+      lecture: [
+        { id: 'p1', cible: 'hypnose', consigne: 'Des pauses marquées entre les phrases', creeLe: '2026-09-30T09:00:00Z' },
+        { id: 'p2', cible: 'message', consigne: 'Un ton plus chaleureux', creeLe: '2026-09-29T09:00:00Z' },
+      ],
+      chargement: false,
+      enCours: '',
+      echec: '',
+      onOublier: () => {},
+      onRelire: () => {},
+    }),
+  )
+  for (const attendu of [
+    'Préférences de l&#x27;IA',
+    'Mouvements d&#x27;hypnose',
+    'Messages au patient',
+    'Des pauses marquées entre les phrases',
+    'aria-label="Oublier la préférence « Un ton plus chaleureux »"',
+  ]) {
+    if (!preferences.includes(attendu)) manque.push(`les préférences ne disent pas « ${attendu} »`)
+  }
+  const aucune = avecStore(h(VuePreferencesIA, { lecture: [], chargement: false, enCours: '', echec: '', onOublier: () => {}, onRelire: () => {} }))
+  if (!aucune.includes('Aucune préférence retenue')) manque.push('une liste vide ne dit pas comment en retenir')
+
+  // Rien du dossier dans la rangée, la fenêtre ou la liste : ni nom, ni extrait.
+  // `nommee` porte un nom exprès, et n'en est pas.
+  const retouches = [mouvement, avisSeul, vide, remplie, aRetenir, tropLongue, prixHypnose, prixTexte, court, refus402, preferences].join('')
+  const vus = noms.concat(extraits).filter((n) => n && retouches.includes(n))
+  if (vus.length) manque.push(`un dossier filtre dans les retouches : ${vus.join(', ')}`)
+
+  /* En démonstration — séance au brouillon complet, fiche, atelier — et dans
+     l'espace du patient : pas un pouce. Ils ne paraissent que dans un
+     cabinet réel, où la retouche s'enregistre. */
+  const BROUILLON_PLEIN = {
+    synthese: 'Texte de maquette.',
+    mots: ['une porte'],
+    themes: ['le délai'],
+    propositions: [{ titre: 'Repérer le seuil', pourquoi: 'Écrire les signes.', type: 'Journal' }],
+    questions: ['Qu’est-ce qui précède ?'],
+    vigilance: [{ point: 'Un point', conduite: 'Une conduite' }],
+    categories_audio: [],
+    message: 'Bonjour.',
+  }
+  const demos = [
+    rendu('retouche/seance', { space: 'cabinet', mode: 'session', sessionPatient: choisie, consent: true, draft: BROUILLON_PLEIN, draftMaquette: false }),
+    rendu('retouche/fiche', { space: 'cabinet', mode: 'therapist' }),
+    rendu('retouche/atelier', { space: 'cabinet', mode: 'atelier' }),
+    rendu('retouche/patient', { space: 'patient' }),
+  ]
+  if (demos.some((html) => html.includes('Ce contenu ne me convient pas'))) {
+    manque.push('les pouces paraissent hors d’un cabinet réel')
+  }
+
+  if (manque.length) {
+    console.error(`✗ retouches : ${manque.join(' ; ')}`)
+    echecs++
+  } else {
+    console.log(
+      `✓ retouches        ${String(vide.length).padStart(6)} octets · pouces nommés, fenêtre accessible, consigne relue sans nom ni coupe, prix en jetons, préférences, rien en démonstration`,
+    )
   }
 }
 

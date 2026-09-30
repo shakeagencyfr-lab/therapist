@@ -1,8 +1,12 @@
 import { useState } from 'react'
-import { Button, Notice } from '@/components/ui'
+import { Button, Notice, TextArea, TextInput } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
-import { consigneCorrigee } from '@/lib/parcours'
-import type { PatientModule } from '@/types/domain'
+import { RetourIA } from '@/components/retouche/RetourIA'
+import { consigneCorrigee, etapesDe as lignesDe } from '@/lib/parcours'
+import { RETOUCHE_ABANDONNEE, versionDe, type IssueRetouche, type RetourDeLaPraticienne } from '@/lib/retouche'
+import { seFaitParLePatient } from '@/lib/typesDeModules'
+import { echecDeRetouche, retoucher } from '@/services/aiClient'
+import type { GeneratedModule, PatientContext, PatientModule } from '@/types/domain'
 import s from './ConsigneEditeur.module.css'
 
 /**
@@ -30,9 +34,15 @@ import s from './ConsigneEditeur.module.css'
 export function ConsigneEditeur({
   module,
   onFerme,
+  dossier,
+  patient,
 }: {
   module: PatientModule
   onFerme: () => void
+  /** Le dossier de la personne, lu au moment de la retouche : l'IA écrit la consigne pour elle. */
+  dossier?: () => PatientContext | undefined
+  /** Son nom : une consigne retenue pour tous les patients ne doit pas le porter. */
+  patient?: string
 }) {
   const cabinet = useMaybeCabinet()
   const c = module.consigne
@@ -43,6 +53,62 @@ export function ConsigneEditeur({
   const [etapes, setEtapes] = useState((c?.steps ?? []).join('\n'))
   const [envoi, setEnvoi] = useState(false)
   const [echec, setEchec] = useState('')
+  /* L'IA ne retouche que ce qu'elle a écrit : une consigne vide s'écrit à la
+     main, et un audio ou une échelle n'en ont pas (src/lib/typesDeModules.ts). */
+  const retouchable = seFaitParLePatient(module.kind) && Boolean(c?.steps?.length || c?.why)
+
+  /**
+   * Fait retoucher la consigne par l'IA (0066) — et REMPLIT LES CHAMPS, sans
+   * enregistrer. La consigne est déjà chez le patient : ce qu'il lira reste
+   * ce que la praticienne enregistre, après l'avoir relu. « Annuler la
+   * retouche » remet les champs d'avant ; le quiz, lui, n'a jamais bougé
+   * (consigneCorrigee le garde).
+   */
+  async function retoucherConsigne(retour: RetourDeLaPraticienne, abandon?: AbortSignal): Promise<IssueRetouche> {
+    const avant = { titre, duree, quand, why, etapes }
+    let rendu: GeneratedModule
+    try {
+      rendu = await retoucher({
+        cible: 'consigne',
+        ...retour,
+        actuel: { titre, duree, quand, steps: lignesDe(etapes), pourquoi: why, quiz: [] },
+        context: dossier?.(),
+        extra: { brief: [module.title, module.pourquoi].filter(Boolean).join(' — '), type: module.kind },
+      })
+    } catch (err) {
+      return echecDeRetouche(err)
+    }
+    // La fenêtre refermée pendant l'appel : les champs en place ne bougent pas.
+    if (abandon?.aborted) return RETOUCHE_ABANDONNEE
+    if (!rendu.steps?.some((e) => e.trim())) {
+      return { ok: false, message: "La retouche est revenue sans étapes : la consigne d'avant reste en place." }
+    }
+    const apres = {
+      titre: rendu.titre.trim() || titre,
+      duree: rendu.duree.trim(),
+      quand: rendu.quand.trim(),
+      why: rendu.pourquoi.trim(),
+      etapes: lignesDe(rendu.steps.join('\n')).join('\n'),
+    }
+    poserChamps(apres)
+    return {
+      ok: true,
+      version: versionDe(apres),
+      libelle: "Version retouchée par l'IA, pas encore enregistrée",
+      annuler: async () => {
+        poserChamps(avant)
+        return { ok: true, message: '' }
+      },
+    }
+  }
+
+  function poserChamps(v: { titre: string; duree: string; quand: string; why: string; etapes: string }) {
+    setTitre(v.titre)
+    setDuree(v.duree)
+    setQuand(v.quand)
+    setWhy(v.why)
+    setEtapes(v.etapes)
+  }
 
   async function enregistrer() {
     if (!module.id || !cabinet || envoi) return
@@ -67,7 +133,9 @@ export function ConsigneEditeur({
 
       <label className={s.champ}>
         <span className={s.label}>Titre de l'exercice</span>
-        <input
+        <TextInput
+          nu
+          dictee
           className={s.input}
           value={titre}
           onChange={(e) => setTitre(e.target.value)}
@@ -78,7 +146,9 @@ export function ConsigneEditeur({
       <div className={s.deux}>
         <label className={s.champ}>
           <span className={s.label}>Durée</span>
-          <input
+          <TextInput
+            nu
+            dictee
             className={s.input}
             value={duree}
             onChange={(e) => setDuree(e.target.value)}
@@ -87,7 +157,9 @@ export function ConsigneEditeur({
         </label>
         <label className={s.champ}>
           <span className={s.label}>Quand</span>
-          <input
+          <TextInput
+            nu
+            dictee
             className={s.input}
             value={quand}
             onChange={(e) => setQuand(e.target.value)}
@@ -98,7 +170,9 @@ export function ConsigneEditeur({
 
       <label className={s.champ}>
         <span className={s.label}>À quoi ça sert</span>
-        <textarea
+        <TextArea
+          nu
+          dictee
           className={s.zone}
           rows={4}
           value={why}
@@ -109,7 +183,9 @@ export function ConsigneEditeur({
 
       <label className={s.champ}>
         <span className={s.label}>Les étapes — une par ligne</span>
-        <textarea
+        <TextArea
+          nu
+          dictee
           className={s.zone}
           rows={7}
           value={etapes}
@@ -123,6 +199,18 @@ export function ConsigneEditeur({
       </label>
 
       {echec ? <Notice tone="warn">{echec}</Notice> : null}
+
+      {/* Une consigne écrite, d'un exercice qui se fait : de quoi retoucher. */}
+      {cabinet?.reel && module.id && retouchable ? (
+        <RetourIA
+          cible="consigne"
+          libelle="la consigne de cet exercice (rien n'est enregistré avant « Enregistrer »)"
+          version={versionDe({ titre, duree, quand, why, etapes })}
+          occupe={envoi}
+          patient={patient}
+          onRetoucher={retoucherConsigne}
+        />
+      ) : null}
 
       <div className={s.actions}>
         <Button

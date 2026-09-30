@@ -17,8 +17,10 @@
  *
  * TROIS BORNES, parce qu'une tâche qui dépense sans témoin doit se tenir :
  *
- *   1. LA CLÉ EST CELLE DU CABINET. Un cabinet sans clé Anthropic est sauté,
- *      pas facturé à la plateforme. C'est la même règle qu'à l'écran.
+ *   1. LA CLÉ EST CELLE DU CABINET — ou celle de son revendeur, en mode
+ *      jetons (0065), et la série se paie alors en jetons comme à l'écran.
+ *      Un cabinet sans clé, ou à court de jetons, est sauté, pas facturé à
+ *      la plateforme. C'est la même règle qu'à l'écran.
  *   2. RIEN DE PRIVÉ NE SORT DU DOSSIER. Le contexte n'emporte que les pages
  *      de journal que le patient a MARQUÉES PARTAGÉES — exactement ce que la
  *      politique de lecture accorde au cabinet. La clé de service passe outre
@@ -34,6 +36,7 @@ import { clientAdmin } from './auth.js'
 import { analyserPourCabinet } from './ai.js'
 import { cleAnthropicDuCabinet } from './integrations.js'
 import { HttpError } from './errors.js'
+import { facturationDuCabinet, SoldeInsuffisant } from './jetons.js'
 import type { PatientContext } from './schemas.js'
 
 /** Le compte rendu d'un passage, tel qu'il part au journal. */
@@ -42,7 +45,7 @@ export interface BilanHebdo {
   candidates: number
   /** Fiches dont la série a été renouvelée. */
   publiees: number
-  /** Fiches sautées : cabinet sans clé, ou série déjà fraîche. */
+  /** Fiches sautées : cabinet sans clé ni jetons, ou série déjà fraîche. */
   sautees: number
   /** Fiches laissées au passage suivant, faute de temps. Jamais silencieuses. */
   restantes: number
@@ -244,10 +247,24 @@ export async function publierLesAffirmationsDeLaSemaine(): Promise<BilanHebdo> {
   )
   bilan.sautees += fraiches
 
-  /** Une lecture de clé par cabinet, pas une par fiche. */
+  /**
+   * Une lecture par cabinet, pas une par fiche : sa clé, ou les jetons de son
+   * revendeur. Des réglages illisibles font sauter le cabinet plutôt que de
+   * retomber sur sa clé — ce serait lui faire payer ce que son revendeur a
+   * promis de payer.
+   */
   const cles = new Map<string, boolean>()
   async function cabinetArmé(cabinetId: string): Promise<boolean> {
-    if (!cles.has(cabinetId)) cles.set(cabinetId, Boolean(await cleAnthropicDuCabinet(cabinetId)))
+    if (!cles.has(cabinetId)) {
+      let arme = false
+      try {
+        const facturation = await facturationDuCabinet(cabinetId, admin)
+        arme = facturation.mode === 'jetons' || Boolean(await cleAnthropicDuCabinet(cabinetId))
+      } catch (err) {
+        console.error(`[affirmations] cabinet ${cabinetId} — facturation illisible · ${(err as Error).message}`)
+      }
+      cles.set(cabinetId, arme)
+    }
     return cles.get(cabinetId) ?? false
   }
 
@@ -285,6 +302,15 @@ export async function publierLesAffirmationsDeLaSemaine(): Promise<BilanHebdo> {
         }
         bilan.publiees += 1
       } catch (err) {
+        /* À COURT DE JETONS, CE N'EST PAS UNE PANNE. Le cabinet est sauté —
+           ses autres fiches aussi, sans rien appeler — et la série en place
+           reste lue ; elle se renouvellera au prochain lundi approvisionné. */
+        if (err instanceof SoldeInsuffisant) {
+          cles.set(fiche.cabinet_id, false)
+          console.warn(`[affirmations] cabinet ${fiche.cabinet_id} — solde de jetons insuffisant, fiches sautées`)
+          bilan.sautees += 1
+          continue
+        }
         // Journal technique seulement : ni contenu de dossier, ni clé.
         console.error(`[affirmations] fiche ${fiche.id} — ${(err as Error).message}`)
         bilan.echecs += 1

@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Button, Notice, TextArea } from '@/components/ui'
+import { RetourIA } from '@/components/retouche/RetourIA'
+import type { Retoucheur } from '@/lib/retouche'
 import { corrigerTexte } from '@/lib/texteHypnose'
 import { NOM_MOUVEMENT, type MouvementEcrit } from '@/services/aiClient'
 import t from './TexteMouvement.module.css'
@@ -17,6 +19,18 @@ interface Props {
    * au suivant.
    */
   onCorriger?: (texte: string) => Promise<{ ok: boolean; message: string }>
+  /**
+   * Les pouces sous le texte, et la retouche par l'IA (0066). Absent — une
+   * démonstration, une fiche sans cabinet —, le mouvement se lit sans eux.
+   * `occupe` : une écriture tourne, le mouvement sert de précédent au suivant.
+   */
+  retouche?: {
+    /** Absent — l'option Hypnose fermée — : les pouces seuls. */
+    onRetoucher?: Retoucheur
+    occupe?: boolean
+    /** Le nom du patient de cette hypnose : une consigne retenue qui le porte est refusée. */
+    patient?: string
+  }
 }
 
 /**
@@ -29,10 +43,11 @@ interface Props {
  * pour une phrase. Elle se corrige ici, mouvement par mouvement, et le PDF
  * suit.
  *
- * Le titre du mouvement ne se corrige pas : c'est le nom de la métaphore,
- * que le texte déroule.
+ * Le titre du mouvement ne se corrige pas à la main : c'est le nom de la
+ * métaphore, que le texte déroule. Une retouche par l'IA, qui peut changer
+ * de métaphore, le renomme avec elle.
  */
-export function TexteMouvement({ ecrit, classes, onCorriger }: Props) {
+export function TexteMouvement({ ecrit, classes, onCorriger, retouche }: Props) {
   /** Le texte en cours de correction ; null : on lit. */
   const [saisie, setSaisie] = useState<string | null>(null)
   const [envoi, setEnvoi] = useState(false)
@@ -96,6 +111,7 @@ export function TexteMouvement({ ecrit, classes, onCorriger }: Props) {
             rows={Math.min(28, Math.max(10, Math.round(ecrit.texte.length / 90)))}
             aria-label={`Texte du mouvement ${nom}`}
             disabled={envoi}
+            dictee
           />
           <p className={t.aide}>
             Un paragraphe par ligne, comme vous le lirez. Les autres mouvements ne changent pas.
@@ -111,14 +127,30 @@ export function TexteMouvement({ ecrit, classes, onCorriger }: Props) {
           </div>
         </div>
       ) : (
-        ecrit.texte
-          .split('\n')
-          .filter(Boolean)
-          .map((para, i) => (
-            <p key={i} className={classes.para}>
-              {para}
-            </p>
-          ))
+        <>
+          {ecrit.texte
+            .split('\n')
+            .filter(Boolean)
+            .map((para, i) => (
+              <p key={i} className={classes.para}>
+                {para}
+              </p>
+            ))}
+          {/* Sous le mouvement, pas sous chaque paragraphe : la retouche
+              réécrit le mouvement entier, raccordé aux trois autres. Un
+              mouvement vide (resté en base d'une écriture interrompue) n'a
+              rien de l'IA à noter : il se reprend, il ne se retouche pas. */}
+          {retouche && ecrit.texte.trim() ? (
+            <RetourIA
+              cible="hypnose"
+              libelle={`le mouvement « ${nom} »`}
+              version={ecrit.texte}
+              occupe={retouche.occupe}
+              patient={retouche.patient}
+              onRetoucher={retouche.onRetoucher}
+            />
+          ) : null}
+        </>
       )}
     </article>
   )

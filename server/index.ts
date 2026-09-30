@@ -16,6 +16,7 @@ import { cronAutorise, publierLesAffirmationsDeLaSemaine } from './affirmationsH
 import { gesteDuCompte } from './compte.js'
 import { appliquerIntegration, etatIntegrations } from './integrations.js'
 import { agirVolet, lireVolet } from './cabinet.js'
+import { agirRevendeur, etatRevendeur } from './revendeur.js'
 import {
   demarrerPaiement,
   hoteDeLaRequete,
@@ -47,6 +48,7 @@ if (!PRODUCTION) app.use(cors())
 for (const route of AI_ROUTES) {
   app.post(`/api/ai/${route}`, async (req: Request, res: Response): Promise<void> => {
     try {
+      // L'enveloppe telle quelle : { mock, data }, et { jetons } en mode jetons.
       res.json(await handleAi(route as AiRoute, req.body, jetonDe(req.headers.authorization)))
     } catch (err) {
       const { status, message } = describeError(err)
@@ -88,11 +90,31 @@ app.get('/api/cabinet', async (req: Request, res: Response): Promise<void> => {
 })
 app.post('/api/cabinet', async (req: Request, res: Response): Promise<void> => {
   try {
-    res.json(await agirVolet(req.body, jetonDe(req.headers.authorization)))
+    res.json(await agirVolet(req.body, jetonDe(req.headers.authorization), hoteDeLaRequete(req.headers)))
   } catch (err) {
     const { status, message } = describeError(err)
     // Journal technique seulement : jamais un secret, jamais un corps de requête.
     journaliserRefus('[cabinet]', status, message)
+    res.status(status).json({ error: message })
+  }
+})
+
+/** Les jetons du revendeur : l'état pour son équipe, les gestes pour son propriétaire. */
+app.get('/api/revendeur', async (req: Request, res: Response): Promise<void> => {
+  try {
+    res.json(await etatRevendeur(jetonDe(req.headers.authorization)))
+  } catch (err) {
+    const { status, message } = describeError(err)
+    res.status(status).json({ error: message })
+  }
+})
+app.post('/api/revendeur', async (req: Request, res: Response): Promise<void> => {
+  try {
+    res.json(await agirRevendeur(jetonDe(req.headers.authorization), req.body))
+  } catch (err) {
+    const { status, message } = describeError(err)
+    // Journal technique seulement : jamais une clé, jamais un corps de requête.
+    journaliserRefus('[revendeur]', status, message)
     res.status(status).json({ error: message })
   }
 })

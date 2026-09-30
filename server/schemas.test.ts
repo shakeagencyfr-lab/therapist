@@ -3,8 +3,11 @@ import { describe, expect, it } from 'vitest'
 import {
   contexteLuSchema,
   generatedAffirmationsSchema,
+  generatedHypnoseSchema,
   generatedModuleSchema,
   generatedProfileSchema,
+  generatedPropositionSchema,
+  generatedTexteSchema,
   sessionDraftSchema,
 } from './schemas.js'
 
@@ -25,6 +28,10 @@ const SCHEMAS = {
   'module sur mesure': generatedModuleSchema,
   affirmations: generatedAffirmationsSchema,
   'profil psychologique': generatedProfileSchema,
+  'mouvement d’hypnose': generatedHypnoseSchema,
+  // La retouche (0066) : une synthèse ou un message seul, une proposition seule.
+  'texte retouché': generatedTexteSchema,
+  'proposition retouchée': generatedPropositionSchema,
 }
 
 describe('sorties structurées', () => {

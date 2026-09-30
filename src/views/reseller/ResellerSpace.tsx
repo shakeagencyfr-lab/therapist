@@ -2,12 +2,14 @@ import { Segmented } from '@/components/ui'
 import { useStore } from '@/state/store'
 import type { ResellerView } from '@/state/state'
 import { ResellerProvider } from '@/reseller/context'
+import { JetonsRevendeurProvider } from '@/reseller/useJetonsRevendeur'
 import { CabinetPortfolio } from './CabinetPortfolio'
 import { BrandEditor } from './BrandEditor'
 import { PlansView } from './PlansView'
 import { FicheCabinet } from './FicheCabinet'
 import { EquipeRevendeur } from './EquipeRevendeur'
 import { Demandes } from './Demandes'
+import { JetonsView } from './JetonsView'
 import { useDemandes } from '@/reseller/useDemandes'
 import { libelleOnglet } from '@/lib/demandesRevendeur'
 import s from './ResellerSpace.module.css'
@@ -16,6 +18,7 @@ const TABS: Array<{ value: ResellerView; label: string }> = [
   { value: 'portfolio', label: 'Cabinets' },
   { value: 'brand', label: 'Marque' },
   { value: 'plans', label: 'Offres' },
+  { value: 'jetons', label: 'Jetons IA' },
   { value: 'equipe', label: 'Équipe' },
 ]
 
@@ -33,7 +36,12 @@ const TITLES: Record<ResellerView, { title: string; intro: string }> = {
   plans: {
     title: 'Offres et abonnements',
     intro:
-      "Chaque thérapeute branche sa propre clé d'analyse et paie ses appels directement : votre offre ne vend que l'application. Vous réglez ici ce que chaque offre ouvre — nombre de patients, boutique, marque blanche, site vitrine — et son prix.",
+      "Vous réglez ici ce que chaque offre ouvre — nombre de patients, boutique, marque blanche, site vitrine, hypnose — son prix, et les jetons d'analyse qu'elle verse chaque mois quand vous alimentez vos cabinets avec votre clé. Sans jetons activés, chaque thérapeute branche sa propre clé et paie ses appels.",
+  },
+  jetons: {
+    title: 'Jetons IA',
+    intro:
+      "Votre clé d'analyse peut payer l'IA de tous vos cabinets. Chaque action coûte alors des jetons, au prix de votre barème : chaque offre en verse un forfait par mois, et vos praticiennes rechargent sur votre compte Stripe. Tant que vous ne l'activez pas, rien ne change pour elles.",
   },
   fiche: {
     title: 'Fiche du cabinet',
@@ -70,6 +78,7 @@ export function ResellerSpace() {
 
   return (
     <ResellerProvider>
+    <JetonsRevendeurProvider>
     <div className={s.space}>
       <div className={s.head}>
         <div>
@@ -93,9 +102,11 @@ export function ResellerSpace() {
       {vue === 'fiche' && <FicheCabinet />}
       {vue === 'brand' && <BrandEditor />}
       {vue === 'plans' && <PlansView />}
+      {vue === 'jetons' && <JetonsView />}
       {vue === 'equipe' && <EquipeRevendeur />}
       {vue === 'demandes' && <Demandes donnees={demandes} />}
     </div>
+    </JetonsRevendeurProvider>
     </ResellerProvider>
   )
 }

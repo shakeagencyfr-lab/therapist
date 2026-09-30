@@ -3,12 +3,14 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { DELAI_PURGE_JOURS } from '@/lib/seance'
+import { MENTION_IA } from '@/lib/transparenceIA'
 import { CHEMINS_RESERVES, slugDuChemin } from '@/lib/vitrine'
 import { problemeIdentifiant } from '@/lib/identifiant'
 import { PAGES_LEGALES as LIENS_DE_LA_VENTE } from '@/vente/contenu'
-import { LIENS_LEGAUX, cheminLegal, pageLegaleDuChemin, type CleLegale } from './chemins'
+import { LIENS_LEGAUX, cheminLegal, liensLegauxPour, pageLegaleDuChemin, type CleLegale } from './chemins'
 import {
   LIBELLES_CITES,
+  MISE_A_JOUR,
   PAGES_LEGALES,
   VALIDE_JURIDIQUEMENT,
   champsACompleter,
@@ -16,6 +18,16 @@ import {
   revendicationsInterdites,
   textesDe,
 } from './contenu'
+import {
+  ADRESSE,
+  COURRIEL,
+  EDITRICE,
+  SIREN,
+  SIRET,
+  TELEPHONE,
+  TVA_INTRACOMMUNAUTAIRE,
+} from './identite'
+import { FORME_DE_VERSION, MISE_A_JOUR as VERSION } from './version'
 
 const racine = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const lire = (chemin: string) => readFileSync(join(racine, chemin), 'utf8')
@@ -30,8 +42,10 @@ describe('les adresses des pages légales', () => {
     expect(pageLegaleDuChemin('/confidentialite')).toBe('confidentialite')
     expect(pageLegaleDuChemin('/confidentialite/')).toBe('confidentialite')
     expect(pageLegaleDuChemin('/CGU')).toBe('conditions')
+    expect(pageLegaleDuChemin('/cgv')).toBe('cgv')
+    expect(pageLegaleDuChemin('/CGV/')).toBe('cgv')
     expect(pageLegaleDuChemin('/mentions')).toBe('mentions')
-    for (const autre of ['/', '', '/mon', '/connexion', '/cabinet-fontaine', '/e/cgu', '/cgu/mon', '/mentions-legales']) {
+    for (const autre of ['/', '', '/mon', '/connexion', '/cabinet-fontaine', '/e/cgu', '/e/cgv', '/cgu/mon', '/mentions-legales']) {
       expect(pageLegaleDuChemin(autre), autre).toBeNull()
     }
   })
@@ -88,6 +102,32 @@ describe('les adresses des pages légales', () => {
 
   it('sont celles que la page de vente annonce', () => {
     expect(LIENS_DE_LA_VENTE.map((p) => p.chemin).sort()).toEqual(LIENS_LEGAUX.map((l) => l.chemin).sort())
+  })
+
+  /* Les conditions de vente lient l'éditrice et les cabinets : sur une
+     surface de patient, elles se liraient comme celles de la boutique. */
+  it('gardent les conditions de vente pour les surfaces des professionnels', () => {
+    expect(liensLegauxPour(true).map((l) => l.cle)).toContain('cgv')
+    expect(liensLegauxPour(false).map((l) => l.cle)).toEqual(['confidentialite', 'conditions', 'mentions'])
+  })
+
+  /* La date affichée et la version acceptée sont une seule et même chose. */
+  it('datent les quatre pages de la version que l’on accepte', () => {
+    expect(MISE_A_JOUR).toBe(VERSION)
+    expect(VERSION).toMatch(FORME_DE_VERSION)
+  })
+
+  /* La base refuse une version d'une autre forme (0067) : la date affichée
+     et le motif de la base doivent rester les mêmes, sinon plus personne ne
+     peut accepter. */
+  it('ont une version que la base accepte', () => {
+    const migration = lire('supabase/migrations/0067_les_conditions_acceptees.sql')
+    const motif = FORME_DE_VERSION.source
+    expect(migration.split(`'${motif}'`).length - 1).toBe(2)
+    for (const forme of ['1er octobre 2026', '9 mars 2027']) expect(forme).toMatch(FORME_DE_VERSION)
+    for (const forme of ['', 'v2', '32 mars 2026', '30 septembre 26', '30 Septembre 2026']) {
+      expect(forme).not.toMatch(FORME_DE_VERSION)
+    }
   })
 
   /* Les pages s'ouvrent sans l'application : main.tsx les reconnaît AVANT
@@ -170,6 +210,39 @@ const SECTIONS: Record<CleLegale, string[]> = {
     'fin',
     'modifications',
     'droit',
+  ],
+  cgv: [
+    'parties',
+    'objet',
+    'acceptation',
+    'souscription',
+    'resiliation',
+    'prix',
+    'retard',
+    'jetons',
+    'option-hypnose',
+    'revendeurs',
+    'obligations-client',
+    'ia',
+    'disponibilite',
+    'securite',
+    'donnees',
+    'propriete',
+    'responsabilite',
+    'force-majeure',
+    'prescription',
+    'confidentialite',
+    'dispositions',
+    'modifications',
+    'signalement',
+    'droit',
+    'annexe-rgpd',
+    'annexe-engagements',
+    'annexe-sous-traitants',
+    'annexe-violations',
+    'annexe-fin',
+    'annexe-audits',
+    'annexe-hds',
   ],
   mentions: ['editeur', 'publication', 'hebergement', 'donnees', 'cabinets', 'propriete'],
 }
@@ -300,23 +373,273 @@ describe('les gestes cités', () => {
 })
 
 describe('les mentions légales', () => {
-  /* L'identité de l'éditrice est connue depuis le 30 septembre : la page
-     n'en laisse plus rien à compléter, et dit ce que la loi demande à une EI. */
-  it('disent qui édite, sans rien laisser à compléter', () => {
-    expect(champsACompleter(PAGES_LEGALES.mentions)).toEqual([])
+  /* Ce que la loi exige de l'éditrice (LCEN, art. 1-1) : complété, il se
+     lit en clair ; pas encore, il reste en évidence. Jamais entre les deux. */
+  it('disent qui édite, sous quel numéro, où, qui dirige la publication et comment la joindre', () => {
+    if (!VALIDE_JURIDIQUEMENT) {
+      const champs = champsACompleter(PAGES_LEGALES.mentions).join('\n')
+      for (const attendu of [/raison sociale/, /SIREN/, /siège/, /directeur ou de la directrice de la publication/, /contact/]) {
+        expect(champs).toMatch(attendu)
+      }
+      return
+    }
     const t = texte('mentions')
-    expect(t).toContain('Laetitia OLLIVIER, entrepreneur individuel (EI)')
-    expect(t).toContain('SIREN 532 308 228')
-    expect(t).toContain('Directrice de la publication')
-    expect(t).toContain('contact@klaroweb.site')
+    expect(t).toContain(EDITRICE)
+    expect(t).toContain(`SIREN ${SIREN}`)
+    expect(t).toContain(SIRET)
+    expect(t).toContain('Registre national des entreprises')
+    expect(t).toContain(TVA_INTRACOMMUNAUTAIRE)
+    expect(t).toContain(ADRESSE)
+    expect(t).toContain(TELEPHONE)
+    expect(t).toContain(COURRIEL)
+    expect(t).toMatch(/Directrice de la publication[\s\S]*Laetitia OLLIVIER/)
   })
 
-  it('nomment les hébergeurs et leur région', () => {
+  it('nomment les hébergeurs, leur adresse, un moyen de les joindre et leur région', () => {
     const t = texte('mentions')
     expect(t).toMatch(/Vercel Inc\./)
+    expect(t).toContain('+1 951 383 6898')
     expect(t).toMatch(/Supabase Pte\. Ltd\./)
+    expect(t).toContain('65 Chulia Street #38-02/03, OCBC Centre, Singapour 049513')
+    /* Aucun numéro n'est inventé : l'hébergeur n'en publie pas, la page le
+       dit, et donne les moyens de le joindre qu'il publie lui-même. */
+    expect(t).toMatch(/ne publie aucun numéro de téléphone/)
+    expect(t).toContain('https://supabase.com/support')
+    expect(t).toContain('legal@supabase.io')
     expect(t).toContain('cdg1')
     expect(t).toContain('eu-west-3')
+  })
+})
+
+/* ------------------------------------------------------------------ *
+ * L'éditrice, partout la même
+ * ------------------------------------------------------------------ */
+
+describe('l’éditrice', () => {
+  /* Une EI se désigne par le nom de la personne, suivi ou précédé de « EI »
+     (C. com., R526-26) : « LO HYPNOSE » seul ne suffit pas. */
+  it('porte le nom de l’exploitante et la mention EI', () => {
+    expect(EDITRICE).toMatch(/Laetitia OLLIVIER, entrepreneur individuel \(EI\)/)
+    expect(EDITRICE).toContain('LO HYPNOSE')
+  })
+
+  it('est nommée de la même façon sur les quatre pages', () => {
+    for (const cle of ['confidentialite', 'conditions', 'cgv', 'mentions'] as const) {
+      expect(texte(cle), cle).toContain(EDITRICE)
+    }
+  })
+
+  /* Le modèle a changé : l'IA passe par la clé de la plateforme ou du
+     revendeur, en jetons — ou par celle du cabinet, pour qui l'a encore.
+     Aucune page ne doit promettre l'ancien modèle comme le seul. */
+  it('ne promet plus que l’IA passe seulement par la clé du cabinet', () => {
+    for (const cle of Object.keys(PAGES_LEGALES) as CleLegale[]) {
+      expect(texte(cle), cle).not.toMatch(/ne prélève rien/)
+      expect(texte(cle), cle).not.toMatch(/n’est possible qu’avec la clé/)
+    }
+    expect(texte('conditions')).toMatch(/jetons/)
+    expect(texte('confidentialite')).toMatch(/compte de la plateforme ou du revendeur/)
+  })
+
+  it('n’écrit plus aucun champ à compléter', () => {
+    for (const cle of Object.keys(PAGES_LEGALES) as CleLegale[]) {
+      expect(texte(cle), cle).not.toContain('À COMPLÉTER')
+    }
+  })
+})
+
+/* ------------------------------------------------------------------ *
+ * Les conditions générales de vente
+ * ------------------------------------------------------------------ */
+
+describe('les conditions générales de vente', () => {
+  const t = texte('cgv')
+  const page = PAGES_LEGALES.cgv
+
+  it('désignent l’éditrice comme « le Prestataire », une fois', () => {
+    expect(t.match(/ci-après « le Prestataire »/g)).toHaveLength(1)
+  })
+
+  /* Les renvois « l'article 7 » se calculent : chaque titre porte son rang. */
+  it('numérotent leurs articles dans l’ordre, puis l’annexe', () => {
+    const articles = page.sections.filter((s) => !s.id.startsWith('annexe-'))
+    articles.forEach((s, i) => expect(s.titre, s.id).toMatch(new RegExp(`^${i + 1}\\. `)))
+    const annexe = page.sections.filter((s) => s.id.startsWith('annexe-'))
+    for (const s of annexe) expect(s.titre, s.id).toMatch(/^Annexe — /)
+    expect(page.sections.at(-annexe.length - 1)?.id).toBe('droit')
+  })
+
+  it('disent la version acceptée, et comment on l’accepte', () => {
+    expect(t).toContain(MISE_A_JOUR)
+    expect(t).toContain('« J’ai lu et j’accepte les conditions générales de vente et d’utilisation »')
+    expect(t).toMatch(/sans qu’elle soit cochée d’avance/)
+  })
+
+  it('disent la TVA telle qu’elle se facture', () => {
+    expect(t).toMatch(/hors taxes/)
+    expect(t).toContain('« TVA non applicable, art. 293 B du CGI »')
+    expect(t).toMatch(/franchise en base/)
+  })
+
+  it('posent les pénalités de retard que le code de commerce impose', () => {
+    expect(t).toMatch(/Banque centrale européenne[\s\S]*majoré de dix points/)
+    expect(t).toMatch(/indemnité forfaitaire pour frais de recouvrement de 40 euros/)
+    expect(t).toMatch(/L441-10 et D441-5/)
+    expect(t).toMatch(/Aucun escompte/)
+  })
+
+  it('suspendent pour impayé sans rien effacer, et laissent lire et exporter', () => {
+    const retard = page.sections.find((s) => s.id === 'retard')
+    const r = retard ? textesDe({ ...page, sections: [retard] }).join('\n') : ''
+    expect(r).toMatch(/huit jours/)
+    expect(r).toMatch(/accès en lecture/)
+    expect(r).toMatch(/rien n’est effacé/)
+    expect(r).toMatch(/trente jours après la mise en demeure/)
+  })
+
+  it('disent les règles des jetons', () => {
+    for (const regle of [
+      /premier jour de chaque mois civil \(heure de Paris\)/,
+      /ne se cumulent pas et ne se reportent pas/,
+      /valables douze mois à compter de l’achat/,
+      /d’abord dans les jetons inclus du mois, puis dans ceux qui accompagnent l’option Hypnose, puis dans ceux des recharges/,
+      /en commençant par ceux dont l’échéance est la plus proche/,
+      /affiché avant qu’on la lance/,
+      /ne sont débités que si la rédaction aboutit/,
+      /reviennent automatiquement dans les dix minutes/,
+      /au moins trente jours à l’avance/,
+      /effet rétroactif/,
+      /aucune valeur monétaire/,
+      /ni de la monnaie électronique/,
+    ]) {
+      expect(t).toMatch(regle)
+    }
+  })
+
+  it('tiennent le changement de fournisseur du règlement européen sur les données', () => {
+    expect(t).toMatch(/2023\/2854/)
+    expect(t).toMatch(/format structuré, couramment utilisé et lisible par machine/)
+    expect(t).toMatch(/période de transition de trente jours/)
+    expect(t).toMatch(/n’excède jamais deux mois/)
+  })
+
+  it('limitent la responsabilité sans toucher aux dommages corporels ni aux personnes', () => {
+    expect(t).toMatch(/faute prouvée/)
+    expect(t).toMatch(/dommages directs et prévisibles/)
+    expect(t).toMatch(/Sauf faute lourde ou dolosive/)
+    expect(t).toMatch(/douze mois qui précèdent le fait générateur/)
+    /* Un plafond qui tombe à zéro (l'essai, le premier mois) viderait
+       l'obligation essentielle : il a un plancher (code civil, art. 1170). */
+    expect(t).toMatch(/sans pouvoir être inférieur à 500 euros/)
+    expect(t).toMatch(/ne s’appliquent pas aux dommages corporels/)
+    expect(t).toMatch(/article 82/)
+  })
+
+  it('abrègent la prescription à un an, à partir de la connaissance des faits', () => {
+    expect(t).toMatch(/se prescrit par un an à compter du jour où le Client a connu, ou aurait dû connaître/)
+  })
+
+  /* Entre non-commerçants, une clause attributive de juridiction est réputée
+     non écrite (CPC, art. 48) : les CGV n'en écrivent pas. */
+  it('ne désignent pas de tribunal, et passent d’abord par l’amiable', () => {
+    expect(t).not.toMatch(/tribunal de commerce|seuls compétents|compétence exclusive/i)
+    expect(t).toMatch(/trente jours à compter de sa réception/)
+    expect(t).toMatch(/règles du droit commun/)
+  })
+
+  it('posent la destination non médicale du service', () => {
+    expect(t).toMatch(/n’est pas un dispositif médical/)
+    expect(t).toMatch(/finalité non médicale/)
+    expect(t).toMatch(/article 50/)
+  })
+
+  it('annexent l’accord de sous-traitance, avec ses sous-traitants et ses délais', () => {
+    for (const nom of ['Vercel Inc.', 'Supabase Pte. Ltd.', 'Anthropic, PBC', 'Resend, Inc.', 'Stripe', 'hCaptcha', 'SerpApi']) {
+      expect(t).toContain(nom)
+    }
+    expect(t).toMatch(/quarante-huit heures après en avoir pris connaissance/)
+    expect(t).toMatch(/au plus une fois par an/)
+    expect(t).toMatch(/pendant trois mois/)
+    expect(t).toMatch(/Aucune certification d’hébergeur de données de santé \(HDS\) n’est revendiquée/)
+  })
+
+  /* RGPD, art. 28, 3, h : des audits, « y compris des inspections ». */
+  it('permettent les inspections, encadrées', () => {
+    const audits = page.sections.find((s) => s.id === 'annexe-audits')
+    const a = audits ? textesDe({ ...page, sections: [audits] }).join('\n') : ''
+    expect(a).toMatch(/y compris à des inspections/)
+    expect(a).toMatch(/sur place/)
+    expect(a).toMatch(/à ses frais/)
+    expect(a).toMatch(/au moins trente jours à l’avance/)
+    expect(a).toMatch(/au plus une fois par an, sauf à la suite d’une violation de données ou à la demande d’une autorité de contrôle/)
+    expect(a).toMatch(/auditeur indépendant tenu à la confidentialité/)
+    expect(a).toMatch(/heures ouvrées/)
+    expect(a).toMatch(/sans accès aux données d’autres clients/)
+  })
+
+  /* Celui qui administre la base y a accès : il est un sous-traitant
+     ultérieur, et l'accord le dit — sans rien inventer de son identité. */
+  it('désignent le prestataire technique comme sous-traitant ultérieur', () => {
+    const sousTraitants = page.sections.find((s) => s.id === 'annexe-sous-traitants')
+    const liste = sousTraitants?.blocs.find((b) => b.type === 'prestataires')
+    const noms = liste?.type === 'prestataires' ? liste.prestataires.map((p) => `${p.nom} ${p.role}`) : []
+    expect(noms.join('\n')).toMatch(
+      /prestataire technique qui développe et administre la plateforme pour le compte de l’éditrice, lié par un engagement de confidentialité ; son identité et ses coordonnées sont communiquées à tout cabinet qui en fait la demande/,
+    )
+    expect(texte('confidentialite')).toMatch(/prestataire technique qui développe et administre la plateforme[\s\S]*sous-traitant ultérieur/)
+  })
+
+  /* La voix et les rappels passent par l'éditeur du navigateur ou du
+     téléphone, sous ses propres conditions : l'éditrice n'a pas de contrat
+     avec lui, et ne peut pas le présenter comme son sous-traitant. */
+  it('ne comptent pas les services du navigateur parmi les sous-traitants ultérieurs', () => {
+    const sousTraitants = page.sections.find((s) => s.id === 'annexe-sous-traitants')
+    const liste = sousTraitants?.blocs.find((b) => b.type === 'prestataires')
+    const entrees = liste?.type === 'prestataires' ? liste.prestataires.map((p) => Object.values(p).join(' ')).join('\n') : ''
+    expect(entrees).not.toMatch(/Chrome|Safari|Edge|notification/)
+    expect(t).toMatch(/Google pour Chrome, Microsoft pour Edge, Apple pour Safari/)
+    expect(t).toMatch(/ne sont pas des sous-traitants ultérieurs du Prestataire/)
+    expect(t).toMatch(/ne dicte aucune donnée de santé qui permette d’identifier une personne/)
+  })
+
+  /* Le Client qui résilie parce que le Prestataire a manqué ne perd pas ce
+     qu'il a payé d'avance. */
+  it('remboursent les recharges payées quand le Client résilie pour manquement du Prestataire', () => {
+    expect(t).toMatch(
+      /résiliation par le Client pour manquement grave du Prestataire, les recharges payées et non consommées sont remboursées au prorata/,
+    )
+  })
+
+  it('ouvrent un point de contact et une procédure de signalement', () => {
+    expect(t).toMatch(/2022\/2065/)
+    expect(t).toContain(COURRIEL)
+  })
+})
+
+/* ------------------------------------------------------------------ *
+ * L'IA, dite à la personne suivie
+ * ------------------------------------------------------------------ */
+
+describe('la mention de l’IA', () => {
+  /* Les affirmations renouvelées automatiquement arrivent sans relecture :
+     aucune page ne peut dire que tout est « relu et validé ». */
+  it('ne dit pas que tout est relu et validé', () => {
+    expect(MENTION_IA).not.toMatch(/relus? et validés?/)
+    for (const cle of Object.keys(PAGES_LEGALES) as CleLegale[]) {
+      expect(texte(cle), cle).not.toMatch(/relus et validés/)
+    }
+  })
+
+  it('est la même à l’écran, dans les conditions d’utilisation et dans les conditions de vente', () => {
+    const suite = 'sous la responsabilité de votre praticien, qui les relit ou choisit d’en publier certains automatiquement'
+    expect(MENTION_IA).toContain(suite)
+    expect(texte('conditions')).toContain(suite)
+    expect(texte('cgv')).toContain(suite.replace('votre praticien', 'leur praticien'))
+  })
+
+  it('ne nomme ni la plateforme ni un modèle', () => {
+    expect(MENTION_IA).not.toMatch(/klaro/i)
+    expect(revendicationsInterdites(MENTION_IA)).toEqual([])
   })
 })
 

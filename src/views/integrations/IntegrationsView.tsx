@@ -2,6 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { Button, Card, Notice, Overline, TextInput, Title } from '@/components/ui'
 import { GesteAConfirmer } from '@/components/GesteAConfirmer'
 import { useMaybeCabinet } from '@/cabinet/context'
+import { enJetons, useJetons } from '@/cabinet/useJetons'
+import { CarteJetons } from '@/views/jetons/CarteJetons'
+import { CartePreferencesIA } from './PreferencesIA'
 import {
   agirIntegration,
   lireIntegrations,
@@ -26,6 +29,11 @@ function dateLongue(iso: string): string {
  */
 export function IntegrationsView() {
   const cabinet = useMaybeCabinet()
+  /* LES JETONS DU REVENDEUR (0065). Quand il paie l'analyse de ses cabinets,
+     la clé Anthropic du cabinet ne sert plus : sa carte laisse la place à
+     celle des jetons. Sinon, la page reste exactement ce qu'elle était. */
+  const jetons = useJetons()
+  const modeJetons = enJetons(jetons)
   const [etat, setEtat] = useState<EtatIntegrations | null>(null)
   const [chargement, setChargement] = useState(true)
   const [erreur, setErreur] = useState('')
@@ -109,6 +117,9 @@ export function IntegrationsView() {
         </Card>
       ) : (
         <>
+          {/* Le retour de la page de paiement (src/cabinet/useJetons.ts) : ce
+              que Stripe a confirmé, dit une fois, dans les mots du serveur. */}
+          {jetons?.retour ? <RetourDePaiement /> : null}
           {erreur ? <Notice tone="warn">{erreur}</Notice> : null}
           {notice ? <Notice tone="ok">{notice}</Notice> : null}
 
@@ -129,16 +140,61 @@ export function IntegrationsView() {
             </Notice>
           ) : null}
 
-          {etat ? (
+          {/* Les jetons se lisent à part des intégrations : une lecture en
+              échec d'un côté ne cache pas le solde de l'autre. */}
+          {etat || modeJetons ? (
             <div className={s.grid}>
-              <CleAnthropic etat={etat} enCours={enCours} onAgir={agir} />
-              <CleStripe etat={etat} enCours={enCours} onAgir={agir} />
-              <RendezVous etat={etat} enCours={enCours} onAgir={agir} />
+              {modeJetons ? (
+                <CarteJetons cleCabinetPosee={Boolean(etat?.anthropic)} />
+              ) : etat ? (
+                <CleAnthropic etat={etat} enCours={enCours} onAgir={agir} />
+              ) : null}
+              {etat ? (
+                <>
+                  <CleStripe etat={etat} enCours={enCours} onAgir={agir} />
+                  <RendezVous etat={etat} enCours={enCours} onAgir={agir} />
+                </>
+              ) : null}
             </div>
           ) : null}
+
+          {/* Ce que l'IA a retenu des retouches (0066) : lu à part, une panne
+              des intégrations ne le cache pas. */}
+          <CartePreferencesIA />
         </>
       )}
     </div>
+  )
+}
+
+/**
+ * Ce que Stripe a répondu, au retour de la page de paiement.
+ *
+ * Tant que Stripe n'a pas confirmé, un nouvel essai a un sens : le bouton le
+ * propose, sur la même commande — la vérification ne crédite jamais deux
+ * fois —, et il survit à un rechargement (useJetons garde la session dans
+ * l'adresse). Fermer reste possible : le serveur relit de lui-même les
+ * commandes en attente à chaque ouverture des jetons.
+ */
+function RetourDePaiement() {
+  const jetons = useJetons()
+  const retour = jetons?.retour
+  if (!jetons || !retour) return null
+  if (retour.ton === 'attente') return <p className={s.muted}>{retour.texte}</p>
+  return (
+    <Notice tone={retour.ton}>
+      {retour.texte}{' '}
+      {retour.session ? (
+        <>
+          <button type="button" className={s.lienBouton} onClick={() => void jetons.reverifier()}>
+            Vérifier de nouveau
+          </button>{' '}
+        </>
+      ) : null}
+      <button type="button" className={s.lienBouton} onClick={jetons.effacerRetour}>
+        Fermer
+      </button>
+    </Notice>
   )
 }
 

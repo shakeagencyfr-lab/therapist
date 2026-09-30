@@ -4,11 +4,15 @@ import { ATELIER_SEEDS, ATELIER_SEED_BRIEFS, ATELIER_TYPES } from '@/data/atelie
 import { DEFINITION_DU_TYPE } from '@/lib/typesDeModules'
 import { plural } from '@/lib/format'
 import { preparerModule } from '@/lib/moduleAtelier'
-import { generateModule, messageDEchec } from '@/services/aiClient'
+import { echecDeRetouche, generateModule, messageDEchec, retoucher } from '@/services/aiClient'
+import { RetourIA } from '@/components/retouche/RetourIA'
+import { RETOUCHE_ABANDONNEE, versionDe, type IssueRetouche, type RetourDeLaPraticienne } from '@/lib/retouche'
 import { useMaybeCabinet } from '@/cabinet/context'
+import { useDevis } from '@/cabinet/useJetons'
+import { CoutEnJetons } from '@/views/jetons/CoutEnJetons'
 import { useStore } from '@/state/store'
 import type { AppState } from '@/state/state'
-import type { CustomModule, PatientId, QuizQuestion } from '@/types/domain'
+import type { CustomModule, GeneratedModule, PatientId, QuizQuestion } from '@/types/domain'
 import s from './AtelierView.module.css'
 
 /* Bibliothèque du cabinet ------------------------------------------- */
@@ -93,7 +97,7 @@ function QuizItem({ question }: { question: QuizQuestion }) {
  * qui ne se montre qu'à l'assignation, reste tel que proposé.
  */
 export function AtelierView() {
-  const { state, set } = useStore()
+  const { state, set, read } = useStore()
   const cabinet = useMaybeCabinet()
   /** Assignation en cours : le bouton ne se reclique pas. */
   const [assignation, setAssignation] = useState(false)
@@ -102,6 +106,9 @@ export function AtelierView() {
   const [refus, setRefus] = useState('')
   const mod = state.aMod
   const rows = libraryRows(state)
+  /* En jetons (0065), le module a son prix au barème : il se dit sous le
+     bouton, et le bouton se ferme quand le solde ne le couvre plus. */
+  const devis = useDevis('module')
   const selected = state.patientOrder.filter((key) => state.aAssign[key])
 
   /** Corrige le brouillon affiché, champ par champ. */
@@ -194,6 +201,39 @@ export function AtelierView() {
     })
   }
 
+  /**
+   * Fait retoucher le module entier par l'IA (0066) — quiz compris : c'est le
+   * seul moyen de le corriger, il ne s'édite pas ici. Rien ne s'écrit en base
+   * avant l'assignation : le module retouché remplace le brouillon à
+   * l'écran, et l'ancien reste en mémoire pour « Annuler la retouche ».
+   */
+  async function retoucherModule(retour: RetourDeLaPraticienne, abandon?: AbortSignal): Promise<IssueRetouche> {
+    const avant = read().aMod
+    if (!avant) return { ok: false, message: "Il n'y a plus de module à retoucher." }
+    const { type, ...actuel } = avant
+    let rendu: GeneratedModule
+    try {
+      rendu = await retoucher({ cible: 'module', ...retour, actuel, extra: { brief: read().aIntent.trim(), type } })
+    } catch (err) {
+      return echecDeRetouche(err)
+    }
+    // La fenêtre refermée pendant l'appel : le module en place ne bouge pas.
+    if (abandon?.aborted) return RETOUCHE_ABANDONNEE
+    if (!rendu.steps?.some((e) => e.trim()) && !rendu.pourquoi?.trim()) {
+      return { ok: false, message: "La retouche est revenue vide : le module d'avant reste en place." }
+    }
+    const nouveau: CustomModule = { ...rendu, type }
+    set({ aMod: nouveau })
+    return {
+      ok: true,
+      version: versionDe(nouveau),
+      annuler: async () => {
+        set({ aMod: avant })
+        return { ok: true, message: '' }
+      },
+    }
+  }
+
   function reopen(made: CustomModule) {
     setRefus('')
     set({ aMod: made, aAssign: {}, aLastAssigned: '', aNotice: '' })
@@ -223,6 +263,7 @@ export function AtelierView() {
               <Overline>Votre intention</Overline>
             </div>
             <TextArea
+              dictee
               className={s.intent}
               rows={5}
               value={state.aIntent}
@@ -282,11 +323,12 @@ export function AtelierView() {
               variant="primary"
               block
               className={s.gen}
-              disabled={state.aGen}
+              disabled={state.aGen || Boolean(devis?.manque)}
               onClick={() => void generate()}
             >
               {state.aGen ? 'Rédaction du module…' : 'Générer le module'}
             </Button>
+            <CoutEnJetons devis={devis} sujet="Ce module" />
             {state.aNotice ? <div className={s.notice}>{state.aNotice}</div> : null}
           </Card>
 
@@ -322,6 +364,7 @@ export function AtelierView() {
                   <span className={s.draft}>Brouillon, modifiable avant assignation</span>
                 </div>
                 <TextInput
+                  dictee
                   className={s.moduleTitle}
                   value={mod.titre}
                   aria-label="Titre du module"
@@ -332,7 +375,9 @@ export function AtelierView() {
               <div className={s.facts}>
                 <label className={s.fact}>
                   <span className={s.factLabel}>Durée</span>
-                  <input
+                  <TextInput
+                    nu
+                    dictee
                     className={s.factInput}
                     value={mod.duree}
                     onChange={(e) => corriger({ duree: e.target.value })}
@@ -340,7 +385,9 @@ export function AtelierView() {
                 </label>
                 <label className={s.fact}>
                   <span className={s.factLabel}>Quand</span>
-                  <input
+                  <TextInput
+                    nu
+                    dictee
                     className={s.factInput}
                     value={mod.quand}
                     onChange={(e) => corriger({ quand: e.target.value })}
@@ -361,7 +408,9 @@ export function AtelierView() {
                       <span className={s.stepNum} aria-hidden>
                         {i + 1}
                       </span>
-                      <textarea
+                      <TextArea
+                        nu
+                        dictee
                         className={s.stepInput}
                         value={step}
                         rows={Math.max(2, Math.ceil(step.length / 60))}
@@ -391,7 +440,9 @@ export function AtelierView() {
               <div className={s.whyWrap}>
                 <label className={s.why}>
                   <span className={s.whyLabel}>Pourquoi cet exercice</span>
-                  <textarea
+                  <TextArea
+                    nu
+                    dictee
                     className={s.whyInput}
                     value={mod.pourquoi}
                     rows={Math.max(3, Math.ceil(mod.pourquoi.length / 70))}
@@ -413,6 +464,19 @@ export function AtelierView() {
                   </ul>
                 </div>
               )}
+
+              {/* Le module entier, quiz compris : une étape ne se retouche pas
+                  sans que les autres la suivent. */}
+              {cabinet?.reel ? (
+                <RetourIA
+                  cible="module"
+                  libelle="le module entier, quiz compris"
+                  version={versionDe(mod)}
+                  occupe={state.aGen || assignation}
+                  onRetoucher={retoucherModule}
+                  className={s.retour}
+                />
+              ) : null}
             </Card>
 
             <Card padded={false} className={s.assign}>

@@ -3,12 +3,13 @@ import { jetonDe } from '../server/auth.js'
 import { describeError } from '../server/ai.js'
 import { journaliserRefus } from '../server/errors.js'
 import { agirVolet, lireVolet } from '../server/cabinet.js'
+import { hoteDeLaRequete } from '../server/shop.js'
 
 /**
  * Réglages du cabinet : offre, domaine, envoi de courriels, site vitrine,
- * envoi des notes d'honoraires.
+ * envoi des notes d'honoraires, jetons d'analyse.
  *
- * GET ?volet=droits|domaine|smtp|site|honoraires — l'état. POST — une action dessus.
+ * GET ?volet=droits|domaine|smtp|site|honoraires|jetons — l'état. POST — une action dessus.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   const token = jetonDe(req.headers.authorization)
@@ -20,7 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       return
     }
     if (req.method === 'POST') {
-      res.status(200).json(await agirVolet(req.body, token))
+      res.status(200).json(await agirVolet(req.body, token, hoteDeLaRequete(req.headers)))
       return
     }
     res.setHeader('Allow', 'GET, POST')

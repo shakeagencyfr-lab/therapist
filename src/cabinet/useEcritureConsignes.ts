@@ -32,7 +32,16 @@ export interface EcritureConsignes {
   total: number
   ecrit: boolean
   echecs: number
-  ecrire: (patientId: PatientId, modules: ModuleCree[], propositions: DraftProposal[]) => Promise<void>
+  /**
+   * `sessionId` : la séance dont ces consignes découlent. En mode jetons, le
+   * serveur les compte dans le forfait de la séance au lieu de les facturer.
+   */
+  ecrire: (
+    patientId: PatientId,
+    modules: ModuleCree[],
+    propositions: DraftProposal[],
+    sessionId?: string | null,
+  ) => Promise<void>
 }
 
 export function useEcritureConsignes(
@@ -46,7 +55,7 @@ export function useEcritureConsignes(
   const [echecs, setEchecs] = useState(0)
 
   const ecrire = useCallback(
-    async (patientId: PatientId, crees: ModuleCree[], propositions: DraftProposal[]) => {
+    async (patientId: PatientId, crees: ModuleCree[], propositions: DraftProposal[], sessionId: string | null = null) => {
       /* PAS DE CONSIGNE POUR CE QUI NE SE FAIT PAS. Un module « Audio » ou
          « Échelle » n'apparaît jamais comme une tâche chez le patient : sa
          consigne était écrite, payée, et lue par personne. Le brouillon n'en
@@ -75,6 +84,7 @@ export function useEcritureConsignes(
             // un quiz faux est pire qu'une absence de quiz.
             quiz: false,
             context: contexte,
+            sessionId,
           })
           /* LIRE LE RETOUR. `majConsigne` ne lève pas : elle rend { ok: false }
              quand la base refuse l'écriture. Sans cette lecture, un refus ne

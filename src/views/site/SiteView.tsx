@@ -332,6 +332,7 @@ export function SiteView() {
             <div className={s.field}>
               <FieldLabel>Titre</FieldLabel>
               <TextInput
+                dictee
                 value={site.titre}
                 onChange={(e) => patch({ titre: e.target.value })}
                 placeholder={identite.name}
@@ -340,6 +341,7 @@ export function SiteView() {
             <div className={s.field}>
               <FieldLabel>Sous-titre</FieldLabel>
               <TextInput
+                dictee
                 value={site.sousTitre}
                 onChange={(e) => patch({ sousTitre: e.target.value })}
                 placeholder="Hypnothérapie et accompagnement du changement"
@@ -348,6 +350,7 @@ export function SiteView() {
             <div className={s.field}>
               <FieldLabel>Présentation</FieldLabel>
               <TextArea
+                dictee
                 rows={6}
                 value={site.presentation}
                 onChange={(e) => patch({ presentation: e.target.value })}
@@ -713,6 +716,7 @@ function Services({
       {services.map((service, i) => (
         <div key={i} className={s.service}>
           <TextInput
+            dictee
             value={service.titre}
             placeholder="Arrêt du tabac"
             onChange={(e) =>
@@ -721,6 +725,7 @@ function Services({
             aria-label={`Titre du service ${i + 1}`}
           />
           <TextArea
+            dictee
             rows={2}
             value={service.texte}
             placeholder="En quoi consiste l'accompagnement, en deux phrases."
@@ -835,6 +840,7 @@ function Photos({
               {i === 0 ? <span className={s.couverture}>Couverture</span> : null}
             </div>
             <TextInput
+              dictee
               value={p.alt}
               placeholder="Ce que montre la photo"
               onChange={(e) => onChange(photos.map((x, j) => (j === i ? { ...x, alt: e.target.value } : x)))}

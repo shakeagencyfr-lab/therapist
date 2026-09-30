@@ -33,6 +33,9 @@ interface PlanRow {
   marque_blanche: boolean
   site: boolean
   position: number
+  /** 0065 : le forfait mensuel de jetons, et l'hypnose comprise. */
+  jetons_mois?: number | null
+  hypnose_incluse?: boolean | null
 }
 
 /** Les exceptions négociées, lues sur `subscriptions`. */
@@ -42,6 +45,9 @@ interface ExceptionRow {
   shop_override: boolean | null
   marque_blanche_override: boolean | null
   site_override: boolean | null
+  jetons_mois_override?: number | null
+  hypnose_override?: boolean | null
+  hypnose_jusqu_au?: string | null
 }
 
 /** Une ligne de `reseller_cabinet_overview()`. */
@@ -139,6 +145,9 @@ export interface ReglageOffre {
   shop?: boolean
   marqueBlanche?: boolean
   site?: boolean
+  /** Jetons attribués chaque mois (mode jetons). */
+  jetonsMois?: number
+  hypnoseIncluse?: boolean
 }
 
 /** Les exceptions accordées à un cabinet. `null` remet l'offre en vigueur. */
@@ -147,6 +156,10 @@ export interface Exceptions {
   shopOverride?: boolean | null
   marqueBlancheOverride?: boolean | null
   siteOverride?: boolean | null
+  jetonsMoisOverride?: number | null
+  hypnoseOverride?: boolean | null
+  /** Le pass Hypnose, prolongé ou retiré à la main (ISO, ou null). */
+  hypnoseJusquAu?: string | null
 }
 
 /**
@@ -234,6 +247,8 @@ const SANS_OFFRE: Plan = {
   shop: false,
   marqueBlanche: false,
   site: false,
+  jetonsMois: 0,
+  hypnoseIncluse: false,
   includes: [],
 }
 
@@ -313,6 +328,9 @@ function versPortfolio(
       shopOverride: exception?.shop_override ?? null,
       marqueBlancheOverride: exception?.marque_blanche_override ?? null,
       siteOverride: exception?.site_override ?? null,
+      jetonsMoisOverride: exception?.jetons_mois_override ?? null,
+      hypnoseOverride: exception?.hypnose_override ?? null,
+      hypnoseJusquAu: exception?.hypnose_jusqu_au ?? null,
     },
     plan,
   }
@@ -328,6 +346,8 @@ function versOffre(r: PlanRow): Plan {
     shop: Boolean(r.shop),
     marqueBlanche: Boolean(r.marque_blanche),
     site: Boolean(r.site),
+    jetonsMois: Number(r.jetons_mois ?? 0) || 0,
+    hypnoseIncluse: r.hypnose_incluse === true,
     // L'argumentaire reste écrit dans le produit : c'est du texte de vente,
     // pas une donnée que le revendeur règle écran par écran.
     includes: PLANS.find((p) => p.code === r.code)?.includes ?? [],
@@ -388,10 +408,15 @@ export function useReseller(): ResellerData {
         .select('id, cabinet_id, email, expires_at, role, display_name')
         .is('accepted_at', null)
         .order('created_at'),
-      db.from('plans').select('code, label, price_cents, max_patients, shop, marque_blanche, site, position').order('position'),
+      db
+        .from('plans')
+        .select('code, label, price_cents, max_patients, shop, marque_blanche, site, position, jetons_mois, hypnose_incluse')
+        .order('position'),
       db
         .from('subscriptions')
-        .select('cabinet_id, max_patients_override, shop_override, marque_blanche_override, site_override'),
+        .select(
+          'cabinet_id, max_patients_override, shop_override, marque_blanche_override, site_override, jetons_mois_override, hypnose_override, hypnose_jusqu_au',
+        ),
       db.rpc('journal_des_contrats', { p_limite: 50 }),
       db.from('cabinet_slug_aliases').select('slug, cabinet_id').order('created_at', { ascending: false }),
     ])
@@ -795,6 +820,8 @@ export function useReseller(): ResellerData {
       if (champs.shop !== undefined) ligne.shop = champs.shop
       if (champs.marqueBlanche !== undefined) ligne.marque_blanche = champs.marqueBlanche
       if (champs.site !== undefined) ligne.site = champs.site
+      if (champs.jetonsMois !== undefined) ligne.jetons_mois = Math.max(0, Math.round(champs.jetonsMois))
+      if (champs.hypnoseIncluse !== undefined) ligne.hypnose_incluse = champs.hypnoseIncluse
       if (!Object.keys(ligne).length) return { ok: true, message: '' }
 
       /* ON REDEMANDE LA LIGNE TOUCHÉE. Un `update` que la politique de lecture
@@ -835,6 +862,9 @@ export function useReseller(): ResellerData {
       if (champs.shopOverride !== undefined) ligne.shop_override = champs.shopOverride
       if (champs.marqueBlancheOverride !== undefined) ligne.marque_blanche_override = champs.marqueBlancheOverride
       if (champs.siteOverride !== undefined) ligne.site_override = champs.siteOverride
+      if (champs.jetonsMoisOverride !== undefined) ligne.jetons_mois_override = champs.jetonsMoisOverride
+      if (champs.hypnoseOverride !== undefined) ligne.hypnose_override = champs.hypnoseOverride
+      if (champs.hypnoseJusquAu !== undefined) ligne.hypnose_jusqu_au = champs.hypnoseJusquAu
 
       /* On redemande les lignes touchées : sans abonnement, l'`update` ne
          touche rien et rendrait un succès pour une écriture qui n'a pas eu

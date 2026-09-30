@@ -35,8 +35,9 @@ export type Space = 'cabinet' | 'reseller'
  * `fiche` : la fiche du cabinet `rSel`, ouverte depuis le portefeuille — elle
  * n'a pas d'onglet à elle, c'est l'onglet Cabinets qui reste allumé.
  * `equipe` : l'équipe du revendeur et ses coordonnées de support (0057).
+ * `jetons` : sa clé d'analyse, son barème, ses recharges et son encaissement (0065).
  */
-export type ResellerView = 'portfolio' | 'brand' | 'plans' | 'demandes' | 'fiche' | 'equipe'
+export type ResellerView = 'portfolio' | 'brand' | 'plans' | 'jetons' | 'demandes' | 'fiche' | 'equipe'
 
 /** Vue affichée par le commutateur de l'en-tête. Une seule à la fois. */
 export type ViewMode =
@@ -61,7 +62,9 @@ export type PatientView = 'home' | 'journal'
 
 /**
  * Mode de captation de séance : le micro pendant la séance, une synthèse
- * dictée après, ou les notes écrites seules — sans micro ni transcription.
+ * dictée après, ou les notes seules — rien d'enregistré ni de transcrit
+ * pendant la séance (la praticienne peut dicter ses propres notes, sauf
+ * dans une séance ouverte sans enregistrement).
  */
 export type CaptureMode = 'live' | 'dictation' | 'notes'
 
@@ -140,8 +143,10 @@ export interface AppState {
   consent: boolean
   /**
    * Ouverte SANS enregistrement : aucun consentement à la captation n'a été
-   * recueilli, le micro reste fermé et seules les notes écrites comptent. La
-   * base le sait aussi (consent_given_at vide) et refuserait une transcription.
+   * recueilli, rien n'est enregistré pendant la séance, et seules les notes
+   * écrites au clavier comptent (leur champ n'a pas de micro ; le brouillon,
+   * après la séance, garde le sien). La base le sait aussi
+   * (consent_given_at vide) et refuserait une transcription.
    */
   sansEnregistrement: boolean
   capture: CaptureMode

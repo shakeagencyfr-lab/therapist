@@ -8,6 +8,7 @@ import {
   DELAI_PURGE_JOURS,
   aSauver,
   brouillonAvecChoix,
+  choixAGarder,
   separerChoix,
   ceQuiAEtePris,
   momentDuMessage,
@@ -187,6 +188,52 @@ describe("l'écran de séance ne promet plus ce qu'il ne fait pas", () => {
   it('l’envoi passe par la fonction qui refuse une séance déjà close', () => {
     const cabinet = lire('../cabinet/useCabinet.ts')
     expect(cabinet).toContain("rpc('cabinet_envoyer_seance'")
+  })
+
+  /* LA RÈGLE DU MICRO. Pendant une séance sans transcription, rien n'est
+     enregistré ; le champ des notes a un micro quand le consentement est
+     signé (la praticienne dicte ses propres notes), aucun dans une séance
+     ouverte sans enregistrement (le patient peut être là). Après la séance,
+     les champs du brouillon gardent le leur : c'est elle qui dicte. Aucun
+     écran ne promet donc « pas de micro » : il promet que rien de la séance
+     ne s'enregistre. */
+  it('une séance sans transcription promet « rien n’est enregistré », pas « pas de micro »', () => {
+    const consentement = affichable('../views/session/ConsentStep.tsx')
+    for (const texte of [vue, captation, consentement]) {
+      expect(texte).not.toMatch(/Pas de micro/i)
+      expect(texte).not.toMatch(/Aucun micro/i)
+      expect(texte).not.toMatch(/micro reste fermé/i)
+    }
+    expect(vue).toMatch(/Rien n'est enregistré pendant la\s+séance/)
+    expect(consentement).toMatch(/Rien n'est enregistré pendant la\s+séance/)
+    expect(captation).toMatch(/Rien n'est enregistré pendant la\s+séance/)
+  })
+
+  it('le champ des notes n’a pas de micro dans une séance ouverte sans enregistrement', () => {
+    expect(lire('../views/session/RecordStep.tsx')).toContain('dictee={state.sansEnregistrement ? undefined : !state.recording}')
+  })
+})
+
+/* Un champ démonté après « Garder en brouillon » annonce encore la fin de
+   sa dictée : le magasin est déjà vidé. Ses choix par défaut ne doivent pas
+   écraser ceux qu'elle vient de garder. */
+describe('choixAGarder — les choix d’une écriture tardive', () => {
+  const siens = { proposalOff: { 1: true }, sugOff: { a1: true }, syntheseOk: true }
+  const rendu = { sessionId: 's1', ...siens }
+
+  it('le magasin fait foi tant qu’il est sur la même séance', () => {
+    const courant = { sessionId: 's1', draft: {} as never, proposalOff: { 2: true }, sugOff: {}, syntheseOk: false }
+    expect(choixAGarder(courant, rendu)).toEqual({ proposalOff: { 2: true }, sugOff: {}, syntheseOk: false })
+  })
+
+  it('le magasin vidé (nouvelleSeance) : les choix du rendu, pas les défauts', () => {
+    const vide = { sessionId: null, draft: null, ...AUCUN_CHOIX }
+    expect(choixAGarder(vide, rendu)).toEqual(siens)
+  })
+
+  it('le brouillon retiré (« Reprendre ») : les choix du rendu', () => {
+    const sansBrouillon = { sessionId: 's1', draft: null, ...AUCUN_CHOIX }
+    expect(choixAGarder(sansBrouillon, rendu)).toEqual(siens)
   })
 })
 

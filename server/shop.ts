@@ -92,7 +92,7 @@ export function hoteDeLaRequete(headers: Record<string, string | string[] | unde
 }
 
 /** « Klaroweb.site:443 » et « klaroweb.site » désignent la même porte. */
-function hoteNu(hote: string): string {
+export function hoteNu(hote: string): string {
   return hote.trim().toLowerCase().replace(/:\d+$/, '').replace(/\.$/, '')
 }
 

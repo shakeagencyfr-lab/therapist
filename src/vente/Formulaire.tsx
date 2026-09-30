@@ -24,7 +24,7 @@ import {
   type ChampDemande,
   type SaisieDemande,
 } from '@/lib/demandeEssai'
-import { CHEMIN_CONFIDENTIALITE, EDITEUR } from './contenu'
+import { CHEMIN_CGU, CHEMIN_CGV, CHEMIN_CONFIDENTIALITE, EDITEUR } from './contenu'
 import { envoyerDemande } from './envoi'
 import s from './PageDeVente.module.css'
 
@@ -382,6 +382,40 @@ export function Formulaire({ offreProposee }: { offreProposee: string }) {
       {erreurs.consentement ? (
         <p className={s.erreur} id={`${id('consentement')}-erreur`}>
           {erreurs.consentement}
+        </p>
+      ) : null}
+
+      {/* LES CONDITIONS, UNE CASE À PART. Jamais cochée d'avance, distincte
+          du recontact et du bouton : c'est ce qui rend les conditions
+          opposables (code civil, art. 1119 et 1127-1). Les deux documents
+          s'ouvrent dans un nouvel onglet — la saisie reste là. Le serveur et
+          la base refusent une demande sans elle (server/demandes.ts, 0067). */}
+      <div className={s.consentement}>
+        <input
+          id={id('conditions')}
+          data-champ="conditions"
+          type="checkbox"
+          checked={saisie.conditions}
+          onChange={(e) => changer('conditions', e.target.checked)}
+          aria-invalid={Boolean(erreurs.conditions)}
+          aria-describedby={erreurs.conditions ? `${id('conditions')}-erreur` : undefined}
+          required
+        />
+        <label htmlFor={id('conditions')}>
+          J’ai lu et j’accepte les{' '}
+          <a href={CHEMIN_CGV} target="_blank" rel="noopener noreferrer">
+            conditions générales de vente<span className={s.horsEcran}> (nouvel onglet)</span>
+          </a>{' '}
+          et{' '}
+          <a href={CHEMIN_CGU} target="_blank" rel="noopener noreferrer">
+            d’utilisation<span className={s.horsEcran}> (nouvel onglet)</span>
+          </a>
+          .
+        </label>
+      </div>
+      {erreurs.conditions ? (
+        <p className={s.erreur} id={`${id('conditions')}-erreur`}>
+          {erreurs.conditions}
         </p>
       ) : null}
 

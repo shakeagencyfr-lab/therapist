@@ -8,6 +8,7 @@ import { libelleSeptJours } from '@/lib/assiduite'
 import { allModules, isModuleDone, moduleProgress, releaseModulePatch, toggleModulePatch } from '@/state/selectors'
 import type { AppState } from '@/state/state'
 import { useStore } from '@/state/store'
+import { buildPatientContext } from '@/services/aiClient'
 import type { PatientId, PatientModule } from '@/types/domain'
 import s from './WeekModules.module.css'
 
@@ -49,7 +50,7 @@ function quizBadge(state: AppState, key: PatientId, index: number, module: Patie
  * s'accumulait chez le patient, sous « aujourd'hui », séance après séance.
  */
 export function WeekModules() {
-  const { state, set } = useStore()
+  const { state, set, read } = useStore()
   const cabinet = useMaybeCabinet()
   const key = state.sel
   const modules = allModules(state, key)
@@ -187,7 +188,12 @@ export function WeekModules() {
             </div>
 
             {aCorriger === repere ? (
-              <ConsigneEditeur module={m} onFerme={() => setACorriger('')} />
+              <ConsigneEditeur
+                module={m}
+                onFerme={() => setACorriger('')}
+                dossier={() => (read().patients[key] ? buildPatientContext(read(), key) : undefined)}
+                patient={state.patients[key]?.name}
+              />
             ) : null}
             </div>
           )

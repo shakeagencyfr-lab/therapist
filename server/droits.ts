@@ -1,10 +1,11 @@
 /**
  * Ce que l'offre d'un cabinet ouvre.
  *
- * Un abonnement décide quatre choses, et rien d'autre : combien de fiches
+ * Un abonnement décide cinq choses, et rien d'autre : combien de fiches
  * actives, la boutique, la marque blanche (son domaine et ses courriels), le
- * site vitrine. L'analyse n'en fait pas partie — chaque cabinet branche sa
- * propre clé Anthropic et paie ses appels.
+ * site vitrine, et — depuis 0065 — l'hypnose personnalisée. Ce que coûte
+ * l'analyse ne se règle pas ici : c'est la clé du cabinet, ou les jetons de
+ * son revendeur (server/jetons.ts).
  *
  * La règle est calculée en base, par `cabinet_droits()` : l'offre, corrigée
  * des exceptions négociées pour ce cabinet. Le serveur ne la recalcule pas —
@@ -57,6 +58,11 @@ export interface Droits {
   ferme?: boolean
   /** Depuis quand, daté par la base. */
   fermeLe?: string | null
+  /**
+   * L'hypnose personnalisée est-elle ouverte (0065) ? L'offre, l'exception
+   * du contrat, ou un pass acheté en cours — et le contrat en règle.
+   */
+  hypnose?: boolean
 }
 
 /** Les coordonnées que le revendeur a laissées pour ses cabinets. */
@@ -82,6 +88,7 @@ interface DroitsRow {
   revendeur_courriel?: string | null
   ferme?: boolean | null
   ferme_le?: string | null
+  hypnose?: boolean | null
 }
 
 /** Ce que l'écran doit lire quand un levier est fermé. */
@@ -112,6 +119,7 @@ function versDroits(brut: unknown): Droits {
     revendeur: row.revendeur ? { nom: row.revendeur, courriel: row.revendeur_courriel ?? null } : null,
     ferme: row.ferme === true,
     fermeLe: row.ferme_le ?? null,
+    hypnose: row.hypnose === true,
   }
 }
 
@@ -205,6 +213,27 @@ export async function abonnementEnRegle(cabinetId: string, admin: SupabaseClient
   }
   return data === true
 }
+
+/**
+ * L'hypnose est-elle ouverte à ce cabinet, vu du serveur ?
+ *
+ * Elle est devenue une option (0065) : comprise dans l'offre, accordée par
+ * exception, ou achetée pour un temps. La règle vit en base
+ * (`hypnose_ouverte`), réservée au rôle de service comme celle du contrat.
+ */
+export async function hypnoseOuverte(cabinetId: string, admin: SupabaseClient): Promise<boolean> {
+  const { data, error } = await admin.rpc('hypnose_ouverte', { p_cabinet: cabinetId })
+  if (error) {
+    // Une panne ne vaut pas un oui, pas plus ici que pour le contrat.
+    console.error(`[droits] hypnose ${cabinetId} — ${error.message}`)
+    throw new HttpError(503, "Votre offre n'a pas pu être vérifiée. Réessayez dans un instant.")
+  }
+  return data === true
+}
+
+/** Ce que l'écran lit quand l'hypnose n'est pas ouverte. */
+export const REFUS_HYPNOSE =
+  "L'hypnose personnalisée n'est pas comprise dans votre offre. Ajoutez l'option Hypnose depuis Intégrations › Jetons IA, ou demandez à votre revendeur de l'ouvrir depuis son espace."
 
 /** Ce que l'écran lit quand le contrat ne court plus. */
 export const REFUS_CONTRAT =
