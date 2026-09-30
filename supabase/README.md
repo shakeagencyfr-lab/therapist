@@ -131,6 +131,7 @@ Relevé du 28 septembre 2026 (base `koytgcbpeorupdklswxd`).
 | `0066_les_retouches.sql` | 20260930092908 | 0066_les_retouches |
 | `0067_les_conditions_acceptees.sql` | 20260930074507 | 0067_les_conditions_acceptees |
 | `0068_les_jetons_sous_verrou.sql` | 20260930115309 | 0068_les_jetons_sous_verrou |
+| `0069_l_ancienne_demande_d_essai_se_retire.sql` | 20260930125054 | 0069_l_ancienne_demande_d_essai_se_retire |
 
 `0060` (demandes d'essai) a été appliquée avant `0055` à `0059` : elles ne se touchent pas.
 
