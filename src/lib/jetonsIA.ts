@@ -19,6 +19,7 @@ import type {
   CoutReel,
   EtatJetons,
   LigneHistorique,
+  LotJetons,
   ModeFacturation,
 } from '../types/jetons.js'
 
@@ -84,6 +85,11 @@ export const ACTION_COURTE: Record<ActionJetons, string> = {
 /** « 1 jeton », « 12 jetons », « 1 000 jetons » — et « 0 jeton », comme on le dit. */
 export function jetonsDits(n: number): string {
   return `${n.toLocaleString('fr-FR')} jeton${Math.abs(n) > 1 ? 's' : ''}`
+}
+
+/** « 1 jeton offert », « 200 jetons offerts » — le participe suit le nombre. */
+export function offertsDits(n: number): string {
+  return `${jetonsDits(n)} offert${Math.abs(n) > 1 ? 's' : ''}`
 }
 
 /** « il vous en reste 312 », « il ne vous en reste aucun ». */
@@ -289,6 +295,8 @@ export function dateDite(iso: string | null | undefined): string {
  * perd.
  */
 export function phraseDuForfait(mensuel: { total: number; renouvellement: string }): string {
+  // Un forfait de zéro n'est pas un forfait : rien ne se renouvelle.
+  if (!(mensuel.total > 0)) return ''
   const quand = jourDit(mensuel.renouvellement)
   return mensuel.total > 1
     ? `Vos ${mensuel.total.toLocaleString('fr-FR')} jetons du mois se renouvellent le ${quand} ; ceux qui restent ne se reportent pas.`
@@ -298,8 +306,51 @@ export function phraseDuForfait(mensuel: { total: number; renouvellement: string
 /** « Activer l'option — 19 € pour 30 jours, 200 jetons offerts » */
 export function libelleOptionHypnose(o: { prixCents: number; jours: number; jetons: number }, verbe = "Activer l'option"): string {
   const jours = `${o.jours} jour${o.jours > 1 ? 's' : ''}`
-  const offerts = o.jetons > 0 ? `, ${jetonsDits(o.jetons)} offert${o.jetons > 1 ? 's' : ''}` : ''
+  const offerts = o.jetons > 0 ? `, ${offertsDits(o.jetons)}` : ''
   return `${verbe} — ${prixDit(o.prixCents)} pour ${jours}${offerts}`
+}
+
+/**
+ * Le forfait du mois, s'il y en a un — null pour une offre à zéro jeton.
+ *
+ * `cabinet_jetons` rend un forfait pour tout contrat actif, même quand
+ * l'offre (ou l'exception du contrat) en donne zéro : la carte annonçait
+ * alors « votre jeton du mois se renouvelle », pour un jeton qui n'existe pas.
+ */
+export function forfaitDuMois(etat: Pick<EtatJetons, 'mensuel'>): EtatJetons['mensuel'] {
+  return etat.mensuel && etat.mensuel.total > 0 ? etat.mensuel : null
+}
+
+/**
+ * Ce qui reste hors forfait et hors essai, rangé par ce qui fait sa durée.
+ *
+ * LES JETONS DU PASS HYPNOSE NE DURENT PAS DOUZE MOIS : ils expirent avec le
+ * pass. Les compter avec les achats et les gestes sous « valables douze
+ * mois », c'était promettre onze mois de trop sur des jetons payés. Pour
+ * eux, la date de fin la plus proche — celle qui compte.
+ */
+export function repartitionDesLots(lots: LotJetons[]): {
+  /** Achats et gestes du revendeur : douze mois chacun. */
+  douzeMois: number
+  /** Les jetons du pass Hypnose, et la fin la plus proche ; null s'il n'en reste pas. */
+  option: { restant: number; fin: string } | null
+} {
+  let douzeMois = 0
+  let restant = 0
+  let fin = ''
+  for (const l of lots) {
+    if (l.origine === 'achat' || l.origine === 'geste') douzeMois += l.restants
+    if (l.origine === 'option_hypnose' && l.restants > 0) {
+      restant += l.restants
+      if (!fin || new Date(l.expireLe).getTime() < new Date(fin).getTime()) fin = l.expireLe
+    }
+  }
+  return { douzeMois, option: restant > 0 ? { restant, fin } : null }
+}
+
+/** « Voir la précédente », « Voir les 12 précédentes ». */
+export function precedentesDites(n: number): string {
+  return n > 1 ? `Voir les ${n} précédentes` : 'Voir la précédente'
 }
 
 /** L'hypnose, telle que la praticienne la lit dans sa carte. */

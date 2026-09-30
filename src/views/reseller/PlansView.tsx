@@ -15,7 +15,7 @@ import {
   versChampDate,
 } from '@/lib/contrat'
 import { dateLongue, euroCents, plural } from '@/lib/format'
-import { entierSaisi, jetonsDits } from '@/lib/jetonsIA'
+import { entierSaisi, jetonsDits, offertsDits } from '@/lib/jetonsIA'
 import { useResellerData } from '@/reseller/context'
 import { useJetonsRevendeur } from '@/reseller/useJetonsRevendeur'
 import {
@@ -611,7 +611,7 @@ function JetonsDuCabinet({ row }: { row: PortfolioRow }) {
     const r = await jetons.agir(
       cle,
       { action: 'offrir', cabinetId: row.cabinet.id, jetons: n, ...(note.trim() ? { note: note.trim() } : {}) },
-      `${jetonsDits(n)} offert${n > 1 ? 's' : ''} à ${row.cabinet.name}, valables douze mois.`,
+      `${offertsDits(n)} à ${row.cabinet.name}, valable${n > 1 ? 's' : ''} douze mois.`,
     )
     setSortie({ ton: r.ok ? 'ok' : 'warn', texte: r.message })
     if (r.ok) {
@@ -626,8 +626,8 @@ function JetonsDuCabinet({ row }: { row: PortfolioRow }) {
       <p className={s.jetonsSolde}>
         {lu ? (
           <>
-            <strong>{jetonsDits(lu.solde)}</strong> en solde · {lu.consommesMois.toLocaleString('fr-FR')} consommés ce
-            mois-ci
+            <strong>{jetonsDits(lu.solde)}</strong> en solde · {lu.consommesMois.toLocaleString('fr-FR')}{' '}
+            {lu.consommesMois > 1 ? 'consommés' : 'consommé'} ce mois-ci
           </>
         ) : (
           'Solde non lu.'

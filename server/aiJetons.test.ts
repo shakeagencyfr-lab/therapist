@@ -11,8 +11,8 @@ const m = vi.hoisted(() => ({
   abonnementEnRegle: vi.fn(async () => true),
   hypnoseOuverte: vi.fn(async () => true),
   facturationDuCabinet: vi.fn(),
-  coutDeLAppel: vi.fn(async () => ({ action: 'module', jetons: 5, ref: null, compris: false })),
-  reserver: vi.fn(async () => 'conso-1'),
+  coutDeLAppel: vi.fn(async () => ({ action: 'module', prix: 5, ref: null, regle: 'prix', mouvement: null })),
+  reserver: vi.fn(async () => ({ consommation: 'conso-1', jetons: 5, compris: false })),
   confirmer: vi.fn(async () => undefined),
   rembourser: vi.fn(async () => undefined),
   soldeDuCabinet: vi.fn(async () => 40),
@@ -64,7 +64,7 @@ describe('l’analyse en mode jetons', () => {
     m.abonnementEnRegle.mockResolvedValue(true)
     m.hypnoseOuverte.mockResolvedValue(true)
     m.facturationDuCabinet.mockResolvedValue(JETONS)
-    m.reserver.mockResolvedValue('conso-1')
+    m.reserver.mockResolvedValue({ consommation: 'conso-1', jetons: 5, compris: false })
   })
 
   it('refuse l’hypnose hors offre avant de lire la facturation, donc avant toute dépense', async () => {

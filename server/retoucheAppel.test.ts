@@ -12,7 +12,7 @@ const m = vi.hoisted(() => ({
   abonnementEnRegle: vi.fn(async () => true),
   hypnoseOuverte: vi.fn(async () => true),
   facturationDuCabinet: vi.fn(),
-  reserver: vi.fn(async () => 'conso-1'),
+  reserver: vi.fn(async () => ({ consommation: 'conso-1', jetons: 8, compris: false })),
   confirmer: vi.fn(async () => undefined),
   rembourser: vi.fn(async () => undefined),
   soldeDuCabinet: vi.fn(async () => 40),
@@ -269,7 +269,7 @@ describe('la retouche, de la demande à la consommation', () => {
 
     it('un mouvement se paie au prix d’une retouche d’hypnose, et le solde suit', async () => {
       const r = await analyserPourCabinet('revision', MOUVEMENT, 'cab-1')
-      expect(m.reserver).toHaveBeenCalledWith('cab-1', { action: 'retouche_hypnose', jetons: 8, ref: null, compris: false }, expect.anything(), expect.anything())
+      expect(m.reserver).toHaveBeenCalledWith('cab-1', { action: 'retouche_hypnose', prix: 8, ref: null, regle: 'prix', mouvement: null }, expect.anything(), expect.anything())
       expect(m.confirmer).toHaveBeenCalledTimes(1)
       expect(r.jetons).toEqual({ utilises: 8, solde: 40 })
     })
@@ -277,7 +277,7 @@ describe('la retouche, de la demande à la consommation', () => {
     it('tout autre texte au prix d’une retouche', async () => {
       m.parse.mockResolvedValue(reponse({ texte: 'Bonjour Camille, merci.' }))
       await analyserPourCabinet('revision', { cible: 'message', ...RETOUR, actuel: 'Bonjour Camille.' }, 'cab-1')
-      expect(m.reserver).toHaveBeenCalledWith('cab-1', { action: 'retouche', jetons: 3, ref: null, compris: false }, expect.anything(), expect.anything())
+      expect(m.reserver).toHaveBeenCalledWith('cab-1', { action: 'retouche', prix: 3, ref: null, regle: 'prix', mouvement: null }, expect.anything(), expect.anything())
     })
 
     it('une retouche qui échoue rend ses jetons', async () => {

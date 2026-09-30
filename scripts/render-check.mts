@@ -66,6 +66,7 @@ import { DOSSIER_AVANT_LECTURE, type AppState, type ResellerView, type ViewMode 
 import { VueJetons } from '../src/views/jetons/CarteJetons'
 import { CoutEnJetons } from '../src/views/jetons/CoutEnJetons'
 import { VerrouHypnose } from '../src/views/jetons/VerrouHypnose'
+import { DroitsContexte } from '../src/cabinet/droits'
 import { etatJetonsDemo } from '../src/data/jetons'
 import { devisJetons } from '../src/lib/jetonsIA'
 import { ETAT_REVENDEUR_DEMO } from '../src/data/jetons'
@@ -1738,6 +1739,84 @@ try {
   const verrou = avecStore(h(VerrouHypnose, { dejaEcrites: true }))
   if (!verrou.includes('n&#x27;est pas comprise dans votre offre') || !verrou.includes('restent lisibles et téléchargeables')) {
     manque.push("le verrou de l'hypnose ne dit ni pourquoi, ni que les hypnoses écrites restent")
+  }
+  /* Hors contrat, l'hypnose se ferme avec le reste — même comprise dans
+     l'offre : le verrou dit le contrat, pas une option qui manquerait, et ne
+     propose aucun pass que le serveur refuserait. */
+  const horsContrat = avecStore(
+    h(
+      DroitsContexte.Provider,
+      {
+        value: {
+          droits: {
+            maxPatients: null,
+            patientesActives: 0,
+            shop: false,
+            marqueBlanche: false,
+            site: false,
+            offre: 'Réseau',
+            offreCode: 'reseau',
+            enRegle: false,
+            statut: 'impaye',
+            echeance: null,
+            revendeur: { nom: 'Klaro', courriel: 'contact@exemple.test' },
+            hypnose: false,
+          },
+          chargement: false,
+          recharger: async () => {},
+        },
+      },
+      h(VerrouHypnose, { dejaEcrites: true }),
+    ),
+  )
+  if (
+    horsContrat.includes('pas comprise dans votre offre') ||
+    !horsContrat.includes('suspendue avec votre contrat') ||
+    !horsContrat.includes('contact@exemple.test') ||
+    horsContrat.includes('Activer l&#x27;option')
+  ) {
+    manque.push("hors contrat, le verrou de l'hypnose accuse l'offre au lieu du contrat")
+  }
+
+  /* Un forfait de zéro jeton n'en est pas un ; les jetons du pass ne durent
+     pas douze mois ; « une » précédente se dit au singulier. */
+  const sansForfait = avecStore(
+    h(VueJetons, {
+      etat: { ...etat, mensuel: { total: 0, restant: 0, renouvellement: etat.mensuel?.renouvellement ?? '' } },
+      titulaire: true,
+      enCours: '',
+      echec: '',
+    }),
+  )
+  if (sansForfait.includes('du mois se renouvel') || sansForfait.includes('Forfait du mois') || !sansForfait.includes('ne comprend pas de forfait mensuel')) {
+    manque.push('un forfait de zéro jeton est annoncé comme un forfait qui se renouvelle')
+  }
+  const avecPass = avecStore(
+    h(VueJetons, {
+      etat: {
+        ...etat,
+        // Ce que cabinet_jetons rend : l'achat ET le pass dans `achete_restant`.
+        acheteRestant: 300,
+        lots: [
+          ...etat.lots,
+          { origine: 'option_hypnose', jetonsInitiaux: 200, restants: 200, expireLe: '2026-10-30T10:00:00Z' },
+        ],
+        historique: [...etat.historique, etat.historique[0], etat.historique[1]],
+      },
+      titulaire: true,
+      enCours: '',
+      echec: '',
+    }),
+  )
+  if (
+    !avecPass.includes('Achetés ou offerts : <strong>100</strong>, valables douze mois') ||
+    !avecPass.includes('Offerts avec l&#x27;option Hypnose : <strong>200</strong>') ||
+    !avecPass.includes('30 octobre 2026')
+  ) {
+    manque.push('les jetons du pass Hypnose sont promis douze mois, ou pas dits à part')
+  }
+  if (!avecPass.includes('Voir la précédente') || avecPass.includes('Voir les 1 ')) {
+    manque.push('« Voir les 1 précédentes »')
   }
 
   if (manque.length) {

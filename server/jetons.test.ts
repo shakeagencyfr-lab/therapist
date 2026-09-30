@@ -1,22 +1,34 @@
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { MOUVEMENTS } from './prompts.js'
 import {
-  APPELS_PAR_HYPNOSE,
-  BAREME_PAR_DEFAUT,
   CONSIGNES_PAR_SEANCE,
+  PROFILS_PAR_SEANCE,
+  BAREME_PAR_DEFAUT,
+  MOUVEMENTS_PAR_HYPNOSE,
   adresseDeRetourPraticienne,
   baremeDe,
+  commandeDuPass,
   conclureAchat,
   coutDeLAppel,
+  exigerAucunPaiementEnCours,
+  jetonsDeLAppel,
   jetonsDits,
   lectureDeSession,
   lireRefusDeSolde,
+  lireReservation,
   messageSoldeInsuffisant,
+  refusPaiementEnCours,
+  reprendreLesCommandes,
   reserver,
   SoldeInsuffisant,
   uuidDe,
   versEtatJetons,
   type CommandeJetons,
+  type Cout,
   type Facturation,
   type OperationsAchat,
   type Recherches,
@@ -28,21 +40,15 @@ const SEANCE = '11111111-1111-4111-8111-111111111111'
 const AUTRE = '22222222-2222-4222-8222-222222222222'
 const HYPNOSE = '33333333-3333-4333-8333-333333333333'
 
-/** Une base imaginaire : ce que la séance et l'hypnose ont déjà consommé. */
-function recherches(o: Partial<{
-  seances: string[]
-  payees: string[]
-  modulesCompris: number
-  profilsCompris: number
-  hypnoses: string[]
-  appelsHypnose: number
-}> = {}): Recherches {
+/**
+ * Une base imaginaire : les séances et les hypnoses du cabinet. Rien de ce
+ * qu'elles ont consommé — c'est la base qui le compte, sous le verrou du
+ * débit (0068, supabase/tests/jetons_0068.sql).
+ */
+function recherches(o: Partial<{ seances: string[]; hypnoses: string[] }> = {}): Recherches {
   return {
     seanceDuCabinet: async (id) => (o.seances ?? [SEANCE]).includes(id),
-    seancePayee: async (id) => (o.payees ?? []).includes(id),
-    comprisesDeLaSeance: async (action) => (action === 'module' ? (o.modulesCompris ?? 0) : (o.profilsCompris ?? 0)),
     hypnoseDuCabinet: async (id) => (o.hypnoses ?? [HYPNOSE]).includes(id),
-    appelsDeLHypnose: async () => o.appelsHypnose ?? 0,
   }
 }
 
@@ -60,91 +66,105 @@ describe('le barème', () => {
   })
 })
 
-describe('coutDeLAppel — le prix d’un appel', () => {
+describe('coutDeLAppel — ce que l’appel demande à la base', () => {
   it('une séance se paie au barème, et retient sa séance si elle est du cabinet', async () => {
     expect(await coutDeLAppel('session-draft', { sessionId: SEANCE }, B, recherches())).toEqual({
       action: 'seance',
-      jetons: 12,
+      prix: 12,
       ref: SEANCE,
-      compris: false,
+      regle: 'prix',
+      mouvement: null,
     })
     // Une séance inconnue du cabinet ne s'inscrit pas : elle n'ouvrira aucun forfait.
     expect((await coutDeLAppel('session-draft', { sessionId: AUTRE }, B, recherches())).ref).toBeNull()
     expect((await coutDeLAppel('session-draft', {}, B, recherches())).ref).toBeNull()
   })
 
-  it('les consignes d’une séance payée sont comprises, huit au plus', async () => {
-    const payee = recherches({ payees: [SEANCE] })
-    expect(await coutDeLAppel('module', { sessionId: SEANCE }, B, payee)).toEqual({
+  it('les consignes et le profil d’une séance du cabinet suivent la règle de la séance — la base décide du compris', async () => {
+    expect(await coutDeLAppel('module', { sessionId: SEANCE }, B, recherches())).toEqual({
       action: 'module',
-      jetons: 0,
+      prix: 5,
       ref: SEANCE,
-      compris: true,
+      regle: 'seance',
+      mouvement: null,
     })
-    const pleine = recherches({ payees: [SEANCE], modulesCompris: CONSIGNES_PAR_SEANCE })
-    expect(await coutDeLAppel('module', { sessionId: SEANCE }, B, pleine)).toMatchObject({ jetons: 5, compris: false })
-  })
-
-  it('un module sans séance payée se paie : atelier, séance d’un autre cabinet, identifiant inventé', async () => {
-    expect(await coutDeLAppel('module', {}, B, recherches())).toMatchObject({ jetons: 5, ref: null })
-    expect(await coutDeLAppel('module', { sessionId: SEANCE }, B, recherches())).toMatchObject({ jetons: 5, ref: SEANCE })
-    expect(await coutDeLAppel('module', { sessionId: AUTRE }, B, recherches({ payees: [AUTRE] }))).toMatchObject({
-      jetons: 5,
-      ref: null,
-    })
-    expect(await coutDeLAppel('module', { sessionId: 'pas-un-uuid' }, B, recherches())).toMatchObject({ jetons: 5 })
-  })
-
-  it('une actualisation du profil est comprise une fois par séance payée', async () => {
-    expect(await coutDeLAppel('profile', { sessionId: SEANCE }, B, recherches({ payees: [SEANCE] }))).toMatchObject({
+    expect(await coutDeLAppel('profile', { sessionId: SEANCE }, B, recherches())).toEqual({
       action: 'profil',
-      jetons: 0,
-      compris: true,
+      prix: 5,
+      ref: SEANCE,
+      regle: 'seance',
+      mouvement: null,
     })
-    expect(
-      await coutDeLAppel('profile', { sessionId: SEANCE }, B, recherches({ payees: [SEANCE], profilsCompris: 1 })),
-    ).toMatchObject({ action: 'profil', jetons: 5 })
-    expect(await coutDeLAppel('profile', {}, B, recherches())).toMatchObject({ action: 'profil', jetons: 5 })
+  })
+
+  it('un module sans séance du cabinet se paie : atelier, séance d’un autre cabinet, identifiant inventé', async () => {
+    expect(await coutDeLAppel('module', {}, B, recherches())).toMatchObject({ prix: 5, ref: null, regle: 'prix' })
+    expect(await coutDeLAppel('module', { sessionId: AUTRE }, B, recherches())).toMatchObject({
+      prix: 5,
+      ref: null,
+      regle: 'prix',
+    })
+    expect(await coutDeLAppel('module', { sessionId: 'pas-un-uuid' }, B, recherches())).toMatchObject({ regle: 'prix' })
+    expect(await coutDeLAppel('profile', {}, B, recherches())).toMatchObject({ action: 'profil', prix: 5, regle: 'prix' })
+  })
+
+  it('ne compte plus rien lui-même : les recherches ne disent que l’appartenance', () => {
+    // Compter hors du verrou laissait des requêtes simultanées passer toutes comprises.
+    expect(Object.keys(recherches()).sort()).toEqual(['hypnoseDuCabinet', 'seanceDuCabinet'])
+  })
+
+  it('la base applique les mêmes plafonds et les mêmes mouvements que ceux que l’écran annonce', () => {
+    const sql = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), '..', 'supabase', 'migrations', '0068_les_jetons_sous_verrou.sql'),
+      'utf8',
+    )
+    expect(sql).toContain(`case p_action when 'module' then ${CONSIGNES_PAR_SEANCE} else ${PROFILS_PAR_SEANCE} end`)
+    expect(sql).toContain(`p_mouvement not in (${MOUVEMENTS.map((m) => `'${m}'`).join(', ')})`)
+    // Le compte se fait APRÈS le verrou, dans la fonction qui débite.
+    const debit = sql.slice(sql.indexOf('create or replace function public.jetons_debiter_forfait'))
+    expect(debit.indexOf('pg_advisory_xact_lock')).toBeGreaterThan(-1)
+    expect(debit.indexOf('pg_advisory_xact_lock')).toBeLessThan(debit.indexOf('jetons_prix_du_forfait('))
   })
 
   it('les affirmations se paient toujours au barème', async () => {
-    expect(await coutDeLAppel('affirmations', { sessionId: SEANCE }, B, recherches({ payees: [SEANCE] }))).toEqual({
+    expect(await coutDeLAppel('affirmations', { sessionId: SEANCE }, B, recherches())).toEqual({
       action: 'affirmations',
-      jetons: 1,
+      prix: 1,
       ref: null,
-      compris: false,
+      regle: 'prix',
+      mouvement: null,
     })
   })
 
-  it('une hypnose se paie une fois : le premier appel de chaque série de huit', async () => {
-    expect(await coutDeLAppel('hypnose', { hypnoseId: HYPNOSE }, B, recherches({ appelsHypnose: 0 }))).toMatchObject({
+  it('un mouvement d’hypnose porte son hypnose et son mouvement : la base tient la série des quatre', async () => {
+    expect(MOUVEMENTS_PAR_HYPNOSE).toBe(4)
+    expect(await coutDeLAppel('hypnose', { hypnoseId: HYPNOSE, mouvement: 'travail' }, B, recherches())).toEqual({
       action: 'hypnose',
-      jetons: 50,
+      prix: 50,
       ref: HYPNOSE,
+      regle: 'hypnose',
+      mouvement: 'travail',
     })
-    for (const deja of [1, 3, APPELS_PAR_HYPNOSE - 1]) {
-      expect(await coutDeLAppel('hypnose', { hypnoseId: HYPNOSE }, B, recherches({ appelsHypnose: deja }))).toMatchObject({
-        jetons: 0,
-        compris: true,
-      })
-    }
-    // Le neuvième appel : une nouvelle hypnose.
-    expect(
-      await coutDeLAppel('hypnose', { hypnoseId: HYPNOSE }, B, recherches({ appelsHypnose: APPELS_PAR_HYPNOSE })),
-    ).toMatchObject({ jetons: 50, compris: false })
   })
 
-  it('une hypnose qui n’est pas ouverte en base, ou pas au cabinet, est refusée avant toute dépense', async () => {
-    await expect(coutDeLAppel('hypnose', {}, B, recherches())).rejects.toMatchObject({ status: 400 })
-    await expect(coutDeLAppel('hypnose', { hypnoseId: AUTRE }, B, recherches())).rejects.toMatchObject({ status: 400 })
+  it('une hypnose qui n’est pas ouverte en base, pas au cabinet, ou un mouvement inconnu, est refusé avant toute dépense', async () => {
+    await expect(coutDeLAppel('hypnose', { mouvement: 'induction' }, B, recherches())).rejects.toMatchObject({ status: 400 })
+    await expect(
+      coutDeLAppel('hypnose', { hypnoseId: AUTRE, mouvement: 'induction' }, B, recherches()),
+    ).rejects.toMatchObject({ status: 400 })
+    await expect(coutDeLAppel('hypnose', { hypnoseId: HYPNOSE }, B, recherches())).rejects.toMatchObject({ status: 400 })
+    await expect(
+      coutDeLAppel('hypnose', { hypnoseId: HYPNOSE, mouvement: 'finale' }, B, recherches()),
+    ).rejects.toMatchObject({ status: 400, message: "Ce mouvement d'hypnose n'existe pas." })
   })
 
   it('une retouche coûte plus sur une hypnose', async () => {
     expect(await coutDeLAppel('revision', { cible: 'hypnose' }, B, recherches())).toMatchObject({
       action: 'retouche_hypnose',
-      jetons: 8,
+      prix: 8,
+      regle: 'prix',
     })
-    expect(await coutDeLAppel('revision', { cible: 'module' }, B, recherches())).toMatchObject({ action: 'retouche', jetons: 3 })
+    expect(await coutDeLAppel('revision', { cible: 'module' }, B, recherches())).toMatchObject({ action: 'retouche', prix: 3 })
   })
 
   it('une route inconnue n’a pas de prix', async () => {
@@ -170,10 +190,18 @@ describe('le refus faute de jetons', () => {
   const base = (erreur: { code: string; details?: string; message: string } | null, data: unknown = 'conso-1') =>
     ({ rpc: vi.fn(async () => ({ data: erreur ? null : data, error: erreur })) }) as unknown as SupabaseClient
 
+  const cout = (action: Cout['action'], prix: number, o: Partial<Cout> = {}): Cout => ({
+    action,
+    prix,
+    ref: null,
+    regle: 'prix',
+    mouvement: null,
+    ...o,
+  })
+
   it('KL402 devient un 402 qui dit combien il reste, et où recharger', async () => {
     const db = base({ code: 'KL402', details: '{"solde": 3, "besoin": 12}', message: 'Solde de jetons insuffisant' })
-    const cout = { action: 'seance' as const, jetons: 12, ref: null, compris: false }
-    const refus = await reserver('c1', cout, facturation(true), db).catch((e: unknown) => e)
+    const refus = await reserver('c1', cout('seance', 12), facturation(true), db).catch((e: unknown) => e)
     expect(refus).toBeInstanceOf(SoldeInsuffisant)
     expect(refus).toBeInstanceOf(HttpError)
     expect((refus as SoldeInsuffisant).status).toBe(402)
@@ -191,17 +219,39 @@ describe('le refus faute de jetons', () => {
 
   it('une autre panne n’est pas un solde insuffisant', async () => {
     const db = base({ code: 'XX000', message: 'boom' })
-    const cout = { action: 'module' as const, jetons: 5, ref: null, compris: false }
-    const refus = await reserver('c1', cout, facturation(true), db).catch((e: unknown) => e)
+    const refus = await reserver('c1', cout('module', 5), facturation(true), db).catch((e: unknown) => e)
     expect(refus).not.toBeInstanceOf(SoldeInsuffisant)
     expect((refus as HttpError).status).toBe(503)
   })
 
-  it('réserve, et rend la consommation', async () => {
-    const db = base(null, 'conso-9')
-    const cout = { action: 'hypnose' as const, jetons: 0, ref: 'h', compris: true }
-    expect(await reserver('c1', cout, facturation(true), db)).toBe('conso-9')
-    expect(db.rpc).toHaveBeenCalledWith('jetons_debiter', { p_cabinet: 'c1', p_action: 'hypnose', p_jetons: 0, p_ref: 'h' })
+  it('réserve par la base, qui décide du prix sous son verrou ; le prix annoncé est le sien', async () => {
+    const db = base(null, { consommation: 'conso-9', jetons: 0, compris: true })
+    const demande = cout('hypnose', 50, { ref: HYPNOSE, regle: 'hypnose', mouvement: 'travail' })
+    const r = await reserver('c1', demande, facturation(true), db)
+    expect(r).toEqual({ consommation: 'conso-9', jetons: 0, compris: true })
+    expect(db.rpc).toHaveBeenCalledWith('jetons_debiter_forfait', {
+      p_cabinet: 'c1',
+      p_action: 'hypnose',
+      p_prix: 50,
+      p_ref: HYPNOSE,
+      p_regle: 'hypnose',
+      p_mouvement: 'travail',
+    })
+    // L'écran lit le prix réellement pris, pas le plein prix demandé.
+    expect(jetonsDeLAppel(r, 312)).toEqual({ utilises: 0, solde: 312 })
+  })
+
+  it('une réponse de la base sans la forme attendue est une panne, pas une réservation', async () => {
+    for (const data of [null, 'conso-1', { consommation: 'c' }, { consommation: 'c', jetons: -1 }, { jetons: 5 }]) {
+      const db = base(null, data)
+      const refus = await reserver('c1', cout('seance', 12), facturation(true), db).catch((e: unknown) => e)
+      expect((refus as HttpError).status).toBe(503)
+    }
+    expect(lireReservation({ consommation: 'c', jetons: 12, compris: false })).toEqual({
+      consommation: 'c',
+      jetons: 12,
+      compris: false,
+    })
   })
 
   it('lit le détail de la base, ou retombe sur le besoin connu', () => {
@@ -293,12 +343,172 @@ describe('l’achat : ce que Stripe dit, et ce qu’on en fait', () => {
     expect(expiree.encaisser).not.toHaveBeenCalled()
   })
 
+  it('en attente, il dit que la vérification se refera d’elle-même', async () => {
+    const r = await conclureAchat(commande, { ...payee, payment_status: 'unpaid', status: 'complete' }, operations())
+    expect(r).toMatchObject({ ok: false, attente: true })
+    expect(r.message).toContain("se refait d'elle-même")
+  })
+
+  it('une recharge d’un seul jeton se dit au singulier', async () => {
+    const un: CommandeJetons = { ...commande, jetons: 1, prix_cents: 100 }
+    const r = await conclureAchat(un, { ...payee, amount_total: 100 }, operations())
+    expect(r.message).toBe('1 jeton ajouté à votre solde. Il reste valable douze mois.')
+  })
+
+  it('le pass d’un cabinet qui paie avec sa clé ne porte aucun jeton, et n’en annonce aucun', async () => {
+    const reglages = { option_hypnose_jours: 30, option_hypnose_jetons: 200, option_hypnose_prix_cents: 1900 }
+    expect(commandeDuPass(reglages, true)).toEqual({
+      objet: 'option_hypnose',
+      recharge_id: null,
+      libelle: 'Option Hypnose — 30 jours',
+      jetons: 200,
+      jours: 30,
+      prix_cents: 1900,
+    })
+    const sansJetons = commandeDuPass(reglages, false)
+    expect(sansJetons.jetons).toBe(0)
+    expect(commandeDuPass({ ...reglages, option_hypnose_jours: 1 }, false).libelle).toBe('Option Hypnose — 1 jour')
+
+    const option: CommandeJetons = { ...commande, ...sansJetons }
+    const r = await conclureAchat(option, { ...payee, amount_total: 1900 }, operations(false, '2026-10-30T10:00:00Z'))
+    expect(r.ok).toBe(true)
+    expect(r.message).toContain('Option Hypnose ouverte jusqu')
+    expect(r.message).not.toContain('jeton')
+  })
+
   it('le pass Hypnose dit jusqu’à quand, et les jetons qui l’accompagnent', async () => {
     const option: CommandeJetons = { ...commande, objet: 'option_hypnose', libelle: 'Option Hypnose — 30 jours', jetons: 200, jours: 30, prix_cents: 1900 }
     const r = await conclureAchat(option, { ...payee, amount_total: 1900 }, operations(false, '2026-10-30T10:00:00Z'))
     expect(r).toMatchObject({ ok: true, objet: 'option_hypnose', hypnoseJusquAu: '2026-10-30T10:00:00Z' })
     expect(r.message).toContain('Option Hypnose ouverte jusqu')
     expect(r.message).toContain('200 jetons')
+  })
+})
+
+describe('les commandes restées en attente', () => {
+  const enAttente = (id: string, o: Partial<CommandeJetons> = {}): CommandeJetons => ({
+    id,
+    cabinet_id: 'cab-1',
+    reseller_id: 'rev-1',
+    objet: 'recharge',
+    recharge_id: 'rech-1',
+    libelle: '100 jetons',
+    jetons: 100,
+    jours: null,
+    prix_cents: 1200,
+    devise: 'eur',
+    stripe_session_id: `cs_test_${id}`,
+    statut: 'en_attente',
+    ...o,
+  })
+  const session = (id: string, o: Partial<SessionLue> = {}): SessionLue => ({
+    payment_status: 'paid',
+    status: 'complete',
+    amount_total: 1200,
+    currency: 'eur',
+    metadata: { commande: id, cabinet: 'cab-1' },
+    ...o,
+  })
+  function operations() {
+    return {
+      encaisser: vi.fn(async () => ({ deja: false, jusquAu: null })),
+      annuler: vi.fn(async () => undefined),
+      solde: vi.fn(async () => 100),
+    } satisfies OperationsAchat
+  }
+
+  it('créditent ce qui a été payé, annulent ce qui a expiré, laissent attendre ce qui est ouvert', async () => {
+    const ops = operations()
+    const lues: Record<string, SessionLue> = {
+      a: session('a'),
+      b: session('b', { payment_status: 'unpaid', status: 'expired' }),
+      c: session('c', { payment_status: 'unpaid', status: 'open' }),
+    }
+    const verdicts = await reprendreLesCommandes(
+      [enAttente('a'), enAttente('b'), enAttente('c')],
+      async (c) => lues[c.id],
+      () => ops,
+    )
+    expect(verdicts.map((v) => [v.ok, v.attente === true])).toEqual([
+      [true, false],
+      [false, false],
+      [false, true],
+    ])
+    expect(ops.encaisser).toHaveBeenCalledTimes(1)
+    expect(ops.encaisser).toHaveBeenCalledWith('a')
+    expect(ops.annuler).toHaveBeenCalledWith('b')
+  })
+
+  it('une session illisible ou un encaissement en panne n’arrêtent pas les autres, ni la lecture', async () => {
+    const avertis = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const erreurs = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const ops = operations()
+    ops.encaisser.mockRejectedValueOnce(new HttpError(502, 'panne'))
+    const verdicts = await reprendreLesCommandes(
+      [enAttente('x'), enAttente('y'), enAttente('z')],
+      async (c) => {
+        if (c.id === 'y') throw new Error('No such checkout.session')
+        return session(c.id)
+      },
+      () => ops,
+    )
+    // x : l'encaissement a échoué, elle attendra la prochaine lecture ; y : illisible ; z : créditée.
+    expect(verdicts).toHaveLength(1)
+    expect(verdicts[0]).toMatchObject({ ok: true })
+    expect(ops.encaisser).toHaveBeenCalledTimes(2)
+    avertis.mockRestore()
+    erreurs.mockRestore()
+  })
+
+  it('ne relisent ni une commande conclue, ni une commande sans session', async () => {
+    const lire = vi.fn(async (c: CommandeJetons) => session(c.id))
+    const verdicts = await reprendreLesCommandes(
+      [enAttente('p', { statut: 'payee' }), enAttente('q', { stripe_session_id: null })],
+      lire,
+      () => operations(),
+    )
+    expect(verdicts).toEqual([])
+    expect(lire).not.toHaveBeenCalled()
+  })
+})
+
+describe('la clé Stripe du revendeur, pendant un paiement', () => {
+  /** Une base qui rend, pour les commandes, ce qu'on lui donne ; et aucune clé Stripe. */
+  function base(commandes: Array<Partial<CommandeJetons>>) {
+    const chaine = (rendu: unknown) => {
+      const c: Record<string, unknown> = {}
+      for (const m of ['select', 'eq', 'not', 'gte', 'order', 'limit']) c[m] = () => c
+      c.maybeSingle = async () => ({ data: null, error: null })
+      c.then = (ok: (v: unknown) => unknown) => Promise.resolve(rendu).then(ok)
+      return c
+    }
+    return {
+      from: vi.fn((table: string) =>
+        chaine(table === 'jetons_commandes' ? { data: commandes, error: null } : { data: null, error: null }),
+      ),
+    } as unknown as SupabaseClient
+  }
+
+  it('sans paiement en cours, rien ne retient la clé', async () => {
+    await expect(exigerAucunPaiementEnCours('rev-1', base([]))).resolves.toBeUndefined()
+  })
+
+  it('un paiement encore en cours la retient, et le refus dit pourquoi et jusqu’à quand', async () => {
+    const avertis = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const refus = await exigerAucunPaiementEnCours(
+      'rev-1',
+      base([{ id: 'c1', statut: 'en_attente', stripe_session_id: 'cs_test_1', reseller_id: 'rev-1', cabinet_id: 'cab-1' }]),
+    ).catch((e: unknown) => e)
+    expect((refus as HttpError).status).toBe(409)
+    expect((refus as HttpError).message).toBe(refusPaiementEnCours(1))
+    avertis.mockRestore()
+  })
+
+  it('dit le nombre, au singulier comme au pluriel', () => {
+    expect(refusPaiementEnCours(1)).toContain('Un paiement de jetons est en cours')
+    expect(refusPaiementEnCours(1)).toContain('vingt-quatre heures au plus')
+    expect(refusPaiementEnCours(3)).toContain('3 paiements de jetons sont en cours')
+    expect(refusPaiementEnCours(3)).toContain('ils ne pourraient plus être vérifiés')
   })
 })
 

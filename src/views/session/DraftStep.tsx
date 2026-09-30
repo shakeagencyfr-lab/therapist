@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Notice, TextArea, Title } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
-import { useDevis } from '@/cabinet/useJetons'
+import { useDevis, useProfilCompris } from '@/cabinet/useJetons'
 import { dateDuJour, plural } from '@/lib/format'
 import { momentDuMessage } from '@/lib/seance'
 import {
@@ -48,10 +48,17 @@ export function DraftStep() {
   /* Un crochet ne se pose pas après un retour anticipé : l'écriture des
      consignes était déclarée sous le `return null` ci-dessous. */
   const consignes = useEcritureConsignes(cabinet?.majConsigne ?? (async () => ({ ok: false })))
-  /* EN JETONS (0065), L'ACTUALISATION QUI SUIT LA SÉANCE EST COMPRISE : le
-     serveur la compte dans le forfait de la séance qu'elle cite. Sans séance
-     en base (démonstration, séance non enregistrée), elle a son prix. */
-  const devisProfil = useDevis('profil', state.sessionPatient !== '' && Boolean(state.sessionId))
+  /* EN JETONS (0065), UNE ACTUALISATION QUI SUIT LA SÉANCE EST COMPRISE —
+     une seule, et seulement si le brouillon a été payé. L'écran l'annonçait
+     « incluse » dès qu'une séance existait : la seconde, ou celle d'une
+     séance analysée avant les jetons, se payait sans prévenir, et le bouton
+     ne se fermait jamais faute de solde. La base dit donc si elle l'est
+     encore (useProfilCompris) ; et dès qu'une actualisation a réussi ici, la
+     suivante s'annonce à son prix sans attendre la relecture. */
+  const [profilDejaCompris, setProfilDejaCompris] = useState<string | null>(null)
+  const seanceDuProfil = state.sessionPatient !== '' && state.sessionId ? state.sessionId : null
+  const profilCompris = useProfilCompris(seanceDuProfil)
+  const devisProfil = useDevis('profil', profilCompris && profilDejaCompris !== seanceDuProfil)
 
   /* La fiche de la séance, pas celle de la barre latérale : c'est elle qui
      recevra la note, les modules et les audios, même si la sélection a
@@ -463,6 +470,8 @@ export function DraftStep() {
         historique: current?.historique,
       }
       const resume = result.resume || 'Profil actualisé.'
+      // L'actualisation comprise vient de servir, si elle l'était : la suivante se paie.
+      if (now.sessionPatient === key && now.sessionId) setProfilDejaCompris(now.sessionId)
       set((prev) => ({
         profGen: '',
         profNew: { ...prev.profNew, [key]: next },

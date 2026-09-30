@@ -1021,6 +1021,8 @@ async function analyserEnJetons(
     throw new HttpError(503, "Le serveur n'a pas sa clé de service : il ne peut pas décompter les jetons. Rien n'a été produit.")
   }
   const cle: Cle = { apiKey: facturation.cle, source: 'revendeur' }
+  /* La règle et le plein prix d'ici ; le prix PRIS, de la base, qui compte
+     les forfaits sous le verrou du débit (0068). */
   const cout = await coutDeLAppel(route, body, facturation.bareme, recherchesPour(cabinetId, db))
   const reservation = await reserver(cabinetId, cout, facturation, db)
 
@@ -1028,15 +1030,15 @@ async function analyserEnJetons(
   try {
     produit = await produire(route, body, cle, preferences)
   } catch (err) {
-    await rembourser(reservation, db)
+    await rembourser(reservation.consommation, db)
     throw err
   }
-  await confirmer(reservation, db)
+  await confirmer(reservation.consommation, db)
 
   if (produit.usage) {
     await compter(route, cabinetId, produit.usage)
   }
-  return { mock: false, data: produit.data, jetons: jetonsDeLAppel(cout, await soldeDuCabinet(cabinetId, db)) }
+  return { mock: false, data: produit.data, jetons: jetonsDeLAppel(reservation, await soldeDuCabinet(cabinetId, db)) }
 }
 
 function produire(

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button, Card, Notice, Overline, TextInput, Title } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
-import { hypnoseOuverte, useDroits } from '@/cabinet/droits'
+import { enRegle, hypnoseOuverte, useDroits } from '@/cabinet/droits'
 import { useDevis } from '@/cabinet/useJetons'
 import { useEcritureHypnose } from '@/cabinet/useEcritureHypnose'
 import {
@@ -80,7 +80,10 @@ export function HypnosesFiche() {
   } = useEcritureHypnose()
   /** L'hypnose dont le PDF se fabrique : jsPDF se charge à la demande. */
   const [pdf, setPdf] = useState('')
-  const verrouillee = !hypnoseOuverte(useDroits())
+  const droits = useDroits()
+  const verrouillee = !hypnoseOuverte(droits)
+  // Fermée par le contrat, pas par l'offre : le titre du bouton de reprise le dit.
+  const horsContrat = !enRegle(droits)
   const devis = useDevis('hypnose')
 
   async function enregistrerPdf(h: Hypnose) {
@@ -328,7 +331,9 @@ export function HypnosesFiche() {
                       onClick={() => brouillon && void reprendreHypnose(cle, brouillon, h)}
                       title={
                         verrouillee
-                          ? 'L’hypnose n’est plus comprise dans votre offre : l’écriture ne se reprend pas.'
+                          ? horsContrat
+                            ? 'Votre contrat n’est pas en cours : l’écriture ne se reprend pas.'
+                            : 'L’hypnose n’est plus comprise dans votre offre : l’écriture ne se reprend pas.'
                           : brouillon
                             ? undefined
                             : 'Il faut une séance analysée pour reprendre l’écriture.'

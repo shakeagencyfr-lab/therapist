@@ -53,11 +53,16 @@ d'accord.
 `jetons.ts` décide qui paie une analyse (0065). Tant que le revendeur n'a pas
 activé les jetons ET posé sa clé, c'est la clé du cabinet, comme toujours.
 Sinon, la clé du revendeur paie, et chaque appel est réservé en jetons avant
-de partir (`jetons_debiter`), confirmé s'il produit, rendu s'il échoue. Les
-forfaits — les consignes et le profil d'une séance payée, les mouvements
-d'une hypnose — sont calculés ici, sur des identifiants que la base reconnaît
-au cabinet. Les recharges et le pass Hypnose se paient sur le compte Stripe
-du revendeur ; la commande est relue chez Stripe au retour, sans webhook.
+de partir (`jetons_debiter_forfait`, 0068), confirmé s'il produit, rendu s'il
+échoue — ou rendu par la base au bout de dix minutes si la fonction meurt
+avant. Les forfaits — les consignes et le profil d'une séance payée, les
+quatre mouvements d'une hypnose — se décident EN BASE, sous le verrou du
+débit : ce module vérifie seulement que la séance ou l'hypnose citée est du
+cabinet, et passe la règle et le plein prix. Les recharges et le pass
+Hypnose se paient par carte sur le compte Stripe du revendeur ; la commande
+est relue chez Stripe au retour, puis à chaque lecture de l'état tant
+qu'elle attend, sans webhook — et la clé Stripe du revendeur ne se retire
+ni ne se change tant qu'un paiement est en cours.
 
 
 ## Variables d'environnement

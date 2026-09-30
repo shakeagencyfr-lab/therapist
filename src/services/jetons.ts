@@ -1,9 +1,9 @@
 /**
  * Les jetons d'analyse du cabinet, vus du navigateur.
  *
- * Trois gestes derrière le volet « jetons » de /api/cabinet : lire l'état,
+ * Quatre gestes derrière le volet « jetons » de /api/cabinet : lire l'état,
  * démarrer un achat (une recharge, ou le pass Hypnose), le vérifier au retour
- * de Stripe. Rien ne passe par la base directement : le solde se lit par une
+ * de Stripe, demander si l'actualisation du profil d'une séance est comprise. Rien ne passe par la base directement : le solde se lit par une
  * fonction qui vérifie l'appartenance, et un achat ne se crédite que sur la
  * parole de Stripe, relue par le serveur.
  *
@@ -13,9 +13,9 @@
  * le lit ; `verifierAchat` le fait créditer.
  */
 import { supabase } from '@/lib/supabase'
-import type { AchatDemarre, AchatVerifie, EtatJetons } from '@/types/jetons'
+import type { AchatDemarre, AchatVerifie, DevisDuProfil, EtatJetons } from '@/types/jetons'
 
-export type { AchatDemarre, AchatVerifie, EtatJetons }
+export type { AchatDemarre, AchatVerifie, DevisDuProfil, EtatJetons }
 export { EVENEMENT_JETONS } from '@/services/aiClient'
 
 async function jeton(): Promise<string> {
@@ -64,6 +64,14 @@ export function acheterJetons(choix: { recharge: string } | { option: 'hypnose' 
 /** Au retour de Stripe : faire créditer l'achat. Sans effet la seconde fois. */
 export function verifierAchat(session: string): Promise<AchatVerifie> {
   return appel<AchatVerifie>({ action: 'verifier', session })
+}
+
+/**
+ * L'actualisation du profil tirée de cette séance serait-elle comprise dans
+ * son forfait ? Un devis : rien n'est réservé ni écrit.
+ */
+export function devisDuProfil(seance: string): Promise<DevisDuProfil> {
+  return appel<DevisDuProfil>({ action: 'devis', seance })
 }
 
 /**

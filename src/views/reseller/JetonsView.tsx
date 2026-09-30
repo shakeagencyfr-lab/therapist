@@ -13,6 +13,7 @@ import {
   euroParJeton,
   jetonsDits,
   margeDe,
+  offertsDits,
   prixDit,
   prixDuJetonCents,
   prixEnSaisie,
@@ -632,7 +633,7 @@ function OptionHypnose({ etat, peutRegler, enCours, agir }: SectionProps) {
             ) : (
               <span className={s.aide}>
                 {prixDit(lu.prixCents)} pour {plural(lu.jours, 'jour', 'jours')}
-                {lu.jetons > 0 ? `, ${jetonsDits(lu.jetons)} offerts` : ''}.
+                {lu.jetons > 0 ? `, ${offertsDits(lu.jetons)}` : ''}.
               </span>
             )}
             <Button
@@ -649,7 +650,7 @@ function OptionHypnose({ etat, peutRegler, enCours, agir }: SectionProps) {
       ) : (
         <p className={s.lecture}>
           {prixDit(o.prixCents)} pour {plural(o.jours, 'jour', 'jours')}
-          {o.jetons > 0 ? `, ${jetonsDits(o.jetons)} offerts` : ''}.
+          {o.jetons > 0 ? `, ${offertsDits(o.jetons)}` : ''}.
         </p>
       )}
     </section>
@@ -690,7 +691,7 @@ function Essai({ etat, peutRegler, enCours, agir }: SectionProps) {
           </Button>
         </div>
       ) : (
-        <p className={s.lecture}>{jetonsDits(etat.essaiJetons)} offerts pendant l'essai.</p>
+        <p className={s.lecture}>{offertsDits(etat.essaiJetons)} pendant l'essai.</p>
       )}
       {n === null && peutRegler ? <p className={s.probleme}>Un nombre entier de jetons, zéro compris.</p> : null}
     </section>

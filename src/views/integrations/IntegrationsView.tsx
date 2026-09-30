@@ -172,7 +172,9 @@ export function IntegrationsView() {
  *
  * Tant que Stripe n'a pas confirmé, un nouvel essai a un sens : le bouton le
  * propose, sur la même commande — la vérification ne crédite jamais deux
- * fois.
+ * fois —, et il survit à un rechargement (useJetons garde la session dans
+ * l'adresse). Fermer reste possible : le serveur relit de lui-même les
+ * commandes en attente à chaque ouverture des jetons.
  */
 function RetourDePaiement() {
   const jetons = useJetons()
@@ -183,14 +185,15 @@ function RetourDePaiement() {
     <Notice tone={retour.ton}>
       {retour.texte}{' '}
       {retour.session ? (
-        <button type="button" className={s.lienBouton} onClick={() => void jetons.reverifier()}>
-          Vérifier de nouveau
-        </button>
-      ) : (
-        <button type="button" className={s.lienBouton} onClick={jetons.effacerRetour}>
-          Fermer
-        </button>
-      )}
+        <>
+          <button type="button" className={s.lienBouton} onClick={() => void jetons.reverifier()}>
+            Vérifier de nouveau
+          </button>{' '}
+        </>
+      ) : null}
+      <button type="button" className={s.lienBouton} onClick={jetons.effacerRetour}>
+        Fermer
+      </button>
     </Notice>
   )
 }

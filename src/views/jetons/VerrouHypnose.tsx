@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useMaybeAuth } from '@/auth/session'
-import { useDroits } from '@/cabinet/droits'
+import { enRegle, useDroits } from '@/cabinet/droits'
 import { useJetons } from '@/cabinet/useJetons'
+import { ContactRevendeur } from '@/components/layout/BandeauContrat'
 import { Button } from '@/components/ui'
 import { libelleOptionHypnose } from '@/lib/jetonsIA'
 import s from './Jetons.module.css'
@@ -19,6 +20,12 @@ import s from './Jetons.module.css'
  * LES HYPNOSES DÉJÀ ÉCRITES RESTENT À ELLE. Fermer l'écriture ne retire rien
  * du dossier : elles se lisent et se téléchargent comme avant (`dejaEcrites`
  * le dit).
+ *
+ * HORS CONTRAT, CE N'EST PAS L'OPTION QUI MANQUE. `cabinet_droits` ferme
+ * l'hypnose avec tout le reste quand l'essai est fini ou la facture
+ * impayée — y compris pour une offre qui la comprend. Dire alors « pas
+ * comprise dans votre offre », et proposer un pass que le serveur refuserait,
+ * c'était se tromper de cause : le verrou dit le contrat, et à qui parler.
  */
 export function VerrouHypnose({ dejaEcrites = false }: { dejaEcrites?: boolean }) {
   const jetons = useJetons()
@@ -34,6 +41,7 @@ export function VerrouHypnose({ dejaEcrites = false }: { dejaEcrites?: boolean }
      cabinet qui paie avec sa clé, les annoncer serait promettre du vide. */
   const avecJetons = jetons?.mode === 'jetons'
   const revendeur = droits?.droits?.revendeur ?? null
+  const horsContrat = !enRegle(droits)
 
   async function activer() {
     if (!jetons || enCours) return
@@ -45,6 +53,21 @@ export function VerrouHypnose({ dejaEcrites = false }: { dejaEcrites?: boolean }
       setEchec(message)
       setEnCours(false)
     }
+  }
+
+  if (horsContrat) {
+    return (
+      <div className={s.verrou}>
+        <span className={s.verrouTitre}>L'hypnose personnalisée est suspendue avec votre contrat</span>
+        <p className={s.verrouTexte}>
+          Votre contrat n'est pas en cours : l'écriture d'hypnoses reprendra avec lui.
+          {dejaEcrites ? ' Les hypnoses déjà écrites restent lisibles et téléchargeables.' : ''}
+        </p>
+        <p className={s.verrouTexte}>
+          <ContactRevendeur revendeur={revendeur} pour="pour réactiver l'offre" />
+        </p>
+      </div>
+    )
   }
 
   return (

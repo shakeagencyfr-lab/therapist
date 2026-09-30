@@ -72,7 +72,11 @@ export interface EtatJetons {
   mensuel: { total: number; restant: number; /** AAAA-MM-JJ, premier jour du mois suivant. */ renouvellement: string } | null
   /** Le lot d'essai, tant qu'il n'a pas expiré. */
   essai: { total: number; restant: number; fin: string } | null
-  /** Ce qui reste des achats, des jetons de l'option et des gestes du revendeur. */
+  /**
+   * Ce qui reste des achats, des jetons de l'option et des gestes du
+   * revendeur. Les jetons de l'option expirent avec le pass, pas en douze
+   * mois : l'écran les sépare, à partir de `lots` (`repartitionDesLots`).
+   */
   acheteRestant: number
   lots: LotJetons[]
   hypnose: {
@@ -110,6 +114,15 @@ export interface AchatVerifie {
   hypnoseJusquAu?: string | null
   /** Vrai quand Stripe n'a pas encore confirmé : un nouvel essai a un sens. */
   attente?: boolean
+}
+
+/**
+ * L'actualisation du profil tirée d'une séance serait-elle comprise dans son
+ * forfait ? La base le dit, avec la règle du débit : une par séance, et
+ * seulement si le brouillon a été payé.
+ */
+export interface DevisDuProfil {
+  profilCompris: boolean
 }
 
 /** Ce que l'enveloppe d'une analyse porte en mode jetons, et l'évènement du navigateur. */

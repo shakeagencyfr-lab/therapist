@@ -17,7 +17,7 @@ import { etatDomaine, poserDomaine, retirerDomaine, verifierDomaine } from './do
 import { essayerSmtp, etatSmtp, reglerSmtp, retirerSmtp } from './courriel.js'
 import { chercherFicheGoogle, depublierSite, enregistrerSite, etatSite, importerFicheGoogle } from './sites.js'
 import { envoyerNoteHonoraires, etatEnvoiNotes } from './honoraires.js'
-import { demarrerAchatJetons, etatJetons, verifierAchatJetons } from './jetons.js'
+import { demarrerAchatJetons, devisDuProfil, etatJetons, verifierAchatJetons } from './jetons.js'
 
 export const VOLETS = ['droits', 'domaine', 'smtp', 'site', 'honoraires', 'jetons'] as const
 export type Volet = (typeof VOLETS)[number]
@@ -97,6 +97,9 @@ export async function agirVolet(raw: unknown, token: string | null, hote: string
     case 'jetons':
       if (action === 'acheter') return demarrerAchatJetons(token, body, hote)
       if (action === 'verifier') return verifierAchatJetons(token, body)
+      /* Un devis, qui n'écrit rien : l'actualisation du profil d'une séance
+         est-elle encore comprise ? (le brouillon, src/views/session/DraftStep.tsx) */
+      if (action === 'devis') return devisDuProfil(token, body)
       break
     case 'droits':
       // L'offre se règle depuis l'espace du revendeur, pas depuis celui du

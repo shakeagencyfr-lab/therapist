@@ -38,7 +38,7 @@ import {
 } from './auth.js'
 import { HttpError } from './errors.js'
 import { eprouverAnthropic, eprouverStripe } from './integrations.js'
-import { ACTIONS_JETONS, baremeDe, uuidDe, type ReglagesJetons } from './jetons.js'
+import { ACTIONS_JETONS, baremeDe, exigerAucunPaiementEnCours, uuidDe, type ReglagesJetons } from './jetons.js'
 import { chiffrementConfigure, chiffrer, dechiffrer } from './secrets.js'
 
 function admin(): SupabaseClient {
@@ -375,7 +375,8 @@ export interface OffrirBody {
  *   cle       { cle } pose la clé Anthropic, éprouvée ; { retirer: true } la
  *             retire — et désactive les jetons, qui n'auraient plus rien
  *             pour payer : chaque cabinet retrouve sa clé.
- *   stripe    { cle } ou { retirer: true } : le compte qui encaisse.
+ *   stripe    { cle } ou { retirer: true } : le compte qui encaisse — ni
+ *             retiré ni changé tant qu'un paiement de jetons est en cours.
  *   reglages  { actif?, bareme?, essaiJetons?, optionHypnose? }. Activer
  *             sans clé posée est refusé.
  *   recharge  { libelle, jetons, prixCents } crée ; { id, … } règle ;
@@ -416,7 +417,13 @@ export async function agirRevendeur(token: string | null, raw: unknown): Promise
     }
 
     case 'stripe': {
+      /* PAS PENDANT UN PAIEMENT. Une commande se vérifie avec la clé du
+         compte qui a encaissé : retirée ou remplacée entre le paiement et sa
+         vérification, le cabinet aurait payé sans jamais être crédité. On
+         conclut ce qui peut l'être, et l'on refuse tant qu'une page de
+         paiement reste ouverte (vingt-quatre heures au plus). */
       if (body.retirer === true) {
+        await exigerAucunPaiementEnCours(resellerId, db)
         await ecrireSecrets(db, resellerId, { stripe_secret_enc: null })
         await ecrireReglages(db, resellerId, { stripe_pose_le: null, stripe_compte: null })
         await journaliser(db, appelant, resellerId, 'jetons.stripe_retire')
@@ -427,6 +434,7 @@ export async function agirRevendeur(token: string | null, raw: unknown): Promise
         throw new HttpError(400, 'Une clé secrète Stripe commence par « sk_live_ », « sk_test_ » ou « rk_ ».')
       }
       if (!chiffrementConfigure()) chiffrer('')
+      await exigerAucunPaiementEnCours(resellerId, db)
       const compte = await eprouverStripe(cle)
       await ecrireSecrets(db, resellerId, { stripe_secret_enc: chiffrer(cle) })
       await ecrireReglages(db, resellerId, { stripe_pose_le: maintenant, stripe_compte: compte.slice(0, 200) })

@@ -6,16 +6,20 @@ import {
   devisJetons,
   entierSaisi,
   etatHypnoseDit,
+  forfaitDuMois,
   euroParJeton,
   jetonsDits,
   jourDit,
   libelleOptionHypnose,
   margeDe,
+  offertsDits,
   phraseDuDevis,
   phraseDuForfait,
+  precedentesDites,
   prixDit,
   prixDuJetonCents,
   prixSaisi,
+  repartitionDesLots,
   resteDit,
   retourDit,
   BAREME_PAR_DEFAUT_ECRAN,
@@ -162,6 +166,37 @@ describe('le forfait et l’option', () => {
     expect(phraseDuForfait({ total: 300, renouvellement: '2026-11-01' })).toBe(
       'Vos 300 jetons du mois se renouvellent le 1er novembre ; ceux qui restent ne se reportent pas.',
     )
+    expect(phraseDuForfait({ total: 1, renouvellement: '2026-11-01' })).toBe(
+      'Votre jeton du mois se renouvelle le 1er novembre ; il ne se reporte pas.',
+    )
+  })
+
+  it('un forfait de zéro jeton n’est pas un forfait : rien ne se renouvelle', () => {
+    expect(phraseDuForfait({ total: 0, renouvellement: '2026-11-01' })).toBe('')
+    const actif = { total: 0, restant: 0, renouvellement: '2026-11-01' }
+    expect(forfaitDuMois({ mensuel: actif })).toBeNull()
+    expect(forfaitDuMois({ mensuel: null })).toBeNull()
+    expect(forfaitDuMois({ mensuel: { ...actif, total: 300, restant: 12 } })).toMatchObject({ total: 300 })
+  })
+
+  it('sépare les jetons du pass, qui expirent avec lui, de ceux qui durent douze mois', () => {
+    const r = repartitionDesLots([
+      { origine: 'mensuel', jetonsInitiaux: 300, restants: 280, expireLe: '2026-10-31T23:00:00Z' },
+      { origine: 'achat', jetonsInitiaux: 100, restants: 60, expireLe: '2027-09-01T10:00:00Z' },
+      { origine: 'geste', jetonsInitiaux: 50, restants: 50, expireLe: '2027-08-01T10:00:00Z' },
+      { origine: 'option_hypnose', jetonsInitiaux: 200, restants: 150, expireLe: '2026-11-15T10:00:00Z' },
+      { origine: 'option_hypnose', jetonsInitiaux: 200, restants: 200, expireLe: '2026-10-30T10:00:00Z' },
+    ])
+    expect(r).toEqual({ douzeMois: 110, option: { restant: 350, fin: '2026-10-30T10:00:00Z' } })
+    expect(repartitionDesLots([]).option).toBeNull()
+  })
+
+  it('accorde « offert » et « précédente » au nombre', () => {
+    expect(offertsDits(0)).toBe('0 jeton offert')
+    expect(offertsDits(1)).toBe('1 jeton offert')
+    expect(offertsDits(200)).toBe('200 jetons offerts')
+    expect(precedentesDites(1)).toBe('Voir la précédente')
+    expect(precedentesDites(12)).toBe('Voir les 12 précédentes')
   })
 
   it("annonce l'option avec son prix, sa durée et ses jetons", () => {
@@ -170,6 +205,9 @@ describe('le forfait et l’option', () => {
     )
     expect(libelleOptionHypnose({ prixCents: 1900, jours: 30, jetons: 0 }, "Prolonger l'option")).toBe(
       "Prolonger l'option — 19 € pour 30 jours",
+    )
+    expect(libelleOptionHypnose({ prixCents: 1900, jours: 1, jetons: 1 })).toBe(
+      "Activer l'option — 19 € pour 1 jour, 1 jeton offert",
     )
   })
 

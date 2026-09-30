@@ -12,11 +12,16 @@
  * le compteur bouge aussitôt, et la relecture complète — forfait, achats,
  * historique — suit en arrière-plan.
  *
- * LE RETOUR DE STRIPE SE TRAITE ICI, une fois. La page de paiement renvoie
- * à la racine avec `?jetons=…` : le fournisseur le lit au montage, fait
- * vérifier l'achat par le serveur, garde ce qu'il en dit pour la carte
- * d'Intégrations, puis retire le paramètre de l'adresse — un rechargement
- * ne redemande rien, et le lien ne se partage pas avec un numéro de session.
+ * LE RETOUR DE STRIPE SE TRAITE ICI. La page de paiement renvoie à la
+ * racine avec `?jetons=…` : le fournisseur le lit au montage, fait vérifier
+ * l'achat par le serveur, et garde ce qu'il en dit pour la carte
+ * d'Intégrations. Le paramètre ne quitte l'adresse qu'avec un VERDICT —
+ * crédité, ou refusé pour de bon — ou quand la praticienne ferme l'avis :
+ * tant que Stripe n'a pas confirmé, ou que la vérification a échoué, un
+ * rechargement revérifie, et « Vérifier de nouveau » garde de quoi le faire.
+ * Le retirer au premier essai perdait le seul numéro de la commande. Le
+ * serveur, lui, relit de toute façon les commandes en attente à chaque
+ * lecture de l'état (server/jetons.ts) : un onglet fermé ne perd rien.
  *
  * Sans cabinet — démonstration publique, banc de rendu — aucun fournisseur
  * n'est monté : `useJetons()` rend null, et chaque écran garde ses textes
@@ -28,6 +33,7 @@ import { devisJetons, retourDit, type Devis } from '@/lib/jetonsIA'
 import { useRetour } from '@/lib/useRetour'
 import {
   acheterJetons,
+  devisDuProfil,
   EVENEMENT_JETONS,
   lireJetons,
   lireRetourDePaiement,
@@ -146,8 +152,15 @@ export function JetonsProvider({ actif, children }: { actif: boolean; children: 
       setRetour({ ton: 'attente', texte: 'Vérification de votre paiement auprès de Stripe…' })
       try {
         const dit = retourDit(await verifier(session))
-        setRetour(dit.attente ? { ton: 'warn', texte: dit.texte, session } : { ton: dit.ton, texte: dit.texte })
+        if (dit.attente) {
+          // Pas encore de verdict : la session reste, dans l'écran ET dans l'adresse.
+          setRetour({ ton: 'warn', texte: dit.texte, session })
+          return
+        }
+        setRetour({ ton: dit.ton, texte: dit.texte })
+        oublierLeRetour()
       } catch (err) {
+        // Une panne n'est pas un verdict : rien n'est oublié, un rechargement revérifie.
         setRetour({ ton: 'warn', texte: (err as Error).message, session })
       }
     },
@@ -164,7 +177,7 @@ export function JetonsProvider({ actif, children }: { actif: boolean; children: 
       setRetour({ ton: 'warn', texte: "Paiement abandonné : rien n'a été débité, rien n'a été crédité." })
       return
     }
-    void traiterRetour(lu.session).finally(oublierLeRetour)
+    void traiterRetour(lu.session)
   }, [actif, traiterRetour])
 
   const reverifier = useCallback(async () => {
@@ -195,7 +208,11 @@ export function JetonsProvider({ actif, children }: { actif: boolean; children: 
     optionHypnose: etat?.optionHypnose ?? null,
     paiementPossible: etat?.paiementPossible === true,
     retour,
-    effacerRetour: () => setRetour(null),
+    // Fermer l'avis, c'est renoncer à revérifier d'ici : le serveur, lui, s'en chargera.
+    effacerRetour: () => {
+      setRetour(null)
+      oublierLeRetour()
+    },
     reverifier,
     recharger,
     acheter,
@@ -222,4 +239,37 @@ export function enJetons(data: JetonsData | null): boolean {
  */
 export function useDevis(action: ActionJetons, compris = false): Devis | null {
   return devisJetons(useJetons()?.etat ?? null, action, compris)
+}
+
+/**
+ * L'actualisation du profil tirée de cette séance est-elle encore comprise ?
+ *
+ * LA BASE LE DIT, pas l'écran. Une séance comprend UNE actualisation, et
+ * seulement si son brouillon a été payé : annoncer « incluse » dès qu'une
+ * séance existe faisait payer sans prévenir la seconde, et celle d'une séance
+ * analysée avant les jetons. Relue à chaque relecture de l'état — donc après
+ * chaque analyse, qui émet `klaro:jetons`. Faux tant qu'on ne sait pas : on
+ * annonce alors le prix plein, jamais une gratuité qui n'en serait pas une.
+ */
+export function useProfilCompris(seance: string | null): boolean {
+  const jetons = useJetons()
+  const modeJetons = jetons?.mode === 'jetons'
+  const etat = jetons?.etat ?? null
+  const [lu, setLu] = useState<{ seance: string; compris: boolean } | null>(null)
+  useEffect(() => {
+    if (!modeJetons || !seance) return
+    let vivant = true
+    devisDuProfil(seance)
+      .then((d) => {
+        if (vivant) setLu({ seance, compris: d.profilCompris === true })
+      })
+      .catch(() => {
+        if (vivant) setLu({ seance, compris: false })
+      })
+    return () => {
+      vivant = false
+    }
+    // `etat` : chaque relecture (après une analyse, au retour sur l'onglet) redemande.
+  }, [modeJetons, seance, etat])
+  return Boolean(modeJetons && seance && lu?.seance === seance && lu.compris)
 }

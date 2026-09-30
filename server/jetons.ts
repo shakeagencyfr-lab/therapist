@@ -13,17 +13,24 @@
  *                recharges et les gestes du revendeur alimentent le solde.
  *
  * LA BASE TIENT LE COMPTE, CE MODULE LE PRÉSENTE. Le solde, les lots, la
- * réservation et le remboursement sont des fonctions SQL réservées au rôle de
- * service ; ce module décide seulement COMBIEN une requête coûte — les
- * forfaits de séance et d'hypnose — et traduit les refus en phrases.
+ * réservation, le remboursement — et, depuis 0068, ce qu'un forfait de
+ * séance ou d'hypnose comprend — sont des fonctions SQL réservées au rôle de
+ * service. Ce module vérifie que la séance ou l'hypnose citée est bien du
+ * cabinet, dit la règle et le plein prix, et traduit les refus en phrases.
+ * Le prix PRIS vient de la base, décidé sous le verrou du débit : compté ici,
+ * des requêtes simultanées lisaient toutes le même compte et passaient
+ * toutes « comprises ».
  *
  * RÉSERVER AVANT, RENDRE SI ÇA ÉCHOUE. Débiter après coup laissait passer
  * deux analyses lancées ensemble sur un solde qui n'en couvrait qu'une ; les
  * jetons sont donc pris avant l'appel au modèle, et rendus s'il n'a rien
- * produit. Une analyse qui échoue ne se paie pas.
+ * produit. Une analyse qui échoue ne se paie pas — et une fonction tuée
+ * avant d'avoir pu rendre voit sa réservation rendue par la base au bout de
+ * dix minutes (0068).
  *
- * Et l'achat : une recharge ou le pass Hypnose, payés sur le compte Stripe
- * du revendeur, sans webhook — la commande est relue chez Stripe au retour,
+ * Et l'achat : une recharge ou le pass Hypnose, payés par carte sur le
+ * compte Stripe du revendeur, sans webhook — la commande est relue chez
+ * Stripe au retour, puis à chaque lecture de l'état tant qu'elle attend,
  * comme la boutique le fait pour les patients (server/shop.ts).
  */
 import Stripe from 'stripe'
@@ -33,6 +40,7 @@ import type {
   AchatVerifie,
   ActionJetons,
   Bareme,
+  DevisDuProfil,
   EtatJetons,
   JetonsDeLAppel,
   LigneHistorique,
@@ -50,6 +58,7 @@ import {
 } from './auth.js'
 import { abonnementEnRegle, levierDuCabinet, REFUS_CONTRAT } from './droits.js'
 import { HttpError } from './errors.js'
+import { MOUVEMENTS } from './prompts.js'
 import { dechiffrer } from './secrets.js'
 import { hoteNu } from './shop.js'
 
@@ -87,17 +96,26 @@ export const BAREME_PAR_DEFAUT: Bareme = {
  * les consignes des modules retenus (une par module, huit au plus — un
  * brouillon en propose trois ou quatre) et une actualisation du profil. Au-
  * delà, ce n'est plus la suite de cette séance, c'est un autre travail.
+ *
+ * Ces plafonds sont appliqués PAR LA BASE (`jetons_prix_du_forfait`, 0068),
+ * sous le verrou du débit ; ils ne sont recopiés ici que pour l'écran et les
+ * épreuves.
  */
 export const CONSIGNES_PAR_SEANCE = 8
 export const PROFILS_PAR_SEANCE = 1
 
 /**
  * UNE HYPNOSE SE PAIE UNE FOIS, PAS QUATRE. Elle s'écrit en quatre appels, un
- * par mouvement, et un mouvement raté se reprend : huit appels sont compris
- * — quatre mouvements et leurs reprises. Le neuvième ouvre une nouvelle
- * hypnose, et se paie comme telle.
+ * par mouvement : le premier ouvre une série au prix d'une hypnose, et chacun
+ * des quatre mouvements y est compris une fois. Un mouvement déjà écrit dans
+ * la série — ou un cinquième appel — ouvre une nouvelle série, payée comme
+ * une nouvelle hypnose. Un appel raté est rendu et ne compte pas : le
+ * reprendre reste gratuit. La base en décide (0068), sous le verrou.
+ *
+ * Avant 0068, huit appels quelconques étaient compris par identifiant : de
+ * quoi écrire deux hypnoses entières pour le prix d'une.
  */
-export const APPELS_PAR_HYPNOSE = 8
+export const MOUVEMENTS_PAR_HYPNOSE = MOUVEMENTS.length
 
 /* ------------------------------------------------------------------ *
  * Qui paie
@@ -220,31 +238,46 @@ export async function facturationDuCabinet(
  * Combien coûte un appel
  * ------------------------------------------------------------------ */
 
-/** Ce qu'un appel coûte, et à quoi il se rattache. */
+/**
+ * La règle qui dit si un appel est compris dans un forfait déjà payé — la
+ * base l'applique (`jetons_prix_du_forfait`, 0068) :
+ *
+ *   prix     le plein prix, toujours ;
+ *   seance   un module ou un profil tiré d'une séance du cabinet ;
+ *   hypnose  un mouvement d'une hypnose du cabinet.
+ */
+export type RegleDeForfait = 'prix' | 'seance' | 'hypnose'
+
+/**
+ * Ce qu'un appel demande à la base : l'action, son plein prix, ce à quoi il
+ * se rattache, et la règle du forfait. PAS le prix payé : celui-là, la base
+ * le décide sous le verrou du cabinet, et `reserver` le rend.
+ */
 export interface Cout {
   action: ActionJetons
-  jetons: number
-  /** La séance ou l'hypnose de l'appel, inscrite avec la consommation. */
+  /** Le prix au barème — ce que l'appel coûte s'il n'est compris dans rien. */
+  prix: number
+  /** La séance ou l'hypnose de l'appel, reconnue au cabinet ; null sinon. */
   ref: string | null
-  /** Compris dans un forfait déjà payé : zéro jeton, mais inscrit pour être compté. */
-  compris: boolean
+  regle: RegleDeForfait
+  /** Le mouvement d'une hypnose ; null pour le reste. */
+  mouvement: string | null
 }
 
 /**
- * Ce que la base sait et que le calcul du prix demande. Injecté, pour que la
- * règle s'éprouve sans base.
+ * Ce que la base sait des identifiants envoyés par le navigateur. Injecté,
+ * pour que la règle s'éprouve sans base.
+ *
+ * Seulement l'APPARTENANCE : combien une séance ou une hypnose a déjà
+ * consommé, la base le compte elle-même au moment de débiter. Le compter
+ * ici, hors du verrou, laissait cinquante requêtes simultanées lire le même
+ * compte et passer toutes « comprises ».
  */
 export interface Recherches {
   /** La séance existe-t-elle, et est-elle de CE cabinet ? */
   seanceDuCabinet(sessionId: string): Promise<boolean>
-  /** Son brouillon a-t-il été payé (consommation « seance » confirmée) ? */
-  seancePayee(sessionId: string): Promise<boolean>
-  /** Combien d'actions de ce genre ont déjà été comprises dans cette séance. */
-  comprisesDeLaSeance(action: 'module' | 'profil', sessionId: string): Promise<number>
   /** L'hypnose existe-t-elle, et est-elle de CE cabinet ? */
   hypnoseDuCabinet(hypnoseId: string): Promise<boolean>
-  /** Combien d'appels, payés ou compris, cette hypnose a déjà faits (remboursés exclus). */
-  appelsDeLHypnose(hypnoseId: string): Promise<number>
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -256,23 +289,24 @@ export function uuidDe(valeur: unknown): string | null {
 }
 
 /**
- * Le prix d'un appel, selon le barème et les forfaits.
+ * Ce qu'un appel demande à la base, selon le barème et les forfaits.
  *
- *   session-draft  une séance ; l'identifiant de la séance, s'il est du
- *                  cabinet, est inscrit : c'est lui qui ouvre le forfait.
- *   module         compris si l'appel porte une séance du cabinet dont le
- *                  brouillon est payé, huit fois au plus ; sinon, un module.
+ *   session-draft  une séance, au barème ; l'identifiant de la séance, s'il
+ *                  est du cabinet, est inscrit : c'est lui qui ouvre le forfait.
+ *   module         règle « seance » si l'appel porte une séance du cabinet :
+ *                  compris quand son brouillon est payé, huit fois au plus ;
+ *                  sinon, un module au barème.
  *   profile        même règle, une fois par séance.
  *   affirmations   toujours au barème.
- *   hypnose        l'hypnose doit être ouverte en base et être du cabinet ;
- *                  le premier appel de chaque série de huit se paie, les
- *                  suivants sont compris.
+ *   hypnose        l'hypnose doit être ouverte en base et être du cabinet, et
+ *                  le mouvement l'un des quatre ; règle « hypnose ».
  *   revision       une retouche (0066, server/retouche.ts) : plus chère sur
  *                  un mouvement d'hypnose, toujours au barème.
  *
  * La PREUVE est côté serveur : l'identifiant envoyé par le navigateur n'est
- * cru que si la base le reconnaît au cabinet, et le forfait ne s'ouvre que
- * sur une consommation payée. Un identifiant inventé paie le plein prix.
+ * cru que si la base le reconnaît au cabinet. Un identifiant inventé paie le
+ * plein prix. Et ce qui est COMPRIS se décide en base, sous le verrou du
+ * débit (`reserver`) : ici, on ne fait que dire la règle.
  */
 export async function coutDeLAppel(
   route: string,
@@ -280,27 +314,27 @@ export async function coutDeLAppel(
   bareme: Bareme,
   r: Recherches,
 ): Promise<Cout> {
+  const plein = (action: ActionJetons, ref: string | null = null): Cout => ({
+    action,
+    prix: bareme[action],
+    ref,
+    regle: 'prix',
+    mouvement: null,
+  })
   switch (route) {
     case 'session-draft': {
       const seance = uuidDe(body.sessionId)
-      const ref = seance && (await r.seanceDuCabinet(seance)) ? seance : null
-      return { action: 'seance', jetons: bareme.seance, ref, compris: false }
+      return plein('seance', seance && (await r.seanceDuCabinet(seance)) ? seance : null)
     }
     case 'module':
     case 'profile': {
       const action = route === 'module' ? 'module' : 'profil'
-      const plafond = route === 'module' ? CONSIGNES_PAR_SEANCE : PROFILS_PAR_SEANCE
       const seance = uuidDe(body.sessionId)
-      if (!seance || !(await r.seanceDuCabinet(seance))) {
-        return { action, jetons: bareme[action], ref: null, compris: false }
-      }
-      if ((await r.seancePayee(seance)) && (await r.comprisesDeLaSeance(action, seance)) < plafond) {
-        return { action, jetons: 0, ref: seance, compris: true }
-      }
-      return { action, jetons: bareme[action], ref: seance, compris: false }
+      if (!seance || !(await r.seanceDuCabinet(seance))) return plein(action)
+      return { action, prix: bareme[action], ref: seance, regle: 'seance', mouvement: null }
     }
     case 'affirmations':
-      return { action: 'affirmations', jetons: bareme.affirmations, ref: null, compris: false }
+      return plein('affirmations')
     case 'hypnose': {
       /* L'hypnose s'ouvre en base AVANT d'être écrite (useEcritureHypnose) :
          sans elle, rien ne relie les quatre mouvements, et chacun serait
@@ -312,16 +346,16 @@ export async function coutDeLAppel(
           "Cette hypnose n'est pas ouverte dans le dossier. Rechargez la page, puis relancez : rien n'a été produit, ni décompté.",
         )
       }
-      const deja = await r.appelsDeLHypnose(hypnose)
-      return deja % APPELS_PAR_HYPNOSE === 0
-        ? { action: 'hypnose', jetons: bareme.hypnose, ref: hypnose, compris: false }
-        : { action: 'hypnose', jetons: 0, ref: hypnose, compris: true }
+      // Le mouvement fait le forfait : il se vérifie avant de réserver.
+      const mouvement = typeof body.mouvement === 'string' ? body.mouvement.trim() : ''
+      if (!(MOUVEMENTS as readonly string[]).includes(mouvement)) {
+        throw new HttpError(400, "Ce mouvement d'hypnose n'existe pas.")
+      }
+      return { action: 'hypnose', prix: bareme.hypnose, ref: hypnose, regle: 'hypnose', mouvement }
     }
     case 'revision':
-    case 'retouche': {
-      const action: ActionJetons = String(body.cible ?? '') === 'hypnose' ? 'retouche_hypnose' : 'retouche'
-      return { action, jetons: bareme[action], ref: null, compris: false }
-    }
+    case 'retouche':
+      return plein(String(body.cible ?? '') === 'hypnose' ? 'retouche_hypnose' : 'retouche')
     default:
       throw new HttpError(404, "Cette analyse n'existe pas.")
   }
@@ -339,25 +373,9 @@ export function recherchesPour(cabinetId: string, db: SupabaseClient): Recherche
     if (error) throw panneDeLecture(error.message)
     return Boolean(data)
   }
-  const compter = async (action: ActionJetons, ref: string, filtre: 'confirme' | 'vivant', gratuits = false) => {
-    let requete = db
-      .from('jetons_consommations')
-      .select('id', { count: 'exact', head: true })
-      .eq('cabinet_id', cabinetId)
-      .eq('action', action)
-      .eq('ref', ref)
-    requete = filtre === 'confirme' ? requete.eq('statut', 'confirme') : requete.in('statut', ['reserve', 'confirme'])
-    if (gratuits) requete = requete.eq('jetons', 0)
-    const { count, error } = await requete
-    if (error) throw panneDeLecture(error.message)
-    return count ?? 0
-  }
   return {
     seanceDuCabinet: (id) => existe('therapy_sessions', id),
-    seancePayee: async (id) => (await compter('seance', id, 'confirme')) > 0,
-    comprisesDeLaSeance: (action, id) => compter(action, id, 'vivant', true),
     hypnoseDuCabinet: (id) => existe('hypnoses', id),
-    appelsDeLHypnose: (id) => compter('hypnose', id, 'vivant'),
   }
 }
 
@@ -396,7 +414,7 @@ export function messageSoldeInsuffisant(solde: number, besoin: number, paiement:
     : `${constat} Demandez des jetons à votre revendeur : le paiement en ligne n'est pas ouvert. Votre forfait se renouvelle aussi le premier du mois.`
 }
 
-/** Le solde et le besoin, lus dans le détail du refus de la base (`jetons_debiter`). */
+/** Le solde et le besoin, lus dans le détail du refus de la base (`jetons_debiter`, que `jetons_debiter_forfait` appelle). */
 export function lireRefusDeSolde(details: string | null | undefined, besoin: number): { solde: number; besoin: number } {
   try {
     const lu = JSON.parse(details ?? '') as { solde?: unknown; besoin?: unknown }
@@ -409,43 +427,80 @@ export function lireRefusDeSolde(details: string | null | undefined, besoin: num
   }
 }
 
-/** Réserve les jetons d'un appel. Rend la consommation, à confirmer ou à rendre. */
+/** Ce que la base a réservé : la consommation, et le prix qu'elle a vraiment pris. */
+export interface Reservation {
+  consommation: string
+  /** Zéro quand l'appel était compris dans un forfait. */
+  jetons: number
+  compris: boolean
+}
+
+/** La réponse de `jetons_debiter_forfait`, vérifiée — null si elle n'en a pas la forme. */
+export function lireReservation(data: unknown): Reservation | null {
+  const r = (data ?? {}) as { consommation?: unknown; jetons?: unknown; compris?: unknown }
+  if (typeof r.consommation !== 'string' || !r.consommation) return null
+  if (typeof r.jetons !== 'number' || !Number.isInteger(r.jetons) || r.jetons < 0) return null
+  return { consommation: r.consommation, jetons: r.jetons, compris: r.compris === true }
+}
+
+/**
+ * Réserve les jetons d'un appel, AU PRIX QUE LA BASE DÉCIDE.
+ *
+ * `jetons_debiter_forfait` (0068) prend le verrou du cabinet, compte ce que
+ * la séance ou l'hypnose a déjà consommé, choisit « compris » ou le plein
+ * prix, et débite — d'un seul geste. Deux appels lancés ensemble passent
+ * l'un après l'autre : le second voit ce que le premier a inscrit, et ne
+ * passe pas compris à sa suite.
+ */
 export async function reserver(
   cabinetId: string,
   cout: Cout,
   facturation: Extract<Facturation, { mode: 'jetons' }>,
   db: SupabaseClient,
-): Promise<string> {
-  const { data, error } = await db.rpc('jetons_debiter', {
+): Promise<Reservation> {
+  const { data, error } = await db.rpc('jetons_debiter_forfait', {
     p_cabinet: cabinetId,
     p_action: cout.action,
-    p_jetons: cout.jetons,
+    p_prix: cout.prix,
     p_ref: cout.ref,
+    p_regle: cout.regle,
+    p_mouvement: cout.mouvement,
   })
   if (error) {
     if (error.code === 'KL402') {
-      const { solde, besoin } = lireRefusDeSolde(error.details, cout.jetons)
+      const { solde, besoin } = lireRefusDeSolde(error.details, cout.prix)
       throw new SoldeInsuffisant(solde, besoin, facturation.paiement)
     }
     throw panneDeLecture(error.message)
   }
-  if (typeof data !== 'string') throw panneDeLecture('réservation sans identifiant')
-  return data
+  const reservation = lireReservation(data)
+  if (!reservation) throw panneDeLecture('réservation sans identifiant')
+  return reservation
 }
 
 /**
  * L'appel a produit : la réservation devient une dépense. Un échec ici ne
- * défait pas l'analyse — elle est écrite, payée d'avance, et la réservation
- * reste décomptée ; le journal le dit.
+ * défait pas l'analyse — elle est écrite. On retente une fois : une
+ * réservation restée « reserve » est rendue d'elle-même au bout de dix
+ * minutes (0068), et l'analyse serait alors offerte. Le journal le dit.
  */
 export async function confirmer(consommation: string, db: SupabaseClient): Promise<void> {
-  const { error } = await db.rpc('jetons_confirmer', { p_consommation: consommation })
-  if (error) console.error(`[jetons] confirmation ${consommation} — ${error.message}`)
+  for (let essai = 0; essai < 2; essai++) {
+    try {
+      const { error } = await db.rpc('jetons_confirmer', { p_consommation: consommation })
+      if (!error) return
+      console.error(`[jetons] confirmation ${consommation} — ${error.message}`)
+    } catch (err) {
+      console.error(`[jetons] confirmation ${consommation} — ${(err as Error).message}`)
+    }
+  }
 }
 
 /**
  * L'appel a échoué : les jetons reviennent. Ne lève jamais — l'erreur de
- * l'appel est celle que l'écran doit lire, pas celle du remboursement.
+ * l'appel est celle que l'écran doit lire, pas celle du remboursement. Si la
+ * base ne répond pas, la réservation reste « reserve » et sera rendue d'elle-
+ * même au bout de dix minutes (0068).
  */
 export async function rembourser(consommation: string, db: SupabaseClient): Promise<void> {
   try {
@@ -470,9 +525,9 @@ export async function soldeDuCabinet(cabinetId: string, db: SupabaseClient): Pro
   return ((data ?? []) as Array<{ restants: number }>).reduce((s, l) => s + (l.restants ?? 0), 0)
 }
 
-/** Ce que l'enveloppe d'une analyse porte en mode jetons. */
-export function jetonsDeLAppel(cout: Cout, solde: number | null): JetonsDeLAppel {
-  return { utilises: cout.jetons, solde }
+/** Ce que l'enveloppe d'une analyse porte en mode jetons : le prix réellement pris. */
+export function jetonsDeLAppel(reservation: Reservation, solde: number | null): JetonsDeLAppel {
+  return { utilises: reservation.jetons, solde }
 }
 
 /* ------------------------------------------------------------------ *
@@ -565,14 +620,59 @@ export function versEtatJetons(brut: unknown): EtatJetons {
  * Lu SOUS SON JETON : `cabinet_jetons()` vérifie qu'il est membre du cabinet
  * (second facteur compris) et ne rend rien sinon. Tout membre le lit — le
  * solde se montre à qui lance une analyse ; l'achat, lui, est au titulaire.
+ *
+ * LES ACHATS EN SUSPENS SE CONCLUENT D'ABORD. Le retour de Stripe n'était
+ * lu qu'une fois, dans l'onglet qui revenait de payer : un onglet fermé, un
+ * réseau coupé, une vérification en échec, et la commande restait « en
+ * attente » pour toujours, l'argent encaissé et rien de crédité. Chaque
+ * lecture de l'état relit donc chez Stripe les commandes du cabinet encore
+ * en attente (`reprendreCommandesEnAttente`) — comme la boutique le fait
+ * pour ses patients (server/shop.ts). Une panne de cette reprise ne coûte
+ * jamais la lecture : la suivante réessaiera.
  */
 export async function etatJetons(token: string | null): Promise<EtatJetons> {
   const appelant = await identifier(token)
   const cabinetId = exigerCabinet(appelant)
+  const db = clientAdmin()
+  if (db) {
+    await reprendreCommandesEnAttente(cabinetId, db).catch((err: unknown) => {
+      console.error(`[jetons] reprise des commandes — ${(err as Error).message}`)
+    })
+  }
   const { data, error } = await appelant.client.rpc('cabinet_jetons', { p_cabinet: cabinetId })
   if (error) throw panneDeLecture(error.message)
   if (data === null) throw new HttpError(403, "Les jetons de ce cabinet ne vous sont pas ouverts.")
   return versEtatJetons(data)
+}
+
+/**
+ * L'actualisation du profil tirée de cette séance serait-elle comprise ?
+ *
+ * Le brouillon d'une séance comprend UNE actualisation du profil, et
+ * seulement s'il a été payé. L'écran l'annonçait « incluse » dès qu'une
+ * séance existait — la seconde, ou celle d'une séance analysée avant les
+ * jetons, se payait sans prévenir. On demande à la base, avec la même règle
+ * que le débit (`jetons_prix_du_forfait`, 0068) : un devis, qui n'écrit rien
+ * et ne réserve rien.
+ */
+export async function devisDuProfil(token: string | null, raw: unknown): Promise<DevisDuProfil> {
+  const appelant = await identifier(token)
+  const cabinetId = exigerCabinet(appelant)
+  const body = (raw && typeof raw === 'object' ? raw : {}) as { seance?: unknown }
+  const seance = uuidDe(body.seance)
+  if (!seance) return { profilCompris: false }
+  const db = admin()
+  if (!(await recherchesPour(cabinetId, db).seanceDuCabinet(seance))) return { profilCompris: false }
+  const { data, error } = await db.rpc('jetons_prix_du_forfait', {
+    p_cabinet: cabinetId,
+    p_action: 'profil',
+    p_prix: 0,
+    p_ref: seance,
+    p_regle: 'seance',
+    p_mouvement: null,
+  })
+  if (error) throw panneDeLecture(error.message)
+  return { profilCompris: (data as { compris?: unknown } | null)?.compris === true }
 }
 
 /* ------------------------------------------------------------------ *
@@ -665,6 +765,31 @@ export interface AchatBody {
   option?: string
 }
 
+/**
+ * La commande du pass Hypnose, aux réglages du revendeur — pure.
+ *
+ * LES JETONS DU PASS NE VALENT QU'EN MODE JETONS. Un cabinet qui paie
+ * l'analyse avec sa propre clé ne dépense jamais de jetons : lui en verser
+ * deux cents, c'était un lot que rien ne pouvait entamer, et un « 200 jetons
+ * l'accompagnent » au retour du paiement que l'écran d'achat s'était bien
+ * gardé d'annoncer (VerrouHypnose). Hors du mode jetons, la commande en
+ * porte zéro : `jetons_encaisser` ne verse alors aucun lot, et la
+ * conclusion n'en parle pas.
+ */
+export function commandeDuPass(
+  r: Pick<ReglagesJetons, 'option_hypnose_jours' | 'option_hypnose_jetons' | 'option_hypnose_prix_cents'>,
+  modeJetons: boolean,
+): Pick<CommandeJetons, 'objet' | 'recharge_id' | 'libelle' | 'jetons' | 'jours' | 'prix_cents'> {
+  return {
+    objet: 'option_hypnose',
+    recharge_id: null,
+    libelle: `Option Hypnose — ${r.option_hypnose_jours} jour${r.option_hypnose_jours > 1 ? 's' : ''}`,
+    jetons: modeJetons ? r.option_hypnose_jetons : 0,
+    jours: r.option_hypnose_jours,
+    prix_cents: r.option_hypnose_prix_cents,
+  }
+}
+
 async function resellerDuCabinet(cabinetId: string, db: SupabaseClient): Promise<string> {
   const { data, error } = await db
     .from('cabinets')
@@ -715,14 +840,11 @@ export async function demarrerAchatJetons(
     if ((abo?.hypnose_override ?? offre?.hypnose_incluse) === true) {
       throw new HttpError(409, "L'hypnose est déjà comprise dans votre offre : il n'y a rien à acheter.")
     }
-    commande = {
-      objet: 'option_hypnose',
-      recharge_id: null,
-      libelle: `Option Hypnose — ${r.option_hypnose_jours} jours`,
-      jetons: r.option_hypnose_jetons,
-      jours: r.option_hypnose_jours,
-      prix_cents: r.option_hypnose_prix_cents,
-    }
+    /* Le mode se lit par la règle de la base, sans déchiffrer la clé du
+       revendeur : une clé illisible ne doit pas empêcher d'acheter un pass. */
+    const { data: modeJetons, error: eMode } = await db.rpc('jetons_mode_actif', { p_reseller: resellerId })
+    if (eMode) throw panneDeLecture(eMode.message)
+    commande = commandeDuPass(r, modeJetons === true)
   } else {
     const rechargeId = uuidDe(body.recharge)
     if (!rechargeId) throw new HttpError(400, 'Choisissez une recharge.')
@@ -777,6 +899,11 @@ export async function demarrerAchatJetons(
   try {
     session = await stripe.checkout.sessions.create({
       mode: 'payment',
+      /* LA CARTE SEULE. Sans cette liste, les moyens du tableau de bord du
+         revendeur s'appliquent — un prélèvement SEPA revient « complete »
+         mais impayé, et ne se confirme que des jours plus tard. La carte se
+         confirme au retour : la praticienne voit ses jetons tout de suite. */
+      payment_method_types: ['card'],
       client_reference_id: cabinetId,
       line_items: [
         {
@@ -893,30 +1020,189 @@ export async function conclureAchat(
       ok: false,
       attente: true,
       solde: null,
-      message: "Stripe n'a pas encore confirmé le paiement. Rien n'est crédité tant qu'il ne l'a pas fait : réessayez dans un instant.",
+      message:
+        "Stripe n'a pas encore confirmé le paiement : rien n'est crédité tant qu'il ne l'a pas fait. La vérification se refait d'elle-même à chaque ouverture de vos jetons ; vous pouvez aussi la relancer dans un instant.",
     }
   }
   const e = await ops.encaisser(commande.id)
   const solde = await ops.solde()
   if (e.deja) return { ...base, ok: true, solde, message: 'Cet achat est déjà crédité.' }
+  const n = commande.jetons
   if (commande.objet === 'recharge') {
     return {
       ...base,
       ok: true,
       solde,
-      message: `${jetonsDits(commande.jetons)} ajoutés à votre solde. Ils restent valables douze mois.`,
+      message:
+        n > 1
+          ? `${jetonsDits(n)} ajoutés à votre solde. Ils restent valables douze mois.`
+          : `${jetonsDits(n)} ajouté à votre solde. Il reste valable douze mois.`,
     }
   }
   const jusqua = dateDite(e.jusquAu)
+  // Zéro jeton : le pass d'un cabinet qui paie avec sa clé (`commandeDuPass`) — rien à annoncer.
+  const accompagnent =
+    n > 1
+      ? ` ${jetonsDits(n)} l'accompagnent, valables le temps de l'option.`
+      : n === 1
+        ? ` ${jetonsDits(n)} l'accompagne, valable le temps de l'option.`
+        : ''
   return {
     ...base,
     ok: true,
     solde,
     hypnoseJusquAu: e.jusquAu ?? null,
-    message:
-      `Option Hypnose ouverte${jusqua ? ` jusqu'au ${jusqua}` : ''}.` +
-      (commande.jetons > 0 ? ` ${jetonsDits(commande.jetons)} l'accompagnent, valables le temps de l'option.` : ''),
+    message: `Option Hypnose ouverte${jusqua ? ` jusqu'au ${jusqua}` : ''}.${accompagnent}`,
   }
+}
+
+/** Les opérations d'un achat conclu pour ce cabinet, sur la base réelle. */
+function operationsAchat(db: SupabaseClient, cabinetId: string): OperationsAchat {
+  return {
+    encaisser: async (id) => {
+      const { data, error } = await db.rpc('jetons_encaisser', { p_commande: id })
+      if (error) {
+        console.error(`[jetons] encaissement ${id} — ${error.message}`)
+        throw new HttpError(502, "Le paiement est confirmé, mais le crédit n'a pas pu être écrit. Réessayez dans un instant : rien ne sera payé deux fois.")
+      }
+      const r = (data ?? {}) as { deja?: boolean; jusqu_au?: string | null }
+      return { deja: r.deja === true, jusquAu: r.jusqu_au ?? null }
+    },
+    annuler: async (id) => {
+      await db.from('jetons_commandes').update({ statut: 'annulee' }).eq('id', id).eq('statut', 'en_attente')
+    },
+    solde: () => soldeDuCabinet(cabinetId, db),
+  }
+}
+
+/**
+ * Conclure des commandes restées en attente — sans réseau : la lecture de
+ * la session chez Stripe et les écritures sont injectées.
+ *
+ * Chaque commande pour elle-même : une session illisible (clé changée,
+ * Stripe indisponible) ou un encaissement en panne laisse CETTE commande en
+ * attente, pour la prochaine fois, sans empêcher les autres de conclure.
+ * L'encaissement est idempotent en base : relire une commande déjà créditée
+ * ne verse rien de plus.
+ */
+export async function reprendreLesCommandes(
+  commandes: CommandeJetons[],
+  lire: (commande: CommandeJetons) => Promise<SessionLue>,
+  ops: (commande: CommandeJetons) => OperationsAchat,
+): Promise<AchatVerifie[]> {
+  const verdicts: AchatVerifie[] = []
+  for (const commande of commandes) {
+    if (commande.statut !== 'en_attente' || !commande.stripe_session_id) continue
+    try {
+      verdicts.push(await conclureAchat(commande, await lire(commande), ops(commande)))
+    } catch (err) {
+      // Journal technique : des identifiants, jamais une clé.
+      console.warn(`[jetons] reprise de la commande ${commande.id} — ${(err as Error).message}`)
+    }
+  }
+  return verdicts
+}
+
+/** Au plus tant de commandes relues à chaque lecture : les plus récentes. */
+const COMMANDES_REPRISES = 5
+/**
+ * Au-delà, une commande n'est plus relue d'elle-même. Une page de paiement
+ * Stripe expire en vingt-quatre heures : une semaine laisse à une lecture le
+ * temps de passer, sans relire chez Stripe, à chaque ouverture, une commande
+ * que plus rien ne fera bouger.
+ */
+const REPRISE_JOURS = 7
+
+/**
+ * Relire chez Stripe les commandes de ce cabinet encore en attente, et
+ * conclure celles qui ont abouti — crédit, ou annulation d'une page expirée.
+ *
+ * Avec la clé du revendeur QUI A ENCAISSÉ (la commande le dit) : elle ne
+ * peut pas changer tant qu'un paiement est en cours (`exigerAucunPaiementEnCours`).
+ * Sans commande en attente — presque toujours —, c'est une seule lecture en base.
+ */
+export async function reprendreCommandesEnAttente(cabinetId: string, db: SupabaseClient): Promise<AchatVerifie[]> {
+  const depuis = new Date(Date.now() - REPRISE_JOURS * 24 * 3600 * 1000).toISOString()
+  const { data, error } = await db
+    .from('jetons_commandes')
+    .select(COLONNES_COMMANDE)
+    .eq('cabinet_id', cabinetId)
+    .eq('statut', 'en_attente')
+    .not('stripe_session_id', 'is', null)
+    .gte('cree_le', depuis)
+    .order('cree_le', { ascending: false })
+    .limit(COMMANDES_REPRISES)
+  if (error) throw new Error(error.message)
+  const commandes = (data ?? []) as CommandeJetons[]
+  if (!commandes.length) return []
+
+  const clients = new Map<string, Promise<Stripe>>()
+  const stripeDe = (resellerId: string) => {
+    if (!clients.has(resellerId)) clients.set(resellerId, stripeDuRevendeur(resellerId, db))
+    return clients.get(resellerId) as Promise<Stripe>
+  }
+  return reprendreLesCommandes(
+    commandes,
+    async (c) => (await stripeDe(c.reseller_id)).checkout.sessions.retrieve(c.stripe_session_id as string),
+    () => operationsAchat(db, cabinetId),
+  )
+}
+
+/** Pendant ce temps après sa création, une commande en attente peut encore être payée. */
+const PAIEMENT_OUVERT_HEURES = 24
+
+/**
+ * Le revendeur veut retirer ou changer sa clé Stripe : pas tant qu'un
+ * cabinet a une page de paiement ouverte sur son compte.
+ *
+ * Une commande se vérifie avec la clé du compte qui a encaissé. Retirée, ou
+ * remplacée par celle d'un autre compte, entre le paiement et sa
+ * vérification, et la commande ne se vérifiait plus jamais : le cabinet
+ * avait payé, et rien n'était crédité.
+ *
+ * On conclut d'abord ce qui peut l'être avec la clé en place — les pages
+ * payées sont créditées, les pages expirées annulées ; il ne reste que les
+ * paiements réellement en cours, et on refuse tant qu'il en reste (au plus
+ * vingt-quatre heures : c'est la durée de vie d'une page Stripe).
+ */
+export async function exigerAucunPaiementEnCours(resellerId: string, db: SupabaseClient): Promise<void> {
+  const lire = async (): Promise<CommandeJetons[]> => {
+    const depuis = new Date(Date.now() - PAIEMENT_OUVERT_HEURES * 3600 * 1000).toISOString()
+    const { data, error } = await db
+      .from('jetons_commandes')
+      .select(COLONNES_COMMANDE)
+      .eq('reseller_id', resellerId)
+      .eq('statut', 'en_attente')
+      .not('stripe_session_id', 'is', null)
+      .gte('cree_le', depuis)
+      .order('cree_le', { ascending: false })
+      .limit(20)
+    if (error) throw panneDeLecture(error.message)
+    return (data ?? []) as CommandeJetons[]
+  }
+  const avant = await lire()
+  if (!avant.length) return
+  try {
+    const stripe = await stripeDuRevendeur(resellerId, db)
+    await reprendreLesCommandes(
+      avant,
+      (c) => stripe.checkout.sessions.retrieve(c.stripe_session_id as string),
+      (c) => operationsAchat(db, c.cabinet_id),
+    )
+  } catch (err) {
+    console.warn(`[jetons] reprise avant changement de clé — ${(err as Error).message}`)
+  }
+  const restantes = (await lire()).length
+  if (restantes > 0) throw new HttpError(409, refusPaiementEnCours(restantes))
+}
+
+/** Le refus de toucher à la clé Stripe, qui dit combien de paiements attendent — pure. */
+export function refusPaiementEnCours(n: number): string {
+  const constat =
+    n > 1
+      ? `${n} paiements de jetons sont en cours sur votre compte Stripe`
+      : 'Un paiement de jetons est en cours sur votre compte Stripe'
+  return `${constat} : sans cette clé, ${n > 1 ? 'ils ne pourraient plus être vérifiés, ni crédités' : 'il ne pourrait plus être vérifié, ni crédité'}. Attendez qu'${n > 1 ? 'ils aboutissent' : 'il aboutisse'} ou que ${n > 1 ? 'leur page expire' : 'sa page expire'} — vingt-quatre heures au plus —, puis retirez ou changez votre clé.`
 }
 
 export interface VerifierAchatBody {
@@ -947,21 +1233,7 @@ export async function verifierAchatJetons(token: string | null, raw: unknown): P
   // Une commande qui n'est pas celle du cabinet n'existe pas, à ses yeux.
   if (!commande || commande.cabinet_id !== cabinetId) throw new HttpError(404, 'Commande introuvable.')
 
-  const ops: OperationsAchat = {
-    encaisser: async (id) => {
-      const { data, error } = await db.rpc('jetons_encaisser', { p_commande: id })
-      if (error) {
-        console.error(`[jetons] encaissement ${id} — ${error.message}`)
-        throw new HttpError(502, "Le paiement est confirmé, mais le crédit n'a pas pu être écrit. Réessayez dans un instant : rien ne sera payé deux fois.")
-      }
-      const r = (data ?? {}) as { deja?: boolean; jusqu_au?: string | null }
-      return { deja: r.deja === true, jusquAu: r.jusqu_au ?? null }
-    },
-    annuler: async (id) => {
-      await db.from('jetons_commandes').update({ statut: 'annulee' }).eq('id', id).eq('statut', 'en_attente')
-    },
-    solde: () => soldeDuCabinet(cabinetId, db),
-  }
+  const ops = operationsAchat(db, cabinetId)
 
   const base = { objet: commande.objet, jetons: commande.jetons }
   if (commande.statut === 'payee') {

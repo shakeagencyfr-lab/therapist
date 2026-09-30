@@ -23,6 +23,12 @@ export interface DroitsData {
 
 const Ctx = createContext<DroitsData | null>(null)
 
+/**
+ * Le contexte lui-même, pour le banc de rendu seulement : il y pose des
+ * droits à la main (un contrat qui n'est plus en cours) sans base derrière.
+ */
+export const DroitsContexte = Ctx
+
 export function DroitsProvider({ actif, children }: { actif: boolean; children: ReactNode }) {
   const [droits, setDroits] = useState<Droits | null>(null)
   const [chargement, setChargement] = useState(actif)

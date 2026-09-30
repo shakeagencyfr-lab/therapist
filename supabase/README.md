@@ -130,6 +130,7 @@ Relevé du 28 septembre 2026 (base `koytgcbpeorupdklswxd`).
 | `0065_les_jetons.sql` | 20260930081336 | 0065_les_jetons |
 | `0066_les_retouches.sql` | 20260930092908 | 0066_les_retouches |
 | `0067_les_conditions_acceptees.sql` | 20260930074507 | 0067_les_conditions_acceptees |
+| `0068_les_jetons_sous_verrou.sql` | 20260930115309 | 0068_les_jetons_sous_verrou |
 
 `0060` (demandes d'essai) a été appliquée avant `0055` à `0059` : elles ne se touchent pas.
 
@@ -271,6 +272,19 @@ persiste, et le message dit ce qui a été vérifié.
   par `cabinet_jetons()`. L'hypnose devient une option (`hypnose_ouverte`,
   et la clé `hypnose` de `cabinet_droits`) ; les cabinets qui en avaient déjà
   écrit une la gardent par exception (`hypnose_override = true`).
+- **Le prix se décide où il se débite** (`0068`). `jetons_debiter_forfait`
+  prend le verrou du cabinet, compte les consommations vivantes, choisit
+  « compris » ou le plein prix (`jetons_prix_du_forfait`), puis débite : deux
+  requêtes simultanées ne passent plus toutes deux comprises. Une séance
+  payée comprend huit consignes et une actualisation du profil ; une hypnose
+  comprend ses quatre mouvements une fois chacun (la consommation s'inscrit
+  `<hypnose>:<mouvement>`, et un mouvement redemandé ouvre une nouvelle
+  hypnose payée). Une réservation restée « reserve » plus de dix minutes est
+  rendue (`jetons_liberer_reservations`, appelée par `jetons_assurer_periode`,
+  donc à la dépense comme à la lecture). La dépense suit l'ordre des CGV : le
+  forfait du mois ou l'essai, puis les jetons du pass, puis achats et gestes
+  par ancienneté. Une consommation prend l'heure de son inscription
+  (`clock_timestamp()`), sous le verrou (`tests/jetons_0068.sql`).
 - **Un avis sur l'IA ne dit ni sur qui, ni quoi** (`0066`). `retours_ia`
   compte les pouces levés ou baissés par type de texte (hypnose, synthèse,
   module…), sans patient ni contenu, comme `ai_usage`. `preferences_ia`

@@ -9,11 +9,14 @@ import {
   debitDit,
   etatHypnoseDit,
   euroParJeton,
+  forfaitDuMois,
   jetonsDits,
   libelleOptionHypnose,
   phraseDuForfait,
+  precedentesDites,
   prixDit,
   quandDit,
+  repartitionDesLots,
 } from '@/lib/jetonsIA'
 import type { ActionJetons, EtatJetons } from '@/types/jetons'
 import s from './Jetons.module.css'
@@ -56,6 +59,11 @@ export function VueJetons({ etat, titulaire, enCours, echec, cleCabinetPosee = f
   const lignes = toutVoir ? etat.historique : etat.historique.slice(0, LIGNES_VISIBLES)
   const option = etat.optionHypnose
   const h = etat.hypnose
+  /* Un forfait de zéro jeton n'en est pas un : la carte le dit comme une
+     offre sans forfait, plutôt que « votre jeton du mois se renouvelle ». */
+  const forfait = forfaitDuMois(etat)
+  /* Les jetons du pass expirent avec lui : ils ne vont pas sous « douze mois ». */
+  const { douzeMois, option: jetonsDuPass } = repartitionDesLots(etat.lots)
 
   return (
     <Card className={s.bloc}>
@@ -83,10 +91,10 @@ export function VueJetons({ etat, titulaire, enCours, echec, cleCabinetPosee = f
           <span className={s.soldeUnite}>{etat.solde > 1 ? 'jetons restants' : 'jeton restant'}</span>
         </div>
         <ul className={s.lots}>
-          {etat.mensuel ? (
+          {forfait ? (
             <li>
-              Forfait du mois : <strong>{etat.mensuel.restant.toLocaleString('fr-FR')}</strong> sur{' '}
-              {etat.mensuel.total.toLocaleString('fr-FR')}
+              Forfait du mois : <strong>{forfait.restant.toLocaleString('fr-FR')}</strong> sur{' '}
+              {forfait.total.toLocaleString('fr-FR')}
             </li>
           ) : null}
           {etat.essai ? (
@@ -96,13 +104,19 @@ export function VueJetons({ etat, titulaire, enCours, echec, cleCabinetPosee = f
             </li>
           ) : null}
           <li>
-            Achetés ou offerts : <strong>{etat.acheteRestant.toLocaleString('fr-FR')}</strong>
-            {etat.acheteRestant > 0 ? ', valables douze mois' : ''}
+            Achetés ou offerts : <strong>{douzeMois.toLocaleString('fr-FR')}</strong>
+            {douzeMois > 1 ? ', valables douze mois' : douzeMois === 1 ? ', valable douze mois' : ''}
           </li>
+          {jetonsDuPass ? (
+            <li>
+              Offerts avec l'option Hypnose : <strong>{jetonsDuPass.restant.toLocaleString('fr-FR')}</strong>,
+              jusqu'au {dateDite(jetonsDuPass.fin)}
+            </li>
+          ) : null}
         </ul>
       </div>
-      {etat.mensuel ? <p className={s.renouvellement}>{phraseDuForfait(etat.mensuel)}</p> : null}
-      {!etat.mensuel && !etat.essai && etat.enRegle ? (
+      {forfait ? <p className={s.renouvellement}>{phraseDuForfait(forfait)}</p> : null}
+      {!forfait && !etat.essai && etat.enRegle ? (
         <p className={s.renouvellement}>Votre offre ne comprend pas de forfait mensuel : vos jetons viennent de vos recharges.</p>
       ) : null}
 
@@ -124,7 +138,9 @@ export function VueJetons({ etat, titulaire, enCours, echec, cleCabinetPosee = f
         </ul>
         <p className={s.note}>
           Une analyse qui échoue ne se paie pas : ses jetons reviennent aussitôt. Les consignes d'une
-          séance et la mise à jour du profil qui la suit sont comprises dans son prix.
+          séance et la mise à jour du profil qui la suit sont comprises dans son prix. Les jetons du
+          mois (ou de l'essai) partent en premier, puis ceux de l'option Hypnose, puis vos recharges,
+          la plus ancienne d'abord.
         </p>
       </div>
 
@@ -209,7 +225,7 @@ export function VueJetons({ etat, titulaire, enCours, echec, cleCabinetPosee = f
         )}
         {etat.historique.length > LIGNES_VISIBLES ? (
           <Button variant="ghost" onClick={() => setToutVoir((v) => !v)} style={{ marginTop: 8 }}>
-            {toutVoir ? 'Replier' : `Voir les ${etat.historique.length - LIGNES_VISIBLES} précédentes`}
+            {toutVoir ? 'Replier' : precedentesDites(etat.historique.length - LIGNES_VISIBLES)}
           </Button>
         ) : null}
       </div>
