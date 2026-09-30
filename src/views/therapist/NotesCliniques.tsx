@@ -181,6 +181,7 @@ function CarteAnamnese({
               aria-describedby={`${id}-${champ.cle}-aide`}
               onChange={(e) => setSaisie((a) => ({ ...a, [champ.cle]: e.target.value }))}
               disabled={envoi}
+              dictee
             />
             <span className={s.aide} id={`${id}-${champ.cle}-aide`}>
               {champ.aide}
@@ -298,6 +299,7 @@ function CarteNotes({
             onChange={(e) => setTexte(e.target.value)}
             placeholder="Appel du 3 : la séance de jeudi est déplacée, le sommeil s’améliore."
             disabled={envoi}
+            dictee
           />
         </label>
         <div className={s.ajoutLigne}>
@@ -341,6 +343,7 @@ function CarteNotes({
                     aria-label={`Texte de la note du ${dateDeNote(n.le)}`}
                     onChange={(e) => setEdition({ ...edition, texte: e.target.value })}
                     disabled={envoi}
+                    dictee
                   />
                   <div className={s.ajoutLigne}>
                     <TextInput

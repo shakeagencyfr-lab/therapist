@@ -96,6 +96,7 @@ export function TexteMouvement({ ecrit, classes, onCorriger }: Props) {
             rows={Math.min(28, Math.max(10, Math.round(ecrit.texte.length / 90)))}
             aria-label={`Texte du mouvement ${nom}`}
             disabled={envoi}
+            dictee
           />
           <p className={t.aide}>
             Un paragraphe par ligne, comme vous le lirez. Les autres mouvements ne changent pas.

@@ -205,6 +205,7 @@ function Editeur({ publie, slug, cabinetId }: { publie: Fiche; slug: string; cab
         <div className={s.field}>
           <FieldLabel>Sur-titre</FieldLabel>
           <TextInput
+            dictee
             value={draft.surTitre}
             onChange={(e) => patch({}, { surTitre: e.target.value })}
             placeholder="Espace thérapie"

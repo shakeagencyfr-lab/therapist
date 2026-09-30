@@ -228,6 +228,7 @@ export function AtelierView() {
               <Overline>Votre intention</Overline>
             </div>
             <TextArea
+              dictee
               className={s.intent}
               rows={5}
               value={state.aIntent}
@@ -328,6 +329,7 @@ export function AtelierView() {
                   <span className={s.draft}>Brouillon, modifiable avant assignation</span>
                 </div>
                 <TextInput
+                  dictee
                   className={s.moduleTitle}
                   value={mod.titre}
                   aria-label="Titre du module"
@@ -338,7 +340,9 @@ export function AtelierView() {
               <div className={s.facts}>
                 <label className={s.fact}>
                   <span className={s.factLabel}>Durée</span>
-                  <input
+                  <TextInput
+                    nu
+                    dictee
                     className={s.factInput}
                     value={mod.duree}
                     onChange={(e) => corriger({ duree: e.target.value })}
@@ -346,7 +350,9 @@ export function AtelierView() {
                 </label>
                 <label className={s.fact}>
                   <span className={s.factLabel}>Quand</span>
-                  <input
+                  <TextInput
+                    nu
+                    dictee
                     className={s.factInput}
                     value={mod.quand}
                     onChange={(e) => corriger({ quand: e.target.value })}
@@ -367,7 +373,9 @@ export function AtelierView() {
                       <span className={s.stepNum} aria-hidden>
                         {i + 1}
                       </span>
-                      <textarea
+                      <TextArea
+                        nu
+                        dictee
                         className={s.stepInput}
                         value={step}
                         rows={Math.max(2, Math.ceil(step.length / 60))}
@@ -397,7 +405,9 @@ export function AtelierView() {
               <div className={s.whyWrap}>
                 <label className={s.why}>
                   <span className={s.whyLabel}>Pourquoi cet exercice</span>
-                  <textarea
+                  <TextArea
+                    nu
+                    dictee
                     className={s.whyInput}
                     value={mod.pourquoi}
                     rows={Math.max(3, Math.ceil(mod.pourquoi.length / 70))}

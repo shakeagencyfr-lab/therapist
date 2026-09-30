@@ -158,7 +158,9 @@ function CarteOffre({
     <section className={s.plan}>
       <div className={s.planHead}>
         {editable ? (
-          <input
+          <TextInput
+            nu
+            dictee
             className={s.planNameInput}
             value={brouillon.label}
             onChange={(e) => setBrouillon((b) => ({ ...b, label: e.target.value }))}

@@ -186,6 +186,7 @@ export function ProgrammesView() {
               }}
             >
               <TextInput
+                dictee
                 value={nouveau}
                 onChange={(e) => setNouveau(e.target.value)}
                 placeholder="Arrêt du tabac"
@@ -213,6 +214,7 @@ export function ProgrammesView() {
                 <span className={s.label}>Nom du programme</span>
                 <div className={s.ajout}>
                   <TextInput
+                    dictee
                     value={renomme}
                     onChange={(e) => setRenomme(e.target.value)}
                     aria-label="Renommer le programme"

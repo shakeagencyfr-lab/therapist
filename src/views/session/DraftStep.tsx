@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Notice, Title } from '@/components/ui'
+import { Notice, TextArea, Title } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { useDevis } from '@/cabinet/useJetons'
 import { dateDuJour, plural } from '@/lib/format'
@@ -439,7 +439,10 @@ export function DraftStep() {
             {state.syntheseOk ? '✓ Relue' : 'Marquer comme relue'}
           </button>
         </div>
-        <textarea
+        {/* La synthèse ne s'enregistre qu'à la sortie du champ ; le micro, lui,
+            ne fait pas sortir : la fin de la dictée enregistre à sa place. */}
+        <TextArea
+          nu
           className={s.field}
           rows={9}
           aria-label="Synthèse de séance"
@@ -449,6 +452,8 @@ export function DraftStep() {
             set((prev) => (prev.draft ? { draft: { ...prev.draft, synthese }, syntheseOk: false } : {}))
           }}
           onBlur={garderLesCorrections}
+          dictee
+          onDicteeFin={garderLesCorrections}
         />
       </section>
 
@@ -653,7 +658,8 @@ export function DraftStep() {
           Un mot pour le soir de la séance. Il part dans l'espace de {firstName} une fois la note
           validée ; il se relit et se corrige ici avant.
         </div>
-        <textarea
+        <TextArea
+          nu
           className={s.field}
           rows={4}
           aria-label="Message au patient"
@@ -664,6 +670,8 @@ export function DraftStep() {
             set((prev) => (prev.draft ? { draft: { ...prev.draft, message }, msgOk: false } : {}))
           }}
           onBlur={garderLesCorrections}
+          dictee
+          onDicteeFin={garderLesCorrections}
         />
         <div className={s.sendRow}>
           <button

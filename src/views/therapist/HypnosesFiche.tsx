@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button, Card, Notice, Overline, Title } from '@/components/ui'
+import { Button, Card, Notice, Overline, TextInput, Title } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { hypnoseOuverte, useDroits } from '@/cabinet/droits'
 import { useDevis } from '@/cabinet/useJetons'
@@ -165,12 +165,14 @@ export function HypnosesFiche() {
         <div className={s.relance}>
           <label className={s.champ}>
             <span className={s.label}>Ce que vous voulez travailler (facultatif)</span>
-            <input
+            <TextInput
+              nu
               className={s.input}
               value={intention}
               onChange={(e) => setIntention(e.target.value)}
               placeholder="Une autre métaphore, un angle différent, une séance plus courte…"
               disabled={!brouillon}
+              dictee
             />
           </label>
           <Button

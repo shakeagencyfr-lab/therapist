@@ -209,6 +209,26 @@ export function segmentsInedits(
   return { finals, interim }
 }
 
+/**
+ * Pourquoi une écoute s'est arrêtée sans qu'on le lui demande.
+ *
+ *   — `relance` : le navigateur a coupé et n'a pas voulu repartir. Safari
+ *     refuse les relances qui ne suivent pas un geste, et un micro qui
+ *     retombe aussitôt, plusieurs fois de suite, ne reviendra pas ;
+ *   — `refus` : le micro est refusé ou absent (le code a été transmis à
+ *     onError juste avant) ;
+ *   — `remplacee` : une autre écoute a pris le micro.
+ */
+export type RaisonDeFin = 'relance' | 'refus' | 'remplacee'
+
+/**
+ * Qui écoute : la séance, ou un champ de texte.
+ *
+ * La séance passe avant tout : un champ ne lui prend jamais le micro, alors
+ * qu'elle le reprend à n'importe quel champ.
+ */
+export type UsageEcoute = 'seance' | 'champ'
+
 export interface TranscriberHandlers {
   /**
    * Segment validé, à verser dans la transcription. `suite` est vrai quand il
@@ -218,8 +238,17 @@ export interface TranscriberHandlers {
   onFinal(text: string, suite: boolean): void
   /** Segment en cours de reconnaissance : il remplace le précédent. */
   onInterim(text: string): void
-  /** Code d'erreur de l'API, à traduire par l'appelant. */
+  /**
+   * Code d'erreur de l'API, à traduire par l'appelant. Jamais `aborted` :
+   * c'est un arrêt voulu, il n'y a rien à en dire.
+   */
   onError(code: string): void
+  /**
+   * L'écoute s'est arrêtée pour de bon, sans que l'appelant ait appelé
+   * stop(). Sans ce signal, l'écran continuait d'afficher « j'écoute » sur
+   * un micro fermé.
+   */
+  onFin?(raison: RaisonDeFin): void
 }
 
 export interface Transcriber {
@@ -228,14 +257,73 @@ export interface Transcriber {
   stop(): void
 }
 
+/* UN SEUL MICRO À LA FOIS, pour toute la page.
+ *
+ * Deux reconnaissances ouvertes se disputent le micro : la seconde coupe la
+ * première, qui se relance, qui coupe la seconde… Et chaque champ de texte a
+ * désormais son bouton. Démarrer une écoute arrête donc celle qui tournait,
+ * en le lui disant (onFin « remplacee ») — sauf la séance, qu'un champ ne
+ * peut pas interrompre : ce serait la transcription d'une heure qui
+ * s'arrêterait sur un clic de trop. */
+
+interface Occupant {
+  usage: UsageEcoute
+  interrompre(): void
+}
+
+let occupant: Occupant | null = null
+const abonnes = new Set<() => void>()
+
+function annoncer(): void {
+  for (const abonne of abonnes) abonne()
+}
+
+/** Qui tient le micro en ce moment, s'il est ouvert. */
+export function ecouteEnCours(): UsageEcoute | null {
+  return occupant?.usage ?? null
+}
+
+/** Être prévenu quand le micro change de mains. Rend de quoi se désabonner. */
+export function abonnerEcoute(abonne: () => void): () => void {
+  abonnes.add(abonne)
+  return () => {
+    abonnes.delete(abonne)
+  }
+}
+
+/**
+ * Les erreurs après lesquelles relancer ne sert à rien : le micro est refusé
+ * ou absent, et le restera. Relancer donnait une boucle d'erreurs toutes les
+ * 700 ms, sous un écran qui affichait toujours « j'écoute ».
+ */
+const ERREURS_DEFINITIVES = new Set([
+  'not-allowed',
+  'service-not-allowed',
+  'audio-capture',
+  'language-not-supported',
+])
+
+/**
+ * Combien de coupures immédiates d'affilée un champ tolère avant de s'arrêter.
+ * La séance, elle, insiste sans limite : une coupure de réseau d'une minute
+ * ne doit pas finir l'enregistrement d'une heure.
+ */
+const COUPURES_TOLEREES_CHAMP = 5
+
 /**
  * Crée un transcripteur, ou rend null si le navigateur ne sait pas transcrire.
  *
  * Tant que l'enregistrement est actif, la reconnaissance est relancée à chaque
  * fin de segment : le navigateur la coupe régulièrement, une séance dure une
  * heure.
+ *
+ * `usage` dit qui écoute : la séance (par défaut) ou un champ de texte. Voir
+ * plus haut, « un seul micro à la fois ».
  */
-export function createTranscriber(handlers: TranscriberHandlers): Transcriber | null {
+export function createTranscriber(
+  handlers: TranscriberHandlers,
+  usage: UsageEcoute = 'seance',
+): Transcriber | null {
   const Classe = recognizerClass()
   if (!Classe) return null
   // Capturée dans une constante non nullable : `construire` est appelée depuis
@@ -247,6 +335,42 @@ export function createTranscriber(handlers: TranscriberHandlers): Transcriber | 
   let relance: number | null = null
   /** Horodatage du dernier démarrage, pour ne pas relancer en boucle chaude. */
   let demarre = 0
+  /** Coupures immédiates d'affilée : un micro qui retombe aussitôt. */
+  let coupures = 0
+
+  const moi: Occupant = { usage, interrompre: () => terminer('remplacee') }
+
+  /** Rend le micro, s'il était à nous, et le dit aux abonnés. */
+  function liberer(): void {
+    if (occupant !== moi) return
+    occupant = null
+    annoncer()
+  }
+
+  /** Arrête tout, sans prévenir l'appelant. */
+  function couper(): void {
+    active = false
+    if (relance !== null) {
+      window.clearTimeout(relance)
+      relance = null
+    }
+    if (recognizer) {
+      try {
+        recognizer.stop()
+      } catch {
+        // L'objet est déjà arrêté : rien à faire.
+      }
+      recognizer = null
+    }
+    liberer()
+  }
+
+  /** L'écoute s'arrête d'elle-même : on coupe, et on le dit. */
+  function terminer(raison: RaisonDeFin): void {
+    if (!active) return
+    couper()
+    handlers.onFin?.(raison)
+  }
 
   /**
    * Un objet neuf à chaque écoute.
@@ -292,24 +416,42 @@ export function createTranscriber(handlers: TranscriberHandlers): Transcriber | 
       if (interim) handlers.onInterim(interim)
     }
 
-    r.onerror = (event) => handlers.onError(event.error)
+    r.onerror = (event) => {
+      /* « aborted » suit un arrêt voulu — le nôtre, ou celui d'une autre
+         écoute qui a pris le micro : rien à en dire. Et une fois l'écoute
+         arrêtée, ses dernières erreurs ne concernent plus personne. */
+      if (event.error === 'aborted' || !active) return
+      handlers.onError(event.error)
+      if (ERREURS_DEFINITIVES.has(event.error)) terminer('refus')
+    }
 
     r.onend = () => {
-      if (!active) return
+      // Un objet remplacé entre-temps n'a plus la main.
+      if (!active || r !== recognizer) return
       // Une écoute qui se termine aussitôt signale un micro qui refuse : on
       // espace les relances plutôt que de tourner à vide.
-      const attente = Date.now() - demarre < 400 ? 700 : 0
-      relance = window.setTimeout(() => {
-        relance = null
-        if (!active) return
-        try {
-          recognizer = construire()
-          demarre = Date.now()
-          recognizer.start()
-        } catch {
-          active = false
-        }
-      }, attente)
+      const immediate = Date.now() - demarre < 400
+      coupures = immediate ? coupures + 1 : 0
+      if (usage === 'champ' && coupures >= COUPURES_TOLEREES_CHAMP) {
+        terminer('relance')
+        return
+      }
+      relance = window.setTimeout(
+        () => {
+          relance = null
+          if (!active) return
+          try {
+            recognizer = construire()
+            demarre = Date.now()
+            recognizer.start()
+          } catch {
+            // Safari refuse une relance qui ne suit pas un geste : l'écran
+            // doit cesser d'afficher « j'écoute ».
+            terminer('relance')
+          }
+        },
+        immediate ? 700 : 0,
+      )
     }
 
     return r
@@ -317,32 +459,32 @@ export function createTranscriber(handlers: TranscriberHandlers): Transcriber | 
 
   return {
     start() {
+      // Un champ ne prend jamais le micro de la séance.
+      if (usage === 'champ' && occupant && occupant !== moi && occupant.usage === 'seance') {
+        return false
+      }
+      // Une écoute déjà ouverte ici repart de zéro, sans se prévenir.
+      couper()
+      // Celle d'un autre s'arrête, et le sait.
+      if (occupant && occupant !== moi) occupant.interrompre()
       try {
         recognizer = construire()
         active = true
         demarre = Date.now()
+        coupures = 0
         recognizer.start()
-        return true
       } catch {
         recognizer = null
         active = false
         return false
       }
+      occupant = moi
+      annoncer()
+      return true
     },
 
     stop() {
-      active = false
-      if (relance !== null) {
-        window.clearTimeout(relance)
-        relance = null
-      }
-      if (!recognizer) return
-      try {
-        recognizer.stop()
-      } catch {
-        // L'objet est déjà arrêté : rien à faire.
-      }
-      recognizer = null
+      couper()
     },
   }
 }

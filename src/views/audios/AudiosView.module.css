@@ -222,6 +222,15 @@
   outline: none;
   padding: 3px 0;
 }
+/* Avec la dictée, le champ est enveloppé : l'enveloppe prend la largeur du
+   champ, pas celle de la pastille, qui s'allonge seulement du micro — le
+   texte garde ses 148 px. */
+.catForm > span {
+  width: auto;
+}
+.catForm > span > span > .catInput {
+  width: 188px;
+}
 
 .catSave {
   font-family: inherit;

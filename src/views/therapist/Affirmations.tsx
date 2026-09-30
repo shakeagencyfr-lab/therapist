@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button, Card, Notice, Title, type NoticeTone } from '@/components/ui'
+import { Button, Card, Notice, TextInput, Title, type NoticeTone } from '@/components/ui'
 import { plural } from '@/lib/format'
 import { buildPatientContext, generateAffirmations, messageDEchec } from '@/services/aiClient'
 import { patientOf } from '@/state/selectors'
@@ -277,7 +277,8 @@ export function Affirmations() {
           {work.map((text, i) => (
             <div className={s.line} key={i}>
               <span className={s.n}>{i + 1}</span>
-              <input
+              <TextInput
+                nu
                 className={s.input}
                 value={text}
                 aria-label={`Affirmation ${i + 1}`}
@@ -286,6 +287,7 @@ export function Affirmations() {
                   const v = e.target.value
                   writeAff((cur) => cur.map((x, j) => (j === i ? v : x)))
                 }}
+                dictee
               />
               <button
                 type="button"

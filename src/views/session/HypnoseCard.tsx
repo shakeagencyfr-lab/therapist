@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button, Notice, Title } from '@/components/ui'
+import { Button, Notice, TextInput, Title } from '@/components/ui'
 import { MOUVEMENTS_HYPNOSE, NOM_MOUVEMENT } from '@/services/aiClient'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { hypnoseOuverte, useDroits } from '@/cabinet/droits'
@@ -109,11 +109,13 @@ export function HypnoseCard() {
             <div className={s.lancement}>
               <label className={s.champ}>
                 <span className={s.label}>Ce que vous voulez travailler (facultatif)</span>
-                <input
+                <TextInput
+                  nu
                   className={s.input}
                   value={intention}
                   onChange={(e) => setIntention(e.target.value)}
                   placeholder="Installer le délai avant le geste, ancrer la main sur le sternum…"
+                  dictee
                 />
               </label>
               <Button

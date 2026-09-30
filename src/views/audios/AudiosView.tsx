@@ -1,5 +1,5 @@
 import { useEffect, useState, type ChangeEvent, type KeyboardEvent } from 'react'
-import { Button, Card, Overline } from '@/components/ui'
+import { Button, Card, Overline, TextInput } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { plural } from '@/lib/format'
 import { useStore } from '@/state/store'
@@ -393,7 +393,9 @@ export function AudiosView() {
               ))}
               {state.catAdd ? (
                 <span className={s.catForm}>
-                  <input
+                  <TextInput
+                    nu
+                    dictee
                     className={s.catInput}
                     value={state.catName}
                     aria-label="Nom de la catégorie"
@@ -467,12 +469,17 @@ export function AudiosView() {
             <div className={s.detailLabel}>
               <Overline>Audio sélectionné</Overline>
             </div>
-            <input
+            {/* Le titre s'enregistre à la sortie du champ ; le micro ne fait
+                pas sortir : la fin de la dictée enregistre à sa place. */}
+            <TextInput
+              nu
+              dictee
               className={s.detailTitle}
               value={titreSaisi ?? selected.title}
               aria-label="Titre de l'audio"
               onChange={(e) => renameSelected(e.target.value)}
               onBlur={() => void commitTitle()}
+              onDicteeFin={() => void commitTitle()}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
               }}

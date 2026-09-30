@@ -254,6 +254,7 @@ export function NotificationsView() {
               <h2 className={s.h2}>Message</h2>
             </div>
             <TextInput
+              dictee
               className={s.title}
               value={state.nTitle}
               onChange={(e) => set({ nTitle: e.target.value })}
@@ -261,6 +262,7 @@ export function NotificationsView() {
               aria-label="Titre de la notification"
             />
             <TextArea
+              dictee
               className={s.message}
               rows={4}
               value={state.nMsg}
@@ -574,12 +576,19 @@ function ReprogrammerMot({
       }}
     >
       <TextInput
+        dictee
         value={titre}
         onChange={(e) => setTitre(e.target.value)}
         placeholder="Titre de la notification"
         aria-label="Titre du mot"
       />
-      <TextArea rows={3} value={texte} onChange={(e) => setTexte(e.target.value)} aria-label="Texte du mot" />
+      <TextArea
+        rows={3}
+        value={texte}
+        onChange={(e) => setTexte(e.target.value)}
+        aria-label="Texte du mot"
+        dictee
+      />
       <input
         type="datetime-local"
         className={s.quandChamp}

@@ -571,7 +571,12 @@ function FicheProduit({
       <div className={s.rangee}>
         <label className={s.champ}>
           <span className={s.label}>Titre</span>
-          <TextInput value={titre} onChange={(e) => setTitre(e.target.value)} placeholder="Ancrage du soir, 12 min" />
+          <TextInput
+            dictee
+            value={titre}
+            onChange={(e) => setTitre(e.target.value)}
+            placeholder="Ancrage du soir, 12 min"
+          />
         </label>
         <label className={s.champ}>
           <span className={s.label}>Prix (€)</span>
@@ -588,6 +593,7 @@ function FicheProduit({
       <label className={s.champ}>
         <span className={s.label}>Description</span>
         <TextInput
+          dictee
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Ce que le patient reçoit, en une phrase."

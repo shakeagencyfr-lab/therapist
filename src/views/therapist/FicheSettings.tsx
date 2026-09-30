@@ -354,6 +354,7 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
             </div>
             <div className={s.ajout}>
               <TextInput
+                dictee
                 value={nouveau}
                 onChange={(e) => setNouveau(e.target.value)}
                 onKeyDown={(e) => {
@@ -389,6 +390,7 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
             <label className={s.field}>
               <span className={s.label}>Ce que vous suivez</span>
               <TextInput
+                dictee
                 value={echelle}
                 onChange={(e) => setEchelle(e.target.value)}
                 placeholder="Envie de fumer"
@@ -410,6 +412,7 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
           <label className={s.field}>
             <span className={s.label}>La question du soir</span>
             <TextInput
+              dictee
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               placeholder="Où en est l'envie de fumer ?"

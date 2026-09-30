@@ -192,6 +192,7 @@ function Editeur({ row }: { row: PortfolioRow }) {
         <div className={s.field}>
           <FieldLabel>Sur-titre</FieldLabel>
           <TextInput
+            dictee
             value={cabinet.tagline}
             onChange={(e) => patch({}, { tagline: e.target.value })}
           />

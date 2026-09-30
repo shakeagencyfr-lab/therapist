@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button, Notice } from '@/components/ui'
+import { Button, Notice, TextArea, TextInput } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { consigneCorrigee } from '@/lib/parcours'
 import type { PatientModule } from '@/types/domain'
@@ -67,7 +67,9 @@ export function ConsigneEditeur({
 
       <label className={s.champ}>
         <span className={s.label}>Titre de l'exercice</span>
-        <input
+        <TextInput
+          nu
+          dictee
           className={s.input}
           value={titre}
           onChange={(e) => setTitre(e.target.value)}
@@ -78,7 +80,9 @@ export function ConsigneEditeur({
       <div className={s.deux}>
         <label className={s.champ}>
           <span className={s.label}>Durée</span>
-          <input
+          <TextInput
+            nu
+            dictee
             className={s.input}
             value={duree}
             onChange={(e) => setDuree(e.target.value)}
@@ -87,7 +91,9 @@ export function ConsigneEditeur({
         </label>
         <label className={s.champ}>
           <span className={s.label}>Quand</span>
-          <input
+          <TextInput
+            nu
+            dictee
             className={s.input}
             value={quand}
             onChange={(e) => setQuand(e.target.value)}
@@ -98,7 +104,9 @@ export function ConsigneEditeur({
 
       <label className={s.champ}>
         <span className={s.label}>À quoi ça sert</span>
-        <textarea
+        <TextArea
+          nu
+          dictee
           className={s.zone}
           rows={4}
           value={why}
@@ -109,7 +117,9 @@ export function ConsigneEditeur({
 
       <label className={s.champ}>
         <span className={s.label}>Les étapes — une par ligne</span>
-        <textarea
+        <TextArea
+          nu
+          dictee
           className={s.zone}
           rows={7}
           value={etapes}

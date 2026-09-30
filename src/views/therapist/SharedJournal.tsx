@@ -161,6 +161,7 @@ export function SharedJournal() {
                     placeholder="Quelques mots suffisent : ils s'afficheront sous sa page."
                     aria-label={`Votre réponse à « ${j.trigger} »`}
                     disabled={envoi}
+                    dictee
                   />
                   <p className={s.aide}>
                     {appareils > 0

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Notice, Overline } from '@/components/ui'
+import { Notice, Overline, TextArea } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { useDevis } from '@/cabinet/useJetons'
 import { lireIntegrations } from '@/services/integrations'
@@ -174,13 +174,32 @@ export function RecordStep() {
           memeSeance(prev) ? { transcript: appendSegment(prev.transcript, text, suite), interim: '' } : {},
         ),
       onInterim: (text) => set((prev) => (memeSeance(prev) ? { interim: text } : {})),
-      onError: (code) =>
+      onError: (code) => {
+        // Un silence : la reconnaissance repart d'elle-même, rien à signaler.
+        if (code === 'no-speech') return
         set({
           notice:
-            code === 'not-allowed'
+            code === 'not-allowed' || code === 'service-not-allowed'
               ? `Accès au micro refusé. Autorisez le microphone, ou ${NOTES_SUFFISENT}`
               : `Transcription interrompue (${code}). Relancez le micro, ou ${NOTES_SUFFISENT}`,
-        }),
+        })
+      },
+      /* Le micro s'est refermé sans nous — relance refusée, micro refusé :
+         l'écran le dit au lieu d'afficher un enregistrement qui ne transcrit
+         plus rien, et le minuteur s'arrête avec lui. */
+      onFin: (raison) => {
+        if (transcriber.current !== next) return
+        transcriber.current = null
+        set((prev) => ({
+          recording: false,
+          interim: '',
+          notice:
+            raison === 'refus'
+              ? prev.notice
+              : `La transcription s'est arrêtée d'elle-même. Relancez le micro, ou ${NOTES_SUFFISENT}`,
+        }))
+        void sauverRef.current()
+      },
     })
     if (!next || !next.start()) {
       set({ notice: `Impossible de démarrer le micro ici. En attendant, ${NOTES_SUFFISENT}` })
@@ -386,7 +405,8 @@ export function RecordStep() {
             >
               <span className={s.modeTitle}>Sans transcription</span>
               <span className={s.modeBody}>
-                Aucun micro. Vous écrivez vos notes ; le brouillon se rédige à partir d'elles.
+                Aucun enregistrement de la séance. Vous écrivez vos notes ; le brouillon se rédige
+                à partir d'elles.
               </span>
             </button>
           </div>
@@ -486,13 +506,18 @@ export function RecordStep() {
                 </button>
               ))}
             </div>
-            <textarea
+            {/* Le micro du champ se tait pendant l'enregistrement — il couperait
+                la transcription de la séance — et n'existe pas dans une séance
+                ouverte sans enregistrement, dont l'écran promet un micro fermé. */}
+            <TextArea
+              nu
               className={s.notesField}
               rows={notesSeules ? 12 : 6}
               value={state.sessionNotes}
               aria-label="Vos notes écrites"
               placeholder="Observations, mots exacts à retenir, hypothèse de travail, ce que vous voulez donner pour l'entre-séances…"
               onChange={(e) => set({ sessionNotes: e.target.value })}
+              dictee={state.sansEnregistrement ? undefined : !state.recording}
             />
           </div>
 
