@@ -237,6 +237,67 @@ export const generatedHypnoseSchema = z.object({
 })
 
 /* ------------------------------------------------------------------ *
+ * La retouche (0066) : un texte à la fois
+ * ------------------------------------------------------------------ */
+
+/**
+ * Une synthèse ou un message retouchés : un texte seul. La retouche ne
+ * réécrit pas tout le brouillon pour en changer un paragraphe — elle
+ * coûterait le prix d'une séance, et déplacerait ce qui n'était pas critiqué.
+ */
+export const generatedTexteSchema = z.object({
+  texte: z.string(),
+})
+
+/** Un module proposé par le brouillon, retouché seul : mêmes clés, mêmes types permis. */
+export const generatedPropositionSchema = z.object({
+  titre: z.string(),
+  pourquoi: z.string(),
+  type: proposalKindSchema,
+})
+
+/*
+ * LE TEXTE EN PLACE, RELU COMME LE DOSSIER. Il vient de l'écran : c'est une
+ * sortie de l'IA, peut-être corrigée à la main depuis. Borné sans refus —
+ * au-delà, rien de ce qu'un vrai texte contient —, et les champs inconnus
+ * sont écartés : rien de ce que le client ajouterait ne part vers le modèle
+ * sans être passé par ici.
+ */
+
+export const mouvementLuSchema = z.object({
+  titre: ligne.default(''),
+  texte: texte(20_000),
+})
+
+export const moduleLuSchema = z.object({
+  titre: ligne.default(''),
+  duree: ligne.default(''),
+  quand: texte(1000).default(''),
+  steps: z.array(texte(2000)).default([]).transform((a) => a.slice(0, 12)),
+  pourquoi: texte(4000).default(''),
+  quiz: z
+    .array(
+      z.object({
+        question: texte(1000),
+        options: z.array(texte(400)).transform((a) => a.slice(0, 6)),
+        correct: z.number().int(),
+        feedback: texte(2000).default(''),
+      }),
+    )
+    .default([])
+    .transform((a) => a.slice(0, 6)),
+})
+
+export const propositionLueSchema = z.object({
+  titre: ligne,
+  pourquoi: texte(2000).default(''),
+  type: ligne.default(''),
+})
+
+/** Le profil à retoucher : la même lecture que celui du dossier. */
+export const profilActuelSchema = profilLuSchema
+
+/* ------------------------------------------------------------------ *
  * Alignement avec le modèle de domaine du client
  * ------------------------------------------------------------------ */
 
@@ -254,5 +315,10 @@ export type GeneratedAffirmationsOutput = Aligned<
   GeneratedAffirmations
 >
 export type GeneratedProfileOutput = Aligned<z.infer<typeof generatedProfileSchema>, GeneratedProfile>
+/** Une proposition retouchée doit rester une proposition du brouillon. */
+export type PropositionRetouchee = Aligned<
+  z.infer<typeof generatedPropositionSchema>,
+  SessionDraft['propositions'][number]
+>
 /** Le dossier lu doit rester un PatientContext : les prompts n'en lisent pas d'autre. */
 export type ContexteLu = Aligned<z.output<typeof contexteLuSchema>, PatientContext>

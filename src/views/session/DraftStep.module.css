@@ -247,6 +247,21 @@
   border: 1px solid var(--c-border-accent);
   background: var(--c-accent-tint);
 }
+/* Un module proposé et ses pouces : la ligne, puis l'avis dessous, aligné
+   sur le texte du module plutôt que sur la case. */
+.rowWrap {
+  display: flex;
+  flex-direction: column;
+}
+.rowRetour {
+  margin-top: 2px;
+  padding-left: 44px;
+}
+@media (max-width: 480px) {
+  .rowRetour {
+    padding-left: 8px;
+  }
+}
 /* Décoché : la ligne s'efface sans disparaître. */
 .rowOff {
   border-color: var(--c-neutral-3);

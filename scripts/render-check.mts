@@ -69,6 +69,10 @@ import { devisJetons } from '../src/lib/jetonsIA'
 import { ETAT_REVENDEUR_DEMO } from '../src/data/jetons'
 import { JetonsRevendeurContexte, type JetonsRevendeurData } from '../src/reseller/useJetonsRevendeur'
 import { JetonsView } from '../src/views/reseller/JetonsView'
+import { TexteMouvement } from '../src/views/therapist/TexteMouvement'
+import { RetourIA } from '../src/components/retouche/RetourIA'
+import { FenetreRetouche } from '../src/components/retouche/FenetreRetouche'
+import { VuePreferencesIA } from '../src/views/integrations/PreferencesIA'
 
 const noms = Object.values(PATIENTS).map((p) => p.name)
 const extraits = Object.values(PATIENTS).flatMap((p) => [
@@ -1639,7 +1643,11 @@ try {
   ]) {
     if (!carte.includes(attendu)) manque.push(`la carte du cabinet ne dit pas « ${attendu} »`)
   }
-  if (carte.includes('Retouche')) manque.push('la carte vend une retouche qui n’a pas encore de bouton')
+  /* Les retouches ont leur bouton depuis 0066 (le pouce baissé) : leur prix
+     se lit sur la carte, comme celui des autres actions. */
+  if (!carte.includes('Retouche d&#x27;un texte par l&#x27;IA') || !carte.includes('Retouche d&#x27;un mouvement d&#x27;hypnose')) {
+    manque.push('la carte ne dit pas le prix d’une retouche')
+  }
   const sansPaiement = avecStore(
     h(VueJetons, { etat: { ...etat, paiementPossible: false }, titulaire: true, enCours: '', echec: '' }),
   )
@@ -1675,6 +1683,162 @@ try {
   } else {
     console.log(
       `✓ jetons           ${String(carte.length).padStart(6)} octets · onglet revendeur, carte du cabinet, prix avant le clic, verrou de l'hypnose`,
+    )
+  }
+}
+
+/* 10. LES RETOUCHES (0066). Sous un texte de l'IA, deux pouces de la taille
+   d'une icône, nommés pour un lecteur d'écran, qui disent s'ils sont
+   enfoncés ; le pouce baissé annonce une fenêtre. La fenêtre en est une
+   vraie — rôle, nom, titre relié —, ses deux champs sont obligatoires,
+   « Optimiser » reste fermé tant qu'ils sont vides ou que les jetons
+   manquent, et le prix se dit en mode jetons. Rien de cela ne paraît en
+   démonstration ni dans l'espace du patient, et rien n'y montre un dossier. */
+{
+  const manque: string[] = []
+  const avecStore = (el: ReturnType<typeof h>) =>
+    renderToString(h(AppStoreProvider, { initial: { space: 'cabinet' } }, el))
+
+  const mouvement = avecStore(
+    h(TexteMouvement, {
+      ecrit: { mouvement: 'induction', titre: 'Le poids du siège', texte: 'Installez-vous confortablement.\nEt laissez venir.' },
+      classes: { article: 'a', titre: 't', para: 'p' },
+      retouche: { onRetoucher: async () => ({ ok: true }) },
+    }),
+  )
+  for (const attendu of [
+    'aria-label="Ce contenu me convient"',
+    'aria-label="Ce contenu ne me convient pas"',
+    'aria-haspopup="dialog"',
+    'stroke-width="1.6"',
+  ]) {
+    if (!mouvement.includes(attendu)) manque.push(`la rangée sous un mouvement ne porte pas ${attendu}`)
+  }
+  if ((mouvement.match(/aria-pressed="false"/g) ?? []).length !== 2) manque.push('les pouces ne disent pas qu’ils sont relâchés')
+  if (mouvement.indexOf('Et laissez venir.') > mouvement.indexOf('Ce contenu me convient')) {
+    manque.push('les pouces passent avant le texte du mouvement')
+  }
+  const avisSeul = avecStore(h(RetourIA, { cible: 'vigilance' }))
+  if (avisSeul.includes('aria-haspopup') || !avisSeul.includes('Ce contenu ne me convient pas')) {
+    manque.push('un avis sans retouche annonce une fenêtre, ou perd son pouce')
+  }
+
+  const fenetre = (props: Partial<Parameters<typeof FenetreRetouche>[0]> = {}) =>
+    avecStore(
+      h(FenetreRetouche, {
+        cible: 'hypnose',
+        libelle: 'le mouvement « Induction »',
+        devis: null,
+        onFermer: () => {},
+        onOptimiser: async () => ({ ok: true }),
+        ...props,
+      }),
+    )
+  const vide = fenetre()
+  const titre = /<h2 id="([^"]+)"[^>]*>Retour sur l&#x27;IA<\/h2>/.exec(vide)
+  if (!vide.includes('role="dialog"') || !vide.includes('aria-modal="true"')) manque.push('la fenêtre ne se dit pas fenêtre')
+  if (!titre || !vide.includes(`aria-labelledby="${titre[1]}"`)) manque.push('la fenêtre ne porte pas son titre pour nom')
+  for (const attendu of [
+    'Qu&#x27;est-ce que l&#x27;IA a mal fait, et qu&#x27;aurait-elle dû faire ?',
+    'Qu&#x27;est-ce que l&#x27;IA a mal fait ?',
+    'Que se serait-il dû passer ?',
+    'placeholder="Le rythme de l&#x27;induction est trop rapide"',
+    'placeholder="Des phrases plus longues, plus lentes, avec davantage de pauses"',
+    'Retenir cette préférence pour les prochaines générations',
+    'aria-label="Fermer"',
+    '>Annuler<',
+    'aria-required="true"',
+  ]) {
+    if (!vide.includes(attendu)) manque.push(`la fenêtre ne dit pas « ${attendu} »`)
+  }
+  if ((vide.match(/>\*<\/span>/g) ?? []).length !== 2) manque.push('les deux champs ne portent pas leur astérisque')
+  if (/type="checkbox"[^>]*checked/.test(vide)) manque.push('« Retenir cette préférence » est cochée d’office')
+  const optimiser = (html: string) => /<button[^>]*>(?:(?!<\/button>).)*Optimiser<\/button>/.exec(html)?.[0] ?? ''
+  if (!optimiser(vide).includes('disabled')) manque.push('« Optimiser » s’ouvre sur des champs vides')
+  const remplie = fenetre({ initial: { probleme: 'Trop rapide', attendu: 'Plus lent' } })
+  if (optimiser(remplie).includes('disabled')) manque.push('« Optimiser » reste fermé, les deux champs remplis')
+
+  const etat = etatJetonsDemo()
+  const prixHypnose = fenetre({ devis: devisJetons(etat, 'retouche_hypnose') })
+  if (!prixHypnose.includes('Cette retouche utilisera 8 jetons (il vous en reste 312).')) {
+    manque.push("le prix d'une retouche d'hypnose ne se dit pas")
+  }
+  const prixTexte = fenetre({ cible: 'synthese', libelle: 'la synthèse de séance', devis: devisJetons(etat, 'retouche') })
+  if (!prixTexte.includes('Cette retouche utilisera 3 jetons (il vous en reste 312).')) manque.push("le prix d'une retouche ne se dit pas")
+  if (!prixTexte.includes('placeholder="La synthèse interprète au lieu de rapporter"')) manque.push("l'exemple ne parle pas du texte retouché")
+  const court = fenetre({
+    devis: devisJetons({ ...etat, solde: 2 }, 'retouche_hypnose'),
+    initial: { probleme: 'Trop rapide', attendu: 'Plus lent' },
+  })
+  if (!court.includes('Il vous reste 2 jetons, et cette retouche en demande 8.') || !optimiser(court).includes('disabled')) {
+    manque.push('un solde trop court laisse « Optimiser » ouvert, ou ne le dit pas')
+  }
+  const refus402 = fenetre({ initial: { echec: { message: 'Il vous reste 2 jetons, et cette action en demande 8.', statut: 402 } } })
+  if (!refus402.includes('role="alert"') || !refus402.includes('Voir vos jetons')) {
+    manque.push('un refus faute de jetons ne montre pas le chemin de la recharge')
+  }
+  const refus403 = fenetre({ initial: { echec: { message: "L'hypnose n'est pas comprise dans votre offre.", statut: 403 } } })
+  if (refus403.includes('Voir vos jetons')) manque.push('un refus de l’option Hypnose renvoie à la recharge')
+
+  const preferences = avecStore(
+    h(VuePreferencesIA, {
+      lecture: [
+        { id: 'p1', cible: 'hypnose', consigne: 'Des pauses marquées entre les phrases', creeLe: '2026-09-30T09:00:00Z' },
+        { id: 'p2', cible: 'message', consigne: 'Un ton plus chaleureux', creeLe: '2026-09-29T09:00:00Z' },
+      ],
+      chargement: false,
+      enCours: '',
+      echec: '',
+      onOublier: () => {},
+      onRelire: () => {},
+    }),
+  )
+  for (const attendu of [
+    'Préférences de l&#x27;IA',
+    'Mouvements d&#x27;hypnose',
+    'Messages au patient',
+    'Des pauses marquées entre les phrases',
+    'aria-label="Oublier la préférence « Un ton plus chaleureux »"',
+  ]) {
+    if (!preferences.includes(attendu)) manque.push(`les préférences ne disent pas « ${attendu} »`)
+  }
+  const aucune = avecStore(h(VuePreferencesIA, { lecture: [], chargement: false, enCours: '', echec: '', onOublier: () => {}, onRelire: () => {} }))
+  if (!aucune.includes('Aucune préférence retenue')) manque.push('une liste vide ne dit pas comment en retenir')
+
+  // Rien du dossier dans la rangée, la fenêtre ou la liste : ni nom, ni extrait.
+  const retouches = [mouvement, avisSeul, vide, remplie, prixHypnose, prixTexte, court, refus402, preferences].join('')
+  const vus = noms.concat(extraits).filter((n) => n && retouches.includes(n))
+  if (vus.length) manque.push(`un dossier filtre dans les retouches : ${vus.join(', ')}`)
+
+  /* En démonstration — séance au brouillon complet, fiche, atelier — et dans
+     l'espace du patient : pas un pouce. Ils ne paraissent que dans un
+     cabinet réel, où la retouche s'enregistre. */
+  const BROUILLON_PLEIN = {
+    synthese: 'Texte de maquette.',
+    mots: ['une porte'],
+    themes: ['le délai'],
+    propositions: [{ titre: 'Repérer le seuil', pourquoi: 'Écrire les signes.', type: 'Journal' }],
+    questions: ['Qu’est-ce qui précède ?'],
+    vigilance: [{ point: 'Un point', conduite: 'Une conduite' }],
+    categories_audio: [],
+    message: 'Bonjour.',
+  }
+  const demos = [
+    rendu('retouche/seance', { space: 'cabinet', mode: 'session', sessionPatient: choisie, consent: true, draft: BROUILLON_PLEIN, draftMaquette: false }),
+    rendu('retouche/fiche', { space: 'cabinet', mode: 'therapist' }),
+    rendu('retouche/atelier', { space: 'cabinet', mode: 'atelier' }),
+    rendu('retouche/patient', { space: 'patient' }),
+  ]
+  if (demos.some((html) => html.includes('Ce contenu ne me convient pas'))) {
+    manque.push('les pouces paraissent hors d’un cabinet réel')
+  }
+
+  if (manque.length) {
+    console.error(`✗ retouches : ${manque.join(' ; ')}`)
+    echecs++
+  } else {
+    console.log(
+      `✓ retouches        ${String(vide.length).padStart(6)} octets · pouces nommés, fenêtre accessible, prix en jetons, préférences, rien en démonstration`,
     )
   }
 }

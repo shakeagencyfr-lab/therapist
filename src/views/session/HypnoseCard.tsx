@@ -71,6 +71,7 @@ export function HypnoseCard() {
     ecrire,
     reprendre,
     corriger,
+    retoucher,
     reinitialiser,
   } = useEcritureHypnose()
 
@@ -163,6 +164,17 @@ export function HypnoseCard() {
               ecrit={e}
               classes={{ article: s.mouvement, titre: s.mouvementTitre, para: s.para }}
               onCorriger={ecriture ? undefined : (texte) => corriger(e.mouvement, texte)}
+              /* Les pouces, dans un cabinet réel seulement : la retouche
+                 s'enregistre là où le mouvement l'est. Hors de l'option
+                 Hypnose, l'avis se donne encore ; la retouche, non. */
+              retouche={
+                cabinet?.reel
+                  ? {
+                      occupe: ecriture,
+                      onRetoucher: verrouillee ? undefined : (retour) => retoucher(e.mouvement, retour),
+                    }
+                  : undefined
+              }
             />
           ))}
 

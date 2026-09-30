@@ -8,6 +8,7 @@
  * maîtrise.
  */
 import { NOTES_RELUES_PAR_L_IA } from '@/lib/echelle'
+import type { CibleRetouche, IssueRetouche, RetourDeLaPraticienne } from '@/lib/retouche'
 import { supabase } from '@/lib/supabase'
 import { seFaitParLePatient } from '@/lib/typesDeModules'
 import { allModules, isModuleDone, profileOf, scaleSeries } from '@/state/selectors'
@@ -307,6 +308,62 @@ export function refreshProfile(input: ProfileInput): Promise<GeneratedProfile> {
 }
 
 /* ------------------------------------------------------------------ *
+ * La retouche d'un texte déjà écrit (0066)
+ * ------------------------------------------------------------------ */
+
+/** Ce que chaque retouche rend : la même forme que le texte qu'elle remplace. */
+export interface SortieDeRetouche {
+  hypnose: { titre: string; texte: string }
+  module: GeneratedModule
+  consigne: GeneratedModule
+  synthese: { texte: string }
+  message: { texte: string }
+  proposition: SessionDraft['propositions'][number]
+  profil: GeneratedProfile
+  affirmations: GeneratedAffirmations
+}
+
+export interface RetoucheInput<C extends CibleRetouche> extends RetourDeLaPraticienne {
+  cible: C
+  /** Le texte en place, tel qu'il est à l'écran — corrections de la praticienne comprises. */
+  actuel: unknown
+  context?: PatientContext
+  /**
+   * Ce qui entoure le texte, selon son type : les autres mouvements et la
+   * matière de la séance pour une hypnose ; le brief pour un module ; la
+   * matière et le reste du brouillon pour une synthèse, un message, une
+   * proposition ; les notes pour un profil (server/retouche.ts).
+   */
+  extra?: Record<string, unknown>
+  hypnoseId?: string | null
+  sessionId?: string | null
+}
+
+/**
+ * Retoucher un texte : le serveur le réécrit sur le retour de la praticienne,
+ * avec les règles et le modèle de l'action qui l'a écrit.
+ */
+export function retoucher<C extends CibleRetouche>(input: RetoucheInput<C>): Promise<SortieDeRetouche[C]> {
+  return post<SortieDeRetouche[C]>(
+    'revision',
+    input,
+    "La retouche n'a pas pu être faite — le serveur n'a pas répondu. Le texte en place n'a pas bougé : réessayez.",
+  )
+}
+
+/**
+ * Une retouche qui a échoué, dite pour la fenêtre : le message du serveur tel
+ * quel, et son statut — 402, la fenêtre montre le chemin de la recharge.
+ */
+export function echecDeRetouche(erreur: unknown): IssueRetouche {
+  return {
+    ok: false,
+    message: messageDEchec(erreur, "La retouche n'a pas pu être faite. Le texte en place n'a pas bougé."),
+    statut: erreur instanceof AiError ? erreur.status : null,
+  }
+}
+
+/* ------------------------------------------------------------------ *
  * 5. Hypnose personnalisée
  * ------------------------------------------------------------------ */
 
@@ -366,6 +423,42 @@ export function pointDeReprise(deja: readonly MouvementEcrit[]): {
     acquis.push(ecrit)
   }
   return { acquis, restants: MOUVEMENTS_HYPNOSE.slice(acquis.length) }
+}
+
+/**
+ * Retoucher UN mouvement d'une hypnose écrite, les autres en contexte.
+ *
+ * La séance d'où l'hypnose est née donne la matière (formulations, fils,
+ * synthèse) ; les trois autres mouvements partent tels quels, pour que le
+ * mouvement retouché s'y raccorde — même métaphore, même rythme — sans
+ * qu'aucun d'eux ne bouge. Écran de séance et fiche passent par ici.
+ */
+export function retoucherMouvement(input: {
+  context: PatientContext
+  brouillon: Pick<SessionDraft, 'mots' | 'themes' | 'synthese'> | null
+  intention: string
+  hypnoseId: string | null
+  ecrit: MouvementEcrit
+  autres: readonly MouvementEcrit[]
+  retour: RetourDeLaPraticienne
+}): Promise<SortieDeRetouche['hypnose']> {
+  return retoucher({
+    cible: 'hypnose',
+    ...input.retour,
+    context: input.context,
+    actuel: { titre: input.ecrit.titre, texte: input.ecrit.texte },
+    extra: {
+      mouvement: input.ecrit.mouvement,
+      intention: input.intention,
+      mots: input.brouillon?.mots ?? [],
+      themes: input.brouillon?.themes ?? [],
+      synthese: input.brouillon?.synthese ?? '',
+      autres: input.autres
+        .filter((e) => e.mouvement !== input.ecrit.mouvement)
+        .map((e) => ({ mouvement: e.mouvement, texte: e.texte })),
+    },
+    hypnoseId: input.hypnoseId,
+  })
 }
 
 /**

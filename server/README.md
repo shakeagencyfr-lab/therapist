@@ -17,6 +17,7 @@ des deux le sert :
 | Route | Module | Ce qu'elle fait |
 | --- | --- | --- |
 | `/api/ai/{session-draft,module,affirmations,profile,hypnose}` | `ai.ts` | les cinq analyses |
+| `/api/ai/revision` | `ai.ts`, `retouche.ts` | la retouche d'un texte déjà écrit, sur le retour de la praticienne (0066) ; les préférences retenues sont relues par `preferences.ts` à chaque écriture |
 | `/api/integrations` | `integrations.ts` | clés Anthropic et Stripe, agenda, boutique |
 | `/api/cabinet?volet=…` | `cabinet.ts` | offre, domaine, envoi de courriels, site vitrine, notes d'honoraires, jetons |
 | `/api/revendeur` | `revendeur.ts` | les jetons du revendeur : sa clé, son Stripe, son barème, ses recharges |
@@ -98,7 +99,7 @@ Pour l'analyse : `ANTHROPIC_API_KEY` est la clé d'accès à l'API Claude : elle
 
 ## Mode maquette
 
-Si `AI_MOCK` vaut `1`, les cinq routes d'analyse répondent depuis `mock.ts` avec des sorties de démonstration bien formées : le brouillon de séance, le module sur mesure, les affirmations, le profil actualisé et les mouvements d'hypnose. Aucun appel réseau n'est fait et aucune donnée de séance ne quitte la machine, ce qui permet de développer et de montrer toute l'interface sans clé. Les réponses portent un drapeau `mock` sur l'enveloppe (`{ "mock": true, "data": … }`) et non dans les données elles-mêmes : l'interface affiche les mêmes objets dans les deux modes, et peut signaler la maquette si elle le souhaite. Ces textes sont de la démonstration ; ils n'ont aucune valeur clinique.
+Si `AI_MOCK` vaut `1`, les six routes d'analyse répondent depuis `mock.ts` avec des sorties de démonstration bien formées : le brouillon de séance, le module sur mesure, les affirmations, le profil actualisé, les mouvements d'hypnose et la retouche (qui rend le texte reçu, marqué comme tel). Aucun appel réseau n'est fait et aucune donnée de séance ne quitte la machine, ce qui permet de développer et de montrer toute l'interface sans clé. Les réponses portent un drapeau `mock` sur l'enveloppe (`{ "mock": true, "data": … }`) et non dans les données elles-mêmes : l'interface affiche les mêmes objets dans les deux modes, et peut signaler la maquette si elle le souhaite. Ces textes sont de la démonstration ; ils n'ont aucune valeur clinique.
 
 ## Avant la production
 

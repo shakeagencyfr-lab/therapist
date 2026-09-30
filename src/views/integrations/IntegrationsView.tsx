@@ -4,6 +4,7 @@ import { GesteAConfirmer } from '@/components/GesteAConfirmer'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { enJetons, useJetons } from '@/cabinet/useJetons'
 import { CarteJetons } from '@/views/jetons/CarteJetons'
+import { CartePreferencesIA } from './PreferencesIA'
 import {
   agirIntegration,
   lireIntegrations,
@@ -156,6 +157,10 @@ export function IntegrationsView() {
               ) : null}
             </div>
           ) : null}
+
+          {/* Ce que l'IA a retenu des retouches (0066) : lu à part, une panne
+              des intégrations ne le cache pas. */}
+          <CartePreferencesIA />
         </>
       )}
     </div>

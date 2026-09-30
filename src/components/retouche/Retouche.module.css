@@ -1,0 +1,287 @@
+/* Les pouces sous un texte de l'IA, et la fenêtre de retouche.
+
+   Discrets : deux boutons de la taille d'une icône, sans cadre tant qu'on ne
+   s'en sert pas. Ils sont sous chaque texte — le premier regard doit rester
+   sur le texte, pas sur eux. */
+
+.rangee {
+  display: flex;
+  align-items: center;
+  gap: 4px 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.pouces {
+  display: inline-flex;
+  gap: 2px;
+  flex: none;
+}
+
+.pouce {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+.pouce:hover:not(:disabled) {
+  background: var(--c-surface-2);
+  border-color: var(--c-border);
+  color: var(--c-text);
+}
+.pouce:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+.pouce:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* Enfoncé : l'accusé de réception. */
+.pouceHaut,
+.pouceHaut:hover:not(:disabled) {
+  color: var(--c-ok-text);
+  background: var(--c-ok-bg);
+  border-color: var(--c-ok-border);
+}
+.pouceBas,
+.pouceBas:hover:not(:disabled) {
+  color: var(--c-danger);
+  background: var(--c-hot-bg);
+  border-color: var(--c-warn-border);
+}
+
+.statut {
+  margin: 0;
+  min-width: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+}
+.statut:empty {
+  display: none;
+}
+
+.note {
+  color: var(--c-text-muted);
+}
+
+.lien {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--c-accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.lien:disabled {
+  cursor: default;
+  color: var(--c-text-muted);
+}
+
+/* ---- La fenêtre -------------------------------------------------------- */
+
+/* Le voile de l'avertissement d'inactivité (src/auth/Inactivite.module.css) :
+   la page reste devinée derrière, la carte au centre. */
+.voile {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(20, 18, 15, 0.38);
+  overflow-y: auto;
+}
+
+.fenetre {
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-xl);
+  padding: 22px 24px 20px;
+  box-shadow: 0 18px 48px rgba(20, 18, 15, 0.18);
+}
+
+.tete {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.embleme {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-md);
+  background: var(--c-hot-bg);
+  color: var(--c-danger);
+}
+.emblemeIcone {
+  width: 22px;
+  height: 22px;
+}
+
+.titres {
+  flex: 1;
+  min-width: 0;
+}
+
+.titre {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 22px;
+  line-height: 1.2;
+  margin: 2px 0 4px;
+}
+
+.sousTitre {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--c-text-2);
+}
+
+.fermer {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--c-text-muted);
+  font-size: 15px;
+  cursor: pointer;
+}
+.fermer:hover:not(:disabled) {
+  background: var(--c-surface-2);
+  border-color: var(--c-border);
+  color: var(--c-text);
+}
+.fermer:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.porte {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+}
+
+.champ {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+/* Le libellé des champs de l'application (FieldLabel), l'astérisque en plus. */
+.etiquette {
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+
+.requis {
+  color: var(--c-danger);
+}
+
+.zone {
+  min-height: 76px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.retenir {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--c-text-2);
+  cursor: pointer;
+}
+
+.case {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 1px 0 0;
+  accent-color: var(--c-accent);
+  cursor: pointer;
+}
+
+.cout {
+  margin: 0;
+}
+
+.pied {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+/* Le rond de l'attente, dans le bouton : on voit que ça travaille, sans
+   changer la place du bouton. */
+.rouage {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 8px;
+  vertical-align: -2px;
+  border: 1.6px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: tourner 0.8s linear infinite;
+}
+
+@keyframes tourner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rouage {
+    animation: none;
+    border-right-color: currentColor;
+    opacity: 0.6;
+  }
+}
+
+@media (max-width: 480px) {
+  .voile {
+    place-items: end center;
+    padding: 12px;
+  }
+  .fenetre {
+    padding: 18px 16px 16px;
+    gap: 12px;
+  }
+  .titre {
+    font-size: 20px;
+  }
+  .pied > * {
+    flex: 1 1 0;
+  }
+}

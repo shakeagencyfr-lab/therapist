@@ -17,6 +17,7 @@ import type {
   SessionDraft,
 } from '../src/types/domain.js'
 import type { ModuleContext, PatientContext } from './schemas.js'
+import type { DemandeRetouche } from './retouche.js'
 
 /** Prénom du patient, tel que les messages l'emploient. */
 function firstName(context: PatientContext): string {
@@ -232,5 +233,40 @@ export function mockHypnoseMouvement(mouvement: string): { titre: string; texte:
       "sur le visage… et pendant que la respiration trouve son propre rythme, il n'y a rien à réussir ici.\n\n" +
       "Le serveur tourne en mode maquette : aucune clé n'a été appelée. Retirez la variable AI_MOCK de " +
       "son environnement pour obtenir de vraies séances."
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Retouche de maquette
+ * ------------------------------------------------------------------ */
+
+const MARQUE_RETOUCHE = '(Retouche de maquette : aucun modèle n’a été appelé.)'
+
+/**
+ * Une retouche factice, bien formée pour chaque type de texte, et qui le
+ * dit. Elle rend la version reçue, marquée : l'écran voit la ligne
+ * « Version retouchée par l'IA », jamais un texte qu'on prendrait pour une
+ * vraie réécriture.
+ */
+export function mockRetouche(d: DemandeRetouche): unknown {
+  switch (d.cible) {
+    case 'hypnose':
+      return { titre: d.actuel.titre || 'Mouvement de maquette', texte: MARQUE_RETOUCHE + '\n\n' + d.actuel.texte }
+    case 'module':
+    case 'consigne':
+      return { ...d.actuel, pourquoi: (d.actuel.pourquoi + ' ' + MARQUE_RETOUCHE).trim() }
+    case 'synthese':
+    case 'message':
+      return { texte: d.actuel + ' ' + MARQUE_RETOUCHE }
+    case 'proposition':
+      return {
+        titre: d.actuel.titre,
+        pourquoi: (d.actuel.pourquoi + ' ' + MARQUE_RETOUCHE).trim(),
+        type: (['Exercice', 'Journal', 'Écriture'] as const).find((t) => t === d.actuel.type) ?? 'Exercice',
+      }
+    case 'profil':
+      return { ...mockGeneratedProfile(d.context), resume: MARQUE_RETOUCHE }
+    case 'affirmations':
+      return mockGeneratedAffirmations(d.context)
   }
 }
