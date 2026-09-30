@@ -4,7 +4,8 @@
 
 .telephone {
   width: 100%;
-  max-width: 412px;
+  /* La largeur, réglée par la page (--telephone-l, PageDeVente.module.css). */
+  max-width: var(--telephone-l, 412px);
   margin-inline: auto;
   /* Les textes « désactivés » de l'application (compteur du jour, légendes
      de la courbe) tiennent 2,5:1 sur le fond des cartes : dans la page de
@@ -78,9 +79,25 @@
   outline-offset: 2px;
 }
 
-/* La hauteur de l'écran est réglée par la page (--ecran-demo, voir
-   PageDeVente.module.css) : téléphone, légende et teintes tiennent dans le
-   premier écran d'un ordinateur portable. */
+/* LES PROPORTIONS D'UN VRAI TÉLÉPHONE. Dès qu'il y a la place, le cadre
+   prend celles du téléphone qu'il imite — 390 × 844 d'écran, soit 412 × 866
+   avec le cadre — et l'écran remplit ce qui reste sous la barre d'état. Sur
+   un téléphone, un téléphone en entier dans la page serait plus haut que
+   l'écran qui le montre : il garde la hauteur fixe de --ecran-demo. */
+@media (min-width: 560px) {
+  .telephone > div {
+    display: flex;
+    aspect-ratio: 412 / 866;
+  }
+  .telephone > div > div {
+    flex: 1;
+  }
+  .ecran {
+    flex: 1 1 0;
+    height: auto;
+    min-height: 0;
+  }
+}
 
 /* Les couleurs à essayer ------------------------------------------------ */
 
