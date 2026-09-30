@@ -50,7 +50,7 @@ describe('les chemins des pages légales liées par la page', () => {
   const contrainte = /add constraint cabinets_slug_forme check \(([\s\S]*?)\);/.exec(migration)?.[1] ?? ''
 
   it('sont réservés à l’écran et en base', () => {
-    expect(mots.length).toBe(3)
+    expect(mots.length).toBe(4)
     for (const mot of mots) {
       expect(CHEMINS_RESERVES.has(mot), mot).toBe(true)
       expect(contrainte, mot).toContain(`'${mot}'`)

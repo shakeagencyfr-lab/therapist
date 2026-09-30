@@ -31,6 +31,7 @@ import { NOM_MOUVEMENT } from '@/services/aiClient'
 import { COULEURS_ORIGINE, couleurValide } from './couleurs'
 import { cadreDuLogo, type LogoPdf } from './logoPdf'
 import { pourPdf } from './pdfTexte'
+import { PROPRIETES_IA } from './transparenceIA'
 
 /** Ce que le cabinet prête au document : son logo, sa couleur. */
 export interface MarquePdf {
@@ -121,6 +122,18 @@ export async function composerHypnose(
   const cabinet = pourPdf(cabinetBrut)
   const { jsPDF } = await import('jspdf')
   const doc = new jsPDF({ unit: 'pt', format: 'a4' })
+
+  /* LE FICHIER DIT QU'IL A ÉTÉ ÉCRIT AVEC L'IA (règlement européen sur l'IA,
+     art. 50 : un marquage lisible par une machine). Dans ses propriétés, pas
+     sur la page : c'est un texte à lire à voix haute, et la praticienne l'a
+     relu. Ni Klaro ni le modèle n'y sont nommés — le document est à la
+     marque du cabinet. */
+  doc.setProperties({
+    title: hypnose.titre,
+    author: cabinet,
+    subject: PROPRIETES_IA.subject,
+    keywords: PROPRIETES_IA.keywords,
+  })
 
   const largeurTexte = LARGEUR - MARGE * 2
   const date = jour(hypnose.createdAt)

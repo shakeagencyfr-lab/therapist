@@ -70,7 +70,7 @@ export function PortePraticienne({ avis = null }: { avis?: string | null }) {
           <span aria-hidden="true">←</span> Retour à l’accueil
         </a>
       </div>
-      <SignIn titre={TITRE_PORTE} intro="Entrez l’adresse à laquelle votre invitation est arrivée." avis={avis} />
+      <SignIn titre={TITRE_PORTE} intro="Entrez l’adresse à laquelle votre invitation est arrivée." avis={avis} pro />
       <p className={s.essai}>
         Pas encore de cabinet&nbsp;? <a href="/#essai">Demander un essai</a>
       </p>

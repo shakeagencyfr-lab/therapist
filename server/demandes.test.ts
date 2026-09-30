@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { deposerDemande, estUneDemande, ipDuVisiteur, type PorteDemande } from './demandes.js'
+import { MISE_A_JOUR } from '../src/legal/version.js'
+import { deposerDemande, estUneDemande, ipDuVisiteur, VERSION_DES_CONDITIONS, type PorteDemande } from './demandes.js'
 
 const DEMANDE = {
   nom: 'Claire Fontaine',
@@ -11,6 +12,7 @@ const DEMANDE = {
   offre: 'cabinet',
   message: '',
   consentement: true,
+  conditions: true,
 }
 
 function porte(reglages: Partial<PorteDemande> = {}): PorteDemande & {
@@ -51,6 +53,26 @@ describe('la demande d’essai, côté serveur', () => {
     expect(r.status).toBe(400)
     expect(Object.keys(r.body.erreurs ?? {}).sort()).toEqual(['consentement', 'email'])
     expect(p.deposer).not.toHaveBeenCalled()
+  })
+
+  /* Accepter d'être recontacté n'est pas accepter les conditions : sans la
+     seconde case, rien ne part — même si l'écran a été contourné. */
+  it('refuse une demande dont les conditions ne sont pas acceptées', async () => {
+    const p = porte()
+    for (const conditions of [false, undefined, 'true', 1]) {
+      const r = await deposerDemande({ demande: { ...DEMANDE, conditions } }, null, p)
+      expect(r.status, String(conditions)).toBe(400)
+      expect(Object.keys(r.body.erreurs ?? {})).toEqual(['conditions'])
+    }
+    expect(p.deposer).not.toHaveBeenCalled()
+  })
+
+  it('dépose la version des conditions fixée par le serveur, jamais celle de la requête', async () => {
+    const p = porte()
+    await deposerDemande({ demande: { ...DEMANDE, conditionsVersion: '1er janvier 1970' } }, null, p)
+    expect(VERSION_DES_CONDITIONS).toBe(MISE_A_JOUR)
+    expect(p.deposer.mock.calls[0]?.[0]).toMatchObject({ conditions: true })
+    expect(JSON.stringify(p.deposer.mock.calls[0]?.[0])).not.toContain('1970')
   })
 
   describe('avec le CAPTCHA réglé', () => {

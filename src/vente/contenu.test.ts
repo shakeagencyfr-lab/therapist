@@ -8,11 +8,13 @@ import {
   ANCRE_COUT_IA,
   AUTRES_PRESTATAIRES,
   CONFIDENTIALITE,
-  coutsIA,
   EDITEUR,
+  encartJetons,
   ENSUITE,
   FONCTIONNALITES,
+  JETONS_PAR_MOIS,
   MENTION_PRIX,
+  MODALITES,
   offres,
   PAGES_LEGALES,
   PARCOURS,
@@ -93,6 +95,20 @@ describe('les offres de la page', () => {
     expect(MENTION_PRIX).not.toMatch(/à confirmer|indicatifs/)
   })
 
+  /* L'éditrice est une micro-entreprise : tant qu'elle relève de la
+     franchise, ses factures portent la mention de l'article 293 B — et la
+     page le dit comme les conditions de vente le disent. */
+  it('disent la franchise de TVA, au conditionnel du droit', () => {
+    expect(MENTION_PRIX).toMatch(/TVA non applicable, art\. 293 B du CGI/)
+    expect(MENTION_PRIX).toMatch(/Tant que/)
+  })
+
+  it('disent l’engagement et l’essai', () => {
+    expect(MODALITES).toMatch(/sans engagement/)
+    expect(MODALITES).toMatch(/fin du mois en cours/)
+    expect(MODALITES).toMatch(/14 jours, sans carte bancaire/)
+  })
+
   it('portent une apostrophe typographique', () => {
     expect(offres().flatMap((o) => o.lignes).join(' ')).not.toContain("'")
   })
@@ -105,6 +121,13 @@ describe('ce qui manque avant la mise en ligne', () => {
     const manque = aFournirAvantLaMiseEnLigne().join(' ; ')
     if (/à confirmer/.test(MENTION_PRIX)) expect(manque).toMatch(/MENTION_PRIX/)
     if (!EDITEUR.contact) expect(manque).toMatch(/EDITEUR.contact/)
+  })
+
+  /* Depuis le 30 septembre 2026, tout est fourni : l'adresse de contact est
+     celle des pages légales, et il n'en existe pas d'autre. */
+  it('ne manque plus de rien, et l’adresse est celle des pages légales', () => {
+    expect(aFournirAvantLaMiseEnLigne()).toEqual([])
+    expect(EDITEUR.contact).toBe('contact@klaroweb.site')
   })
 
   it('nomme partout le même acteur commercial', () => {
@@ -129,38 +152,55 @@ describe('ce qui manque avant la mise en ligne', () => {
 
 describe('les pages légales', () => {
   it('sont celles que publie le chantier des pages légales', () => {
-    expect(PAGES_LEGALES.map((p) => p.chemin).sort()).toEqual(['/cgu', '/confidentialite', '/mentions'])
+    expect(PAGES_LEGALES.map((p) => p.chemin).sort()).toEqual(['/cgu', '/cgv', '/confidentialite', '/mentions'])
   })
 })
 
 describe('ce que coûte l’IA', () => {
-  it('se dit en euros, depuis le module qui l’estime à l’écran', () => {
-    const c = coutsIA()
-    for (const v of Object.values(c)) expect(v).toMatch(/^\d+,\d\d €$/)
-    const faq = questions().find((q) => q.id === ANCRE_COUT_IA)
-    expect(faq?.reponse).toContain(c.hypnose)
-    expect(faq?.reponse).toContain('Anthropic')
+  /* Une seule table pour les jetons du mois : chaque offre du catalogue y a
+     sa ligne, et la page dit ce qu'elle dit. */
+  it('dit les jetons inclus de chaque offre, et ce qu’ils représentent', () => {
+    expect(Object.keys(JETONS_PAR_MOIS).sort()).toEqual(PLANS.map((p) => p.code).sort())
+    expect(JETONS_PAR_MOIS).toEqual({ essentiel: 300, cabinet: 800, reseau: 2000 })
+    const [essentiel, cabinet, reseau] = offres()
+    expect(essentiel?.lignes.join(' ')).toMatch(/^300 jetons d’IA par mois, soit environ 25 séances/)
+    expect(cabinet?.lignes.join(' ')).toContain('800 jetons d’IA par mois')
+    expect(reseau?.lignes.join(' ')).toContain('2 000 jetons d’IA par mois')
+    expect(reseau?.lignes.join(' ')).toMatch(/Option Hypnose incluse/)
+    expect(essentiel?.lignes.join(' ')).not.toMatch(/Hypnose/)
   })
 
-  /* L'estimation n'existe que dans RecordStep et HypnoseToggle : le profil,
-     les consignes, les affirmations et la série du lundi n'en montrent
-     aucune. La page ne promet donc pas « avant chaque analyse ». */
-  it('ne promet l’estimation que là où l’écran la montre', () => {
+  it('se dit en jetons, avec le barème, les recharges et l’option Hypnose', () => {
     const faq = questions().find((q) => q.id === ANCRE_COUT_IA)?.reponse ?? ''
-    expect(faq).not.toMatch(/avant chaque analyse/i)
-    expect(faq).toMatch(/analyser une séance ou d’écrire une hypnose/)
-    expect(faq).toMatch(/lundi/)
+    expect(faq).toContain('Anthropic')
+    for (const attendu of [
+      /300 pour Essentiel, 800 pour Cabinet et 2 000 pour Réseau/,
+      /séance complète en consomme environ 12/,
+      /un module 5/,
+      /hypnose de 30 minutes 50/,
+      /100 jetons 12 €, 300 jetons 30 € et 1 000 jetons 85 € HT/,
+      /valables douze mois/,
+      /19 € HT pour 30 jours, avec 200 jetons/,
+      /rien n’est débité si la rédaction échoue/,
+      /ne se reportent pas/,
+    ]) {
+      expect(faq).toMatch(attendu)
+    }
+    const encart = encartJetons().texte
+    expect(encart).toMatch(/affichés avant de lancer/)
+    expect(encart).toMatch(/1 000 jetons 85 €/)
   })
 
-  /* server/ai.ts n'a aucun repli : sans la clé du cabinet, rien ne se
-     rédige. La page le dit là où l'on décide — l'essai, les offres, la note. */
-  it('dit que la clé Anthropic du cabinet est nécessaire', () => {
+  /* Le modèle a changé : plus de clé à ouvrir chez Anthropic ni à coller.
+     La page ne doit plus l'exiger — ni promettre que Klaro ne prend rien. */
+  it('ne demande plus de clé Anthropic au cabinet', () => {
     const essai = questions().find((q) => q.id === 'essai-deroulement')?.reponse ?? ''
-    expect(essai).toMatch(/clé/)
-    expect(essai).toMatch(/Réglages › Intégrations/)
-    expect(essai).toMatch(/aucune note n’est rédigée/)
-    expect(pointsDeLaNote().join(' ')).toMatch(/Sans clé Anthropic/)
-    expect(ENSUITE.map((e) => e.texte).join(' ')).toMatch(/clé/)
+    expect(essai).toMatch(/jetons/)
+    expect(essai).not.toMatch(/Réglages › Intégrations/)
+    const tout = [...questions().map((q) => q.reponse), ...pointsDeLaNote(), ...ENSUITE.map((e) => e.texte)].join(' ')
+    expect(tout).not.toMatch(/ne prend rien dessus|colle sa clé|collez sa clé|avec la clé de votre cabinet/)
+    expect(pointsDeLaNote().join(' ')).toMatch(/Sans jetons disponibles, l’espace patient et le suivi fonctionnent/)
+    expect(ENSUITE.map((e) => e.texte).join(' ')).toMatch(/jetons/)
   })
 })
 
@@ -181,6 +221,9 @@ describe('les mots de la page', () => {
     AUTRES_PRESTATAIRES,
     SANS_LABEL,
     MENTION_PRIX,
+    MODALITES,
+    encartJetons().titre,
+    encartJetons().texte,
   ].join('\n')
 
   it('ne revendiquent ni label, ni témoignage, ni note', () => {

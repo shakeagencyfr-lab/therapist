@@ -53,6 +53,8 @@ import {
   revendicationsInterdites,
 } from '../src/legal/contenu'
 import { PageLegaleVue } from '../src/legal/PageLegale'
+import { MISE_A_JOUR as MISE_A_JOUR_DES_CONDITIONS } from '../src/legal/version'
+import { CarteConditions } from '../src/auth/GardeConditions'
 import { PLANS } from '../src/data/reseller'
 import { SessionProvider } from '../src/auth/session'
 import { ChampProchaineSeance } from '../src/views/therapist/ProchaineSeance'
@@ -1136,9 +1138,26 @@ try {
     if (!page.includes('href="#essai"')) manque.push('« Demander un essai » ne mène pas au formulaire')
     // Une demande, pas un accès : l'essai s'ouvre après un échange.
     if (/Essayer \d+ jours/.test(texte)) manque.push('un bouton promet un essai immédiat (« Essayer 14 jours »)')
-    // Sans clé Anthropic, aucune note : la page le dit près des offres et dans l'essai.
-    if (!/Sans clé, l’espace patient et le suivi fonctionnent, mais aucune note n’est rédigée/.test(texte)) {
-      manque.push('la clé Anthropic du cabinet n’est pas dite nécessaire')
+    // L'IA se paie en jetons : la page le dit près des offres et près de la note.
+    if (!/Les jetons d’IA, inclus chaque mois/.test(texte)) manque.push('les jetons d’IA ne sont pas dits près des offres')
+    if (!/Sans jetons disponibles, l’espace patient et le suivi fonctionnent, mais aucune note n’est rédigée/.test(texte)) {
+      manque.push('la page ne dit pas ce qui se passe sans jetons')
+    }
+    if (/colle(?:z)? sa clé|ne prend rien dessus|la clé Anthropic de votre cabinet/.test(texte)) {
+      manque.push('la page demande encore la clé Anthropic du cabinet')
+    }
+    if (!/TVA non applicable, art\. 293 B du CGI/.test(texte)) manque.push('la franchise de TVA n’est pas dite')
+    if (!/sans engagement/.test(texte)) manque.push('l’engagement n’est pas dit')
+    // Les conditions générales : une case à part, jamais cochée d'avance, et les deux documents.
+    const caseConditions = /<input[^>]*data-champ="conditions"[^>]*>/.exec(page)?.[0] ?? ''
+    if (!caseConditions) manque.push('la case des conditions générales manque au formulaire')
+    else if (!/required/.test(caseConditions) || /checked=""/.test(caseConditions)) {
+      manque.push('la case des conditions générales n’est pas exigée, ou arrive cochée')
+    }
+    for (const chemin of ['/cgv', '/cgu']) {
+      if (!new RegExp(`<label[^>]*>J’ai lu et j’accepte les[\\s\\S]*?<a href="${chemin}" target="_blank"`).test(page)) {
+        manque.push(`la case des conditions ne mène pas à ${chemin} dans un nouvel onglet`)
+      }
     }
     if (/avant chaque analyse/i.test(texte)) manque.push('la page promet une estimation « avant chaque analyse »')
     if (/Plusieurs praticiennes/i.test(texte)) manque.push("l'équipe est vendue comme propre à une offre")
@@ -1377,15 +1396,22 @@ try {
     if (vus.length) manque.push(`${cle} montre des fiches (${vus.join(', ')})`)
   }
 
-  const portes: Array<[string, () => string]> = [
-    ['la porte des praticiennes', () => renderToString(h(SessionProvider, null, h(PortePraticienne)))],
-    ['la page d’un cabinet', () => renderToString(h(VitrinePage, { site: SITE_FICTIF as never }))],
+  /* Les conditions de vente lient l'éditrice et les cabinets : la porte des
+     professionnels y mène, la page d'un cabinet — que lisent ses patients —
+     non (src/legal/chemins.ts, `pro`). */
+  const portes: Array<[string, boolean, () => string]> = [
+    ['la porte des praticiennes', true, () => renderToString(h(SessionProvider, null, h(PortePraticienne)))],
+    ['la page d’un cabinet', false, () => renderToString(h(VitrinePage, { site: SITE_FICTIF as never }))],
   ]
-  for (const [nom, rendre] of portes) {
+  for (const [nom, pro, rendre] of portes) {
     try {
       const html = rendre()
       for (const l of LIENS_LEGAUX) {
         const lien = new RegExp(`<a[^>]*href="${l.chemin}"[^>]*>`).exec(html)?.[0] ?? ''
+        if (l.pro && !pro) {
+          if (lien) manque.push(`${nom} mène à ${l.chemin}, réservé aux professionnels`)
+          continue
+        }
         if (!lien) manque.push(`${nom} ne mène pas à ${l.chemin}`)
         else if (!/target="_blank"/.test(lien) || !/rel="noopener noreferrer"/.test(lien)) {
           manque.push(`${nom} : ${l.chemin} ne s’ouvre pas dans un nouvel onglet`)
@@ -1394,6 +1420,43 @@ try {
     } catch (err) {
       manque.push(`${nom} ne se rend pas : ${(err as Error).message}`)
     }
+  }
+
+  /* LA CARTE DES CONDITIONS (src/auth/GardeConditions.tsx, 0067). Une case
+     jamais cochée d'avance, les deux documents dans un nouvel onglet, le
+     bouton « Accepter et continuer », et une sortie. En marque blanche, ni
+     le nom ni le logo de Klaro. */
+  const sansGeste = async () => true
+  for (const neutre of [false, true]) {
+    let html = ''
+    try {
+      html = renderToString(
+        h(CarteConditions, {
+          neutre,
+          cabinet: neutre ? { nom: 'Cabinet Fontaine', logo: 'CF', logoUrl: null, tagline: 'Hypnose à Nantes' } : null,
+          miseAJour: neutre,
+          accepter: sansGeste,
+          passer: () => undefined,
+          seDeconnecter: () => undefined,
+        }),
+      )
+    } catch (err) {
+      manque.push(`la carte des conditions ne se rend pas : ${(err as Error).message}`)
+      continue
+    }
+    const quelle = neutre ? 'la carte des conditions en marque blanche' : 'la carte des conditions'
+    const caseHtml = /<input[^>]*type="checkbox"[^>]*>/.exec(html)?.[0] ?? ''
+    if (!caseHtml || /checked=""/.test(caseHtml) || !/required/.test(caseHtml)) manque.push(`${quelle} : la case manque, n’est pas exigée, ou arrive cochée`)
+    for (const chemin of ['/cgv', '/cgu']) {
+      if (!new RegExp(`<a href="${chemin}" target="_blank" rel="noopener noreferrer"`).test(html)) {
+        manque.push(`${quelle} ne mène pas à ${chemin} dans un nouvel onglet`)
+      }
+    }
+    if (!html.includes('Accepter et continuer')) manque.push(`${quelle} n’a pas son bouton`)
+    if (!html.includes(MISE_A_JOUR_DES_CONDITIONS)) manque.push(`${quelle} ne dit pas la version`)
+    if (!html.includes('Me déconnecter')) manque.push(`${quelle} n’a pas de sortie`)
+    if (neutre && /Klaro|klaro-/i.test(html)) manque.push(`${quelle} montre Klaro`)
+    if (!neutre && !html.includes('klaro-monogramme')) manque.push(`${quelle} ne porte pas la marque du produit`)
   }
 
   if (manque.length) {

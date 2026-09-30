@@ -16,6 +16,7 @@ import {
   AUTRES_PRESTATAIRES,
   CONFIDENTIALITE,
   EDITEUR,
+  encartJetons,
   ENSUITE,
   FONCTIONNALITES,
   JOURS_ESSAI,
@@ -269,6 +270,7 @@ function Entete({ onEssai }: { onEssai: (e: MouseEvent<HTMLAnchorElement>) => vo
 export function PageDeVente() {
   const [offreProposee, setOffreProposee] = useState('')
   const liste = offres()
+  const jetons = encartJetons()
   const faq = questions()
   const annee = new Date().getFullYear()
 
@@ -497,8 +499,9 @@ export function PageDeVente() {
               Trois offres, un seul produit
             </h2>
             <p className={s.intro}>
-              Toutes comprennent l’espace patient, le suivi, la boutique, l’équipe et les séances assistées
-              par l’IA. Ce qui change&nbsp;: le nombre de patients actifs, votre domaine, votre site.
+              Toutes comprennent l’espace patient, le suivi, la boutique, l’équipe et des jetons d’IA chaque
+              mois pour les séances assistées. Ce qui change&nbsp;: le nombre de patients actifs, les jetons,
+              votre domaine, votre site.
             </p>
           </div>
           <ul className={s.offres}>
@@ -527,12 +530,10 @@ export function PageDeVente() {
               </li>
             ))}
           </ul>
-          <div className={s.cle}>
-            <p className={s.cleTitre}>À prévoir en plus&nbsp;: la clé Anthropic de votre cabinet</p>
-            <p className={s.cleTexte}>
-              Pour l’analyse, votre cabinet ouvre un compte chez Anthropic, où elle se paie à l’usage, et colle
-              sa clé dans Réglages › Intégrations. Sans clé, l’espace patient et le suivi fonctionnent, mais
-              aucune note n’est rédigée.{' '}
+          <div className={s.jetons}>
+            <p className={s.jetonsTitre}>{jetons.titre}</p>
+            <p className={s.jetonsTexte}>
+              {jetons.texte}{' '}
               <a href={`#${ANCRE_COUT_IA}`} onClick={versQuestion(ANCRE_COUT_IA)}>
                 Que coûte l’IA&nbsp;?
               </a>
