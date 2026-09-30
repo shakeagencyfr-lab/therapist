@@ -400,6 +400,7 @@ export function HypnosesFiche() {
                           cabinet?.reel
                             ? {
                                 occupe: ecriture,
+                                patient: fiche.name,
                                 // Hors de l'option Hypnose, l'avis seul : la retouche est refusée.
                                 onRetoucher: verrouillee ? undefined : (retour) => retoucherEnBase(h, m, retour),
                               }

@@ -1900,6 +1900,40 @@ try {
   const remplie = fenetre({ initial: { probleme: 'Trop rapide', attendu: 'Plus lent' } })
   if (optimiser(remplie).includes('disabled')) manque.push('« Optimiser » reste fermé, les deux champs remplis')
 
+  /* « Retenir » cochée : ce qui part chez TOUS les patients se relit dans un
+     champ à part — prérempli, compté, avec l'avertissement —, rien ne s'y
+     coupe, et le nom du patient ferme « Optimiser ». */
+  if (vide.includes('Consigne à retenir')) manque.push('la consigne à retenir paraît sans que « Retenir » soit cochée')
+  const aRetenir = fenetre({ initial: { probleme: 'Trop rapide', attendu: 'Plus lent, avec des pauses', retenir: true } })
+  for (const attendu of [
+    'Consigne à retenir',
+    'Elle s&#x27;appliquera à tous vos patients, pour ce type de texte : n&#x27;y mettez ni nom ni détail propre à ce patient.',
+    '26 / 400 caractères',
+  ]) {
+    if (!aRetenir.includes(attendu)) manque.push(`« Retenir » cochée ne dit pas « ${attendu} »`)
+  }
+  if (!/type="checkbox"[^>]*checked/.test(aRetenir)) manque.push('« Retenir » ne se montre pas cochée')
+  if ((aRetenir.match(/>Plus lent, avec des pauses<\/textarea>/g) ?? []).length !== 2) {
+    manque.push('la consigne à retenir n’est pas préremplie de la seconde réponse')
+  }
+  if (optimiser(aRetenir).includes('disabled')) manque.push('« Optimiser » reste fermé sur une consigne à retenir valable')
+  const tropLongue = fenetre({ initial: { probleme: 'Trop rapide', attendu: 'Plus lent', retenir: true, consigne: 'z'.repeat(450) } })
+  if (
+    !tropLongue.includes('450 / 400 caractères') ||
+    !tropLongue.includes('raccourcissez-la') ||
+    !tropLongue.includes(`>${'z'.repeat(450)}</textarea>`) ||
+    !optimiser(tropLongue).includes('disabled')
+  ) {
+    manque.push('une consigne trop longue se coupe, ou laisse « Optimiser » ouvert sans le dire')
+  }
+  const nommee = fenetre({
+    patient: 'Marie Dupont',
+    initial: { probleme: 'Trop rapide', attendu: 'Reprendre le jardin de Marie', retenir: true },
+  })
+  if (!nommee.includes('« Marie » est le nom de ce patient') || !optimiser(nommee).includes('disabled')) {
+    manque.push('une consigne qui porte le nom du patient laisse « Optimiser » ouvert, ou ne le dit pas')
+  }
+
   const etat = etatJetonsDemo()
   const prixHypnose = fenetre({ devis: devisJetons(etat, 'retouche_hypnose') })
   if (!prixHypnose.includes('Cette retouche utilisera 8 jetons (il vous en reste 312).')) {
@@ -1948,7 +1982,8 @@ try {
   if (!aucune.includes('Aucune préférence retenue')) manque.push('une liste vide ne dit pas comment en retenir')
 
   // Rien du dossier dans la rangée, la fenêtre ou la liste : ni nom, ni extrait.
-  const retouches = [mouvement, avisSeul, vide, remplie, prixHypnose, prixTexte, court, refus402, preferences].join('')
+  // `nommee` porte un nom exprès, et n'en est pas.
+  const retouches = [mouvement, avisSeul, vide, remplie, aRetenir, tropLongue, prixHypnose, prixTexte, court, refus402, preferences].join('')
   const vus = noms.concat(extraits).filter((n) => n && retouches.includes(n))
   if (vus.length) manque.push(`un dossier filtre dans les retouches : ${vus.join(', ')}`)
 
@@ -1980,7 +2015,7 @@ try {
     echecs++
   } else {
     console.log(
-      `✓ retouches        ${String(vide.length).padStart(6)} octets · pouces nommés, fenêtre accessible, prix en jetons, préférences, rien en démonstration`,
+      `✓ retouches        ${String(vide.length).padStart(6)} octets · pouces nommés, fenêtre accessible, consigne relue sans nom ni coupe, prix en jetons, préférences, rien en démonstration`,
     )
   }
 }

@@ -411,6 +411,7 @@ export function PsychProfile() {
               libelle="le profil entier — une nouvelle version, sans séance de plus"
               version={profile.portrait}
               occupe={busy}
+              patient={state.patients[key]?.name}
               onRetoucher={retoucherProfil}
             />
           ) : null}

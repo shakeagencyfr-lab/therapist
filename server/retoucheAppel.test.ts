@@ -82,7 +82,10 @@ function fausseBase(lignes: Array<{ cible: string; consigne: string }>, panne = 
         limit: async (n: number) => {
           lecture.limite = n
           lectures.push(lecture)
-          return panne ? { data: null, error: { message: panne } } : { data: lignes, error: null }
+          if (panne) return { data: null, error: { message: panne } }
+          // Comme la base : ce type-là, les n premières (la liste est donnée la plus récente d'abord).
+          const du = lecture.cible === undefined ? lignes : lignes.filter((l) => l.cible === lecture.cible)
+          return { data: du.slice(0, n), error: null }
         },
       }
       return chaine
@@ -197,7 +200,7 @@ describe('la retouche, de la demande à la consommation', () => {
         select: 'cible, consigne',
         cabinet_id: 'cab-1',
         actif: true,
-        'cible parmi': ['hypnose'],
+        cible: 'hypnose',
         ordre: ['cree_le', { ascending: false }],
         limite: 10,
       },
@@ -221,7 +224,7 @@ describe('la retouche, de la demande à la consommation', () => {
     expect(envoi.max_tokens).toBe(3000)
     expect(envoi.system.startsWith(AFFIRMATIONS_SYSTEM)).toBe(true)
     expect(base.inscrits[0]).toMatchObject({ kind: 'revision', model: 'claude-haiku-4-5' })
-    expect(base.lectures[0]).toMatchObject({ 'cible parmi': ['affirmations'] })
+    expect(base.lectures).toEqual([expect.objectContaining({ cible: 'affirmations', limite: 10 })])
   })
 
   it('une écriture ordinaire relit aussi les préférences de ses textes', async () => {
@@ -233,10 +236,36 @@ describe('la retouche, de la demande à la consommation', () => {
       { context: DOSSIER, notes: 'La séance a porté sur le délai avant le geste, et sur la porte qui se referme le soir.', categories: ['Détente'] },
       'cab-1',
     )
-    expect(base.lectures[0]).toMatchObject({ 'cible parmi': ['synthese', 'message', 'proposition'] })
+    // Une lecture par type, dix chacune, pour ce cabinet seulement.
+    expect(base.lectures.map((l) => [l.cible, l.limite, l.cabinet_id, l.actif])).toEqual([
+      ['synthese', 10, 'cab-1', true],
+      ['message', 10, 'cab-1', true],
+      ['proposition', 10, 'cab-1', true],
+    ])
     const envoi = demande()
     expect(envoi.messages[0]!.content.endsWith('— [Synthèses de séance] Des faits, avec ses mots\n</preferences_de_la_praticienne>')).toBe(true)
     expect(envoi.system).not.toContain('Des faits, avec ses mots')
+  })
+
+  it('dix messages retenus récemment ne chassent pas les synthèses', async () => {
+    m.parse.mockResolvedValue(reponse({ synthese: 's', mots: [], themes: [], propositions: [], questions: [], vigilance: [], categories_audio: [], message: 'm' }))
+    // La plus récente d'abord : douze messages, puis trois synthèses plus anciennes.
+    base = fausseBase([
+      ...Array.from({ length: 12 }, (_, i) => ({ cible: 'message', consigne: `Message n° ${i}` })),
+      ...Array.from({ length: 3 }, (_, i) => ({ cible: 'synthese', consigne: `Synthèse n° ${i}` })),
+    ])
+    m.base = base.db
+    await analyserPourCabinet(
+      'session-draft',
+      { context: DOSSIER, notes: 'La séance a porté sur le délai avant le geste, et sur la porte qui se referme le soir.', categories: ['Détente'] },
+      'cab-1',
+    )
+    const message = demande().messages[0]!.content
+    const bloc = message.slice(message.indexOf('<preferences_de_la_praticienne>'))
+    for (let i = 0; i < 3; i++) expect(bloc).toContain(`— [Synthèses de séance] Synthèse n° ${i}`)
+    expect(bloc.match(/— \[Messages au patient\]/g)).toHaveLength(10)
+    expect(bloc).not.toContain('Message n° 10')
+    expect(bloc.match(/<\/preferences_de_la_praticienne>/g)).toHaveLength(1)
   })
 
   it('une lecture des préférences en panne n’empêche pas d’écrire', async () => {

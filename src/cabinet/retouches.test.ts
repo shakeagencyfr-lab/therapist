@@ -47,16 +47,36 @@ describe('les gestes des retouches', () => {
     expect(m.rpc).not.toHaveBeenCalled()
   })
 
-  it('retenir : la réponse attendue, sans ses blancs, 400 caractères au plus', async () => {
-    const r = await gestesRetouches('cab-1').retenir('hypnose', '  ' + 'x'.repeat(450))
+  it('retenir : la consigne relue, sans ses blancs, JAMAIS coupée', async () => {
+    const r = await gestesRetouches('cab-1').retenir('hypnose', '  Des pauses marquées  ')
     expect(r).toEqual({ ok: true, message: 'Préférence retenue pour les prochaines générations.' })
     expect(m.rpc).toHaveBeenCalledWith('cabinet_retenir_preference', {
       p_cabinet: 'cab-1',
       p_cible: 'hypnose',
-      p_consigne: 'x'.repeat(400),
+      p_consigne: 'Des pauses marquées',
     })
     expect((await gestesRetouches('cab-1').retenir('hypnose', '   ')).ok).toBe(false)
     expect(m.rpc).toHaveBeenCalledTimes(1)
+  })
+
+  it('trop longue malgré la fenêtre : la base la refuse entière, et sa phrase se dit', async () => {
+    const longue = 'Des phrases lentes. '.repeat(25) + 'Et surtout aucune image d’eau.'
+    m.rpc.mockResolvedValue({ data: null, error: { message: 'Une préférence tient en 400 caractères au plus : raccourcissez-la.' } })
+    const r = await gestesRetouches('cab-1').retenir('hypnose', longue)
+    // Partie entière, la fin comprise : c'est la base qui dit non, pas l'écran qui coupe.
+    expect(m.rpc).toHaveBeenCalledWith('cabinet_retenir_preference', { p_cabinet: 'cab-1', p_cible: 'hypnose', p_consigne: longue })
+    expect(r).toEqual({
+      ok: false,
+      message: 'Une préférence tient en 400 caractères au plus : raccourcissez-la. La retouche, elle, est faite.',
+    })
+  })
+
+  it('le nom du patient : rien ne part', async () => {
+    const r = await gestesRetouches('cab-1').retenir('hypnose', 'Reprendre le jardin de Marie', 'Marie Dupont')
+    expect(r.ok).toBe(false)
+    expect(r.message).toContain('« Marie »')
+    expect(r.message).toContain('La retouche, elle, est faite.')
+    expect(m.rpc).not.toHaveBeenCalled()
   })
 
   it('un refus de retenir ne dit pas que la retouche a échoué', async () => {

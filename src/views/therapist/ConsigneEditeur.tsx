@@ -35,11 +35,14 @@ export function ConsigneEditeur({
   module,
   onFerme,
   dossier,
+  patient,
 }: {
   module: PatientModule
   onFerme: () => void
   /** Le dossier de la personne, lu au moment de la retouche : l'IA écrit la consigne pour elle. */
   dossier?: () => PatientContext | undefined
+  /** Son nom : une consigne retenue pour tous les patients ne doit pas le porter. */
+  patient?: string
 }) {
   const cabinet = useMaybeCabinet()
   const c = module.consigne
@@ -202,6 +205,7 @@ export function ConsigneEditeur({
           libelle="la consigne de cet exercice (rien n'est enregistré avant « Enregistrer »)"
           version={versionDe({ titre, duree, quand, why, etapes })}
           occupe={envoi}
+          patient={patient}
           onRetoucher={retoucherConsigne}
         />
       ) : null}

@@ -229,6 +229,43 @@
   cursor: pointer;
 }
 
+/* La consigne à retenir, sous la case qui l'ouvre : décalée comme le texte
+   de la case, pour se lire comme sa suite et non comme une troisième question. */
+.consigne {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: -4px;
+  padding-left: 25px;
+}
+
+.aide,
+.compte,
+.refus {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.aide {
+  color: var(--c-text-2);
+}
+
+.compte {
+  color: var(--c-text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.compteDepasse,
+.refus {
+  color: var(--c-danger);
+}
+
+.refus:empty {
+  display: none;
+}
+
 .cout {
   margin: 0;
 }

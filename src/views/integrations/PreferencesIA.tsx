@@ -40,10 +40,11 @@ export function VuePreferencesIA({ lecture, chargement, enCours, echec, onOublie
         </Title>
       </div>
       <p className={s.texte}>
-        Quand une retouche vous convient, « Retenir cette préférence » garde ce que vous attendiez :
-        l'IA le relit à chaque texte du même type, pour votre cabinet, tant que cela ne contredit pas
-        ses règles. Elle en relit les {PREFERENCES_LUES} plus récentes ; au-delà de{' '}
-        {PREFERENCES_ACTIVES} par type, les plus anciennes s'effacent d'elles-mêmes.
+        Quand une retouche vous convient, « Retenir cette préférence » garde la consigne que vous avez
+        relue : l'IA la relit à chaque texte du même type, pour tous les patients de votre cabinet,
+        tant que cela ne contredit pas ses règles. Elle relit les {PREFERENCES_LUES} plus récentes de
+        chaque type ; au-delà de {PREFERENCES_ACTIVES} par type, les plus anciennes s'effacent
+        d'elles-mêmes.
       </p>
 
       {echec ? <Notice tone="warn">{echec}</Notice> : null}

@@ -3,8 +3,10 @@ import { createPortal } from 'react-dom'
 import { Button, Notice, TextArea } from '@/components/ui'
 import type { Devis } from '@/lib/jetonsIA'
 import {
+  BORNE_PREFERENCE,
   BORNE_RETOUR,
   EXEMPLES_RETOUR,
+  consigneLue,
   retourLu,
   type CibleRetouche,
   type IssueRetouche,
@@ -28,10 +30,25 @@ export interface FenetreRetoucheProps {
    * Lance la retouche. Réussie, la ligne sous le texte prend le relais et la
    * fenêtre se ferme ; en échec, elle reste ouverte avec le message — ce que
    * la praticienne a écrit n'est pas perdu.
+   *
+   * `consigne` : la consigne à retenir, relue (consigneLue) — null quand
+   * « Retenir » n'est pas cochée.
    */
-  onOptimiser: (retour: RetourDeLaPraticienne, retenir: boolean) => Promise<IssueRetouche>
+  onOptimiser: (retour: RetourDeLaPraticienne, consigne: string | null) => Promise<IssueRetouche>
+  /**
+   * Le nom du patient dont le texte parle, quand l'écran le connaît : une
+   * consigne à retenir qui le contient est refusée. Absent (l'atelier, qui
+   * écrit pour personne en particulier) : ce contrôle-là ne se fait pas.
+   */
+  patient?: string
   /** Ce qui est déjà saisi : le banc de rendu, et rien d'autre. */
-  initial?: { probleme?: string; attendu?: string; retenir?: boolean; echec?: { message: string; statut?: number | null } }
+  initial?: {
+    probleme?: string
+    attendu?: string
+    retenir?: boolean
+    consigne?: string
+    echec?: { message: string; statut?: number | null }
+  }
 }
 
 /**
@@ -43,23 +60,45 @@ export interface FenetreRetoucheProps {
  * n'allait pas. Les deux ensemble font une consigne qu'elle peut suivre — et
  * que la praticienne peut retenir pour la suite.
  *
+ * CE QUI SE RETIENT SE RELIT. Cochée, « Retenir » ouvre un champ à part,
+ * « Consigne à retenir », prérempli de la seconde réponse : c'est ce champ,
+ * et lui seul, qui rejoint les préférences du cabinet — et il part chez
+ * tous les patients. La réponse parle souvent d'une personne (un souvenir,
+ * un lieu) : la praticienne l'y réduit à une consigne de style, sous les
+ * yeux, avec son compte de caractères. Trop longue, ou portant le nom du
+ * patient, elle ferme « Optimiser » et dit pourquoi : rien n'est payé ni
+ * retenu à moitié.
+ *
  * UNE VRAIE FENÊTRE. `role="dialog"`, le titre pour nom, le clavier gardé à
  * l'intérieur tant qu'elle est ouverte, Échap pour la fermer, et le focus
  * rendu au pouce qui l'a ouverte. Posée au niveau du document (un portail) :
  * dans une carte qui bouge, une position fixe se fixe à la carte.
  */
-export function FenetreRetouche({ cible, libelle, devis, onFermer, onOptimiser, initial }: FenetreRetoucheProps) {
+export function FenetreRetouche({ cible, libelle, devis, onFermer, onOptimiser, patient, initial }: FenetreRetoucheProps) {
   const [probleme, setProbleme] = useState(initial?.probleme ?? '')
   const [attendu, setAttendu] = useState(initial?.attendu ?? '')
   const [retenir, setRetenir] = useState(initial?.retenir ?? false)
+  /* La consigne, une fois que la praticienne l'a touchée ; null : elle suit
+     encore la seconde réponse, qu'elle recopie telle quelle. */
+  const [consigneSaisie, setConsigneSaisie] = useState<string | null>(initial?.consigne ?? null)
   const [envoi, setEnvoi] = useState(false)
   const [echec, setEchec] = useState<{ message: string; statut?: number | null } | null>(initial?.echec ?? null)
   const carte = useRef<HTMLDivElement>(null)
   const id = useId()
   const idTitre = `${id}-titre`
   const idSous = `${id}-sous`
+  const idAide = `${id}-aide`
+  const idCompte = `${id}-compte`
+  const idRefus = `${id}-refus`
   const exemple = EXEMPLES_RETOUR[cible]
-  const pret = retourLu(probleme, attendu).ok && !envoi && !devis?.manque
+  const consigne = consigneSaisie ?? attendu.trim()
+  const longueur = consigne.trim().length
+  const consigneRelue = consigneLue(consigne, patient)
+  /* Un champ vide se voit sans phrase ; le reste — trop long, un nom — se
+     dit sous le champ, là où il se corrige. */
+  const refusConsigne = retenir && !consigneRelue.ok && consigne.trim() ? consigneRelue.message : ''
+  const pret =
+    retourLu(probleme, attendu).ok && (!retenir || consigneRelue.ok) && !envoi && !devis?.manque
 
   /* Le focus entre dans la fenêtre, et revient au pouce en sortant. La page
      derrière ne défile plus : sur un téléphone, elle glissait sous le doigt. */
@@ -105,10 +144,16 @@ export function FenetreRetouche({ cible, libelle, devis, onFermer, onOptimiser, 
       setEchec({ message: lu.message })
       return
     }
+    // Refusée avant la retouche, pas après : sinon elle serait payée, et la fenêtre fermée.
+    const relue = retenir ? consigneLue(consigne, patient) : null
+    if (relue && !relue.ok) {
+      setEchec({ message: relue.message })
+      return
+    }
     if (envoi) return
     setEnvoi(true)
     setEchec(null)
-    const r = await onOptimiser({ probleme: lu.probleme, attendu: lu.attendu }, retenir)
+    const r = await onOptimiser({ probleme: lu.probleme, attendu: lu.attendu }, relue?.ok ? relue.consigne : null)
     // Réussie, la fenêtre est déjà fermée par l'écran qui la porte.
     if (!r.ok) {
       setEnvoi(false)
@@ -206,6 +251,39 @@ export function FenetreRetouche({ cible, libelle, devis, onFermer, onOptimiser, 
           />
           <span>Retenir cette préférence pour les prochaines générations</span>
         </label>
+
+        {retenir ? (
+          <div className={s.consigne}>
+            <label className={s.champ}>
+              <span className={s.etiquette}>Consigne à retenir</span>
+              <TextArea
+                className={s.zone}
+                rows={3}
+                dictee
+                value={consigne}
+                maxLength={BORNE_PREFERENCE}
+                aria-required="true"
+                aria-invalid={refusConsigne ? true : undefined}
+                aria-describedby={`${idAide} ${idCompte}${refusConsigne ? ` ${idRefus}` : ''}`}
+                disabled={envoi}
+                placeholder={exemple.attendu}
+                onChange={(e) => setConsigneSaisie(e.target.value)}
+              />
+            </label>
+            <p id={idAide} className={s.aide}>
+              Elle s'appliquera à tous vos patients, pour ce type de texte : n'y mettez ni nom ni détail
+              propre à ce patient.
+            </p>
+            {/* Le compte se lit avec le champ (aria-describedby), sans
+                s'annoncer à chaque lettre ; le refus, lui, s'annonce. */}
+            <p id={idCompte} className={longueur > BORNE_PREFERENCE ? `${s.compte} ${s.compteDepasse}` : s.compte}>
+              {`${longueur} / ${BORNE_PREFERENCE} caractères`}
+            </p>
+            <p id={idRefus} className={s.refus} role="status">
+              {refusConsigne}
+            </p>
+          </div>
+        ) : null}
 
         <CoutEnJetons devis={devis} sujet="Cette retouche" className={s.cout} />
 
