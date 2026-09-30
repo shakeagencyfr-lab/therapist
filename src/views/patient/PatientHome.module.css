@@ -183,10 +183,10 @@
   font-size: 15px;
   display: grid;
   place-items: center;
-  padding-left: 4px;
+  padding: 0;
 }
 .playerBtnOn {
-  padding-left: 0;
+  padding: 0;
 }
 
 /* Sections --------------------------------------------------------------- */
