@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   abonnerEcoute,
+  appendSegment,
   createTranscriber,
   ecouteEnCours,
   type RaisonDeFin,
@@ -216,5 +217,42 @@ describe('les fins et les erreurs', () => {
     expect(seance.fins).toEqual([])
     expect(FausseReconnaissance.instances).toHaveLength(9)
     seance.transcripteur.stop()
+  })
+})
+
+/** Un événement de reconnaissance tel que le navigateur le livre. */
+function evenement(definitifs: string[]) {
+  const results = definitifs.map((transcript) => Object.assign([{ transcript }], { isFinal: true }))
+  return { resultIndex: 0, results }
+}
+
+describe('la séance sur un téléphone Android', () => {
+  function seance(userAgent: string) {
+    vi.stubGlobal('navigator', { userAgent })
+    let transcript = ''
+    const t = createTranscriber({
+      onFinal: (texte, suite) => {
+        transcript = appendSegment(transcript, texte, suite)
+      },
+      onInterim: () => {},
+      onError: () => {},
+    })
+    if (!t) throw new Error('la fausse reconnaissance devait suffire')
+    t.start()
+    const versions = ['bonjour', 'bonjour', 'bonjour je', 'bonjour je viens', 'bonjour je viens', 'bonjour je viens de parler']
+    for (let n = 1; n <= versions.length; n++) derniere().onresult?.(evenement(versions.slice(0, n)))
+    t.stop()
+    return transcript
+  }
+
+  it('écrit la phrase une fois, sur une ligne', () => {
+    expect(seance('Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/129.0 Mobile Safari/537.36')).toBe(
+      'bonjour je viens de parler',
+    )
+  })
+
+  it('un ordinateur garde la règle de l’index, inchangée', () => {
+    const t = seance('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/129.0 Safari/537.36')
+    expect(t.split('\n').length).toBeGreaterThan(1)
   })
 })

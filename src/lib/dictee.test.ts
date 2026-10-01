@@ -184,6 +184,14 @@ describe('ajouterDicte — l’espace patient, inchangé', () => {
     expect(ajouterDicte('', 'bonjour', '').texte).toBe('bonjour')
     expect(ajouterDicte('Déjà.', 'la suite', '').texte).toBe('Déjà. la suite')
   })
+
+  it('reconnaît la même phrase quand le navigateur lui pose la majuscule en finalisant', () => {
+    let r = ajouterDicte('', 'bonjour je viens', '')
+    r = ajouterDicte(r.texte, 'Bonjour je viens de parler', r.segment)
+    expect(r.texte).toBe('Bonjour je viens de parler')
+    r = ajouterDicte(r.texte, 'bonjour je viens', r.segment)
+    expect(r.texte).toBe('Bonjour je viens de parler')
+  })
 })
 
 describe('messageDictee', () => {

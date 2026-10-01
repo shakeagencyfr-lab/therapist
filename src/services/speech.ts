@@ -82,17 +82,19 @@ export function isSpeechSupported(): boolean {
 }
 
 /**
- * Deux textes comparables : casse, blancs et ponctuation finale mis de côté.
+ * Deux textes comparables : casse, blancs et ponctuation mis de côté.
  *
- * C'est en finalisant que le navigateur pose les majuscules et le point. La
- * même phrase republiée ne doit pas passer pour une autre à cause d'eux.
+ * C'est en finalisant que le navigateur pose les majuscules, les virgules et
+ * le point. La même phrase republiée ne doit pas passer pour une autre à
+ * cause d'eux.
  */
 function cle(texte: string): string {
   return texte
+    .replace(/[’`]/g, "'")
+    .replace(/[.,;:!?…«»"()]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase()
-    .replace(/[.,;:!?…]+$/, '')
 }
 
 /**
@@ -189,6 +191,7 @@ export interface SegmentFinal {
 export function segmentsInedits(
   resultats: ResultatBrut[],
   transmis: string[],
+  cumul?: MemoireCumulative,
 ): { finals: SegmentFinal[]; interim: string } {
   const finals: SegmentFinal[] = []
   let interim = ''
@@ -202,11 +205,63 @@ export function segmentsInedits(
     // Cet index avait déjà parlé : sa phrase s'allonge, elle ne recommence
     // pas. C'est la seule information qui distingue les deux cas, et elle
     // n'existe qu'ici.
-    const suite = transmis[i] !== undefined
+    let suite = transmis[i] !== undefined
     transmis[i] = r.texte
+    if (cumul && !suite && cumul.ligne) {
+      // Répétition, ou version plus courte de la ligne en cours : rien de neuf.
+      if (prolonge(r.texte, cumul.ligne)) continue
+      // La même phrase, plus longue, arrivée sous un nouvel index.
+      suite = prolonge(cumul.ligne, r.texte)
+    }
+    if (cumul) cumul.ligne = ligneApres(cumul.ligne, r.texte, suite)
     finals.push({ texte: r.texte, suite })
   }
   return { finals, interim }
+}
+
+/**
+ * La mémoire d'une écoute sur un navigateur CUMULATIF.
+ *
+ * Chrome sur Android ne republie pas seulement le même résultat en
+ * l'allongeant : il ouvre un NOUVEL index, marqué définitif, pour chaque
+ * version de la phrase en cours — et en répète certaines à l'identique.
+ * L'index ne dit alors plus rien, et la séance s'empilait ainsi :
+ *
+ *     bonjour
+ *     bonjour
+ *     bonjour je
+ *     bonjour je viens
+ *     bonjour je viens
+ *
+ * Sur ces navigateurs on compare donc chaque résultat neuf à la DERNIÈRE
+ * LIGNE écrite par cette écoute : s'il la répète ou en est une version plus
+ * courte, il n'apporte rien ; s'il la prolonge, il la remplace. Le prix est
+ * connu et accepté : « oui » puis « oui bien sûr », dits coup sur coup, y
+ * deviennent une seule ligne. Ailleurs, l'index suffit et on ne le paie pas.
+ */
+export interface MemoireCumulative {
+  /** La dernière ligne écrite par cette écoute, telle qu'appendSegment la laisse. */
+  ligne: string
+}
+
+/** La dernière ligne une fois le segment versé — la règle d'appendSegment. */
+function ligneApres(ligne: string, segment: string, suite: boolean): string {
+  if (suite && ligne) {
+    if (prolonge(ligne, segment)) return segment
+    if (prolonge(segment, ligne)) return ligne
+  }
+  return segment
+}
+
+/**
+ * Ce navigateur publie-t-il chaque version de la phrase sous un nouvel index ?
+ *
+ * Android, quel que soit le navigateur : Chrome, Samsung Internet et Edge y
+ * partagent le même service de reconnaissance, et le même travers.
+ */
+export function reconnaissanceCumulative(agent?: string): boolean {
+  const ua = agent ?? (typeof navigator === 'undefined' ? '' : navigator.userAgent)
+  return /Android/i.test(ua)
 }
 
 /**
@@ -329,6 +384,7 @@ export function createTranscriber(
   // Capturée dans une constante non nullable : `construire` est appelée depuis
   // un rappel, où le rétrécissement de type ne survit pas.
   const Recognizer: SpeechRecognizerConstructor = Classe
+  const cumulative = reconnaissanceCumulative()
 
   let recognizer: SpeechRecognizer | null = null
   let active = false
@@ -402,6 +458,8 @@ export function createTranscriber(
      * l'objet construit ici : une nouvelle écoute repart de zéro.
      */
     const transmis: string[] = []
+    /** Sur Android seulement : voir MemoireCumulative. */
+    const cumul: MemoireCumulative | undefined = cumulative ? { ligne: '' } : undefined
 
     r.onresult = (event) => {
       // On lit toute la liste et non depuis `event.resultIndex` : sur Android
@@ -411,7 +469,7 @@ export function createTranscriber(
       for (let i = 0; i < event.results.length; i++) {
         resultats.push({ texte: event.results[i][0].transcript, definitif: event.results[i].isFinal })
       }
-      const { finals, interim } = segmentsInedits(resultats, transmis)
+      const { finals, interim } = segmentsInedits(resultats, transmis, cumul)
       for (const segment of finals) handlers.onFinal(segment.texte, segment.suite)
       if (interim) handlers.onInterim(interim)
     }

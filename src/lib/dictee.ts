@@ -50,13 +50,13 @@ export function ajouterDicte(
 
   if (precedent) {
     // Répétition à l'identique, ou republication plus courte : rien à écrire.
-    if (propre === precedent || precedent.startsWith(propre)) {
+    if (cle(propre) === cle(precedent) || cle(precedent).startsWith(cle(propre))) {
       return { texte: courant, segment: precedent }
     }
     /* La même phrase, plus complète : elle remplace la précédente là où elle
        se trouve — à la fin. On ne cherche qu'à la fin, pour ne pas réécrire
        une phrase identique prononcée plus tôt dans le texte. */
-    if (propre.startsWith(precedent) && courant.endsWith(precedent)) {
+    if (cle(propre).startsWith(cle(precedent)) && courant.endsWith(precedent)) {
       return { texte: courant.slice(0, courant.length - precedent.length) + propre, segment: propre }
     }
   }

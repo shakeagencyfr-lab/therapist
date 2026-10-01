@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { appendSegment, segmentsInedits, type ResultatBrut } from './speech'
+import {
+  appendSegment,
+  reconnaissanceCumulative,
+  segmentsInedits,
+  type MemoireCumulative,
+  type ResultatBrut,
+} from './speech'
 
 describe('appendSegment — une ligne par prise de parole', () => {
   it('sépare deux segments par un retour à la ligne', () => {
@@ -77,11 +83,12 @@ describe('appendSegment — une phrase qui s’allonge remplace la précédente'
  * les six cents mots — et celui qui, mal corrigé, faisait fondre la séance
  * entière sur une seule ligne.
  */
-function rejouer(evenements: ResultatBrut[][]): string {
+function rejouer(evenements: ResultatBrut[][], cumulatif = false, depart = ''): string {
   const transmis: string[] = []
-  let transcript = ''
+  const cumul: MemoireCumulative | undefined = cumulatif ? { ligne: '' } : undefined
+  let transcript = depart
   for (const resultats of evenements) {
-    const { finals } = segmentsInedits(resultats, transmis)
+    const { finals } = segmentsInedits(resultats, transmis, cumul)
     for (const s of finals) transcript = appendSegment(transcript, s.texte, s.suite)
   }
   return transcript
@@ -142,5 +149,98 @@ describe('la séance rejouée telle qu’Android la sert', () => {
     // « oui bien sûr » prolonge « oui », mais c'est un AUTRE résultat : il a
     // sa ligne. C'est ce que la concaténation faisait disparaître.
     expect(transcript.split('\n')).toHaveLength(2)
+  })
+})
+
+/**
+ * Le travers observé sur un téléphone Android : chaque version de la phrase
+ * en cours arrive sous un NOUVEL index, marquée définitive, et certaines se
+ * répètent à l'identique. L'écran affichait onze lignes pour une phrase.
+ */
+describe('Android : chaque version de la phrase sous un nouvel index', () => {
+  const versions = [
+    'bonjour',
+    'bonjour',
+    'bonjour je',
+    'bonjour je viens',
+    'bonjour je viens',
+    'bonjour je viens de',
+    'bonjour je viens de parler',
+    'bonjour je viens de parler',
+    "bonjour je viens de parler d'un",
+    "bonjour je viens de parler d'un",
+    "bonjour je viens de parler d'un problème",
+    "bonjour je viens de parler d'un problème",
+  ]
+  /** La liste s'allonge d'un résultat définitif à chaque événement. */
+  const evenements = versions.map((_, n) => versions.slice(0, n + 1).map(F))
+
+  it('rend une seule ligne, la plus complète', () => {
+    expect(rejouer(evenements, true)).toBe("bonjour je viens de parler d'un problème")
+  })
+
+  it('sans ce mode, la même séance s’empilait sur onze lignes', () => {
+    // Le symptôme d'origine, gardé pour qu'on voie ce que le mode corrige.
+    expect(rejouer(evenements, false).split('\n').length).toBeGreaterThan(5)
+  })
+
+  it('ne touche pas aux lignes écrites avant cette écoute', () => {
+    const t = rejouer(evenements, true, 'avant la coupure')
+    expect(t.split('\n')).toEqual(['avant la coupure', "bonjour je viens de parler d'un problème"])
+  })
+
+  it('garde une ligne à part pour la prise de parole suivante', () => {
+    const t = rejouer(
+      [
+        [F('je me sens')],
+        [F('je me sens'), F('je me sens mieux')],
+        [F('je me sens'), F('je me sens mieux'), F('et vous')],
+        [F('je me sens'), F('je me sens mieux'), F('et vous'), F('et vous comment allez-vous')],
+      ],
+      true,
+    )
+    expect(t.split('\n')).toEqual(['je me sens mieux', 'et vous comment allez-vous'])
+  })
+
+  it('reconnaît la même phrase malgré la majuscule et la ponctuation finales', () => {
+    const t = rejouer([[F('bonjour je viens')], [F('bonjour je viens'), F('Bonjour, je viens de parler.')]], true)
+    expect(t).toBe('Bonjour, je viens de parler.')
+  })
+
+  it('ignore une version plus courte arrivée après la longue', () => {
+    const t = rejouer([[F('je me sens mieux')], [F('je me sens mieux'), F('je me sens')]], true)
+    expect(t).toBe('je me sens mieux')
+  })
+
+  it('sans ce mode, les tours de parole restent séparés comme avant', () => {
+    expect(rejouer([[F('oui')], [F('oui'), F('oui bien sûr')]], false).split('\n')).toHaveLength(2)
+  })
+})
+
+describe('reconnaissanceCumulative', () => {
+  it('vaut pour Android, quel que soit le navigateur', () => {
+    expect(
+      reconnaissanceCumulative(
+        'Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Mobile Safari/537.36',
+      ),
+    ).toBe(true)
+    expect(
+      reconnaissanceCumulative(
+        'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/25.0 Chrome/121.0 Mobile Safari/537.36',
+      ),
+    ).toBe(true)
+  })
+
+  it('ne vaut ni pour un ordinateur ni pour un iPhone', () => {
+    expect(
+      reconnaissanceCumulative(
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36',
+      ),
+    ).toBe(false)
+    expect(
+      reconnaissanceCumulative(
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
+      ),
+    ).toBe(false)
   })
 })
