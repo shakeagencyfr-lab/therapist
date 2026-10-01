@@ -8,12 +8,14 @@ import { echecDeRetouche, generateModule, messageDEchec, retoucher } from '@/ser
 import { RetourIA } from '@/components/retouche/RetourIA'
 import { RETOUCHE_ABANDONNEE, versionDe, type IssueRetouche, type RetourDeLaPraticienne } from '@/lib/retouche'
 import { useMaybeCabinet } from '@/cabinet/context'
+import { hypnoseOuverte, useDroits } from '@/cabinet/droits'
 import { GesteAConfirmer } from '@/components/GesteAConfirmer'
 import { useDevis } from '@/cabinet/useJetons'
 import { CoutEnJetons } from '@/views/jetons/CoutEnJetons'
 import { useStore } from '@/state/store'
 import type { AppState } from '@/state/state'
 import type { CustomModule, GeneratedModule, PatientId, QuizQuestion } from '@/types/domain'
+import { BibliothequeHypnoses, OngletsAtelier } from './BibliothequeHypnoses'
 import s from './AtelierView.module.css'
 
 /* Bibliothèque du cabinet ------------------------------------------- */
@@ -100,6 +102,7 @@ function QuizItem({ question }: { question: QuizQuestion }) {
 export function AtelierView() {
   const { state, set, read } = useStore()
   const cabinet = useMaybeCabinet()
+  const droits = useDroits()
   /** Assignation en cours : le bouton ne se reclique pas. */
   const [assignation, setAssignation] = useState(false)
   /* Un refus d'assigner se dit à côté du bouton d'assignation : dans la
@@ -273,11 +276,31 @@ export function AtelierView() {
     set((prev) => ({ aAssign: { ...prev.aAssign, [key]: !prev.aAssign[key] } }))
   }
 
+  /* LA BIBLIOTHÈQUE D'HYPNOSES (0071), avec l'option Hypnose seulement.
+     Sans elle, l'atelier reste celui des modules, sans onglet — et un onglet
+     resté sur « Hypnoses » quand l'option se ferme retombe sur les modules. */
+  const onglets = hypnoseOuverte(droits)
+  const onglet = onglets ? state.aOnglet : 'modules'
+  const choisirOnglet = (aOnglet: 'modules' | 'hypnoses') => set({ aOnglet })
+
+  if (onglet === 'hypnoses') {
+    return (
+      <div className={s.wrap}>
+        <div className={s.crumb}>
+          <Overline>Atelier</Overline>
+        </div>
+        <OngletsAtelier valeur="hypnoses" onChange={choisirOnglet} />
+        <BibliothequeHypnoses />
+      </div>
+    )
+  }
+
   return (
     <div className={s.wrap}>
       <div className={s.crumb}>
-        <Overline>Atelier de modules</Overline>
+        <Overline>{onglets ? 'Atelier' : 'Atelier de modules'}</Overline>
       </div>
+      {onglets ? <OngletsAtelier valeur="modules" onChange={choisirOnglet} /> : null}
       <h1 className={s.h1}>Créer un module sur mesure</h1>
       <p className={s.intro}>
         Décrivez ce que vous voulez faire travailler entre deux séances. L'IA propose une consigne

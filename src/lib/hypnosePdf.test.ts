@@ -105,3 +105,29 @@ describe('composerHypnose — la marque du cabinet', () => {
     expect(accentLisible('javascript:')).toEqual([0x6e, 0x52, 0x30])
   })
 })
+
+/**
+ * Une hypnose de la bibliothèque du cabinet (0071) ne s'écrit pour personne :
+ * son PDF ne porte que la date et le cabinet — sans séparateur orphelin là
+ * où le prénom se serait trouvé —, et la marque du cabinet s'y applique.
+ */
+describe('composerHypnose — sans patient, une hypnose de la bibliothèque', () => {
+  it('la page de garde et le pied de page tiennent sans prénom', async () => {
+    const brut = (
+      await composerHypnose(HYPNOSE, '', 'Cabinet Fontaine', {
+        logo: { dataUrl: PIXEL, largeur: 1, hauteur: 1 },
+        accent: '#2E6B5E',
+      })
+    ).output()
+    expect(brut).toContain('(29 septembre 2026 · Cabinet Fontaine)')
+    expect(brut).not.toMatch(/\( · /)
+    expect(brut).toMatch(/\/Subtype \/Image/)
+    expect(brut).toContain('0.18 0.42 0.37 RG')
+  })
+
+  it('le fichier se nomme d’après le titre seul', () => {
+    expect(nomDuFichier('', 'La barque qui rentre au port', '2026-09-29T15:27:00Z')).toBe(
+      'La-barque-qui-rentre-au-port_2026-09-29.pdf',
+    )
+  })
+})

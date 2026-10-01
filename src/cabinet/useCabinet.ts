@@ -28,6 +28,7 @@ import { gestesDossier, type GestesDossier } from './dossier'
 import { gestesRappels, type GestesRappels } from './rappelsReguliers'
 import { gestesParcoursTypes, type GestesParcoursTypes } from './parcoursTypes'
 import { gestesRetouches, type GestesRetouches } from './retouches'
+import { gestesBibliothequeHypnoses, type GestesBibliothequeHypnoses } from './bibliothequeHypnoses'
 import { libelleProchaineSeance } from '@/lib/agenda'
 import {
   marquerLue,
@@ -234,6 +235,8 @@ interface HypnoseRow {
   intention: string | null
   complete: boolean
   created_at: string
+  /** Une copie attribuée depuis la bibliothèque du cabinet (0071). */
+  bibliotheque_id?: string | null
 }
 
 interface MouvementRow {
@@ -410,6 +413,7 @@ function assembler(
         intention: h.intention ?? '',
         complete: h.complete,
         createdAt: h.created_at,
+        bibliothequeId: h.bibliotheque_id ?? null,
         mouvements: mouvements
           .filter((m) => m.hypnose_id === h.id)
           .sort((a, b) => a.rang - b.rang)
@@ -738,8 +742,12 @@ export interface CabinetData {
    * induction, qu'une retouche peut changer.
    */
   renommerHypnose: (hypnoseId: string, titre: string) => Promise<Resultat>
-  /** Supprime une fiche et tout ce qu'elle porte. Irréversible. */
-  supprimerPatiente: (patientId: PatientId) => Promise<Resultat>
+  /**
+   * Supprime une fiche et tout ce qu'elle porte. Irréversible. Avec
+   * `retirerDeLaBibliotheque`, les hypnoses de la bibliothèque nées de ses
+   * séances partent d'abord (0071).
+   */
+  supprimerPatiente: (patientId: PatientId, options?: OptionsSuppression) => Promise<Resultat>
   /** Supprime une hypnose et ses mouvements. */
   supprimerHypnose: (hypnoseId: string) => Promise<Resultat>
   /**
@@ -764,6 +772,20 @@ export interface CabinetData {
    * écrits et lus À LA DEMANDE — voir src/cabinet/retouches.ts.
    */
   retouches: GestesRetouches
+  /**
+   * La bibliothèque d'hypnoses du cabinet (0071), lue et écrite À LA DEMANDE
+   * par l'onglet « Hypnoses » de l'atelier — voir src/cabinet/bibliothequeHypnoses.ts.
+   */
+  bibliothequeHypnoses: GestesBibliothequeHypnoses
+}
+
+/** Ce que la suppression d'une fiche emporte en plus d'elle. */
+export interface OptionsSuppression {
+  /**
+   * Retirer d'abord de la bibliothèque les hypnoses nées de ses séances
+   * (0071). Sans cela, elles y restent, sans plus désigner personne.
+   */
+  retirerDeLaBibliotheque?: boolean
 }
 
 export function useCabinet(cabinetId: string | null): CabinetData {
@@ -784,6 +806,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
   const rappels = useMemo(() => gestesRappels(cabinetId), [cabinetId])
   const parcoursTypes = useMemo(() => gestesParcoursTypes(cabinetId), [cabinetId])
   const retouches = useMemo(() => gestesRetouches(cabinetId), [cabinetId])
+  const bibliothequeHypnoses = useMemo(() => gestesBibliothequeHypnoses(cabinetId), [cabinetId])
 
   const recharger = useCallback(async () => {
     const db = supabase()
@@ -831,7 +854,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
         .limit(30),
       db
         .from('hypnoses')
-        .select('id, patient_id, titre, intention, complete, created_at')
+        .select('id, patient_id, titre, intention, complete, created_at, bibliotheque_id')
         .order('created_at', { ascending: false }),
       db.from('hypnose_mouvements').select('hypnose_id, mouvement, rang, titre, texte').order('rang'),
       // Le dernier brouillon de chaque patient : il porte les formulations
@@ -2573,15 +2596,25 @@ export function useCabinet(cabinetId: string | null): CabinetData {
   )
 
   const supprimerPatiente = useCallback(
-    async (patientId: PatientId): Promise<Resultat> => {
+    async (patientId: PatientId, options: OptionsSuppression = {}): Promise<Resultat> => {
       const db = supabase()
       if (!db || !cabinetId) return { ok: false, message: '' }
+      /* LA BIBLIOTHÈQUE D'ABORD. Ses hypnoses nées des séances de ce patient
+         ne partent pas en cascade (0071) : elles sont au cabinet. Quand la
+         praticienne demande à les retirer, elles partent AVANT la fiche — un
+         échec n'a alors rien supprimé, et la fiche reste à re-supprimer.
+         Dans l'autre ordre, la fiche partie effacerait le lien, et plus rien
+         ne permettrait de retrouver lesquelles retirer. */
+      if (options.retirerDeLaBibliotheque) {
+        const r = await bibliothequeHypnoses.retirerNeesDe(patientId)
+        if (!r.ok) return r
+      }
       const { error } = await db.from('patients').delete().eq('id', patientId)
       if (error) return { ok: false, message: "La fiche n'a pas pu être supprimée." }
       await recharger()
       return { ok: true, message: '' }
     },
-    [cabinetId, recharger],
+    [bibliothequeHypnoses, cabinetId, recharger],
   )
 
   const enregistrerProfil = useCallback(
@@ -2688,6 +2721,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     rappels,
     parcoursTypes,
     retouches,
+    bibliothequeHypnoses,
   }
 }
 

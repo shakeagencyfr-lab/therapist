@@ -270,7 +270,12 @@ export const HYPNOSE_SYSTEM =
   "Tu réponds uniquement par du JSON valide, sans texte autour et sans balises de code."
 
 export interface HypnoseInput {
-  context: PatientContext
+  /**
+   * Le dossier du patient pour qui elle s'écrit ; null pour une hypnose de la
+   * bibliothèque du cabinet, écrite dans l'atelier sans personne en tête
+   * (0071). Les formulations, les fils et la synthèse sont alors vides.
+   */
+  context: PatientContext | null
   /** Les formulations marquantes relevées dans la séance. */
   mots: string[]
   /** Les fils de la séance. */
@@ -284,11 +289,38 @@ export interface HypnoseInput {
 }
 
 /**
+ * Pour personne en particulier : une hypnose de la bibliothèque du cabinet
+ * (0071), écrite dans l'atelier.
+ *
+ * La thérapeute la lira à plusieurs personnes. Écrite comme les autres, elle
+ * s'inventerait un destinataire — un prénom, un métier, un souvenir d'enfance
+ * — que le patient suivant entendrait comme le sien, ou pas du tout. Le texte
+ * le dit donc au modèle d'entrée : un script général, sans détail personnel,
+ * qui s'adresse à « vous » et se laisse adapter.
+ */
+export const POUR_LA_BIBLIOTHEQUE =
+  "Pour qui : PERSONNE EN PARTICULIER. Cette hypnose rejoint la bibliothèque du cabinet : la thérapeute la lira, telle quelle ou presque, à plusieurs des personnes qu'elle accompagne. C'est un script général, pas une séance écrite pour quelqu'un.\n" +
+  "— Tu n'inventes AUCUN détail personnel : ni prénom ni nom, ni âge, ni métier, ni histoire, ni souvenir, ni lieu de vie, ni proche. Aucune séance précédente n'existe : n'y fais pas référence.\n" +
+  "— Tu t'adresses à « vous », et tu tournes tes phrases pour qu'elles conviennent à une femme comme à un homme : « vous vous installez », « votre corps se pose », plutôt qu'un adjectif accordé.\n" +
+  "— Des images que chacun peut habiter, et des permissions assez larges pour que chacun y trouve sa propre version : « peut-être un lieu que vous connaissez, peut-être un lieu que vous imaginez ».\n" +
+  "— La thérapeute l'adaptera à la personne en face d'elle : des phrases simples, qu'on peut modifier sans défaire le reste.\n"
+
+/**
  * Pour qui, et sur quelle matière : ce que chaque mouvement lit avant d'être
  * écrit — ou retouché (section 6).
+ *
+ * Sans dossier, c'est une hypnose de la bibliothèque : l'intention seule, et
+ * rien de ce qu'une séance relève — des formulations sans patient seraient
+ * celles de quelqu'un.
  */
 export function dossierHypnose(input: Omit<HypnoseInput, 'precedents'>): string {
   const c = input.context
+  if (!c) {
+    return (
+      POUR_LA_BIBLIOTHEQUE +
+      (input.intention ? "Ce que la thérapeute veut travailler avec cette hypnose : " + input.intention + "\n" : "")
+    )
+  }
   const prenom = c.name.split(' ')[0] ?? c.name
 
   return (

@@ -202,6 +202,12 @@ export interface AppState {
   aAssign: Record<PatientId, boolean>
   aNotice: string
   aLastAssigned: string
+  /**
+   * L'onglet de l'atelier : ses modules, ou sa bibliothèque d'hypnoses
+   * (0071). Le second ne paraît qu'avec l'option Hypnose ; sans elle,
+   * l'atelier montre ses modules quoi que dise ce champ.
+   */
+  aOnglet: 'modules' | 'hypnoses'
 
   /* Bibliothèque audio -------------------------------------------- */
   lib: LibraryAudio[]
@@ -376,6 +382,7 @@ export const initialState: AppState = {
   aAssign: {},
   aNotice: '',
   aLastAssigned: '',
+  aOnglet: 'modules',
 
   lib: AUDIO_LIBRARY,
   libSel: 'a1',

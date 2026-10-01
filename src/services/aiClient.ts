@@ -379,7 +379,12 @@ export const NOM_MOUVEMENT: Record<MouvementHypnose, string> = {
 }
 
 export interface HypnoseInput {
-  context: PatientContext
+  /**
+   * Le dossier du patient ; null pour une hypnose de la bibliothèque du
+   * cabinet, écrite dans l'atelier pour personne en particulier (0071) — le
+   * serveur exige alors une intention, et ne lit ni formulations ni synthèse.
+   */
+  context: PatientContext | null
   /** Les formulations marquantes relevées dans la séance. */
   mots: string[]
   themes: string[]
@@ -387,8 +392,9 @@ export interface HypnoseInput {
   /** Ce que la thérapeute veut travailler, si elle le précise. */
   intention: string
   /**
-   * L'hypnose ouverte en base avant l'écriture (useEcritureHypnose). En mode
-   * jetons, elle relie les quatre mouvements : l'hypnose se paie une fois.
+   * L'hypnose ouverte en base avant l'écriture (useEcritureHypnose) — ou la
+   * ligne de la bibliothèque (useEcritureBibliotheque). En mode jetons, elle
+   * relie les quatre mouvements : l'hypnose se paie une fois.
    */
   hypnoseId?: string | null
 }

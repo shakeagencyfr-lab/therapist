@@ -3,6 +3,7 @@ import { Button, Card, Chip, Notice, TextInput, Title } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { enRegle, hypnoseOuverte, useDroits } from '@/cabinet/droits'
 import { etatAcces, libelleAcces, normaliserAdresse } from '@/lib/accesPatient'
+import { caseDeLaSuppression, phraseDeLaSuppression } from '@/lib/bibliothequeHypnoses'
 import { instantDeParis, jourEtHeure, refusSeance } from '@/lib/agenda'
 import { patientOf } from '@/state/selectors'
 import { useAppState } from '@/state/store'
@@ -70,6 +71,12 @@ export function FicheSettings({
   /** La suppression se confirme en toutes lettres : elle est irréversible. */
   const [suppression, setSuppression] = useState('')
   const [supprime, setSupprime] = useState(false)
+  /* Les hypnoses de la bibliothèque du cabinet nées de ses séances (0071).
+     Elles ne partent pas en cascade avec la fiche — elles sont au cabinet —,
+     mais elles peuvent porter ses mots : la case de les retirer est cochée
+     par défaut. `null` : le compte n'a pas pu être lu ; la case reste. */
+  const [neesBibliotheque, setNeesBibliotheque] = useState<number | null>(0)
+  const [retirerBibliotheque, setRetirerBibliotheque] = useState(true)
   /** Clôture en cours : elle demande un aller-retour à la base. */
   const [cloture, setCloture] = useState(false)
   /** L'adresse telle qu'on la tape, avant de l'enregistrer. */
@@ -95,10 +102,26 @@ export function FicheSettings({
     setOuvert(ouvertParDefaut)
     setNouveau('')
     setSuppression('')
+    setRetirerBibliotheque(true)
     setAdresse(fiche.email ?? '')
     setChangerAdresse(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.sel])
+
+  /* Le compte se lit à l'ouverture du volet, là où la suppression se décide :
+     la fiche n'a pas à interroger la bibliothèque à chaque affichage. */
+  const gestesBibliotheque = cabinet?.reel ? cabinet.bibliothequeHypnoses : null
+  useEffect(() => {
+    if (!ouvert || !gestesBibliotheque || !state.sel) return
+    let vivant = true
+    setNeesBibliotheque(0)
+    void gestesBibliotheque.neesDe(state.sel).then((n) => {
+      if (vivant) setNeesBibliotheque(n)
+    })
+    return () => {
+      vivant = false
+    }
+  }, [ouvert, gestesBibliotheque, state.sel])
 
   if (!fiche || !cabinet?.reel) return null
 
@@ -535,8 +558,26 @@ export function FicheSettings({
               Son dossier, ses séances, son anamnèse, vos notes de suivi, ses modules, ses audios,
               son journal et ses hypnoses partent avec la fiche. Rien ne se récupère. Seules ses
               notes d’honoraires restent à votre registre, à son nom : ce sont des pièces
-              comptables. Pour confirmer, recopiez son nom.
+              comptables.
+              {phraseDeLaSuppression(neesBibliotheque, retirerBibliotheque)} Pour confirmer,
+              recopiez son nom.
             </span>
+            {/* La bibliothèque du cabinet garde les hypnoses écrites pendant
+                ses séances (0071) : elles n'ont plus son nom, mais peuvent
+                porter ses mots. Retirées par défaut, avant la fiche. */}
+            {neesBibliotheque !== 0 ? (
+              <label className={s.optionLigne}>
+                <input
+                  type="checkbox"
+                  checked={retirerBibliotheque}
+                  disabled={supprime}
+                  onChange={(e) => setRetirerBibliotheque(e.target.checked)}
+                />
+                <span>
+                  <span className={s.hint}>{caseDeLaSuppression(neesBibliotheque)}</span>
+                </span>
+              </label>
+            ) : null}
             <div className={s.dangerLigne}>
               <TextInput
                 value={suppression}
@@ -551,15 +592,19 @@ export function FicheSettings({
                 disabled={supprime || suppression.trim() !== fiche.name}
                 onClick={() => {
                   setSupprime(true)
-                  void cabinet?.supprimerPatiente(state.sel).then((r) => {
-                    if (!r.ok) {
-                      setSupprime(false)
-                      setNotice({ tone: 'warn', text: r.message })
-                      return
-                    }
-                    // Une fiche de moins : le compte des places suit.
-                    void droits?.recharger()
-                  })
+                  void cabinet
+                    ?.supprimerPatiente(state.sel, {
+                      retirerDeLaBibliotheque: neesBibliotheque !== 0 && retirerBibliotheque,
+                    })
+                    .then((r) => {
+                      if (!r.ok) {
+                        setSupprime(false)
+                        setNotice({ tone: 'warn', text: r.message })
+                        return
+                      }
+                      // Une fiche de moins : le compte des places suit.
+                      void droits?.recharger()
+                    })
                 }}
               >
                 {supprime ? 'Suppression…' : 'Supprimer définitivement'}

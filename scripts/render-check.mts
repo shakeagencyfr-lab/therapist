@@ -77,6 +77,10 @@ import { TexteMouvement } from '../src/views/therapist/TexteMouvement'
 import { RetourIA } from '../src/components/retouche/RetourIA'
 import { FenetreRetouche } from '../src/components/retouche/FenetreRetouche'
 import { VuePreferencesIA } from '../src/views/integrations/PreferencesIA'
+import { BibliothequeHypnoses } from '../src/views/atelier/BibliothequeHypnoses'
+import { AVERTISSEMENT_SEANCE } from '../src/lib/bibliothequeHypnoses'
+import { BIBLIOTHEQUE_HYPNOSES_DEMO } from '../src/data/bibliothequeHypnoses'
+import { HypnosesFiche } from '../src/views/therapist/HypnosesFiche'
 
 const noms = Object.values(PATIENTS).map((p) => p.name)
 const extraits = Object.values(PATIENTS).flatMap((p) => [
@@ -2141,6 +2145,146 @@ try {
   } else {
     console.log(
       `✓ retouches        ${String(vide.length).padStart(6)} octets · pouces nommés, fenêtre accessible, consigne relue sans nom ni coupe, prix en jetons, préférences, rien en démonstration`,
+    )
+  }
+}
+
+/* 11. LA BIBLIOTHÈQUE D'HYPNOSES (0071). L'onglet « Hypnoses » de l'atelier ne
+   paraît qu'avec l'option Hypnose : sans elle, l'atelier est celui des
+   modules, sans onglet — même resté sur « Hypnoses ». Avec elle, la
+   bibliothèque de démonstration se lit, ne nomme aucun patient, ne porte pas
+   la marque de la plateforme, et une hypnose née en séance demande d'être
+   relue avant d'être attribuée. */
+{
+  const manque: string[] = []
+  const echapper = (t: string) => t.replace(/'/g, '&#x27;')
+  const droitsHypnose = (hypnose: boolean) => ({
+    droits: {
+      maxPatients: null,
+      patientesActives: 0,
+      shop: true,
+      marqueBlanche: true,
+      site: true,
+      offre: 'Cabinet',
+      offreCode: 'cabinet',
+      enRegle: true,
+      statut: 'actif',
+      echeance: null,
+      hypnose,
+    },
+    chargement: false,
+    recharger: async () => {},
+  })
+  const atelier = (hypnose: boolean, initial: Partial<AppState> = {}) => {
+    try {
+      return renderToString(
+        h(
+          AppStoreProvider,
+          { initial: { space: 'cabinet', mode: 'atelier', ...initial } },
+          h(DroitsContexte.Provider, { value: droitsHypnose(hypnose) }, h(App)),
+        ),
+      )
+    } catch (err) {
+      manque.push(`l'atelier explose : ${(err as Error).message}`)
+      return ''
+    }
+  }
+  const ONGLET = '>Hypnoses</button>'
+
+  const sans = atelier(false)
+  if (sans.includes(ONGLET) || sans.includes('Hypnoses du cabinet')) manque.push("l'onglet paraît sans l'option Hypnose")
+  if (!sans.includes('Atelier de modules') || !sans.includes('Créer un module sur mesure')) {
+    manque.push("sans l'option, l'atelier n'est plus celui d'avant")
+  }
+  const resteSurHypnoses = atelier(false, { aOnglet: 'hypnoses' })
+  if (resteSurHypnoses.includes('Hypnoses du cabinet') || !resteSurHypnoses.includes('Créer un module sur mesure')) {
+    manque.push("l'option fermée, un onglet resté sur « Hypnoses » montre encore la bibliothèque")
+  }
+
+  const avec = atelier(true)
+  if (!avec.includes(ONGLET) || !avec.includes('>Modules</button>')) manque.push("l'onglet manque avec l'option Hypnose")
+  if (!avec.includes('Créer un module sur mesure')) manque.push("l'onglet « Modules » ne s'ouvre plus d'abord")
+
+  const onglet = atelier(true, { aOnglet: 'hypnoses' })
+  for (const attendu of [
+    'Créer une hypnose',
+    'Hypnoses du cabinet',
+    'Écrite en séance',
+    'Écrite dans l’atelier',
+    'attribuée à 2 patients',
+    'La maison qui s’éteint',
+    'Retrouver le sommeil',
+    'Attribuer à…',
+    echapper("Écrire l'hypnose"),
+  ]) {
+    if (!onglet.includes(attendu)) manque.push(`l'onglet « Hypnoses » ne dit pas « ${attendu} »`)
+  }
+  if (onglet.includes('Créer un module sur mesure')) manque.push("l'onglet « Hypnoses » montre aussi les modules")
+
+  // La bibliothèque seule, liste fermée : aucun nom, aucun extrait de dossier, aucune marque.
+  const bibliotheque = renderToString(h(AppStoreProvider, { initial: { space: 'cabinet' } }, h(BibliothequeHypnoses)))
+  const vus = noms
+    .concat(noms.map((n) => n.split(' ')[0] ?? n))
+    .concat(extraits)
+    .filter((n) => n && bibliotheque.includes(n))
+  if (vus.length) manque.push(`la bibliothèque nomme ou cite un patient : ${vus.join(', ')}`)
+  if (/Klaro/i.test(bibliotheque)) manque.push('la bibliothèque porte la marque de la plateforme')
+
+  // Attribuer une hypnose née en séance : relire d'abord. Une hypnose d'atelier n'a rien à relire.
+  const ouvrir = (attribution: string) =>
+    renderToString(
+      h(AppStoreProvider, { initial: { space: 'cabinet' } }, h(BibliothequeHypnoses, { initial: { attribution } })),
+    )
+  const seance = ouvrir('demo-bibliotheque-ancrage')
+  if (!seance.includes(echapper(AVERTISSEMENT_SEANCE))) manque.push("l'attribution d'une hypnose née en séance ne demande pas de la relire")
+  if (!seance.includes('aria-pressed="false"') || !seance.includes('Aucun patient sélectionné')) {
+    manque.push("l'attribution ne propose pas de cocher les patients")
+  }
+  const atelierSeul = ouvrir('demo-bibliotheque-sommeil')
+  if (atelierSeul.includes(echapper(AVERTISSEMENT_SEANCE))) manque.push("une hypnose d'atelier porte l'avertissement d'une hypnose de séance")
+  if (!atelierSeul.includes('déjà attribuée')) manque.push("les patients qui l'ont déjà ne sont pas signalés")
+
+  // Sur la fiche, une copie venue de la bibliothèque le dit.
+  const premiere = Object.keys(PATIENTS)[0] ?? ''
+  // La carte vit dans le volet « Profil », tenu par l'écran : on la rend seule.
+  const fiche = renderToString(
+    h(
+      AppStoreProvider,
+      {
+        initial: {
+          space: 'cabinet',
+          mode: 'therapist',
+          sel: premiere,
+          patients: {
+            ...PATIENTS,
+            [premiere]: {
+              ...PATIENTS[premiere]!,
+              hypnoses: [
+                {
+                  id: 'copie-1',
+                  titre: 'La maison qui s’éteint',
+                  intention: '',
+                  complete: true,
+                  createdAt: '2026-09-30T10:00:00Z',
+                  bibliothequeId: 'demo-bibliotheque-sommeil',
+                  mouvements: BIBLIOTHEQUE_HYPNOSES_DEMO[0]!.mouvements,
+                },
+              ],
+            },
+          },
+        },
+      },
+      h(HypnosesFiche),
+    ),
+  )
+  if (!fiche.includes('Depuis la bibliothèque')) manque.push('une copie de la bibliothèque ne le dit pas sur la fiche')
+
+  if (manque.length) {
+    console.error(`✗ bibliothèque d'hypnoses : ${manque.join(' ; ')}`)
+    echecs++
+  } else {
+    console.log(
+      `✓ atelier/hypnoses  ${String(onglet.length).padStart(6)} octets · onglet selon l'option, aucun nom, relire avant d'attribuer`,
     )
   }
 }

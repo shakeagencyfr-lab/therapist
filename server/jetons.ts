@@ -326,7 +326,12 @@ export interface Cout {
 export interface Recherches {
   /** La séance existe-t-elle, et est-elle de CE cabinet ? */
   seanceDuCabinet(sessionId: string): Promise<boolean>
-  /** L'hypnose existe-t-elle, et est-elle de CE cabinet ? */
+  /**
+   * L'hypnose existe-t-elle, et est-elle de CE cabinet ? Sur une fiche, ou
+   * dans la bibliothèque du cabinet (0071) : une hypnose écrite dans
+   * l'atelier s'ouvre là, et le forfait de ses quatre mouvements tient à son
+   * identifiant comme à celui d'une hypnose de fiche.
+   */
   hypnoseDuCabinet(hypnoseId: string): Promise<boolean>
 }
 
@@ -348,8 +353,9 @@ export function uuidDe(valeur: unknown): string | null {
  *                  sinon, un module au barème.
  *   profile        même règle, une fois par séance.
  *   affirmations   toujours au barème.
- *   hypnose        l'hypnose doit être ouverte en base et être du cabinet, et
- *                  le mouvement l'un des quatre ; règle « hypnose ».
+ *   hypnose        l'hypnose doit être ouverte en base et être du cabinet —
+ *                  sur une fiche, ou dans sa bibliothèque (0071) —, et le
+ *                  mouvement l'un des quatre ; règle « hypnose ».
  *   revision       une retouche (0066, server/retouche.ts) : plus chère sur
  *                  un mouvement d'hypnose, toujours au barème.
  *
@@ -393,7 +399,7 @@ export async function coutDeLAppel(
       if (!hypnose || !(await r.hypnoseDuCabinet(hypnose))) {
         throw new HttpError(
           400,
-          "Cette hypnose n'est pas ouverte dans le dossier. Rechargez la page, puis relancez : rien n'a été produit, ni décompté.",
+          "Cette hypnose n'est ouverte ni dans le dossier, ni dans la bibliothèque du cabinet. Rechargez la page, puis relancez : rien n'a été produit, ni décompté.",
         )
       }
       // Le mouvement fait le forfait : il se vérifie avant de réserver.
@@ -413,7 +419,10 @@ export async function coutDeLAppel(
 
 /** Les recherches de `coutDeLAppel`, faites en base avec la clé de service. */
 export function recherchesPour(cabinetId: string, db: SupabaseClient): Recherches {
-  const existe = async (table: 'therapy_sessions' | 'hypnoses', id: string): Promise<boolean> => {
+  const existe = async (
+    table: 'therapy_sessions' | 'hypnoses' | 'bibliotheque_hypnoses',
+    id: string,
+  ): Promise<boolean> => {
     const { data, error } = await db
       .from(table)
       .select('id')
@@ -425,7 +434,10 @@ export function recherchesPour(cabinetId: string, db: SupabaseClient): Recherche
   }
   return {
     seanceDuCabinet: (id) => existe('therapy_sessions', id),
-    hypnoseDuCabinet: (id) => existe('hypnoses', id),
+    /* La fiche d'abord : c'est le cas de presque toutes les écritures, et
+       une seule lecture leur suffit. Les identifiants ne se croisent pas
+       entre les deux tables : chacune tire les siens. */
+    hypnoseDuCabinet: async (id) => (await existe('hypnoses', id)) || (await existe('bibliotheque_hypnoses', id)),
   }
 }
 
