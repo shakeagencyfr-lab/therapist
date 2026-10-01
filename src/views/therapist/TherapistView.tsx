@@ -5,7 +5,7 @@ import { libelleNonLus, totalNonLus } from '@/lib/fil'
 import { useAppState } from '@/state/store'
 import { PatientSidebar } from './PatientSidebar'
 import { PatientHeader } from './PatientHeader'
-import { FicheSettings } from './FicheSettings'
+import { FicheSettings, type GesteDeFiche } from './FicheSettings'
 import { StatsRow } from './StatsRow'
 import { WeekModules } from './WeekModules'
 import { HypnosesFiche } from '@/views/therapist/HypnosesFiche'
@@ -47,6 +47,10 @@ export function TherapistView() {
      il n'a pas à voyager dans AppState. */
   const [drawer, setDrawer] = useState(false)
   const [volet, setVolet] = useState<Volet>('suivi')
+  /* « Clore le suivi » / « Supprimer la fiche », demandés depuis l'en-tête :
+     le volet des réglages s'ouvre et descend au bon endroit. L'horodatage
+     fait rejouer la descente si l'on redemande le même geste. */
+  const [geste, setGeste] = useState<{ quoi: GesteDeFiche; quand: number } | null>(null)
   /* « Patients » touché de nouveau dans la barre du bas, fiche déjà
      ouverte : c'est la liste qu'on demande (NavigationBas). */
   useEffect(() => {
@@ -61,6 +65,8 @@ export function TherapistView() {
      et l'afficher planterait. C'est le premier écran que voit une praticienne
      qui vient d'accepter son invitation — il doit lui dire quoi faire. */
   const fiche = state.patients[state.sel]
+  // Une autre fiche ouverte : le geste demandé pour la précédente ne la suit pas.
+  useEffect(() => setGeste(null), [state.sel])
   /** Les mots qui attendent, toutes fiches confondues (0054). */
   const enAttente = totalNonLus(state.nonLus, state.patientOrder)
 
@@ -84,7 +90,17 @@ export function TherapistView() {
 
         {fiche ? (
           <>
-            <PatientHeader />
+            {/* En démonstration, rien ne se clôt ni ne se supprime : pas de « ⋯ ». */}
+            <PatientHeader
+              onGeste={
+                cabinet?.reel
+                  ? (quoi) => {
+                      setVolet('reglages')
+                      setGeste({ quoi, quand: Date.now() })
+                    }
+                  : undefined
+              }
+            />
 
             <div className={s.volets} role="tablist" aria-label="Volets de la fiche">
               {VOLETS.map((v) => (
@@ -94,7 +110,10 @@ export function TherapistView() {
                   role="tab"
                   aria-selected={volet === v.value}
                   className={volet === v.value ? `${s.volet} ${s.voletOn}` : s.volet}
-                  onClick={() => setVolet(v.value)}
+                  onClick={() => {
+                    setGeste(null)
+                    setVolet(v.value)
+                  }}
                 >
                   {v.label}
                 </button>
@@ -136,7 +155,7 @@ export function TherapistView() {
 
             {volet === 'reglages' ? (
               <>
-                <FicheSettings key={state.sel} ouvertParDefaut />
+                <FicheSettings key={state.sel} ouvertParDefaut geste={geste} />
                 <ExportDossier key={`export-${state.sel}`} />
               </>
             ) : null}

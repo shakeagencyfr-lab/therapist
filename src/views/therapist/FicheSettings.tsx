@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button, Card, Chip, Notice, TextInput, Title } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { enRegle, hypnoseOuverte, useDroits } from '@/cabinet/droits'
@@ -25,12 +25,34 @@ function seanceDeLaFiche(fiche: { prochaineSeanceLe?: string | null; prochaineSe
  * et sa question, la prochaine séance. Replié par défaut : c'est un réglage,
  * pas une lecture quotidienne.
  */
-export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: boolean } = {}) {
+/** Le geste demandé depuis l'en-tête de la fiche (« ⋯ ») : on y descend tout droit. */
+export type GesteDeFiche = 'clore' | 'supprimer'
+
+export function FicheSettings({
+  ouvertParDefaut = false,
+  geste = null,
+}: { ouvertParDefaut?: boolean; geste?: { quoi: GesteDeFiche; quand: number } | null } = {}) {
   const state = useAppState()
   const cabinet = useMaybeCabinet()
   const droits = useDroits()
   const fiche = patientOf(state)
-  const [ouvert, setOuvert] = useState(ouvertParDefaut)
+  const [ouvert, setOuvert] = useState(ouvertParDefaut || Boolean(geste))
+
+  /* « Supprimer la fiche » ou « Clore le suivi », demandés depuis l'en-tête :
+     ils sont au bas de ce volet, sous les réglages — on y descend, et pour la
+     suppression le curseur attend déjà le nom à recopier. */
+  const zoneClore = useRef<HTMLDivElement>(null)
+  const zoneSupprimer = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!geste) return
+    setOuvert(true)
+    const id = window.requestAnimationFrame(() => {
+      const zone = geste.quoi === 'supprimer' ? zoneSupprimer.current : zoneClore.current
+      zone?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      if (geste.quoi === 'supprimer') zone?.querySelector('input')?.focus({ preventScroll: true })
+    })
+    return () => window.cancelAnimationFrame(id)
+  }, [geste])
   const [envoi, setEnvoi] = useState(false)
   const [notice, setNotice] = useState<{ tone: 'ok' | 'warn'; text: string } | null>(null)
 
@@ -479,7 +501,7 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
           {/* Clore un suivi, c'est ce que le plafond de l'offre demande quand
               il est atteint. Ce n'est pas une suppression : le dossier reste,
               et la fiche se rouvre depuis la colonne de gauche. */}
-          <div className={s.clore}>
+          <div className={s.clore} ref={zoneClore}>
             <span className={s.cloreTitre}>Clore le suivi de {fiche.name}</span>
             <span className={s.hint}>
               Sa fiche quitte vos patients actifs et libère une place sur votre offre. Son
@@ -507,7 +529,7 @@ export function FicheSettings({ ouvertParDefaut = false }: { ouvertParDefaut?: b
           {/* Supprimer une fiche emporte un dossier de santé entier. On fait
               écrire le nom : un bouton seul se clique par erreur, un nom
               recopié ne s'écrit pas par accident. */}
-          <div className={s.danger}>
+          <div className={s.danger} ref={zoneSupprimer}>
             <span className={s.dangerTitre}>Supprimer la fiche de {fiche.name}</span>
             <span className={s.hint}>
               Son dossier, ses séances, son anamnèse, vos notes de suivi, ses modules, ses audios,

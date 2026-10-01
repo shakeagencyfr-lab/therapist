@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { Button, Pill } from '@/components/ui'
+import type { GesteDeFiche } from './FicheSettings'
 import { libelleEnTete } from '@/lib/agenda'
 import { seanceEnCours } from '@/lib/seance'
 import { nouvelleSeance, patientOf } from '@/state/selectors'
@@ -6,9 +8,10 @@ import { useStore } from '@/state/store'
 import s from './PatientHeader.module.css'
 
 /** En-tête de la fiche client : identité, programme, actions de séance. */
-export function PatientHeader() {
+export function PatientHeader({ onGeste }: { onGeste?: (geste: GesteDeFiche) => void } = {}) {
   const { state, set } = useStore()
   const p = patientOf(state)
+  const [menu, setMenu] = useState(false)
 
   // La fiche n'est montée qu'avec un patient ; le garde rend l'invariant
   // explicite plutôt que supposé.
@@ -65,6 +68,53 @@ export function PatientHeader() {
         <Button variant="primary" onClick={openSession}>
           Nouvelle séance
         </Button>
+        {/* CLORE, SUPPRIMER : ils existaient, tout en bas du volet des
+            réglages, sous les champs de la fiche — introuvables. Ils sont
+            ici, à côté des autres gestes ; le menu mène à leur confirmation,
+            qui reste où elle est (recopier le nom, pour supprimer). */}
+        {onGeste ? (
+          <div className={s.plus}>
+            <button
+              type="button"
+              className={s.plusBouton}
+              aria-haspopup="menu"
+              aria-expanded={menu}
+              aria-label={`Autres gestes sur la fiche de ${p.name}`}
+              onClick={() => setMenu((m) => !m)}
+            >
+              <span aria-hidden>⋯</span>
+            </button>
+            {menu ? (
+              <>
+                <button type="button" className={s.voile} aria-label="Fermer" onClick={() => setMenu(false)} />
+                <div className={s.menu} role="menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={s.menuItem}
+                    onClick={() => {
+                      setMenu(false)
+                      onGeste('clore')
+                    }}
+                  >
+                    Clore le suivi
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={`${s.menuItem} ${s.menuItemDanger}`}
+                    onClick={() => {
+                      setMenu(false)
+                      onGeste('supprimer')
+                    }}
+                  >
+                    Supprimer la fiche
+                  </button>
+                </div>
+              </>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
   )

@@ -674,6 +674,8 @@ export interface CabinetData {
   /* L'atelier, les affirmations, les notifications --------------------- */
   /** Le module rejoint la bibliothèque du cabinet et le parcours des patients choisies. */
   assignerModule: (module: CustomModule, patientIds: PatientId[]) => Promise<Resultat>
+  /** Retire un module de la bibliothèque de l'atelier ; les parcours qui l'ont reçu le gardent. */
+  supprimerModule: (module: CustomModule) => Promise<Resultat>
   /** Remplace les affirmations visibles par le patient. */
   publierAffirmations: (patientId: PatientId, textes: string[]) => Promise<Resultat>
   reglerAffirmationsAuto: (patientId: PatientId, auto: boolean) => Promise<Resultat>
@@ -1002,6 +1004,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     const customs: Record<string, CustomModule[]> = {}
     for (const m of (ateliers.data ?? []) as CustomModuleRow[]) {
       const entree: CustomModule = {
+        id: m.id,
         titre: m.title,
         duree: m.duree,
         quand: m.quand,
@@ -1793,6 +1796,30 @@ export function useCabinet(cabinetId: string | null): CabinetData {
   )
 
   /* ---- L'atelier, les affirmations, les notifications ---------------- */
+
+  /**
+   * Retirer un module de la bibliothèque.
+   *
+   * Seule la bibliothèque perd la ligne : chaque parcours porte sa propre
+   * copie de la consigne (`patient_modules`, sans lien vers `custom_modules`),
+   * si bien qu'un patient qui l'a reçu le garde, avec ce qu'il y a déjà
+   * coché. On vise l'id quand on l'a ; un module lu avant cet id se retrouve
+   * par son type et son titre, uniques dans la bibliothèque d'un cabinet.
+   */
+  const supprimerModule = useCallback(
+    async (module: CustomModule): Promise<Resultat> => {
+      const db = supabase()
+      if (!db || !cabinetId) return { ok: false, message: '' }
+      const requete = db.from('custom_modules').delete().eq('cabinet_id', cabinetId)
+      const { error } = module.id
+        ? await requete.eq('id', module.id)
+        : await requete.eq('kind', module.type).eq('title', module.titre)
+      if (error) return { ok: false, message: "Le module n'a pas pu être retiré de la bibliothèque." }
+      await recharger()
+      return { ok: true, message: `« ${module.titre} » ne figure plus dans la bibliothèque.` }
+    },
+    [cabinetId, recharger],
+  )
 
   const assignerModule = useCallback(
     async (module: CustomModule, patientIds: PatientId[]): Promise<Resultat> => {
@@ -2655,6 +2682,7 @@ export function useCabinet(cabinetId: string | null): CabinetData {
     acheverHypnose,
     renommerHypnose,
     supprimerPatiente,
+    supprimerModule,
     supprimerHypnose,
     dossier,
     rappels,

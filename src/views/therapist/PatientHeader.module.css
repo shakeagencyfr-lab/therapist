@@ -44,6 +44,65 @@
   gap: 9px;
 }
 
+/* « ⋯ » : clore le suivi, supprimer la fiche. */
+.plus {
+  position: relative;
+}
+.plusBouton {
+  width: 38px;
+  height: 100%;
+  min-height: 36px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-sm);
+  background: var(--c-surface);
+  color: var(--c-text-3);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.plusBouton:hover {
+  background: var(--c-surface-2);
+}
+.voile {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  border: none;
+  background: transparent;
+  cursor: default;
+}
+.menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 31;
+  min-width: 200px;
+  padding: 6px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  box-shadow: 0 18px 40px rgba(27, 26, 23, 0.14);
+}
+.menuItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--c-text);
+  cursor: pointer;
+}
+.menuItem:hover {
+  background: var(--c-surface-2);
+}
+.menuItemDanger {
+  color: var(--c-hot);
+}
+
 /* SUR UN TÉLÉPHONE. Les trois boutons ne tiennent pas sur une ligne : le
    troisième sortait de l'écran et faisait glisser toute la page de côté.
    « Nouvelle séance », le geste du jour, prend toute la largeur ; les deux
@@ -61,17 +120,22 @@
   }
   .actions {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr auto;
     gap: 8px;
     width: 100%;
   }
-  .actions > * {
+  .plusBouton {
+    width: 44px;
+    min-height: 44px;
+  }
+  .actions > button {
     min-width: 0;
     min-height: 44px;
     padding-left: 10px;
     padding-right: 10px;
   }
-  .actions > :last-child {
+  /* « Nouvelle séance » (le troisième) : toute la première ligne. */
+  .actions > :nth-child(3) {
     grid-column: 1 / -1;
     grid-row: 1;
   }

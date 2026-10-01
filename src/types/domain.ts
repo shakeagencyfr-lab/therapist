@@ -282,6 +282,8 @@ export interface LibraryAudio {
 
 /** Un module généré par l'atelier et enregistré dans la bibliothèque. */
 export interface CustomModule {
+  /** La ligne `custom_modules` — absente en démonstration et pour un brouillon pas encore assigné. */
+  id?: string
   titre: string
   duree: string
   quand: string

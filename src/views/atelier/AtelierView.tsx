@@ -8,6 +8,7 @@ import { echecDeRetouche, generateModule, messageDEchec, retoucher } from '@/ser
 import { RetourIA } from '@/components/retouche/RetourIA'
 import { RETOUCHE_ABANDONNEE, versionDe, type IssueRetouche, type RetourDeLaPraticienne } from '@/lib/retouche'
 import { useMaybeCabinet } from '@/cabinet/context'
+import { GesteAConfirmer } from '@/components/GesteAConfirmer'
 import { useDevis } from '@/cabinet/useJetons'
 import { CoutEnJetons } from '@/views/jetons/CoutEnJetons'
 import { useStore } from '@/state/store'
@@ -234,6 +235,35 @@ export function AtelierView() {
     }
   }
 
+  /** Le module en cours de retrait : un à la fois, et le bouton le dit. */
+  const [retrait, setRetrait] = useState('')
+
+  /**
+   * Retirer un module de la bibliothèque. Les patients qui l'ont reçu le
+   * gardent : leur parcours porte sa propre copie. En démonstration, la
+   * bibliothèque n'existe qu'à l'écran — on la retire de l'écran.
+   */
+  async function retirer(row: LibraryRow) {
+    setRetrait(row.key)
+    if (cabinet?.reel) {
+      const r = await cabinet.supprimerModule(row.made)
+      setRetrait('')
+      set({ aNotice: r.message })
+      if (!r.ok) return
+    } else {
+      setRetrait('')
+      set((prev) => ({
+        customs: {
+          ...prev.customs,
+          [row.made.type]: (prev.customs[row.made.type] ?? []).filter((m) => m.titre !== row.made.titre),
+        },
+        aNotice: `« ${row.made.titre} » ne figure plus dans la bibliothèque.`,
+      }))
+    }
+    // Le module retiré était ouvert à droite : il y reste comme brouillon,
+    // qu'on peut encore assigner — il rejoindrait alors la bibliothèque.
+  }
+
   function reopen(made: CustomModule) {
     setRefus('')
     set({ aMod: made, aAssign: {}, aLastAssigned: '', aNotice: '' })
@@ -345,9 +375,20 @@ export function AtelierView() {
                       <span className={s.libraryTitle}>{row.title}</span>
                       <span className={s.libraryMeta}>{row.meta}</span>
                     </div>
-                    <button type="button" className={s.small} onClick={() => reopen(row.made)}>
-                      Ouvrir
-                    </button>
+                    <div className={s.libraryActions}>
+                      <button type="button" className={s.small} onClick={() => reopen(row.made)}>
+                        Ouvrir
+                      </button>
+                      <GesteAConfirmer
+                        libelle="Supprimer"
+                        confirmer="Supprimer de la bibliothèque"
+                        libelleEnCours="Suppression…"
+                        enCours={retrait === row.key}
+                        disabled={Boolean(retrait) && retrait !== row.key}
+                        onConfirmer={() => void retirer(row)}
+                        consequence={`« ${row.title} » quitte la bibliothèque du cabinet. Les patients qui l'ont déjà le gardent dans leur parcours ; pour le retirer à l'un d'eux, ouvrez sa fiche.`}
+                      />
+                    </div>
                   </li>
                 ))}
               </ul>
