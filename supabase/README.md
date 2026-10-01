@@ -133,6 +133,7 @@ Relevé du 28 septembre 2026 (base `koytgcbpeorupdklswxd`).
 | `0068_les_jetons_sous_verrou.sql` | 20260930115309 | 0068_les_jetons_sous_verrou |
 | `0069_l_ancienne_demande_d_essai_se_retire.sql` | 20260930125054 | 0069_l_ancienne_demande_d_essai_se_retire |
 | `0070_la_facturation_par_cabinet.sql` | 20260930134829 | 0070_la_facturation_par_cabinet |
+| `0071_la_bibliotheque_d_hypnoses.sql` | 20261001221757 | 0071_la_bibliotheque_d_hypnoses |
 
 `0060` (demandes d'essai) a été appliquée avant `0055` à `0059` : elles ne se touchent pas.
 
@@ -301,6 +302,25 @@ persiste, et le message dit ce qui a été vérifié.
   en jetons, sans repli silencieux sur sa clé. L'équipe n'ouvre pas d'essai
   avec cette exception ; le journal du contrat la dit
   (`tests/facturation_0070.sql`).
+- **Les hypnoses du cabinet se gardent et se réattribuent** (`0071`).
+  `bibliotheque_hypnoses` tient, par cabinet, des hypnoses entières
+  réutilisables (`mouvements` : un tableau ordonné `{mouvement, titre,
+  texte}`). Une hypnose de fiche y entre au moment où elle se referme — un
+  instantané pris par le déclencheur `hypnoses_vers_la_bibliotheque`,
+  idempotent (index unique sur `source_hypnose_id`), qui ne prend que les
+  hypnoses aux quatre mouvements et n'empêche jamais la fiche de se refermer ;
+  les hypnoses complètes déjà écrites y ont été versées. Une hypnose s'y écrit
+  aussi depuis l'atelier, sans patient (`origine = 'atelier'`) : le serveur
+  reconnaît son identifiant comme une hypnose du cabinet, et le forfait de
+  `0068` vaut pour elle. `cabinet_attribuer_hypnose` copie une ligne entière
+  sur la fiche de chaque patient choisi (`hypnoses.bibliotheque_id`), tout ou
+  rien, pour des suivis en cours du cabinet, l'option Hypnose ouverte ; le
+  geste est au journal, sans texte. Une copie ne revient jamais dans la
+  bibliothèque. Le navigateur n'écrit ni l'origine, ni la provenance, ni
+  l'auteur (droits de colonne) ; même politique que les hypnoses, rien pour
+  l'anonyme ni le revendeur. Une fiche supprimée laisse ses hypnoses à la
+  bibliothèque, sans plus la désigner (`source_patient_id` à null) : l'écran
+  propose de les retirer avant (`tests/bibliotheque_hypnoses_0071.sql`).
 - **Un avis sur l'IA ne dit ni sur qui, ni quoi** (`0066`). `retours_ia`
   compte les pouces levés ou baissés par type de texte (hypnose, synthèse,
   module…), sans patient ni contenu, comme `ai_usage`. `preferences_ia`

@@ -1,0 +1,520 @@
+/* La bibliothèque d'hypnoses de l'atelier : écrire à gauche, la liste à
+   droite ; une seule colonne sous 1100 px. Les teintes sont celles de
+   l'atelier et de la fiche, pour qu'une hypnose s'y lise de la même façon. */
+
+.onglets {
+  margin: 4px 0 18px;
+}
+
+.h1 {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 40px;
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+
+.intro {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--c-text-3);
+  max-width: 64ch;
+  margin: 14px 0 28px;
+}
+
+.grille {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.colonne {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.creation,
+.liste {
+  border-radius: var(--r-xl);
+  padding: 22px 24px;
+  min-width: 0;
+}
+
+.sousTitre {
+  margin: 4px 0 16px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+}
+
+.aide {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+}
+
+/* Créer une hypnose ----------------------------------------------------- */
+
+.champ {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+  min-width: 0;
+}
+
+.intention {
+  font-family: var(--font-serif);
+  font-size: 15.5px;
+  line-height: 1.6;
+  color: var(--c-text-2);
+  background: var(--c-field);
+  border-color: var(--c-neutral-3);
+  border-radius: 12px;
+  padding: 14px 15px;
+  min-height: 0;
+}
+
+.titre {
+  min-width: 0;
+}
+
+.amorces {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 11px;
+}
+
+.amorce {
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--c-accent-deep);
+  background: var(--c-accent-soft-2);
+  border: 1px solid var(--c-border-accent);
+  border-radius: var(--r-pill);
+  padding: 5px 11px;
+  cursor: pointer;
+  line-height: 1.35;
+  text-align: left;
+}
+.amorce:hover {
+  background: var(--c-accent-soft);
+}
+
+.ecrire {
+  margin-top: 20px;
+  font-size: 13.5px;
+  border-radius: 10px;
+  padding: 13px;
+}
+
+/* L'avancement, annoncé dès le clic — comme sur la fiche. */
+.progression {
+  margin-top: 4px;
+  padding: 14px 16px;
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border-light);
+  border-radius: 12px;
+}
+
+.encours {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--c-text-2);
+}
+
+.point {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c-accent);
+  animation: battement 1.2s ease-in-out infinite;
+}
+
+@keyframes battement {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .point {
+    animation: none;
+  }
+}
+
+.avancement {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.avancement li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+  min-width: 0;
+}
+
+.puce {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 11.5px;
+  border: 1px solid var(--c-border);
+  color: var(--c-text-muted);
+}
+
+.fait {
+  color: var(--c-text);
+}
+.fait .puce {
+  background: var(--c-accent);
+  border-color: var(--c-accent);
+  color: #fff;
+}
+
+.attente {
+  color: var(--c-text-muted);
+}
+
+.echec {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.finiLigne {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.bilan {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--c-text-2);
+}
+
+.gestes {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* La liste ---------------------------------------------------------------- */
+
+.listeTete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.compte {
+  font-size: 12px;
+  color: var(--c-text-muted);
+  white-space: nowrap;
+}
+
+.vide {
+  margin: 6px 0 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--c-text-muted);
+}
+
+.lien {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--c-accent-deep);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.items {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+}
+
+.item {
+  border-top: 1px solid var(--c-border-light);
+}
+
+.ligne {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 13px 0;
+}
+
+.texteLigne {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.titreLigne {
+  font-size: 14.5px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--c-text-muted);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin-left: auto;
+}
+
+.petit {
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--c-accent);
+  background: transparent;
+  /* Le beige des petits boutons de l'atelier (AtelierView.module.css). */
+  border: 1px solid #dfd1b8;
+  border-radius: 8px;
+  padding: 6px 11px;
+  cursor: pointer;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.petit:hover:not(:disabled) {
+  background: var(--c-accent-soft-2);
+}
+.petit:disabled {
+  color: var(--c-text-muted);
+  cursor: default;
+}
+
+/* La lecture ------------------------------------------------------------- */
+
+.corps {
+  padding: 0 0 20px;
+}
+
+.renommer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 0 16px;
+  max-width: 62ch;
+}
+.renommer .champ {
+  margin-top: 0;
+}
+
+.intentionLue {
+  margin: 0 0 14px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--c-text-2);
+}
+
+.mouvement {
+  margin-top: 18px;
+}
+
+.mouvementTitre {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 18px;
+  margin: 0 0 10px;
+}
+
+.para {
+  max-width: 62ch;
+  margin: 0 0 13px;
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--c-text);
+}
+
+.piedLecture {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 16px;
+}
+.piedLecture .aide {
+  margin: 0;
+  flex: 1 1 220px;
+}
+
+/* Attribuer à… --------------------------------------------------------------- */
+
+.attribution {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border-light);
+  border-radius: 12px;
+}
+
+.attributionTete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.attributionTitre {
+  font-family: var(--font-serif);
+  font-size: 18px;
+}
+
+.patients {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.patient {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 13px;
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--c-text);
+  border: 1px solid var(--c-neutral-3);
+  background: var(--c-surface);
+  font-family: inherit;
+}
+.patientOn {
+  border-color: var(--c-border-accent);
+  background: var(--c-accent-tint);
+}
+
+.case {
+  width: 21px;
+  height: 21px;
+  flex: none;
+  border-radius: var(--r-xs);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  line-height: 1;
+  border: 1.5px solid var(--c-border-mute);
+  background: var(--c-surface);
+  color: var(--c-surface);
+}
+.caseOn {
+  border-color: var(--c-accent);
+  background: var(--c-accent);
+}
+
+.patientTexte {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.patientNom {
+  font-size: 14px;
+  font-weight: 500;
+}
+.patientSous {
+  font-size: 11.5px;
+  color: var(--c-text-muted);
+  overflow-wrap: anywhere;
+}
+.deja {
+  font-size: 11.5px;
+  color: var(--c-text-disabled);
+  flex: none;
+}
+
+.attributionPied {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.attributionPied .aide {
+  margin: 0;
+  flex: 1 1 200px;
+}
+
+/* Téléphone -------------------------------------------------------------------- */
+
+@media (max-width: 1100px) {
+  .grille {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .h1 {
+    font-size: 32px;
+  }
+  .creation,
+  .liste {
+    padding: 18px 16px;
+  }
+  .actions {
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+  /* Au pouce : des boutons qu'on vise sans loupe. */
+  .petit {
+    min-height: 36px;
+    padding: 8px 12px;
+  }
+  .patient {
+    min-height: 48px;
+  }
+  .para {
+    font-size: 15.5px;
+  }
+}

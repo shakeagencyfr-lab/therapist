@@ -19,7 +19,10 @@ declare
   sante text[];
   sans_patient text[] := array[
     'patients', 'module_quiz_answers', 'audio_categories', 'audio_library',
-    'custom_modules', 'push_notifications', 'hypnose_mouvements'
+    'custom_modules', 'push_notifications', 'hypnose_mouvements',
+    -- 0071 : ses hypnoses nées en séance reprennent les mots d'un patient, et
+    -- n'en désignent un que par `source_patient_id`.
+    'bibliotheque_hypnoses'
   ];
   t text;
   n integer;

@@ -292,6 +292,11 @@ const CONFIDENTIALITE: PageLegale = {
                 'Le texte de la séance (sa transcription) et les notes prises pendant celle-ci, la date du consentement et, s’il y a lieu, celle de son retrait. Jamais le son.',
             },
             {
+              terme: 'Bibliothèque d’hypnoses',
+              valeur:
+                'Avec l’option Hypnose, le cabinet garde ses hypnoses dans une bibliothèque, pour les attribuer à d’autres personnes. Une hypnose écrite pendant la séance d’une personne y est copiée quand elle est achevée : la copie ne porte pas son nom, mais son texte peut reprendre ses mots ou des détails qui lui sont propres. Une hypnose écrite dans l’atelier ne vise personne : seule l’intention de la thérapeute sert à la rédiger. Attribuer une hypnose en dépose une copie dans la fiche de la personne choisie.',
+            },
+            {
               terme: 'Thérapeutes et équipes',
               valeur:
                 'Nom, adresse électronique, cabinet et rôle ; les réglages du cabinet (marque, site, programmes, boutique) ; les clés qu’il confie (analyse, paiement, messagerie), chiffrées par le serveur et jamais renvoyées au navigateur ; les notes d’honoraires émises ; les jetons reçus, achetés et consommés ; les retours donnés sur les propositions de l’IA et les préférences de rédaction que le cabinet choisit de faire retenir ; l’acceptation des conditions générales, avec sa date et sa version.',
@@ -517,6 +522,11 @@ const CONFIDENTIALITE: PageLegale = {
                 'Tant que le cabinet le conserve : c’est lui qui en fixe la durée, selon ses obligations. Clore un suivi referme l’espace de la personne sans rien effacer ; supprimer la fiche efface définitivement le dossier, les séances, les notes, les exercices, les audios, le journal et les hypnoses. Nous recommandons aux cabinets de ne pas garder un dossier au-delà de la durée que leur profession impose, s’il y en a une, et sinon pas plus de cinq ans après le dernier contact avec la personne.',
             },
             {
+              terme: 'Bibliothèque d’hypnoses',
+              valeur:
+                'Tant que le cabinet la garde : une hypnose y reste jusqu’à ce qu’il l’en retire. Supprimer la fiche d’une personne propose de retirer en même temps les hypnoses écrites pendant ses séances — case cochée d’avance ; décochée, elles restent dans la bibliothèque, sans plus être rattachées à personne. Les copies déjà attribuées à d’autres personnes restent dans leurs fiches, et suivent leur sort.',
+            },
+            {
               terme: 'Notes d’honoraires',
               valeur:
                 'Gardées au registre du cabinet, même après la suppression de la fiche : ce sont des pièces comptables, à conserver six ans au moins (livre des procédures fiscales, article L102 B).',
@@ -730,7 +740,7 @@ const CONDITIONS: PageLegale = {
         {
           type: 'liste',
           elements: [
-            'pour le cabinet : les fiches de suivi, la prise de notes et l’enregistrement des séances, la dictée dans les champs de saisie, les propositions rédigées par l’IA et leur révision, le parcours d’exercices, les audios, les rappels, la boutique, le site du cabinet et les notes d’honoraires ;',
+            'pour le cabinet : les fiches de suivi, la prise de notes et l’enregistrement des séances, la dictée dans les champs de saisie, les propositions rédigées par l’IA et leur révision, le parcours d’exercices, les audios, la bibliothèque d’hypnoses quand l’option Hypnose est ouverte, les rappels, la boutique, le site du cabinet et les notes d’honoraires ;',
             'pour la personne suivie : ses tâches du jour, ses audios, son journal, sa note du soir, ses rappels et, si le cabinet les ouvre, sa boutique et sa prise de rendez-vous.',
           ],
         },
@@ -809,6 +819,11 @@ const CONDITIONS: PageLegale = {
           type: 'paragraphe',
           texte:
             'Le nombre de jetons qu’une rédaction consomme s’affiche avant qu’on la lance, et n’est débité que si elle aboutit : ceux d’une rédaction interrompue reviennent d’eux-mêmes dans les dix minutes. Ce qui revient n’entre pas au dossier sans que la thérapeute l’ait relu — à l’exception des affirmations de la semaine, quand le cabinet a choisi leur renouvellement automatique ; il peut alors les corriger à tout moment.',
+        },
+        {
+          type: 'paragraphe',
+          texte:
+            'Avec l’option Hypnose, le cabinet tient une bibliothèque d’hypnoses, dans l’atelier. Les hypnoses écrites pendant une séance la rejoignent quand elles sont achevées ; d’autres peuvent s’y écrire pour personne en particulier, à partir de la seule intention de la thérapeute, sans rien du dossier. Le cabinet peut les relire, les corriger et les attribuer à d’autres personnes qu’il suit, qui en reçoivent chacune une copie dans leur fiche. Une hypnose écrite pendant la séance d’une personne peut contenir des détails qui lui sont propres : le cabinet la relit avant de l’attribuer à une autre.',
         },
         {
           type: 'paragraphe',
@@ -1002,7 +1017,8 @@ const ARTICLES: SectionLegale[] = [
         { terme: 'Recharge', valeur: 'Lot de jetons acheté en plus de ceux que l’abonnement inclut.' },
         {
           terme: 'Option Hypnose',
-          valeur: 'La rédaction de scripts d’hypnose personnalisés de trente minutes, incluse dans certaines offres ou achetée à part.',
+          valeur:
+            'La rédaction de scripts d’hypnose de trente minutes — personnalisés pour une personne suivie, ou généraux pour la bibliothèque du Client —, et cette bibliothèque, où le Client les garde et les attribue ; incluse dans certaines offres ou achetée à part.',
         },
         {
           terme: 'Contenu généré',
@@ -1147,6 +1163,11 @@ const ARTICLES: SectionLegale[] = [
       type: 'paragraphe',
       texte:
         'L’option Hypnose permet de faire rédiger des scripts d’hypnose personnalisés de trente minutes. Elle est incluse dans certaines offres. Sinon, elle s’achète sous la forme d’un accès de trente jours, qui ne se renouvelle pas de lui-même : il prend fin à son terme, sans remboursement au prorata s’il n’a pas servi en entier. Il peut s’accompagner de jetons offerts, valables pendant sa seule durée. Chaque script débite des jetons selon le barème.',
+    },
+    {
+      type: 'paragraphe',
+      texte:
+        'Bibliothèque d’hypnoses. L’option comprend une bibliothèque, dans l’atelier : les scripts écrits pendant une séance y sont copiés quand ils sont achevés, et le Client peut y faire rédiger des scripts généraux, qui ne visent aucune personne. Il peut les relire, les corriger, les télécharger et les attribuer à d’autres personnes qu’il suit : chacune en reçoit une copie dans sa fiche. Rédiger un script débite des jetons selon le barème ; attribuer un script déjà rédigé n’en débite aucun. Un script écrit pendant la séance d’une personne peut contenir des éléments qui lui sont propres : le Client le relit avant de l’attribuer à une autre, et en demeure seul responsable. Quand l’option prend fin, la bibliothèque n’est plus accessible depuis l’atelier, sans être effacée, et les copies déjà attribuées restent dans les fiches.',
     },
   ]),
 

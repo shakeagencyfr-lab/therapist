@@ -339,6 +339,10 @@ export function HypnosesFiche() {
                     <span className={s.titre}>{h.titre}</span>
                     <span className={s.meta}>
                       {dateLongue(h.createdAt)}
+                      {/* Une copie attribuée depuis la bibliothèque du
+                          cabinet (0071) : elle n'a pas été écrite pour ce
+                          patient, et la liste le dit. */}
+                      {h.bibliothequeId ? ' · Depuis la bibliothèque' : ''}
                       {h.complete
                         ? minutes > 0
                           ? ` · ≈ ${minutes} min de lecture`

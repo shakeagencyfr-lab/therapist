@@ -58,8 +58,11 @@ de partir (`jetons_debiter_forfait`, 0068), confirmé s'il produit, rendu s'il
 avant. Les forfaits — les consignes et le profil d'une séance payée, les
 quatre mouvements d'une hypnose — se décident EN BASE, sous le verrou du
 débit : ce module vérifie seulement que la séance ou l'hypnose citée est du
-cabinet, et passe la règle et le plein prix. Les recharges et le pass
-Hypnose se paient par carte sur le compte Stripe du revendeur ; la commande
+cabinet — sur une fiche, ou dans sa bibliothèque (0071) —, et passe la règle
+et le plein prix. Une hypnose sans dossier est une hypnose de la
+bibliothèque, écrite dans l'atelier : son intention est exigée (quinze
+caractères au moins), et ni formulations ni synthèse ne sont lues. Les
+recharges et le pass Hypnose se paient par carte sur le compte Stripe du revendeur ; la commande
 est relue chez Stripe au retour, puis à chaque lecture de l'état tant
 qu'elle attend, sans webhook — et la clé Stripe du revendeur ne se retire
 ni ne se change tant qu'un paiement est en cours.

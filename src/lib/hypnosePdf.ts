@@ -89,8 +89,19 @@ export function nomDuFichier(patient: string, titre: string, iso: string): strin
   return [propre(patient), propre(titre), date].filter(Boolean).join('_') + '.pdf'
 }
 
+/** Ce que le PDF lit d'une hypnose — de fiche, ou de la bibliothèque du cabinet. */
+export type HypnoseALire = Pick<Hypnose, 'titre' | 'intention' | 'createdAt' | 'mouvements'>
+
+/**
+ * Télécharge l'hypnose en PDF.
+ *
+ * SANS PATIENT, c'est une hypnose de la bibliothèque du cabinet (0071) :
+ * `patientBrut` vide, la page de garde et le pied de page ne portent que la
+ * date et le cabinet, et le fichier se nomme d'après le titre. La marque du
+ * cabinet s'y applique comme ailleurs.
+ */
 export async function telechargerHypnose(
-  brute: Hypnose,
+  brute: HypnoseALire,
   patientBrut: string,
   cabinetBrut: string,
   marque: MarquePdf = { logo: null },
@@ -101,7 +112,7 @@ export async function telechargerHypnose(
 
 /** L'hypnose composée, sans l'enregistrer : ce que les tests relisent. */
 export async function composerHypnose(
-  brute: Hypnose,
+  brute: HypnoseALire,
   patientBrut: string,
   cabinetBrut: string,
   marque: MarquePdf = { logo: null },
@@ -112,7 +123,7 @@ export async function composerHypnose(
      en codage 16 bits, illisible à l'écran comme à l'impression. Le texte est
      écrit par l'IA et relu par la praticienne : on ne peut pas garantir qu'il
      n'en contient pas. Tout passe donc par pourPdf avant d'être posé. */
-  const hypnose: Hypnose = {
+  const hypnose: HypnoseALire = {
     ...brute,
     titre: pourPdf(brute.titre),
     intention: pourPdf(brute.intention),

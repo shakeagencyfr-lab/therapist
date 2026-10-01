@@ -58,7 +58,8 @@ export interface AffirmationsBody {
 }
 
 export interface HypnoseBody {
-  context: PatientContext
+  /** Absent ou null : une hypnose de la bibliothèque du cabinet (0071). */
+  context: PatientContext | null
   mouvement: string
   mots: string[]
   themes: string[]

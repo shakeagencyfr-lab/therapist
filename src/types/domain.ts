@@ -91,6 +91,37 @@ export interface Hypnose {
   complete: boolean
   createdAt: string
   mouvements: HypnoseMouvement[]
+  /**
+   * La ligne de la bibliothèque du cabinet d'où cette copie a été attribuée
+   * (0071) ; absent ou null pour une hypnose écrite pour ce patient.
+   */
+  bibliothequeId?: string | null
+}
+
+/**
+ * Une hypnose de la bibliothèque du cabinet (0071) : écrite pendant la séance
+ * d'un patient puis versée à la bibliothèque, ou écrite dans l'atelier pour
+ * personne en particulier. Elle s'attribue à d'autres patients, au même titre
+ * qu'un module d'atelier.
+ */
+export interface HypnoseDeBibliotheque {
+  id: string
+  titre: string
+  intention: string
+  /** Dans l'ordre des quatre mouvements ; moins de quatre tant qu'elle s'écrit. */
+  mouvements: HypnoseMouvement[]
+  origine: 'seance' | 'atelier'
+  complete: boolean
+  creeLe: string
+  modifieLe: string
+  /** Les patients qui en ont reçu une copie. */
+  attribueeA: PatientId[]
+  /**
+   * Le patient dont la séance l'a produite. JAMAIS affiché dans la
+   * bibliothèque : il ne sert qu'à proposer de la retirer quand sa fiche est
+   * supprimée.
+   */
+  sourcePatientId: PatientId | null
 }
 
 /** Un module du parcours de la semaine. */

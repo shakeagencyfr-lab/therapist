@@ -53,6 +53,7 @@ import {
   MOUVEMENTS,
   PROFILE_SYSTEM,
   SESSION_DRAFT_SYSTEM,
+  type HypnoseInput,
   type Mouvement,
   affirmationsPrompt,
   hypnosePrompt,
@@ -644,6 +645,68 @@ async function affirmations(
 }
 
 /**
+ * L'intention la plus courte qu'accepte une hypnose de la bibliothèque : sans
+ * patient, c'est elle qui porte le script — la même borne que le brief d'un
+ * module d'atelier.
+ */
+export const INTENTION_MINIMALE_BIBLIOTHEQUE = 15
+
+/**
+ * Ce qu'un mouvement d'hypnose lit dans le corps de la requête.
+ *
+ * DEUX DEMANDES. Pour un patient : son dossier, et ce que la séance a relevé
+ * — formulations, fils, synthèse —, l'intention restant facultative. Pour la
+ * bibliothèque du cabinet (0071), écrite dans l'atelier : AUCUN dossier, et
+ * c'est l'absence de dossier qui la désigne. L'intention porte alors seule le
+ * script : elle est exigée, quinze caractères au moins. Et rien de ce qu'une
+ * séance relève n'est lu — des formulations envoyées sans patient seraient
+ * celles de quelqu'un, qu'un script général n'a pas à reprendre.
+ *
+ * Exportée pour être éprouvée sans appel au modèle.
+ */
+export function matiereDeLHypnose(body: Partial<HypnoseBody>): { mouvement: Mouvement; matiere: HypnoseInput } {
+  const mouvement = asText(body.mouvement).trim() as Mouvement
+  if (!MOUVEMENTS.includes(mouvement)) {
+    throw new HttpError(400, "Ce mouvement d'hypnose n'existe pas.")
+  }
+  const context = body.context === undefined || body.context === null ? null : asContext(body.context)
+  const intention = asText(body.intention).trim()
+  if (intention.length > BORNES.intention) {
+    throw new HttpError(
+      400,
+      `L'intention est trop longue : une ou deux phrases suffisent, ${nombre(BORNES.intention)} caractères au plus.`,
+    )
+  }
+  if (!context && intention.length < INTENTION_MINIMALE_BIBLIOTHEQUE) {
+    throw new HttpError(
+      400,
+      "Décrivez en une phrase ou deux ce que cette hypnose doit travailler : sans patient, c'est votre intention qui la porte.",
+    )
+  }
+  /* Trois mouvements précèdent le dernier, jamais plus : au-delà, ce n'est
+     plus une séance qui se poursuit, c'est un corps qui grossit. */
+  const precedents = (Array.isArray(body.precedents) ? body.precedents : [])
+    .filter((p): p is { mouvement: string; texte: string } => Boolean(p && typeof p === 'object'))
+    .map((p) => ({ mouvement: asText(p.mouvement).trim() as Mouvement, texte: asText(p.texte).slice(0, 20_000) }))
+    .filter((p) => MOUVEMENTS.includes(p.mouvement) && p.texte.trim().length > 0)
+    .slice(0, MOUVEMENTS.length - 1)
+
+  return {
+    mouvement,
+    matiere: {
+      context,
+      // Ce que la séance a relevé : quatre à huit formulations, deux à
+      // quatre fils. Les bornes n'arrêtent qu'un corps qui n'en est plus un.
+      mots: context ? asStrings(body.mots, 30, 400).filter(Boolean) : [],
+      themes: context ? asStrings(body.themes, 12, 400).filter(Boolean) : [],
+      synthese: context ? asText(body.synthese).trim().slice(0, 8000) : '',
+      intention,
+      precedents,
+    },
+  }
+}
+
+/**
  * Un mouvement d'hypnose.
  *
  * Un appel par mouvement, et non un pour toute la séance. Trente minutes de
@@ -658,44 +721,18 @@ async function hypnose(
   cle: Cle | null,
   preferences: Preferences,
 ): Promise<Produit<unknown>> {
-  const mouvement = asText(body.mouvement).trim() as Mouvement
-  if (!MOUVEMENTS.includes(mouvement)) {
-    throw new HttpError(400, "Ce mouvement d'hypnose n'existe pas.")
-  }
+  /* Le corps se lit AVANT la maquette : une hypnose de bibliothèque sans
+     intention est refusée de la même façon en développement qu'en
+     production. */
+  const { mouvement, matiere } = matiereDeLHypnose(body)
   if (mockMode()) return { data: mockHypnoseMouvement(mouvement), usage: null }
-
-  const context = asContext(body.context)
-  const intention = asText(body.intention).trim()
-  if (intention.length > BORNES.intention) {
-    throw new HttpError(
-      400,
-      `L'intention est trop longue : une ou deux phrases suffisent, ${nombre(BORNES.intention)} caractères au plus.`,
-    )
-  }
-  /* Trois mouvements précèdent le dernier, jamais plus : au-delà, ce n'est
-     plus une séance qui se poursuit, c'est un corps qui grossit. */
-  const precedents = (Array.isArray(body.precedents) ? body.precedents : [])
-    .filter((p): p is { mouvement: string; texte: string } => Boolean(p && typeof p === 'object'))
-    .map((p) => ({ mouvement: asText(p.mouvement).trim() as Mouvement, texte: asText(p.texte).slice(0, 20_000) }))
-    .filter((p) => MOUVEMENTS.includes(p.mouvement) && p.texte.trim().length > 0)
-    .slice(0, MOUVEMENTS.length - 1)
 
   const retenues = await preferences(CIBLES_DE_LA_ROUTE.hypnose)
   return callClaude({
     route: 'hypnose',
     schema: generatedHypnoseSchema,
     system: HYPNOSE_SYSTEM,
-    prompt:
-      hypnosePrompt(mouvement, {
-        context,
-        // Ce que la séance a relevé : quatre à huit formulations, deux à
-        // quatre fils. Les bornes n'arrêtent qu'un corps qui n'en est plus un.
-        mots: asStrings(body.mots, 30, 400).filter(Boolean),
-        themes: asStrings(body.themes, 12, 400).filter(Boolean),
-        synthese: asText(body.synthese).trim().slice(0, 8000),
-        intention,
-        precedents,
-      }) + retenues,
+    prompt: hypnosePrompt(mouvement, matiere) + retenues,
     // Un mouvement fait 500 à 900 mots. Le plafond laisse de la marge au
     // raisonnement d'Opus 5.5, qui pense un peu plus qu'Opus 5 à effort égal.
     maxTokens: 7000,

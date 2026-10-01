@@ -662,3 +662,34 @@ describe('morceaux', () => {
     expect(morceaux('')).toEqual([])
   })
 })
+
+/* La bibliothèque d'hypnoses (0071) garde des textes nés des séances d'une
+   personne, et les copie dans d'autres fiches : les trois documents qui
+   parlent de l'option Hypnose le disent, avec ce que le code fait. */
+describe('la bibliothèque d’hypnoses', () => {
+  it('la confidentialité dit ce qu’elle garde, jusqu’à quand, et le choix à la suppression d’une fiche', () => {
+    const t = texte('confidentialite')
+    expect(t).toMatch(/Bibliothèque d’hypnoses/)
+    expect(t).toMatch(/copiée quand elle est achevée[\s\S]*ne porte pas son nom[\s\S]*reprendre ses mots/)
+    expect(t).toMatch(/jusqu’à ce qu’il l’en retire/)
+    expect(t).toMatch(/Supprimer la fiche d’une personne propose de retirer en même temps les hypnoses écrites pendant ses séances — case cochée d’avance/)
+    expect(t).toMatch(/copies déjà attribuées à d’autres personnes restent dans leurs fiches/)
+  })
+
+  it('les CGU et les CGV disent la bibliothèque et l’attribution', () => {
+    for (const cle of ['conditions', 'cgv'] as const) {
+      const t = texte(cle)
+      expect(t, cle).toMatch(/bibliothèque d’hypnoses/i)
+      expect(t, cle).toMatch(/attribuer à d’autres personnes/)
+      expect(t, cle).toMatch(/relit avant de l’attribuer/)
+    }
+    expect(texte('cgv')).toMatch(/attribuer un script déjà rédigé n’en débite aucun/)
+  })
+
+  it('l’écran de suppression fait ce que la politique dit : une case, cochée d’avance', () => {
+    expect(lire('src/lib/bibliothequeHypnoses.ts')).toContain('Retirer aussi de la bibliothèque')
+    const fiche = lire('src/views/therapist/FicheSettings.tsx')
+    expect(fiche).toContain('const [retirerBibliotheque, setRetirerBibliotheque] = useState(true)')
+    expect(fiche).toContain('caseDeLaSuppression(')
+  })
+})
