@@ -1,20 +1,32 @@
 /* Discret, jamais caché : en petit, en bas de chaque écran, au-dessus de la
-   barre des onglets. Les numéros gardent une cible confortable au pouce. */
+   barre des onglets. Les numéros gardent une cible au pouce par leur
+   rembourrage, sans grossir ni s'épaissir. */
 
 .urgence {
-  font-size: 11.5px;
-  line-height: 1.6;
+  font-size: 11px;
+  line-height: 1.5;
   color: var(--c-text-muted);
   text-align: center;
-  padding: 6px 8px 0;
+  padding: 0 8px;
+}
+
+/* Les numéros ne se séparent pas de leur libellé : s'il faut une seconde
+   ligne, ils la prennent ensemble. */
+.numeros {
+  display: inline-block;
 }
 
 .numero {
   display: inline-block;
-  min-width: 28px;
-  padding: 2px 2px;
+  padding: 4px 1px;
+  margin: -4px 0;
   color: var(--c-text-3);
-  font-weight: 600;
   text-decoration: underline;
+  text-decoration-color: var(--c-border-mute);
   text-underline-offset: 2px;
+}
+.numero:focus-visible {
+  outline: 2px solid var(--c-accent-deep);
+  outline-offset: 1px;
+  border-radius: 4px;
 }

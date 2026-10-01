@@ -754,19 +754,36 @@
   color: var(--c-text-muted);
 }
 
+/* Le pied de l'espace : urgence, IA, liens légaux. Un bloc serré sous un
+   filet, qui se lit quand on le cherche et ne se remarque pas autrement —
+   il occupait le tiers de l'écran d'un téléphone. */
+.pied {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 6px 4px 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--c-border-mute);
+}
+
 /* La ligne sur l'IA, juste au-dessus des liens légaux : aussi discrète
    qu'eux, lisible quand même. */
 .mentionIA {
-  margin: 10px 8px 0;
-  font-size: 11px;
-  line-height: 1.5;
+  margin: 0 8px;
+  font-size: 10.5px;
+  line-height: 1.45;
   color: var(--c-text-muted);
   text-align: center;
   text-wrap: balance;
 }
 
-/* Le pied de l'espace, sous la mention d'urgence : plus discret qu'elle. */
-.legal {
-  padding: 2px 8px 0;
+/* Les liens légaux, plus discrets que la mention d'urgence. Le sélecteur
+   double passe devant la taille que LiensLegaux pose lui-même. */
+.pied .legal {
+  padding: 0 8px;
   font-size: 11px;
+}
+.pied .legal a {
+  padding-top: 3px;
+  padding-bottom: 3px;
 }

@@ -21,9 +21,13 @@
  * CGV, art. « Intelligence artificielle ») reprennent les mêmes mots.
  */
 
-/** La ligne du pied de l'espace patient. */
+/**
+ * La ligne du pied de l'espace patient. Courte — elle se relit à chaque
+ * visite —, mais la fin, qui dit qui répond de quoi, est mot pour mot celle
+ * des conditions.
+ */
 export const MENTION_IA =
-  'Certains contenus de cet espace sont préparés avec l’aide d’un outil d’intelligence artificielle, sous la responsabilité de votre praticien, qui les relit ou choisit d’en publier certains automatiquement.'
+  'Certains contenus sont préparés avec l’aide de l’intelligence artificielle, sous la responsabilité de votre praticien, qui les relit ou choisit d’en publier certains automatiquement.'
 
 /**
  * Les propriétés d'un document rédigé avec l'IA (jsPDF `setProperties`) :

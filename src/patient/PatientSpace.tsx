@@ -668,17 +668,19 @@ export function PatientSpace() {
           />
         ) : null}
 
-        {/* En bas de chaque écran, onglet et exercice ouvert compris : on ne
-            choisit pas le moment où l'on en a besoin. */}
-        <Urgence />
-        {/* CE QUI EST ÉCRIT AVEC L'IA SE DIT (règlement européen sur l'IA,
-            art. 50 ; politique d'usage du fournisseur du modèle). Une ligne,
-            discrète, sans nommer ni la plateforme ni le modèle : l'espace est
-            à la marque du cabinet. */}
-        <p className={s.mentionIA}>{MENTION_IA}</p>
-        {/* Le pied de l'espace : ce qu'il advient de ce qu'on y écrit. Dans
-            un nouvel onglet — l'espace installé n'a pas de bouton « précédent ». */}
-        <LiensLegaux court className={s.legal} />
+        <footer className={s.pied}>
+          {/* En bas de chaque écran, onglet et exercice ouvert compris : on ne
+              choisit pas le moment où l'on en a besoin. */}
+          <Urgence />
+          {/* CE QUI EST ÉCRIT AVEC L'IA SE DIT (règlement européen sur l'IA,
+              art. 50 ; politique d'usage du fournisseur du modèle). Une ligne,
+              discrète, sans nommer ni la plateforme ni le modèle : l'espace est
+              à la marque du cabinet. */}
+          <p className={s.mentionIA}>{MENTION_IA}</p>
+          {/* Le pied de l'espace : ce qu'il advient de ce qu'on y écrit. Dans
+              un nouvel onglet — l'espace installé n'a pas de bouton « précédent ». */}
+          <LiensLegaux court className={s.legal} />
+        </footer>
       </div>
 
       {avecOnglets ? (
