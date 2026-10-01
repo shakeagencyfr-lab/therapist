@@ -150,3 +150,13 @@
   margin-top: 0;
   flex: none;
 }
+
+/* « Aucune consigne — en écrire une » : quatorze pixels de haut, au doigt
+   on ouvrait l'exercice voisin. */
+@media (pointer: coarse) {
+  .consigne {
+    padding: 9px 0;
+    margin-top: 0;
+    font-size: 12.5px;
+  }
+}

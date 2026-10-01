@@ -105,3 +105,35 @@
 .avis {
   margin: -12px 0 24px;
 }
+
+/* SUR UN TÉLÉPHONE. L'étape passait à côté du titre et sortait de l'écran,
+   et le fil (« Séance du 1er octobre · Camille R. · Programme… ») se cassait
+   en trois lignes à côté d'elle. L'étape monte au-dessus, le titre a toute
+   la largeur, les sorties de secours restent à portée du doigt. */
+@media (max-width: 640px) {
+  .wrap {
+    padding: 18px 16px 32px;
+  }
+  .head {
+    flex-direction: column-reverse;
+    gap: 10px;
+  }
+  .badge {
+    align-self: flex-start;
+    font-size: 11px;
+    padding: 5px 11px;
+  }
+  .crumb {
+    gap: 4px 14px;
+  }
+  .change {
+    padding: 8px 0;
+  }
+  .h1 {
+    font-size: 29px;
+  }
+  .intro {
+    font-size: 14.5px;
+    margin: 10px 0 20px;
+  }
+}

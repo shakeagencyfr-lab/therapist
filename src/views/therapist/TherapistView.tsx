@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMaybeCabinet } from '@/cabinet/context'
+import { EVENEMENT_LISTE_PATIENTS } from '@/components/layout/NavigationBas'
 import { libelleNonLus, totalNonLus } from '@/lib/fil'
 import { useAppState } from '@/state/store'
 import { PatientSidebar } from './PatientSidebar'
@@ -46,6 +47,13 @@ export function TherapistView() {
      il n'a pas à voyager dans AppState. */
   const [drawer, setDrawer] = useState(false)
   const [volet, setVolet] = useState<Volet>('suivi')
+  /* « Patients » touché de nouveau dans la barre du bas, fiche déjà
+     ouverte : c'est la liste qu'on demande (NavigationBas). */
+  useEffect(() => {
+    const ouvrir = () => setDrawer(true)
+    window.addEventListener(EVENEMENT_LISTE_PATIENTS, ouvrir)
+    return () => window.removeEventListener(EVENEMENT_LISTE_PATIENTS, ouvrir)
+  }, [])
   const state = useAppState()
   const cabinet = useMaybeCabinet()
 

@@ -4,3 +4,13 @@
   gap: 14px;
   margin-bottom: 26px;
 }
+
+/* Deux par ligne sur un téléphone : quatre cartes pleine largeur
+   repoussaient le parcours de plus d'un écran. */
+@media (max-width: 640px) {
+  .row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+}

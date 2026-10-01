@@ -64,6 +64,13 @@
   outline: none;
   border-bottom-color: var(--c-accent);
 }
+/* Un titre, plus grand que les seize pixels imposés aux champs tactiles
+   (src/styles/global.css) : il garde sa taille. */
+@media (pointer: coarse) {
+  html .planNameInput {
+    font-size: 21px;
+  }
+}
 
 .reglages {
   display: grid;

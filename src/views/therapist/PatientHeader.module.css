@@ -43,3 +43,36 @@
   display: flex;
   gap: 9px;
 }
+
+/* SUR UN TÉLÉPHONE. Les trois boutons ne tiennent pas sur une ligne : le
+   troisième sortait de l'écran et faisait glisser toute la page de côté.
+   « Nouvelle séance », le geste du jour, prend toute la largeur ; les deux
+   autres se partagent la ligne du dessous. */
+@media (max-width: 640px) {
+  .head {
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+  .identity {
+    min-width: 0;
+  }
+  .name {
+    font-size: 32px;
+  }
+  .actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+  .actions > * {
+    min-width: 0;
+    min-height: 44px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .actions > :last-child {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+}

@@ -131,3 +131,24 @@
   color: var(--c-text-3);
   margin: 0;
 }
+
+/* Les onglets de la fiche, au pouce : plus hauts, et la rangée s'estompe à
+   droite pour dire qu'elle défile. */
+@media (max-width: 640px) {
+  .main {
+    padding: 16px 16px 40px;
+  }
+  .volets {
+    margin: -4px -16px 18px;
+    padding: 0 16px;
+    mask-image: linear-gradient(to right, #000 85%, transparent);
+  }
+  .volet {
+    padding: 13px 12px 14px;
+    font-size: 14px;
+  }
+  .drawerBtn {
+    min-height: 40px;
+    margin-bottom: 14px;
+  }
+}

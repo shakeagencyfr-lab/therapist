@@ -542,3 +542,18 @@
   border-radius: inherit;
   display: block;
 }
+
+/* AU DOIGT, DES CIBLES QUI SE TOUCHENT. Les boutons, pastilles de filtre et
+   segments faisaient trente pixels de haut au plus : sur un téléphone, on
+   touchait le voisin. Le bureau garde sa densité. */
+@media (pointer: coarse) {
+  .btn {
+    min-height: 42px;
+  }
+  .chip {
+    min-height: 38px;
+  }
+  .segment {
+    min-height: 36px;
+  }
+}

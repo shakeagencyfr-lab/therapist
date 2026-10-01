@@ -8,6 +8,7 @@ import { cabinetById } from '@/state/resellerSelectors'
 import { useStore } from '@/state/store'
 import type { Space, ViewMode } from '@/state/state'
 import { logoDePorte } from '@/theme/klaro'
+import { NavigationBas, vueDansPlus } from './NavigationBas'
 import s from './AppHeader.module.css'
 
 /**
@@ -100,9 +101,13 @@ export function AppHeader() {
   const montrerJetons = !reseller && solde !== null && state.mode !== 'patient'
   const soldeBas = solde !== null && jetons?.bareme ? solde < jetons.bareme.seance : false
 
+  /* Le menu des petits écrans s'ouvre de deux endroits : son bouton dans
+     l'en-tête (tablette), et « Plus » dans la barre du bas (téléphone). */
+  const [menuOuvert, setMenuOuvert] = useState(false)
+
   return (
     <header
-      className={s.header}
+      className={reseller ? s.header : `${s.header} ${s.headerCabinet}`}
       style={reseller ? undefined : ({ '--c-accent': couleurSure(cabinet.branding.accent) } as CSSProperties)}
     >
       <div className={s.brand}>
@@ -173,7 +178,24 @@ export function AppHeader() {
         seDeconnecter={auth?.seDeconnecter}
         onCompte={() => set({ mode: 'compte' })}
         compteOuvert={state.mode === 'compte'}
+        ouvert={menuOuvert}
+        setOuvert={setMenuOuvert}
       />
+
+      {/* Téléphone : les quatre écrans de tous les jours, en bas, au pouce.
+          Pas pendant qu'une séance s'enregistre. */}
+      {!reseller ? (
+        <NavigationBas
+          vue={state.mode}
+          masquee={state.recording}
+          plusOuvert={menuOuvert}
+          onVue={(mode) => {
+            setMenuOuvert(false)
+            set({ mode })
+          }}
+          onPlus={() => setMenuOuvert((o) => !o)}
+        />
+      ) : null}
     </header>
   )
 }
@@ -256,6 +278,8 @@ function MenuMobile({
   seDeconnecter,
   onCompte,
   compteOuvert,
+  ouvert,
+  setOuvert,
 }: {
   vues: Array<{ value: ViewMode; label: string }>
   vue: ViewMode
@@ -268,8 +292,9 @@ function MenuMobile({
   seDeconnecter?: () => Promise<void>
   onCompte: () => void
   compteOuvert: boolean
+  ouvert: boolean
+  setOuvert: (o: boolean | ((o: boolean) => boolean)) => void
 }) {
-  const [ouvert, setOuvert] = useState(false)
   const courante = vues.find((v) => v.value === vue)
 
   return (
@@ -305,7 +330,15 @@ function MenuMobile({
                   key={v.value}
                   type="button"
                   role="menuitem"
-                  className={v.value === vue ? `${s.panneauItem} ${s.panneauItemOn}` : s.panneauItem}
+                  className={[
+                    s.panneauItem,
+                    v.value === vue ? s.panneauItemOn : '',
+                    /* Déjà dans la barre du bas, sur un téléphone : le
+                       menu « Plus » ne les répète pas. */
+                    vueDansPlus(v.value) ? '' : s.panneauItemDansLaBarre,
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
                   aria-current={v.value === vue ? 'page' : undefined}
                   onClick={() => {
                     onVue(v.value)

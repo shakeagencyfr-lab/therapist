@@ -316,3 +316,44 @@
   color: var(--c-text-2);
   max-width: 70ch;
 }
+
+/* SUR UN TÉLÉPHONE, « Terminer et rédiger la note » reste sous le pouce :
+   la rangée colle au bas de l'écran — au-dessus de la barre du bas quand
+   elle est là (--hauteur-barre-bas, NavigationBas.module.css) — tant que la
+   carte de la séance est à l'écran. Il n'y a plus à remonter les notes pour
+   le trouver. */
+@media (max-width: 640px) {
+  /* `overflow: hidden` fait de la carte un conteneur de défilement : la
+     rangée collerait à la carte, pas à l'écran. `clip` rogne les coins
+     arrondis sans ce défaut. */
+  .flush {
+    overflow: clip;
+  }
+  .pad,
+  .recRow,
+  .body {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .actions {
+    position: sticky;
+    bottom: var(--hauteur-barre-bas, 0px);
+    z-index: 2;
+    margin: 18px -16px -16px;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    background: var(--c-surface);
+    border-top: 1px solid var(--c-border-light);
+  }
+  .generate {
+    flex: 1;
+    min-height: 48px;
+    font-size: 14.5px;
+  }
+  .clear {
+    min-height: 44px;
+  }
+  .recBtn {
+    width: 62px;
+    height: 62px;
+  }
+}

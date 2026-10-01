@@ -2145,6 +2145,28 @@ try {
   }
 }
 
+// La barre du bas des téléphones (NavigationBas) : dans l'espace du cabinet,
+// avec ses quatre écrans et « Plus » ; jamais dans l'espace revendeur, ni
+// pendant qu'une séance s'enregistre — un doigt ne doit pas quitter le micro.
+{
+  const manque: string[] = []
+  const fiche = rendu('barre-bas/fiche', { space: 'cabinet', mode: 'therapist' })
+  if (!fiche.includes('aria-label="Navigation principale"')) manque.push('la barre manque à la fiche')
+  for (const libelle of ['Patients', 'Séance', 'Atelier', 'Notifications', 'Plus']) {
+    if (!fiche.includes(`>${libelle}</span>`)) manque.push(`« ${libelle} » manque à la barre`)
+  }
+  const revendeur = rendu('barre-bas/revendeur', { space: 'reseller', rView: 'portfolio' })
+  if (revendeur.includes('aria-label="Navigation principale"')) manque.push('la barre paraît chez le revendeur')
+  const micro = rendu('barre-bas/enregistrement', { space: 'cabinet', mode: 'session', recording: true })
+  if (micro.includes('aria-label="Navigation principale"')) manque.push('la barre reste pendant l’enregistrement')
+  if (manque.length) {
+    console.error(`✗ barre du bas : ${manque.join(' ; ')}`)
+    echecs++
+  } else {
+    console.log(`✓ barre du bas      ${String(fiche.length).padStart(6)} octets · quatre écrans et « Plus », pas chez le revendeur, pas pendant l'enregistrement`)
+  }
+}
+
 if (echecs > 0) {
   console.error(`\n${echecs} échec(s).`)
   process.exit(1)

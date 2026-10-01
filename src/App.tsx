@@ -1,4 +1,5 @@
 import { AppHeader } from '@/components/layout/AppHeader'
+import barre from '@/components/layout/NavigationBas.module.css'
 import { BandeauContrat } from '@/components/layout/BandeauContrat'
 import { BandeauDossier } from '@/components/layout/BandeauDossier'
 import { useMaybeAuth } from '@/auth/session'
@@ -29,7 +30,7 @@ import { EquipeView } from '@/views/equipe/EquipeView'
  * pas voir l'espace revendeur teinté aux couleurs de son cabinet.
  */
 export function App() {
-  const { mode, space } = useAppState()
+  const { mode, space, recording } = useAppState()
   const cabinet = useMaybeAuth()?.context?.cabinet ?? null
 
   if (space === 'reseller') {
@@ -45,8 +46,10 @@ export function App() {
      rien, elle rend les boutons et les blocs sombres transparents. */
   const couleurs = variablesDeMarque(cabinet?.branding)
 
+  /* Sur un téléphone, la page laisse la place à la barre du bas
+     (NavigationBas) — sauf pendant l'enregistrement, où la barre s'efface. */
   return (
-    <div style={couleurs}>
+    <div style={couleurs} className={recording ? undefined : barre.avecBarre}>
       <AppHeader />
       <BandeauContrat />
       <BandeauDossier />
