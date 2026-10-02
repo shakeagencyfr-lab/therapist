@@ -397,8 +397,11 @@
     padding-top: 40px;
     padding-bottom: 72px;
   }
+  /* Le texte reste à côté du téléphone pendant qu'on le parcourt. */
   .heroTexte {
     padding-top: 36px;
+    position: sticky;
+    top: calc(var(--entete) + 8px);
   }
   /* À 1024 pixels, « séances, » partait seul sur une troisième ligne. */
   .titre {
@@ -437,6 +440,22 @@
   color: var(--c-text-2);
   max-width: 34em;
 }
+/* Sur un téléphone, la promesse se lit d'un regard : le téléphone de
+   démonstration arrivait deux écrans plus bas. */
+@media (max-width: 719px) {
+  .hero {
+    padding-top: 26px;
+    gap: 28px;
+  }
+  .chapeau {
+    margin-top: 16px;
+    font-size: 16.5px;
+    line-height: 1.55;
+  }
+  .actions {
+    margin-top: 22px;
+  }
+}
 
 .actions {
   display: flex;
@@ -450,30 +469,100 @@
   }
 }
 
-.reperes {
+/* Les quatre repères : de petites cartes, deux de front, quatre au large. */
+.faits {
   list-style: none;
   padding: 0;
-  margin: 24px 0 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 18px;
-  font-size: 14px;
-  color: var(--c-text-3);
+  margin: 26px 0 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  perspective: 900px;
 }
-.reperes li {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.reperes li::before {
-  content: '';
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--c-accent);
-  flex: none;
+@media (min-width: 720px) and (max-width: 959px) {
+  .faits {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
+@media (min-width: 960px) {
+  .faits {
+    margin-top: 34px;
+    gap: 12px;
+    max-width: 560px;
+  }
+}
+.fait {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 14px 13px;
+  border-radius: var(--r-lg);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset;
+}
+.faitValeur {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  line-height: 1.2;
+  color: var(--c-text);
+}
+.faitTexte {
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--c-text-3);
+}
+@media (min-width: 960px) {
+  .fait {
+    padding: 14px 16px 15px;
+  }
+  .faitValeur {
+    font-size: 20px;
+  }
+  .faitTexte {
+    font-size: 14px;
+  }
+}
+/* Sur un téléphone, une liste serrée plutôt que quatre cartes : elles
+   repoussaient le téléphone de démonstration d'un écran. */
+@media (max-width: 719px) {
+  .faits {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 7px;
+    margin-top: 22px;
+  }
+  .fait {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 6px;
+    padding: 0 0 0 16px;
+    position: relative;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+  }
+  .fait::before {
+    content: '';
+    position: absolute;
+    left: 1px;
+    top: 0.55em;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--c-accent);
+  }
+  .faitValeur {
+    font-family: var(--font-ui);
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .faitTexte {
+    font-size: 14.5px;
+  }
+}
 .heroApercu {
   position: relative;
   margin: 0;
@@ -1493,5 +1582,543 @@ textarea.saisie {
 @media (min-width: 900px) {
   .piedDroits {
     grid-column: 1 / -1;
+  }
+}
+
+/* ── Le relief ────────────────────────────────────────────────────────
+ *
+ * Un peu de 3D, en CSS seulement (src/vente/relief.ts dit où est le regard ;
+ * ici se décide ce que ça donne). Tout tient sans le script : la scène a une
+ * pose de repos, et sans mouvement permis elle y reste.
+ *
+ * La scène : un téléphone de trois quarts, épais de deux tranches, des cartes
+ * qui flottent devant lui à des profondeurs différentes, et sous lui des
+ * ondes qui s'élargissent au rythme d'une respiration lente.
+ */
+
+.scene {
+  --rx: 6deg;
+  --ry: -14deg;
+  position: relative;
+  perspective: 1500px;
+  perspective-origin: 50% 35%;
+}
+@media (max-width: 719px) {
+  .scene {
+    --rx: 4deg;
+    --ry: -9deg;
+    perspective: 1100px;
+  }
+}
+
+.scene [data-telephone] {
+  position: relative;
+  z-index: 1;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--rx)) rotateY(var(--ry));
+}
+/* L'épaisseur : deux tranches sombres, derrière l'écran. De face, on ne les
+   voit pas ; de trois quarts, elles font la tranche du téléphone. */
+.scene [data-telephone]::before,
+.scene [data-telephone]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--r-phone) + 11px);
+  background: #2a2017;
+  pointer-events: none;
+}
+.scene [data-telephone]::before {
+  transform: translateZ(-7px);
+}
+.scene [data-telephone]::after {
+  transform: translateZ(-14px);
+  background: #1c150e;
+  box-shadow: 0 40px 80px -30px rgba(46, 35, 22, 0.55);
+}
+
+/* Le socle : la place du téléphone, où se posent le halo et les ondes. */
+.socle {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: min(var(--telephone-l, 412px), 100%);
+  height: calc(var(--ecran-demo) + 72px);
+  translate: -50% 0;
+  pointer-events: none;
+}
+@media (min-width: 560px) {
+  .socle {
+    height: auto;
+    aspect-ratio: 412 / 866;
+  }
+}
+
+.halo {
+  position: absolute;
+  inset: 4% -38% 0;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(219, 170, 89, 0.42), rgba(219, 170, 89, 0.14) 55%, rgba(219, 170, 89, 0) 78%);
+}
+
+.anneaux {
+  position: absolute;
+  left: 50%;
+  top: 96%;
+  width: 190%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%) rotateX(76deg);
+}
+@media (max-width: 719px) {
+  .anneaux {
+    width: 150%;
+  }
+}
+.anneau {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgba(166, 118, 46, 0.32);
+}
+.anneau:nth-child(2) {
+  inset: 14%;
+  border-color: rgba(166, 118, 46, 0.4);
+}
+.anneau:nth-child(3) {
+  inset: 28%;
+  border-style: dashed;
+  border-color: rgba(166, 118, 46, 0.5);
+}
+/* Les ondes : immobiles par défaut, elles respirent quand le mouvement est
+   permis. */
+.onde {
+  inset: 34%;
+  opacity: 0;
+  border-color: rgba(166, 118, 46, 0.55);
+}
+
+.ombre {
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  bottom: -4%;
+  height: 7%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(46, 35, 22, 0.32), rgba(46, 35, 22, 0));
+}
+
+/* Les cartes qui flottent devant le téléphone. */
+.flottantes {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  pointer-events: none;
+}
+.flottante {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px 10px 10px;
+  border-radius: 16px;
+  background: #fffdf8;
+  border: 1px solid var(--c-border);
+  box-shadow:
+    0 22px 44px -22px rgba(46, 35, 22, 0.5),
+    0 2px 6px rgba(46, 35, 22, 0.06);
+  color: var(--c-text);
+  white-space: nowrap;
+  transform: translateZ(var(--z, 60px));
+  transition: opacity 0.35s ease, scale 0.35s ease;
+}
+/* Posées là où elles cachent le moins : la barre d'état, le bord du
+   lecteur, la liste du jour. Survolé, le téléphone les efface. */
+.flottanteRappel {
+  --z: 60px;
+  top: 4%;
+  right: -17%;
+}
+.flottanteNote {
+  --z: 95px;
+  top: 41%;
+  left: -27%;
+}
+.flottanteSuivi {
+  --z: 125px;
+  bottom: 7%;
+  right: -12%;
+  padding: 11px 14px 12px;
+}
+.flottantePicto {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 11px;
+  background: var(--c-accent-tint);
+  border: 1px solid var(--c-border-accent);
+  color: var(--c-accent-deep);
+}
+.flottantePicto svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.flottanteTexte {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.flottanteTitre {
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.flottanteSous {
+  font-size: 12.5px;
+  line-height: 1.3;
+  color: var(--c-text-3);
+}
+.barres {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  height: 30px;
+  margin-top: 7px;
+}
+.barre {
+  width: 12px;
+  height: calc(var(--h) * 100%);
+  border-radius: 4px 4px 2px 2px;
+  background: linear-gradient(180deg, var(--c-or), #c18f3e);
+}
+/* Face à soi, pour s'en servir : les cartes s'effacent. */
+.scene[data-face] .flottante {
+  opacity: 0;
+  scale: 0.94;
+}
+
+/* Sur un téléphone, deux cartes, plus petites, posées sur les bords du
+   cadre : elles ne cachent pas l'écran qu'on essaie. */
+@media (max-width: 719px) {
+  .flottante {
+    gap: 8px;
+    padding: 7px 12px 7px 7px;
+    border-radius: 13px;
+  }
+  .flottantePicto {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+  }
+  .flottantePicto svg {
+    width: 16px;
+    height: 16px;
+  }
+  .flottanteTitre {
+    font-size: 12px;
+  }
+  .flottanteSous {
+    font-size: 11px;
+  }
+  .flottanteNote {
+    --z: 70px;
+    top: auto;
+    bottom: 14%;
+    left: -12px;
+  }
+  .flottanteRappel {
+    --z: 50px;
+    top: 4%;
+    right: -12px;
+  }
+  .flottanteSuivi {
+    display: none;
+  }
+}
+/* Entre la tablette et l'écran large, la marge à droite est courte. */
+@media (min-width: 720px) and (max-width: 1199px) {
+  .flottanteNote {
+    left: -12%;
+  }
+  .flottanteRappel {
+    right: -5%;
+  }
+  .flottanteSuivi {
+    right: -4%;
+  }
+}
+
+/* La note : un brouillon posé sur deux autres, légèrement de biais. */
+.pile {
+  position: relative;
+  perspective: 1600px;
+}
+.pile::before,
+.pile::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--r-panel);
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border-light);
+  pointer-events: none;
+}
+.pile::before {
+  translate: 10px 12px;
+  rotate: 1.4deg;
+  opacity: 0.9;
+}
+.pile::after {
+  translate: 20px 24px;
+  rotate: 2.6deg;
+  opacity: 0.6;
+}
+.pile > * {
+  position: relative;
+  z-index: 1;
+}
+@media (max-width: 719px) {
+  .pile::before {
+    translate: 5px 7px;
+    rotate: 0.8deg;
+  }
+  .pile::after {
+    translate: 10px 14px;
+    rotate: 1.5deg;
+  }
+}
+@media (min-width: 1000px) {
+  .pile > * {
+    transform: rotateY(-4deg) rotateX(2deg);
+    transform-origin: 50% 50%;
+    transition: transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  /* Survolée, elle se redresse : on lit, on coche. */
+  .pile:hover > *,
+  .pile:focus-within > * {
+    transform: none;
+  }
+}
+
+/* La bande sombre : trois plaques qui ne se touchent pas — chaque cabinet
+   chez lui. Au large seulement, à droite du titre. */
+.sectionSombre {
+  position: relative;
+  overflow: hidden;
+}
+.cloisons {
+  display: none;
+}
+@media (min-width: 1100px) {
+  .cloisons {
+    display: block;
+    position: absolute;
+    top: 64px;
+    right: max(var(--marge), calc((100% - var(--largeur)) / 2));
+    width: 240px;
+    height: 220px;
+    margin: 0 !important;
+    perspective: 900px;
+    pointer-events: none;
+  }
+  .cloison {
+    position: absolute;
+    left: 30px;
+    top: 30px;
+    width: 160px;
+    height: 160px;
+    border-radius: 22px;
+    border: 1px solid rgba(219, 170, 89, 0.55);
+    background: linear-gradient(135deg, rgba(219, 170, 89, 0.2), rgba(219, 170, 89, 0.04));
+    box-shadow: 0 0 0 1px rgba(245, 238, 225, 0.04) inset;
+    transform: rotateX(58deg) rotateZ(-38deg) translateZ(calc(var(--n) * 46px));
+  }
+  .cloison:nth-child(1) {
+    --n: 0;
+    opacity: 0.55;
+  }
+  .cloison:nth-child(2) {
+    --n: 1;
+    opacity: 0.8;
+  }
+  .cloison:nth-child(3) {
+    --n: 2;
+  }
+  /* Le titre ne passe pas sous les plaques. */
+  .sectionSombre .enTeteSection {
+    padding-right: 260px;
+  }
+}
+
+/* Les cartes, sous la souris, suivent le pointeur. */
+.etapes,
+.offres,
+.engagements {
+  perspective: 1400px;
+}
+@media (min-width: 900px) {
+  .offreRepere {
+    --z: 18px;
+  }
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .page [data-relief] {
+    transform: translateZ(var(--z, 0px)) rotateX(var(--ty, 0deg)) rotateY(var(--tx, 0deg));
+    transition:
+      transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1),
+      box-shadow 0.4s ease;
+  }
+  .page [data-relief]:hover {
+    box-shadow: 0 26px 50px -30px rgba(46, 35, 22, 0.5);
+  }
+  .sectionSombre [data-relief]:hover {
+    box-shadow: 0 26px 50px -24px rgba(0, 0, 0, 0.6);
+  }
+}
+/* Sans souris, la carte repère garde son avance, immobile. */
+@media (min-width: 900px) and (not ((hover: hover) and (pointer: fine))) {
+  .offreRepere {
+    transform: translateZ(var(--z));
+  }
+}
+
+/* ── Le mouvement, quand il est permis ─────────────────────────────── */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* La promesse arrive ligne après ligne. */
+  .heroTexte > * {
+    animation: entree 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  .heroTexte > :nth-child(2) {
+    animation-delay: 0.08s;
+  }
+  .heroTexte > :nth-child(3) {
+    animation-delay: 0.16s;
+  }
+  .heroTexte > :nth-child(4) {
+    animation-delay: 0.24s;
+  }
+  .heroTexte > :nth-child(5) {
+    animation-delay: 0.32s;
+  }
+  .scene {
+    animation: posee 1.2s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+
+  .flottante {
+    animation: flotter 7s ease-in-out infinite;
+  }
+  .flottanteRappel {
+    animation-delay: -2.4s;
+    animation-duration: 8s;
+  }
+  .flottanteSuivi {
+    animation-delay: -4.8s;
+    animation-duration: 9s;
+  }
+
+  .anneaux {
+    animation: tourner 90s linear infinite;
+  }
+  /* Une respiration lente : six secondes, trois ondes décalées. */
+  .onde {
+    animation: onde 6s ease-out infinite;
+  }
+  .onde:nth-child(5) {
+    animation-delay: 2s;
+  }
+  .onde:nth-child(6) {
+    animation-delay: 4s;
+  }
+  .halo {
+    animation: respirer 6s ease-in-out infinite;
+  }
+  .cloison {
+    animation: flotter 8s ease-in-out infinite;
+  }
+  .cloison:nth-child(2) {
+    animation-delay: -2.6s;
+  }
+  .cloison:nth-child(3) {
+    animation-delay: -5.2s;
+  }
+
+  /* Les sections montent à leur place en entrant à l'écran (relief.ts pose
+     data-anime, puis data-apparu ; sans le script, rien n'est caché). */
+  .page[data-anime] [data-apparition] {
+    transform-origin: 50% 100%;
+    transition:
+      opacity 0.8s ease calc(var(--i, 0) * 90ms),
+      translate 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) calc(var(--i, 0) * 90ms),
+      rotate 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) calc(var(--i, 0) * 90ms),
+      transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1),
+      box-shadow 0.4s ease;
+  }
+  .page[data-anime] [data-apparition]:not([data-apparu]) {
+    opacity: 0;
+    translate: 0 34px;
+    rotate: x 14deg;
+  }
+}
+
+@keyframes entree {
+  from {
+    opacity: 0;
+    translate: 0 18px;
+  }
+}
+@keyframes posee {
+  from {
+    opacity: 0;
+    translate: 0 40px;
+    rotate: y 10deg;
+  }
+}
+@keyframes flotter {
+  50% {
+    translate: 0 -9px;
+  }
+}
+@keyframes tourner {
+  to {
+    transform: translate(-50%, -50%) rotateX(76deg) rotateZ(360deg);
+  }
+}
+@keyframes onde {
+  0% {
+    inset: 34%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.9;
+  }
+  100% {
+    inset: -6%;
+    opacity: 0;
+  }
+}
+@keyframes respirer {
+  50% {
+    opacity: 0.7;
+    scale: 1.05;
+  }
+}
+
+@media print {
+  .page[data-anime] [data-apparition] {
+    opacity: 1 !important;
+    translate: none !important;
+    rotate: none !important;
+  }
+  .socle,
+  .flottantes,
+  .cloisons {
+    display: none;
   }
 }

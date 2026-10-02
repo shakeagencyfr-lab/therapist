@@ -10,7 +10,7 @@
  * aperçus vivants (Demo.tsx) arrivent ensuite, par un morceau à part ; la
  * page ne les attend pas pour être lisible.
  */
-import { lazy, Suspense, useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
 import {
   ANCRE_COUT_IA,
   AUTRES_PRESTATAIRES,
@@ -18,6 +18,7 @@ import {
   EDITEUR,
   encartJetons,
   ENSUITE,
+  FAITS,
   FONCTIONNALITES,
   JOURS_ESSAI,
   MENTION_PRIX,
@@ -35,6 +36,7 @@ import { CHEMIN_PORTE } from './decision'
 import { Formulaire } from './Formulaire'
 import { KLARO, variablesKlaro } from '@/theme/klaro'
 import { poserEnTeteDeVente } from './seo'
+import { useApparitions, useCartesEnRelief, useScene } from './relief'
 import s from './PageDeVente.module.css'
 
 const TelephoneDemo = lazy(() => import('./Demo').then((m) => ({ default: m.TelephoneDemo })))
@@ -189,9 +191,90 @@ function Differe({ children, attente, immediat = false }: { children: ReactNode;
 /** La place du téléphone, le temps qu'il arrive : même taille, rien ne saute. */
 function TelephoneEnAttente() {
   return (
-    <div className={s.telephoneAttente} aria-hidden="true">
+    <div className={s.telephoneAttente} aria-hidden="true" data-telephone="">
       <div className={s.telephoneAttenteEcran} />
     </div>
+  )
+}
+
+/** Le rang d'un élément dans sa série : les apparitions se suivent. */
+function rang(i: number): CSSProperties {
+  return { '--i': i } as CSSProperties
+}
+
+/**
+ * Ce qui flotte devant le téléphone, dans son relief : trois gestes du
+ * produit, sans chiffre de résultat — une note relue, un rappel, une semaine
+ * de suivi. Décor seulement : les lecteurs d'écran ont le téléphone lui-même.
+ */
+function Flottantes() {
+  return (
+    <span className={s.flottantes} aria-hidden="true">
+      <span className={`${s.flottante} ${s.flottanteNote}`}>
+        <span className={s.flottantePicto}>
+          <svg viewBox="0 0 24 24" focusable="false">
+            <path d="M5 12.5l4.2 4.2L19 7" />
+          </svg>
+        </span>
+        <span className={s.flottanteTexte}>
+          <span className={s.flottanteTitre}>Note de séance</span>
+          <span className={s.flottanteSous}>Relue et validée par vous</span>
+        </span>
+      </span>
+      <span className={`${s.flottante} ${s.flottanteRappel}`}>
+        <span className={s.flottantePicto}>
+          <svg viewBox="0 0 24 24" focusable="false">
+            <path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15zM10 20.5h4" />
+          </svg>
+        </span>
+        <span className={s.flottanteTexte}>
+          <span className={s.flottanteTitre}>Rappel · 20:30</span>
+          <span className={s.flottanteSous}>Trois lignes le soir</span>
+        </span>
+      </span>
+      <span className={`${s.flottante} ${s.flottanteSuivi}`}>
+        <span className={s.flottanteTexte}>
+          <span className={s.flottanteTitre}>Sept jours de suivi</span>
+          <span className={s.barres}>
+            {[0.55, 0.8, 0.4, 0.9, 0.7, 1, 0.65].map((h, i) => (
+              <span key={i} className={s.barre} style={{ '--h': h } as CSSProperties} />
+            ))}
+          </span>
+        </span>
+      </span>
+    </span>
+  )
+}
+
+/**
+ * Derrière le téléphone : un halo, et des ondes qui s'élargissent sous lui au
+ * rythme d'une respiration lente. Le seul clin d'œil à l'hypnose de la page.
+ */
+function Socle() {
+  return (
+    <span className={s.socle} aria-hidden="true">
+      <span className={s.halo} />
+      <span className={s.anneaux}>
+        <span className={s.anneau} />
+        <span className={s.anneau} />
+        <span className={s.anneau} />
+        <span className={`${s.anneau} ${s.onde}`} />
+        <span className={`${s.anneau} ${s.onde}`} />
+        <span className={`${s.anneau} ${s.onde}`} />
+      </span>
+      <span className={s.ombre} />
+    </span>
+  )
+}
+
+/** La bande sombre : des cabinets posés les uns au-dessus des autres, sans se toucher. */
+function Cloisons() {
+  return (
+    <span className={s.cloisons} aria-hidden="true">
+      <span className={s.cloison} />
+      <span className={s.cloison} />
+      <span className={s.cloison} />
+    </span>
   )
 }
 
@@ -269,6 +352,11 @@ function Entete({ onEssai }: { onEssai: (e: MouseEvent<HTMLAnchorElement>) => vo
 
 export function PageDeVente() {
   const [offreProposee, setOffreProposee] = useState('')
+  const racine = useRef<HTMLDivElement | null>(null)
+  const scene = useRef<HTMLDivElement | null>(null)
+  useScene(scene, '[data-telephone]')
+  useCartesEnRelief(racine)
+  useApparitions(racine)
   const liste = offres()
   const jetons = encartJetons()
   const faq = questions()
@@ -321,7 +409,7 @@ export function PageDeVente() {
   }
 
   return (
-    <div className={s.page} style={variablesKlaro()}>
+    <div ref={racine} className={s.page} style={variablesKlaro()}>
       <a className={s.evitement} href="#contenu">
         Aller au contenu
       </a>
@@ -348,12 +436,15 @@ export function PageDeVente() {
                 Voir le parcours
               </a>
             </div>
-            <ul className={s.reperes}>
-              <li>Note de séance rédigée, relue par vous</li>
-              <li>Aucune application à télécharger</li>
-              <li>
-                <a href="#confidentialite">Dossiers à Paris, analyse aux États-Unis&nbsp;: dit en clair</a>
-              </li>
+            <ul className={s.faits}>
+              {FAITS.map((f) => (
+                <li key={f.valeur} className={s.fait} data-relief="">
+                  <span className={s.faitValeur}>{f.valeur}</span>
+                  <span className={s.faitTexte}>
+                    {f.ancre ? <a href={`#${f.ancre}`}>{f.texte}</a> : f.texte}
+                  </span>
+                </li>
+              ))}
             </ul>
           </div>
           <figure id="apercu" className={s.heroApercu} aria-labelledby="legende-apercu">
@@ -362,9 +453,12 @@ export function PageDeVente() {
             <a className={s.passer} href="#parcours">
               Passer l’aperçu
             </a>
-            <Differe immediat attente={<TelephoneEnAttente />}>
-              <TelephoneDemo />
-            </Differe>
+            <div ref={scene} className={s.scene}>
+              <Socle />
+              <Differe immediat attente={<TelephoneEnAttente />}>
+                <TelephoneDemo decor={<Flottantes />} />
+              </Differe>
+            </div>
             <figcaption id="legende-apercu" className={s.legende}>
               L’espace patient, tel que vous le prévisualisez dans Klaro — sur des données fictives.
               Chez votre patient, les numéros d’urgence sont en bas de chaque écran.
@@ -374,7 +468,7 @@ export function PageDeVente() {
 
         {/* ── Le parcours ─────────────────────────────────────────────── */}
         <section id="parcours" className={s.section} aria-labelledby="titre-parcours">
-          <div className={s.enTeteSection}>
+          <div className={s.enTeteSection} data-apparition="">
             <p className={s.surtitre}>Le parcours</p>
             <h2 id="titre-parcours" className={s.titreSection}>
               De la séance au suivi, en quatre temps
@@ -385,7 +479,7 @@ export function PageDeVente() {
           </div>
           <ol className={s.etapes}>
             {PARCOURS.map((etape, i) => (
-              <li key={etape.titre} className={s.etape}>
+              <li key={etape.titre} className={s.etape} data-relief="" data-apparition="" style={rang(i)}>
                 <span className={s.etapeHaut}>
                   <span className={s.pictoCadre}>
                     <Pictogramme nom={etape.icone} />
@@ -410,7 +504,7 @@ export function PageDeVente() {
         {/* ── Après la séance : la note, le cœur du produit ────────────── */}
         <section id="note" className={`${s.section} ${s.sectionClaire}`} aria-labelledby="titre-note">
           <div className={s.deuxColonnes}>
-            <div className={s.noteTexte}>
+            <div className={s.noteTexte} data-apparition="">
               <p className={s.surtitre}>Après la séance</p>
               <h2 id="titre-note" className={s.titreSection}>
                 Votre note est rédigée. Vous la relisez.
@@ -430,15 +524,17 @@ export function PageDeVente() {
                 </a>
               </p>
             </div>
-            <Differe attente={<NoteEnAttente />}>
-              <NoteDemo />
-            </Differe>
+            <div className={s.pile} data-apparition="" style={rang(1)}>
+              <Differe attente={<NoteEnAttente />}>
+                <NoteDemo />
+              </Differe>
+            </div>
           </div>
         </section>
 
         {/* ── Le suivi, côté thérapeute ───────────────────────────────── */}
         <section id="suivi" className={s.section} aria-labelledby="titre-suivi">
-          <div className={s.enTeteSection}>
+          <div className={s.enTeteSection} data-apparition="">
             <p className={s.surtitre}>Votre côté</p>
             <h2 id="titre-suivi" className={s.titreSection}>
               Qui avance, qui décroche
@@ -448,20 +544,22 @@ export function PageDeVente() {
               les écrans du suivi, sur des patients fictifs. Choisissez-en un.
             </p>
           </div>
-          <Differe attente={<SuiviEnAttente />}>
-            <SuiviDemo />
-          </Differe>
+          <div data-apparition="">
+            <Differe attente={<SuiviEnAttente />}>
+              <SuiviDemo />
+            </Differe>
+          </div>
         </section>
 
         {/* ── Les fonctionnalités ─────────────────────────────────────── */}
         <section id="fonctionnalites" className={s.section} aria-labelledby="titre-fonctions">
-          <div className={s.enTeteSection}>
+          <div className={s.enTeteSection} data-apparition="">
             <p className={s.surtitre}>Fonctionnalités</p>
             <h2 id="titre-fonctions" className={s.titreSection}>
               Ce qu’il faut entre deux séances, et rien de plus
             </h2>
           </div>
-          <div className={s.groupes}>
+          <div className={s.groupes} data-apparition="">
             {FONCTIONNALITES.map((g) => (
               <GroupeDeFonctions key={g.titre} groupe={g} />
             ))}
@@ -470,7 +568,8 @@ export function PageDeVente() {
 
         {/* ── La confidentialité ──────────────────────────────────────── */}
         <section id="confidentialite" className={`${s.section} ${s.sectionSombre}`} aria-labelledby="titre-confidentialite">
-          <div className={s.enTeteSection}>
+          <Cloisons />
+          <div className={s.enTeteSection} data-apparition="">
             <p className={`${s.surtitre} ${s.surtitreSombre}`}>Confidentialité</p>
             <h2 id="titre-confidentialite" className={s.titreSection}>
               La confidentialité, telle qu’elle est
@@ -480,8 +579,8 @@ export function PageDeVente() {
             </p>
           </div>
           <ul className={s.engagements}>
-            {CONFIDENTIALITE.map((e) => (
-              <li key={e.titre} className={s.engagement}>
+            {CONFIDENTIALITE.map((e, i) => (
+              <li key={e.titre} className={s.engagement} data-relief="" data-apparition="" style={rang(i % 3)}>
                 <h3 className={s.engagementTitre}>{e.titre}</h3>
                 <p className={s.engagementTexte}>{e.texte}</p>
               </li>
@@ -493,7 +592,7 @@ export function PageDeVente() {
 
         {/* ── Les offres ──────────────────────────────────────────────── */}
         <section id="offres" className={s.section} aria-labelledby="titre-offres">
-          <div className={s.enTeteSection}>
+          <div className={s.enTeteSection} data-apparition="">
             <p className={s.surtitre}>Offres</p>
             <h2 id="titre-offres" className={s.titreSection}>
               Trois offres, un seul produit
@@ -505,8 +604,14 @@ export function PageDeVente() {
             </p>
           </div>
           <ul className={s.offres}>
-            {liste.map((o) => (
-              <li key={o.code} className={o.repere ? `${s.offre} ${s.offreRepere}` : s.offre}>
+            {liste.map((o, i) => (
+              <li
+                key={o.code}
+                className={o.repere ? `${s.offre} ${s.offreRepere}` : s.offre}
+                data-relief=""
+                data-apparition=""
+                style={rang(i)}
+              >
                 {o.repere ? <p className={s.offreBadge}>{o.repere}</p> : null}
                 <h3 className={s.offreNom}>{o.nom}</h3>
                 <p className={s.offrePrix}>
@@ -530,7 +635,7 @@ export function PageDeVente() {
               </li>
             ))}
           </ul>
-          <div className={s.jetons}>
+          <div className={s.jetons} data-apparition="">
             <p className={s.jetonsTitre}>{jetons.titre}</p>
             <p className={s.jetonsTexte}>
               {jetons.texte}{' '}
@@ -545,13 +650,13 @@ export function PageDeVente() {
 
         {/* ── Les questions ───────────────────────────────────────────── */}
         <section id="questions" className={`${s.section} ${s.sectionClaire}`} aria-labelledby="titre-questions">
-          <div className={s.enTeteSection}>
+          <div className={s.enTeteSection} data-apparition="">
             <p className={s.surtitre}>Questions</p>
             <h2 id="titre-questions" className={s.titreSection}>
               Les questions à se poser
             </h2>
           </div>
-          <div className={s.questions}>
+          <div className={s.questions} data-apparition="">
             {faq.map((q) => (
               <details key={q.id} id={q.id} className={s.question}>
                 <summary className={s.questionResume}>
@@ -565,6 +670,7 @@ export function PageDeVente() {
 
         {/* ── L'essai ─────────────────────────────────────────────────── */}
         <section id="essai" className={`${s.section} ${s.sectionEssai}`} aria-labelledby="titre-essai">
+          {/* Le formulaire ne s'efface jamais : c'est là qu'on arrive en cliquant. */}
           <div className={s.essai}>
             <div className={s.essaiTexte}>
               <p className={s.surtitre}>Essai</p>

@@ -28,7 +28,7 @@
  * affirmations — n'est pas proposé (`affAuto` vide), et l'agenda tiers
  * n'est pas encadré (`booking` nul) : aucune ressource extérieure.
  */
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { BRAND_PRESETS } from '@/data/reseller'
 import { variablesDeMarque } from '@/lib/couleurs'
 import { allModules, riskColor, slippingPatients } from '@/state/selectors'
@@ -83,7 +83,12 @@ function EcranPatient() {
  * (BRAND_PRESETS), appliquées par la même fonction que la marque réelle
  * (variablesDeMarque) : c'est la marque blanche, pour de vrai.
  */
-export function TelephoneDemo() {
+/**
+ * `decor` : ce que la page pose autour du téléphone, dans son relief — des
+ * cartes qui flottent devant lui (PageDeVente). Le cadre lui-même porte
+ * `data-telephone`, que la scène incline.
+ */
+export function TelephoneDemo({ decor }: { decor?: ReactNode } = {}) {
   /* On ouvre sur « Terre » : blanc sur #8A5A2B passe le contraste (5,87:1),
      là où l'Ocre, première du nuancier, tombe à 3,38:1 sur la carte du
      lecteur. Les autres teintes restent à essayer. */
@@ -91,7 +96,7 @@ export function TelephoneDemo() {
   const marque = BRAND_PRESETS[teinte] ?? BRAND_PRESETS[0]
   return (
     <AppStoreProvider initial={DEMONSTRATION}>
-      <div className={s.telephone} style={variablesDeMarque(marque)}>
+      <div className={s.telephone} style={variablesDeMarque(marque)} data-telephone="">
         <PhoneFrame>
           <div
             className={s.ecran}
@@ -105,6 +110,7 @@ export function TelephoneDemo() {
             <EcranPatient />
           </div>
         </PhoneFrame>
+        {decor}
       </div>
       <fieldset className={s.teintes}>
         <legend className={s.teintesTitre}>Essayez les couleurs d’un cabinet</legend>

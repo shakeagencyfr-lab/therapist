@@ -188,6 +188,27 @@ export function encartJetons(): { titre: string; texte: string } {
 /** La durée de l'essai, bornée en base (0049 : quatorze jours à l'ouverture). */
 export const JOURS_ESSAI = 14
 
+/** Un repère du haut de page : un fait court, et sa précision. */
+export interface Fait {
+  valeur: string
+  texte: string
+  /** La section qui le détaille, quand il en faut une. */
+  ancre?: string
+}
+
+/**
+ * Les quatre repères sous la promesse. Chacun est dit en entier plus bas :
+ * l'essai sous les offres, la relecture dans la note, le lien dans le
+ * parcours, l'hébergement et l'analyse dans la confidentialité — qu'on
+ * nomme ici tous les deux, pour ne pas laisser croire que tout reste à Paris.
+ */
+export const FAITS: Fait[] = typographie([
+  { valeur: `${JOURS_ESSAI} jours d’essai`, texte: 'sans carte bancaire' },
+  { valeur: 'Note relue par vous', texte: 'rien ne part chez le patient avant' },
+  { valeur: 'Aucune application', texte: 'votre patient ouvre un lien' },
+  { valeur: 'Dossiers à Paris', texte: 'analyse aux États-Unis : dit en clair', ancre: 'confidentialite' },
+])
+
 export interface OffreAffichee {
   code: string
   nom: string
