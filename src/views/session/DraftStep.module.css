@@ -336,6 +336,11 @@
   flex-wrap: wrap;
   margin-top: 18px;
 }
+/* Le prix des consignes, sur sa ligne, juste avant le bouton qui les déclenche. */
+.coutConsignes {
+  flex: 1 1 100%;
+  margin: 0;
+}
 .dispatch {
   font-size: 13.5px;
   font-weight: 600;

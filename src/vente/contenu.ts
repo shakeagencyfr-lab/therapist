@@ -12,7 +12,7 @@
  * rendu refuse ces mots (scripts/render-check.mts).
  */
 import { PLANS } from '@/data/reseller'
-import { BAREME_PAR_DEFAUT_ECRAN } from '@/lib/jetonsIA'
+import { BAREME_PAR_DEFAUT_ECRAN, CONSIGNES_PAR_SEANCE_ESTIMEES, jetonsDUneSeanceComplete } from '@/lib/jetonsIA'
 import { LIENS_LEGAUX } from '@/legal/chemins'
 import { COURRIEL } from '@/legal/identite'
 import type { PlanCode } from '@/types/reseller'
@@ -124,10 +124,14 @@ export const JETONS_PAR_MOIS = Object.fromEntries(PLANS.map((p) => [p.code, p.je
  * évoluer avec un préavis de trente jours (conditions de vente, « jetons »).
  */
 export const BAREME = {
-  /** Une séance complète : la note, les consignes, le profil. */
-  seance: BAREME_PAR_DEFAUT_ECRAN.seance,
-  /** Un module d'exercice rédigé à part. */
+  /** La note d'une séance (et la mise à jour du profil qui la suit). */
+  note: BAREME_PAR_DEFAUT_ECRAN.seance,
+  /** Un module d'exercice, retenu en séance ou écrit dans l'atelier : le même prix. */
   module: BAREME_PAR_DEFAUT_ECRAN.module,
+  /** Les modules qu'une séance retient, au plus haut de l'ordinaire. */
+  modulesParSeance: CONSIGNES_PAR_SEANCE_ESTIMEES,
+  /** Une séance complète : sa note, et ses modules retenus au prix du module. */
+  seance: jetonsDUneSeanceComplete(BAREME_PAR_DEFAUT_ECRAN),
   /** Une hypnose de trente minutes, en quatre mouvements. */
   hypnose: BAREME_PAR_DEFAUT_ECRAN.hypnose,
 } as const
@@ -181,7 +185,7 @@ function offresAvecHypnose(): string {
 export function encartJetons(): { titre: string; texte: string } {
   return typographie({
     titre: 'Les jetons d’IA, inclus chaque mois',
-    texte: `Chaque rédaction de l’IA consomme des jetons, affichés avant de lancer : une séance complète environ ${BAREME.seance}, un module ${BAREME.module}, une hypnose de 30 minutes ${BAREME.hypnose}. Rien n’est débité si la rédaction échoue. Chaque offre en inclut chaque mois ; au-delà, des recharges valables douze mois : ${recharges()} HT. L’option Hypnose est incluse dans ${offresAvecHypnose()} ; sinon, ${OPTION_HYPNOSE.prixEuros} € HT pour ${OPTION_HYPNOSE.jours} jours, avec ${OPTION_HYPNOSE.jetons} jetons.`,
+    texte: `Chaque rédaction de l’IA consomme des jetons, affichés avant de lancer : la note d’une séance ${BAREME.note}, chaque module ${BAREME.module} — en séance comme dans l’atelier —, soit environ ${BAREME.seance} pour une séance complète avec ${BAREME.modulesParSeance} modules ; une hypnose de 30 minutes ${BAREME.hypnose}. Rien n’est débité si la rédaction échoue. Chaque offre en inclut chaque mois ; au-delà, des recharges valables douze mois : ${recharges()} HT. L’option Hypnose est incluse dans ${offresAvecHypnose()} ; sinon, ${OPTION_HYPNOSE.prixEuros} € HT pour ${OPTION_HYPNOSE.jours} jours, avec ${OPTION_HYPNOSE.jetons} jetons.`,
   })
 }
 
@@ -336,7 +340,7 @@ export const PARCOURS: Etape[] = typographie([
 export function pointsDeLaNote(): string[] {
   return typographie([
     'Rédigé à partir de la transcription et de vos notes, quand vous lancez la rédaction. Vous corrigez, décochez, validez : rien ne part chez votre patient avant.',
-    `Chaque rédaction se paie en jetons, inclus chaque mois dans votre offre : une séance complète en consomme environ ${BAREME.seance}. L’écran affiche le nombre avant de lancer, et rien n’est débité si la rédaction échoue.`,
+    `Chaque rédaction se paie en jetons, inclus chaque mois dans votre offre : ${BAREME.note} pour la note, ${BAREME.module} par module retenu — environ ${BAREME.seance} pour une séance complète. L’écran affiche le nombre avant de lancer, et rien n’est débité si la rédaction échoue.`,
     'Sans jetons disponibles, l’espace patient et le suivi fonctionnent, mais aucune note n’est rédigée — jusqu’au mois suivant, ou jusqu’à une recharge.',
   ])
 }
@@ -540,7 +544,7 @@ function questionsBrutes(): Question[] {
     {
       id: ANCRE_COUT_IA,
       question: 'Que coûte l’IA ?',
-      reponse: `Elle se paie en jetons, et chaque offre en inclut chaque mois, crédités le 1er : ${jetonsDesOffres()}. Une séance complète en consomme environ ${BAREME.seance}, un module ${BAREME.module}, une hypnose de 30 minutes ${BAREME.hypnose}. Le nombre s’affiche avant de lancer, et rien n’est débité si la rédaction échoue. Les jetons du mois ne se reportent pas ; au-delà, des recharges valables douze mois : ${recharges()} HT, consommées après ceux du mois. L’option Hypnose est incluse dans ${offresAvecHypnose()} ; sinon, ${OPTION_HYPNOSE.prixEuros} € HT pour ${OPTION_HYPNOSE.jours} jours, avec ${OPTION_HYPNOSE.jetons} jetons. Les rédactions passent par Anthropic, sous le compte de ${EDITEUR.nom} : vous n’avez aucune clé à fournir.`,
+      reponse: `Elle se paie en jetons, et chaque offre en inclut chaque mois, crédités le 1er : ${jetonsDesOffres()}. La note d’une séance en consomme ${BAREME.note}, chaque module ${BAREME.module} — retenu en séance ou écrit dans l’atelier, le même prix —, soit environ ${BAREME.seance} pour une séance complète avec ${BAREME.modulesParSeance} modules ; une hypnose de 30 minutes ${BAREME.hypnose}. Le nombre s’affiche avant de lancer, et rien n’est débité si la rédaction échoue. Les jetons du mois ne se reportent pas ; au-delà, des recharges valables douze mois : ${recharges()} HT, consommées après ceux du mois. L’option Hypnose est incluse dans ${offresAvecHypnose()} ; sinon, ${OPTION_HYPNOSE.prixEuros} € HT pour ${OPTION_HYPNOSE.jours} jours, avec ${OPTION_HYPNOSE.jetons} jetons. Les rédactions passent par Anthropic, sous le compte de ${EDITEUR.nom} : vous n’avez aucune clé à fournir.`,
     },
     {
       id: 'apres-essai',

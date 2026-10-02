@@ -5,7 +5,6 @@ import { describe, expect, it, vi } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { MOUVEMENTS } from './prompts.js'
 import {
-  CONSIGNES_PAR_SEANCE,
   PROFILS_PAR_SEANCE,
   BAREME_PAR_DEFAUT,
   MOUVEMENTS_PAR_HYPNOSE,
@@ -55,8 +54,22 @@ function recherches(o: Partial<{ seances: string[]; hypnoses: string[] }> = {}):
 const B = BAREME_PAR_DEFAUT
 
 describe('le barème', () => {
-  it('par défaut : 12 la séance, 5 le module et le profil, 1 les affirmations, 50 l’hypnose, 3 et 8 les retouches', () => {
-    expect(B).toEqual({ seance: 12, module: 5, profil: 5, affirmations: 1, hypnose: 50, retouche: 3, retouche_hypnose: 8 })
+  it('par défaut : 6 la note de séance, 3 le module, 5 le profil, 1 les affirmations, 50 l’hypnose, 2 et 8 les retouches', () => {
+    expect(B).toEqual({ seance: 6, module: 3, profil: 5, affirmations: 1, hypnose: 50, retouche: 2, retouche_hypnose: 8 })
+  })
+
+  it('dit les mêmes valeurs par défaut que la base (0072)', () => {
+    const sql = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), '..', 'supabase', 'migrations', '0072_un_module_au_meme_prix.sql'),
+      'utf8',
+    )
+    for (const [action, jetons] of Object.entries({ seance: B.seance, module: B.module, retouche: B.retouche })) {
+      expect(sql).toContain(`alter column bareme_${action} set default ${jetons}`)
+    }
+  })
+
+  it('une retouche coûte moins qu’un module : reprendre ne coûte pas plus qu’écrire', () => {
+    expect(B.retouche).toBeLessThan(B.module)
   })
 
   it('se lit dans une ligne de réglages, et comble ce qui manque ou ne vaut rien', () => {
@@ -70,7 +83,7 @@ describe('coutDeLAppel — ce que l’appel demande à la base', () => {
   it('une séance se paie au barème, et retient sa séance si elle est du cabinet', async () => {
     expect(await coutDeLAppel('session-draft', { sessionId: SEANCE }, B, recherches())).toEqual({
       action: 'seance',
-      prix: 12,
+      prix: 6,
       ref: SEANCE,
       regle: 'prix',
       mouvement: null,
@@ -80,14 +93,21 @@ describe('coutDeLAppel — ce que l’appel demande à la base', () => {
     expect((await coutDeLAppel('session-draft', {}, B, recherches())).ref).toBeNull()
   })
 
-  it('les consignes et le profil d’une séance du cabinet suivent la règle de la séance — la base décide du compris', async () => {
+  it('un module écrit après une séance se paie comme dans l’atelier : au barème, la séance seulement inscrite', async () => {
+    // Décision du 2 octobre 2026 : un module coûte ce qu'il coûte, d'où qu'on l'écrive.
     expect(await coutDeLAppel('module', { sessionId: SEANCE }, B, recherches())).toEqual({
       action: 'module',
-      prix: 5,
+      prix: 3,
       ref: SEANCE,
-      regle: 'seance',
+      regle: 'prix',
       mouvement: null,
     })
+    expect((await coutDeLAppel('module', { sessionId: SEANCE }, B, recherches())).prix).toBe(
+      (await coutDeLAppel('module', {}, B, recherches())).prix,
+    )
+  })
+
+  it('le profil d’une séance du cabinet suit la règle de la séance — la base décide du compris', async () => {
     expect(await coutDeLAppel('profile', { sessionId: SEANCE }, B, recherches())).toEqual({
       action: 'profil',
       prix: 5,
@@ -98,9 +118,9 @@ describe('coutDeLAppel — ce que l’appel demande à la base', () => {
   })
 
   it('un module sans séance du cabinet se paie : atelier, séance d’un autre cabinet, identifiant inventé', async () => {
-    expect(await coutDeLAppel('module', {}, B, recherches())).toMatchObject({ prix: 5, ref: null, regle: 'prix' })
+    expect(await coutDeLAppel('module', {}, B, recherches())).toMatchObject({ prix: 3, ref: null, regle: 'prix' })
     expect(await coutDeLAppel('module', { sessionId: AUTRE }, B, recherches())).toMatchObject({
-      prix: 5,
+      prix: 3,
       ref: null,
       regle: 'prix',
     })
@@ -118,7 +138,8 @@ describe('coutDeLAppel — ce que l’appel demande à la base', () => {
       join(dirname(fileURLToPath(import.meta.url)), '..', 'supabase', 'migrations', '0068_les_jetons_sous_verrou.sql'),
       'utf8',
     )
-    expect(sql).toContain(`case p_action when 'module' then ${CONSIGNES_PAR_SEANCE} else ${PROFILS_PAR_SEANCE} end`)
+    // Le plafond des modules (8) n'est plus atteint : le serveur ne les rattache plus à la séance.
+    expect(sql).toContain(`case p_action when 'module' then 8 else ${PROFILS_PAR_SEANCE} end`)
     expect(sql).toContain(`p_mouvement not in (${MOUVEMENTS.map((m) => `'${m}'`).join(', ')})`)
     // Le compte se fait APRÈS le verrou, dans la fonction qui débite.
     const debit = sql.slice(sql.indexOf('create or replace function public.jetons_debiter_forfait'))
@@ -164,7 +185,7 @@ describe('coutDeLAppel — ce que l’appel demande à la base', () => {
       prix: 8,
       regle: 'prix',
     })
-    expect(await coutDeLAppel('revision', { cible: 'module' }, B, recherches())).toMatchObject({ action: 'retouche', prix: 3 })
+    expect(await coutDeLAppel('revision', { cible: 'module' }, B, recherches())).toMatchObject({ action: 'retouche', prix: 2 })
   })
 
   it('une route inconnue n’a pas de prix', async () => {

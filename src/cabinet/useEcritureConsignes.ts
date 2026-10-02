@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { seFaitParLePatient } from '@/lib/typesDeModules'
-import { buildPatientContext, generateModule } from '@/services/aiClient'
+import { AiError, buildPatientContext, generateModule } from '@/services/aiClient'
 import { useStore } from '@/state/store'
 import type { ModuleCree } from './useCabinet'
 import type { DraftProposal, PatientId } from '@/types/domain'
@@ -23,6 +23,10 @@ import type { DraftProposal, PatientId } from '@/types/domain'
  * UN ÉCHEC PAR MODULE NE FAIT PAS ÉCHOUER LES AUTRES. Chacun est indépendant,
  * et celui qui n'aboutit pas garde le « pourquoi » de la séance, qui vaut
  * mieux que rien.
+ *
+ * CHACUNE SE PAIE AU PRIX D'UN MODULE (en mode jetons, depuis le 2 octobre
+ * 2026), comme dans l'atelier. Quand les jetons manquent (402), on s'arrête :
+ * les suivantes échoueraient pareil, et l'écran dit pourquoi.
  */
 export interface EcritureConsignes {
   /** Le module en cours d'écriture, pour l'afficher. */
@@ -32,9 +36,11 @@ export interface EcritureConsignes {
   total: number
   ecrit: boolean
   echecs: number
+  /** Arrêté faute de jetons : les consignes restantes n'ont pas été tentées. */
+  sansJetons: boolean
   /**
-   * `sessionId` : la séance dont ces consignes découlent. En mode jetons, le
-   * serveur les compte dans le forfait de la séance au lieu de les facturer.
+   * `sessionId` : la séance dont ces consignes découlent, inscrite à chaque
+   * débit pour l'historique.
    */
   ecrire: (
     patientId: PatientId,
@@ -53,6 +59,7 @@ export function useEcritureConsignes(
   const [total, setTotal] = useState(0)
   const [ecrit, setEcrit] = useState(false)
   const [echecs, setEchecs] = useState(0)
+  const [sansJetons, setSansJetons] = useState(false)
 
   const ecrire = useCallback(
     async (patientId: PatientId, crees: ModuleCree[], propositions: DraftProposal[], sessionId: string | null = null) => {
@@ -66,6 +73,7 @@ export function useEcritureConsignes(
       setTotal(modules.length)
       setFaits(0)
       setEchecs(0)
+      setSansJetons(false)
 
       const contexte = buildPatientContext(read(), patientId)
       let n = 0
@@ -102,9 +110,18 @@ export function useEcritureConsignes(
             rates += 1
             setEchecs(rates)
           }
-        } catch {
+        } catch (erreur) {
           rates += 1
           setEchecs(rates)
+          if (erreur instanceof AiError && erreur.status === 402) {
+            // Plus de jetons : les suivantes échoueraient pareil. Elles comptent
+            // parmi les échecs, et l'écran dit pourquoi.
+            setSansJetons(true)
+            rates += modules.length - n - 1
+            setEchecs(rates)
+            setFaits(modules.length)
+            break
+          }
         }
         n += 1
         setFaits(n)
@@ -115,5 +132,5 @@ export function useEcritureConsignes(
     [majConsigne, read],
   )
 
-  return { enCours, faits, total, ecrit, echecs, ecrire }
+  return { enCours, faits, total, ecrit, echecs, sansJetons, ecrire }
 }

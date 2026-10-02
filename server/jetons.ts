@@ -86,28 +86,29 @@ export const ACTIONS_JETONS: readonly ActionJetons[] = [
 
 /** Les valeurs par défaut de la table `reseller_jetons` (0065), recopiées pour les épreuves et l'écran. */
 export const BAREME_PAR_DEFAUT: Bareme = {
-  seance: 12,
-  module: 5,
+  seance: 6,
+  module: 3,
   profil: 5,
   affirmations: 1,
   hypnose: 50,
-  retouche: 3,
+  retouche: 2,
   retouche_hypnose: 8,
 }
 
 /**
- * CE QU'UNE SÉANCE PAYÉE COMPREND.
+ * CE QU'UNE SÉANCE PAYÉE COMPREND : UNE ACTUALISATION DU PROFIL, ET C'EST TOUT.
  *
- * Le brouillon d'une séance se paie ; ce qui en découle ne se repaie pas :
- * les consignes des modules retenus (une par module, huit au plus — un
- * brouillon en propose trois ou quatre) et une actualisation du profil. Au-
- * delà, ce n'est plus la suite de cette séance, c'est un autre travail.
+ * Le brouillon d'une séance se paie au barème « séance » — la note. Chaque
+ * module retenu se paie ensuite au barème « module », le même que dans
+ * l'atelier : un module coûte ce qu'il coûte, d'où qu'on l'écrive (décision
+ * du 2 octobre 2026). Quand les consignes étaient comprises dans la séance,
+ * quatre modules écrits après une séance ne coûtaient rien, et un seul écrit
+ * dans l'atelier en coûtait cinq.
  *
- * Ces plafonds sont appliqués PAR LA BASE (`jetons_prix_du_forfait`, 0068),
- * sous le verrou du débit ; ils ne sont recopiés ici que pour l'écran et les
- * épreuves.
+ * Seule l'actualisation du profil qui suit la séance reste comprise, une
+ * fois : la base l'applique (`jetons_prix_du_forfait`, 0068), sous le verrou
+ * du débit.
  */
-export const CONSIGNES_PAR_SEANCE = 8
 export const PROFILS_PAR_SEANCE = 1
 
 /**
@@ -348,10 +349,12 @@ export function uuidDe(valeur: unknown): string | null {
  *
  *   session-draft  une séance, au barème ; l'identifiant de la séance, s'il
  *                  est du cabinet, est inscrit : c'est lui qui ouvre le forfait.
- *   module         règle « seance » si l'appel porte une séance du cabinet :
- *                  compris quand son brouillon est payé, huit fois au plus ;
- *                  sinon, un module au barème.
- *   profile        même règle, une fois par séance.
+ *   module         toujours un module au barème, en séance comme dans
+ *                  l'atelier ; la séance du cabinet, s'il y en a une, est
+ *                  inscrite pour l'historique.
+ *   profile        règle « seance » si l'appel porte une séance du cabinet :
+ *                  compris quand son brouillon est payé, une fois ; sinon,
+ *                  un profil au barème.
  *   affirmations   toujours au barème.
  *   hypnose        l'hypnose doit être ouverte en base et être du cabinet —
  *                  sur une fiche, ou dans sa bibliothèque (0071) —, et le
@@ -382,12 +385,14 @@ export async function coutDeLAppel(
       const seance = uuidDe(body.sessionId)
       return plein('seance', seance && (await r.seanceDuCabinet(seance)) ? seance : null)
     }
-    case 'module':
-    case 'profile': {
-      const action = route === 'module' ? 'module' : 'profil'
+    case 'module': {
       const seance = uuidDe(body.sessionId)
-      if (!seance || !(await r.seanceDuCabinet(seance))) return plein(action)
-      return { action, prix: bareme[action], ref: seance, regle: 'seance', mouvement: null }
+      return plein('module', seance && (await r.seanceDuCabinet(seance)) ? seance : null)
+    }
+    case 'profile': {
+      const seance = uuidDe(body.sessionId)
+      if (!seance || !(await r.seanceDuCabinet(seance))) return plein('profil')
+      return { action: 'profil', prix: bareme.profil, ref: seance, regle: 'seance', mouvement: null }
     }
     case 'affirmations':
       return plein('affirmations')

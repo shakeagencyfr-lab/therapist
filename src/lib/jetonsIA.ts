@@ -31,12 +31,12 @@ import type {
  * que celui du serveur.
  */
 export const BAREME_PAR_DEFAUT_ECRAN: Bareme = {
-  seance: 12,
-  module: 5,
+  seance: 6,
+  module: 3,
   profil: 5,
   affirmations: 1,
   hypnose: 50,
-  retouche: 3,
+  retouche: 2,
   retouche_hypnose: 8,
 }
 
@@ -54,14 +54,14 @@ export const ACTIONS_DU_BAREME: readonly ActionJetons[] = [
 /**
  * Ce que chaque action recouvre, dit au revendeur qui en fixe le prix.
  *
- * LA SÉANCE EST UN FORFAIT. Le brouillon se paie ; les consignes des
- * exercices retenus et une actualisation du profil qui en découlent ne se
- * repaient pas (server/jetons.ts). Le libellé le dit, sans quoi le prix de la
- * séance paraîtrait exorbitant à côté de celui d'un module.
+ * UN MODULE COÛTE CE QU'IL COÛTE, D'OÙ QU'ON L'ÉCRIVE (2 octobre 2026). La
+ * séance paie sa note — et l'actualisation du profil qui la suit, comprise
+ * une fois ; chaque module retenu se paie ensuite au prix du module, comme
+ * dans l'atelier (server/jetons.ts).
  */
 export const LIBELLE_ACTION: Record<ActionJetons, string> = {
-  seance: 'Séance complète (note, consignes des exercices retenus, mise à jour du profil)',
-  module: "Module d'atelier",
+  seance: 'Note de séance (mise à jour du profil comprise)',
+  module: 'Module, en séance ou dans l’atelier',
   profil: 'Profil (hors séance)',
   affirmations: 'Affirmations de la semaine',
   hypnose: 'Hypnose de 30 minutes',
@@ -72,7 +72,7 @@ export const LIBELLE_ACTION: Record<ActionJetons, string> = {
 /** Le même, en deux mots : l'historique de la praticienne et son barème. */
 export const ACTION_COURTE: Record<ActionJetons, string> = {
   seance: 'Séance',
-  module: "Module d'atelier",
+  module: 'Module',
   profil: 'Profil',
   affirmations: 'Affirmations',
   hypnose: 'Hypnose',
@@ -125,9 +125,11 @@ export function devisJetons(
   etat: Pick<EtatJetons, 'mode' | 'solde' | 'enRegle' | 'bareme'> | null,
   action: ActionJetons,
   compris = false,
+  /** Combien de fois l'action : les consignes des modules retenus d'une séance. */
+  quantite = 1,
 ): Devis | null {
   if (!etat || etat.mode !== 'jetons') return null
-  const cout = compris ? 0 : Math.max(0, etat.bareme[action] ?? 0)
+  const cout = compris ? 0 : Math.max(0, etat.bareme[action] ?? 0) * Math.max(0, Math.floor(quantite))
   /* HORS CONTRAT, CE N'EST PAS UN MANQUE. Le serveur refuse alors toute
      analyse, et le bandeau du contrat le dit déjà : pousser à recharger un
      cabinet dont l'essai est fini, c'est lui vendre des jetons inutilisables. */
@@ -162,11 +164,16 @@ export function modeLu(etat: Pick<EtatJetons, 'mode'> | null): ModeFacturation |
 export const SEUIL_MARGE = 60
 
 /**
- * Combien de consignes une séance écrit, en moyenne — pour estimer ce
- * qu'elle coûte vraiment. Un brouillon en propose trois ou quatre ; on
- * compte le haut de la fourchette, pour ne pas flatter la marge.
+ * Combien de modules une séance retient, en moyenne — pour dire ce que coûte
+ * une séance complète. Un brouillon en propose trois ou quatre ; on compte le
+ * haut de la fourchette, pour ne pas flatter le nombre de séances par mois.
  */
 export const CONSIGNES_PAR_SEANCE_ESTIMEES = 4
+
+/** Une séance complète, en jetons : sa note, et ses modules retenus au prix du module. */
+export function jetonsDUneSeanceComplete(bareme: Pick<Bareme, 'seance' | 'module'>): number {
+  return bareme.seance + CONSIGNES_PAR_SEANCE_ESTIMEES * bareme.module
+}
 
 /**
  * Le prix d'un jeton, au plus bas : celui de la recharge la plus avantageuse
@@ -194,18 +201,17 @@ export function euroParJeton(prixCents: number, jetons: number): string {
  * Ce qu'une action coûte vraiment au revendeur, en centimes d'euro, d'après
  * les appels mesurés.
  *
- * LA SÉANCE ADDITIONNE SON FORFAIT. La mesure de « séance » ne couvre que le
- * brouillon ; or la séance payée comprend aussi ses consignes et une
- * actualisation du profil, qui sont des appels à part. Afficher la marge sur
- * le brouillon seul la gonflerait de moitié.
+ * LA SÉANCE ADDITIONNE CE QU'ELLE COMPREND. La mesure de « séance » ne couvre
+ * que le brouillon ; or la séance payée comprend aussi une actualisation du
+ * profil, qui est un appel à part. Ses modules, eux, se paient chacun au prix
+ * du module : ils ont leur propre ligne.
  */
 export function coutsParAction(couts: CoutReel[]): Partial<Record<ActionJetons, number>> {
   const brut: Partial<Record<ActionJetons, number>> = {}
   for (const c of couts) brut[c.action] = c.parActionCentimesEur
   const parAction = { ...brut }
   if (brut.seance !== undefined) {
-    parAction.seance =
-      brut.seance + CONSIGNES_PAR_SEANCE_ESTIMEES * (brut.module ?? 0) + (brut.profil ?? 0)
+    parAction.seance = brut.seance + (brut.profil ?? 0)
   }
   return parAction
 }

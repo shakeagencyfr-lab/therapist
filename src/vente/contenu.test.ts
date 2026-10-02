@@ -164,7 +164,8 @@ describe('ce que coûte l’IA', () => {
     expect(Object.keys(JETONS_PAR_MOIS).sort()).toEqual(PLANS.map((p) => p.code).sort())
     expect(JETONS_PAR_MOIS).toEqual({ essentiel: 300, cabinet: 800, reseau: 2000 })
     const [essentiel, cabinet, reseau] = offres()
-    expect(essentiel?.lignes.join(' ')).toMatch(/^300 jetons d’IA par mois, soit environ 25 séances/)
+    // Une séance complète : 6 pour la note, 3 par module, quatre modules — 18 jetons.
+    expect(essentiel?.lignes.join(' ')).toMatch(/^300 jetons d’IA par mois, soit environ 16 séances/)
     expect(cabinet?.lignes.join(' ')).toContain('800 jetons d’IA par mois')
     expect(reseau?.lignes.join(' ')).toContain('2 000 jetons d’IA par mois')
     expect(reseau?.lignes.join(' ')).toMatch(/Option Hypnose incluse/)
@@ -176,8 +177,9 @@ describe('ce que coûte l’IA', () => {
     expect(faq).toContain('Anthropic')
     for (const attendu of [
       /300 pour Essentiel, 800 pour Cabinet et 2 000 pour Réseau/,
-      /séance complète en consomme environ 12/,
-      /un module 5/,
+      /note d’une séance en consomme 6/,
+      /chaque module 3/,
+      /environ 18 pour une séance complète avec 4 modules/,
       /hypnose de 30 minutes 50/,
       /100 jetons 12 €, 300 jetons 30 € et 1 000 jetons 85 € HT/,
       /valables douze mois/,

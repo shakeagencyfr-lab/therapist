@@ -306,7 +306,7 @@ describe('la retouche, de la demande à la consommation', () => {
     it('tout autre texte au prix d’une retouche', async () => {
       m.parse.mockResolvedValue(reponse({ texte: 'Bonjour Camille, merci.' }))
       await analyserPourCabinet('revision', { cible: 'message', ...RETOUR, actuel: 'Bonjour Camille.' }, 'cab-1')
-      expect(m.reserver).toHaveBeenCalledWith('cab-1', { action: 'retouche', prix: 3, ref: null, regle: 'prix', mouvement: null }, expect.anything(), expect.anything())
+      expect(m.reserver).toHaveBeenCalledWith('cab-1', { action: 'retouche', prix: 2, ref: null, regle: 'prix', mouvement: null }, expect.anything(), expect.anything())
     })
 
     it('une retouche qui échoue rend ses jetons', async () => {

@@ -395,9 +395,11 @@ function BaremeJetons({ etat, peutRegler, enCours, agir }: SectionProps) {
 
       <p className={s.aide}>
         Coûts moyens mesurés sur les quatre-vingt-dix derniers jours d'appels de vos cabinets, au taux
-        fixe de l'application. La séance additionne la note, {CONSIGNES_PAR_SEANCE_ESTIMEES} consignes
-        et une mise à jour du profil ; l'hypnose, ses quatre mouvements. Une action sans mesure n'a
-        pas encore été lancée par vos cabinets.
+        fixe de l'application. La séance additionne la note et la mise à jour du profil qui la suit ;
+        ses modules se paient chacun au prix du module, en séance comme dans l'atelier — une séance
+        avec {CONSIGNES_PAR_SEANCE_ESTIMEES} modules retenus coûte donc la séance plus{' '}
+        {CONSIGNES_PAR_SEANCE_ESTIMEES} modules. L'hypnose additionne ses quatre mouvements. Une
+        action sans mesure n'a pas encore été lancée par vos cabinets.
       </p>
 
       {peutRegler ? (

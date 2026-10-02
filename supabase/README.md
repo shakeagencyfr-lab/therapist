@@ -134,6 +134,7 @@ Relevé du 28 septembre 2026 (base `koytgcbpeorupdklswxd`).
 | `0069_l_ancienne_demande_d_essai_se_retire.sql` | 20260930125054 | 0069_l_ancienne_demande_d_essai_se_retire |
 | `0070_la_facturation_par_cabinet.sql` | 20260930134829 | 0070_la_facturation_par_cabinet |
 | `0071_la_bibliotheque_d_hypnoses.sql` | 20261001221757 | 0071_la_bibliotheque_d_hypnoses |
+| `0072_un_module_au_meme_prix.sql` | 20261002013835 | 0072_un_module_au_meme_prix |
 
 `0060` (demandes d'essai) a été appliquée avant `0055` à `0059` : elles ne se touchent pas.
 
@@ -321,6 +322,7 @@ persiste, et le message dit ce qui a été vérifié.
   l'anonyme ni le revendeur. Une fiche supprimée laisse ses hypnoses à la
   bibliothèque, sans plus la désigner (`source_patient_id` à null) : l'écran
   propose de les retirer avant (`tests/bibliotheque_hypnoses_0071.sql`).
+- **Un module coûte le même prix partout** (`0072`). La séance paie sa note (6 jetons, profil compris une fois), chaque module retenu se paie au prix du module (3), comme dans l’atelier ; la retouche passe à 2. Les revendeurs restés aux anciennes valeurs par défaut sont alignés, un prix choisi n’est jamais écrasé.
 - **Un avis sur l'IA ne dit ni sur qui, ni quoi** (`0066`). `retours_ia`
   compte les pouces levés ou baissés par type de texte (hypnose, synthèse,
   module…), sans patient ni contenu, comme `ai_usage`. `preferences_ia`

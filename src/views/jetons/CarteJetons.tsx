@@ -146,10 +146,10 @@ export function VueJetons({ etat, titulaire, enCours, echec, cleCabinetPosee = f
           ))}
         </ul>
         <p className={s.note}>
-          Une analyse qui échoue ne se paie pas : ses jetons reviennent aussitôt. Les consignes d'une
-          séance et la mise à jour du profil qui la suit sont comprises dans son prix. Les jetons du
-          mois (ou de l'essai) partent en premier, puis ceux de l'option Hypnose, puis vos recharges,
-          la plus ancienne d'abord.
+          Une analyse qui échoue ne se paie pas : ses jetons reviennent aussitôt. Un module coûte le
+          même prix qu'il soit écrit dans l'atelier ou retenu en séance ; la mise à jour du profil qui
+          suit une séance est comprise dans son prix. Les jetons du mois (ou de l'essai) partent en
+          premier, puis ceux de l'option Hypnose, puis vos recharges, la plus ancienne d'abord.
         </p>
       </div>
 

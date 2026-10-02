@@ -3,6 +3,7 @@ import { Notice, TextArea, Title } from '@/components/ui'
 import { useMaybeCabinet } from '@/cabinet/context'
 import { useDevis, useProfilCompris } from '@/cabinet/useJetons'
 import { dateDuJour, plural } from '@/lib/format'
+import { seFaitParLePatient } from '@/lib/typesDeModules'
 import { choixAGarder, momentDuMessage, type ChoixDuBrouillon } from '@/lib/seance'
 import {
   buildPatientContext,
@@ -59,6 +60,13 @@ export function DraftStep() {
   const seanceDuProfil = state.sessionPatient !== '' && state.sessionId ? state.sessionId : null
   const profilCompris = useProfilCompris(seanceDuProfil)
   const devisProfil = useDevis('profil', profilCompris && profilDejaCompris !== seanceDuProfil)
+  /* Les consignes à écrire après l'envoi : une par module retenu qui se fait
+     chez le patient, chacune au prix d'un module. Avant le retour anticipé
+     ci-dessous — c'est un crochet. */
+  const consignesAEcrire = (draft?.propositions ?? []).filter(
+    (p, i) => !state.proposalOff[i] && seFaitParLePatient(p.type),
+  ).length
+  const devisConsignes = useDevis('module', false, consignesAEcrire)
 
   /* La fiche de la séance, pas celle de la barre latérale : c'est elle qui
      recevra la note, les modules et les audios, même si la sélection a
@@ -376,7 +384,7 @@ export function DraftStep() {
     setEnvoi('en-cours')
     setEchecEnvoi('')
     const retenues = proposals.filter((_, i) => !state.proposalOff[i])
-    // La séance envoyée : ses consignes sont comprises dans son forfait (mode jetons).
+    // La séance est inscrite à chaque consigne, pour l'historique ; chacune se paie au prix d'un module.
     const seance = state.sessionId
     void cabinet
       .envoyerSeance(state.sessionId, key, {
@@ -1002,6 +1010,15 @@ export function DraftStep() {
               {garde === 'en-cours' ? 'Enregistrement…' : 'Garder en brouillon'}
             </button>
           ) : null}
+          {/* Les consignes s'écrivent après l'envoi, une par module retenu, au
+              prix d'un module : la somme se dit avant de cliquer. */}
+          {cabinet?.reel && !state.sent && consignesAEcrire > 0 ? (
+            <CoutEnJetons
+              devis={devisConsignes}
+              sujet={`L’écriture de ${plural(consignesAEcrire, 'consigne', 'consignes')}`}
+              className={s.coutConsignes}
+            />
+          ) : null}
           <button
             type="button"
             className={cx(s.sendBtn, state.sent && s.sendBtnDone)}
@@ -1019,7 +1036,9 @@ export function DraftStep() {
           <p className={s.consignes}>
             {consignes.faits < consignes.total
               ? `Écriture des consignes — ${consignes.faits + 1} sur ${consignes.total}${consignes.enCours ? ` · ${consignes.enCours}` : ''}`
-              : consignes.echecs
+              : consignes.sansJetons
+                ? `Consignes écrites, sauf ${consignes.echecs} sur ${consignes.total} : il n’y avait plus assez de jetons. Ces exercices gardent le « pourquoi » de la séance ; rechargez, puis écrivez le reste depuis le parcours.`
+                : consignes.echecs
                 ? `Consignes écrites, sauf ${consignes.echecs} sur ${consignes.total}. Ces exercices gardent le « pourquoi » de la séance ; vous pouvez écrire le reste depuis le parcours.`
                 : `Consignes écrites : ${plural(consignes.total, 'exercice détaillé', 'exercices détaillés')} pour ${patient.name}. Relisez-les depuis le parcours.`}
           </p>

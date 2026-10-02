@@ -1702,7 +1702,8 @@ try {
     'Essai',
     'Encaissement',
     'Consommation du mois',
-    'Séance complète (note, consignes des exercices retenus, mise à jour du profil)',
+    'Note de séance (mise à jour du profil comprise)',
+    'Module, en séance ou dans l’atelier',
     'Hypnose de 30 minutes',
   ]) {
     if (!onglet.includes(titre)) manque.push(`l'onglet revendeur ne dit pas « ${titre} »`)
@@ -1787,13 +1788,20 @@ try {
   }
 
   const cout = avecStore(h(CoutEnJetons, { devis: devisJetons(etat, 'seance'), sujet: 'Cette analyse' }))
-  if (!cout.includes('Cette analyse utilisera 12 jetons (il vous en reste 312).')) {
+  if (!cout.includes('Cette analyse utilisera 6 jetons (il vous en reste 312).')) {
     manque.push('le prix de la séance ne se dit pas avant le clic')
+  }
+  // Les consignes d'une séance : une par module retenu, au prix d'un module — dites avant l'envoi.
+  const consignesSeance = avecStore(
+    h(CoutEnJetons, { devis: devisJetons(etat, 'module', false, 4), sujet: 'L’écriture de 4 consignes' }),
+  )
+  if (!consignesSeance.includes('L’écriture de 4 consignes utilisera 12 jetons (il vous en reste 312).')) {
+    manque.push('le prix des consignes d’une séance ne se dit pas avant l’envoi')
   }
   const court = avecStore(
     h(CoutEnJetons, { devis: devisJetons({ ...etat, solde: 3 }, 'seance'), sujet: 'Cette analyse' }),
   )
-  if (!court.includes('Il vous reste 3 jetons, et cette analyse en demande 12.') || !court.includes('Voir vos jetons')) {
+  if (!court.includes('Il vous reste 3 jetons, et cette analyse en demande 6.') || !court.includes('Voir vos jetons')) {
     manque.push('un solde trop court ne dit pas où trouver des jetons')
   }
   const cle = avecStore(h(CoutEnJetons, { devis: devisJetons({ ...etat, mode: 'cle_cabinet' }, 'seance') }))
@@ -2002,7 +2010,7 @@ try {
     manque.push("le prix d'une retouche d'hypnose ne se dit pas")
   }
   const prixTexte = fenetre({ cible: 'synthese', libelle: 'la synthèse de séance', devis: devisJetons(etat, 'retouche') })
-  if (!prixTexte.includes('Cette retouche utilisera 3 jetons (il vous en reste 312).')) manque.push("le prix d'une retouche ne se dit pas")
+  if (!prixTexte.includes('Cette retouche utilisera 2 jetons (il vous en reste 312).')) manque.push("le prix d'une retouche ne se dit pas")
   if (!prixTexte.includes('placeholder="La synthèse interprète au lieu de rapporter"')) manque.push("l'exemple ne parle pas du texte retouché")
   const court = fenetre({
     devis: devisJetons({ ...etat, solde: 2 }, 'retouche_hypnose'),

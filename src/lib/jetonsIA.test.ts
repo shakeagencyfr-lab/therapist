@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  jetonsDUneSeanceComplete,
   centimesCourts,
   coutsParAction,
   debitDit,
@@ -56,8 +57,8 @@ describe('le prix, avant le clic', () => {
 
   it('dit le prix et le solde', () => {
     const devis = devisJetons(etat, 'seance')
-    expect(devis).toEqual({ cout: 12, solde: 312, manque: false, compris: false })
-    expect(phraseDuDevis(devis!)).toBe('Cette analyse utilisera 12 jetons (il vous en reste 312).')
+    expect(devis).toEqual({ cout: 6, solde: 312, manque: false, compris: false })
+    expect(phraseDuDevis(devis!)).toBe('Cette analyse utilisera 6 jetons (il vous en reste 312).')
     expect(phraseDuDevis(devisJetons(etat, 'affirmations')!, 'Cette proposition')).toBe(
       'Cette proposition utilisera 1 jeton (il vous en reste 312).',
     )
@@ -66,7 +67,7 @@ describe('le prix, avant le clic', () => {
   it('constate le manque, sans reproche', () => {
     const devis = devisJetons({ ...etat, solde: 3 }, 'seance')!
     expect(devis.manque).toBe(true)
-    expect(phraseDuDevis(devis)).toBe('Il vous reste 3 jetons, et cette analyse en demande 12.')
+    expect(phraseDuDevis(devis)).toBe('Il vous reste 3 jetons, et cette analyse en demande 6.')
     expect(phraseDuDevis(devisJetons({ ...etat, solde: 0 }, 'hypnose')!, 'Cette hypnose')).toBe(
       'Il ne vous reste aucun jeton, et cette hypnose en demande 50.',
     )
@@ -131,15 +132,23 @@ describe('le prix, vu par le revendeur', () => {
     expect(margeDe(0, 8.5, 5)).toEqual({ prixCents: 0, margePct: null, faible: true })
   })
 
-  it('compte la séance avec son forfait : note, consignes et profil', () => {
+  it('compte la séance avec ce qu’elle comprend : la note et le profil — ses modules se paient à part', () => {
     const couts = coutsParAction([
       { action: 'seance', appels: 10, parAppelCentimesUsd: 5.56, parActionCentimesEur: 5 },
       { action: 'module', appels: 10, parAppelCentimesUsd: 5.83, parActionCentimesEur: 5.5 },
       { action: 'profil', appels: 10, parAppelCentimesUsd: 8.53, parActionCentimesEur: 8 },
     ])
-    expect(couts.seance).toBe(5 + 4 * 5.5 + 8)
+    expect(couts.seance).toBe(5 + 8)
     expect(couts.module).toBe(5.5)
     expect(couts.hypnose).toBeUndefined()
+  })
+
+  it('un module coûte le même prix partout, et une séance complète additionne ses modules', () => {
+    expect(jetonsDUneSeanceComplete({ seance: 6, module: 3 })).toBe(6 + 4 * 3)
+    // Les consignes d'une séance : autant de fois le prix d'un module.
+    expect(devisJetons(etat, 'module', false, 4)).toEqual({ cout: 12, solde: 312, manque: false, compris: false })
+    expect(devisJetons({ ...etat, solde: 10 }, 'module', false, 4)?.manque).toBe(true)
+    expect(devisJetons(etat, 'module', false, 0)?.cout).toBe(0)
   })
 })
 

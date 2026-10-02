@@ -244,8 +244,8 @@ export function enJetons(data: JetonsData | null): boolean {
  * jetons — ou tant qu'il n'est pas lu : l'écran garde alors ses textes
  * d'avant. `compris` : l'action est déjà payée par le forfait d'une séance.
  */
-export function useDevis(action: ActionJetons, compris = false): Devis | null {
-  return devisJetons(useJetons()?.etat ?? null, action, compris)
+export function useDevis(action: ActionJetons, compris = false, quantite = 1): Devis | null {
+  return devisJetons(useJetons()?.etat ?? null, action, compris, quantite)
 }
 
 /**
