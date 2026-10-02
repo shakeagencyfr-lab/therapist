@@ -141,8 +141,33 @@ export function typeDemande(type: ModuleKind): string {
   return "Type de module demandé : " + type + "." + (DEFINITION_DU_TYPE[type] ? " " + DEFINITION_DU_TYPE[type] + " Écris un module de ce type-là." : "")
 }
 
-export function modulePrompt({ intent, type, quiz, context: c }: ModuleContext): string {
-  return pourQuelquun(c) + "Intention de la thérapeute : " + intent + "\n\n" + typeDemande(type) + "\n" + (quiz ? "Inclure un quiz." : "Ne pas inclure de quiz : renvoie un tableau vide.") + "\n\n" + SORTIE_MODULE
+export function modulePrompt(brief: ModuleContext): string {
+  const { prefixe, suite } = modulePromptEnParties(brief)
+  return prefixe.join("") + suite
+}
+
+/**
+ * Un prompt coupé pour le cache : `prefixe`, ce qui se répète d'un appel à
+ * l'autre d'une même série, puis `suite`, propre à cet appel. Mis bout à bout,
+ * c'est exactement le prompt d'une seule pièce — le texte envoyé ne change
+ * pas, seul son découpage le rend réutilisable (server/ai.ts, `callClaude`).
+ */
+export interface PromptEnParties {
+  prefixe: string[]
+  suite: string
+}
+
+/**
+ * Le module, en deux parties : la personne (identique pour les consignes
+ * d'une même séance, écrites coup sur coup), puis l'intention de ce module.
+ */
+export function modulePromptEnParties({ intent, type, quiz, context: c }: ModuleContext): PromptEnParties {
+  const personne = pourQuelquun(c)
+  return {
+    prefixe: personne ? [personne] : [],
+    suite:
+      "Intention de la thérapeute : " + intent + "\n\n" + typeDemande(type) + "\n" + (quiz ? "Inclure un quiz." : "Ne pas inclure de quiz : renvoie un tableau vide.") + "\n\n" + SORTIE_MODULE,
+  }
 }
 
 /** Ce que le module doit contenir, et sous quelle forme — pour l'écrire comme pour le retoucher. */
@@ -343,15 +368,29 @@ export const SORTIE_MOUVEMENT =
   "\"texte\" : le texte du mouvement, à lire à voix haute, dans la longueur demandée ci-dessus. Des paragraphes séparés par des sauts de ligne. Aucun titre, aucune didascalie entre crochets, aucune note à la thérapeute : uniquement ce qui se dit."
 
 export function hypnosePrompt(mouvement: Mouvement, input: HypnoseInput): string {
-  const dossier = dossierHypnose(input)
+  const { prefixe, suite } = hypnosePromptEnParties(mouvement, input)
+  return prefixe.join("") + suite
+}
 
-  const suite = input.precedents.length
-    ? "\nLES MOUVEMENTS DÉJÀ ÉCRITS. Ton texte les prolonge sans rupture : même métaphore, même rythme, même vouvoiement. Ne réinstalle pas ce qui est déjà installé, ne recommence pas l'induction.\n\n" +
-      input.precedents.map((p) => "--- " + p.mouvement.toUpperCase() + " ---\n" + p.texte).join("\n\n") +
-      "\n\n"
-    : "\n"
-
-  return dossier + suite + CONSIGNE_MOUVEMENT[mouvement] + "\n\n" + SORTIE_MOUVEMENT
+/**
+ * Le mouvement, en parties : le dossier, puis CHAQUE mouvement déjà écrit dans
+ * sa propre partie, puis la consigne de celui-ci. Les quatre mouvements d'une
+ * hypnose s'écrivent coup sur coup et chacun reprend les précédents : le
+ * troisième relit tel quel ce que le deuxième a envoyé, plus un mouvement.
+ * Une partie par mouvement, c'est ce qui permet au cache de reprendre là où
+ * l'appel précédent s'était arrêté.
+ */
+export function hypnosePromptEnParties(mouvement: Mouvement, input: HypnoseInput): PromptEnParties {
+  const prefixe = [dossierHypnose(input)]
+  input.precedents.forEach((p, i) => {
+    const entete =
+      i === 0
+        ? "\nLES MOUVEMENTS DÉJÀ ÉCRITS. Ton texte les prolonge sans rupture : même métaphore, même rythme, même vouvoiement. Ne réinstalle pas ce qui est déjà installé, ne recommence pas l'induction.\n\n"
+        : "\n\n"
+    prefixe.push(entete + "--- " + p.mouvement.toUpperCase() + " ---\n" + p.texte)
+  })
+  const ouverture = input.precedents.length ? "\n\n" : "\n"
+  return { prefixe, suite: ouverture + CONSIGNE_MOUVEMENT[mouvement] + "\n\n" + SORTIE_MOUVEMENT }
 }
 
 /* ------------------------------------------------------------------ *

@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest'
 import {
   AI_ROUTES,
   HttpError,
+  additionner,
   briefDuModule,
+  contenuDeLaDemande,
   coutCentimes,
   currentMode,
   describeError,
@@ -13,8 +15,9 @@ import {
   reglageDe,
   rejouerLaPanne,
   rejouerLeRefus,
+  usageDe,
 } from './ai.js'
-import { modulePrompt } from './prompts.js'
+import { hypnosePrompt, hypnosePromptEnParties, modulePrompt, modulePromptEnParties, type HypnoseInput } from './prompts.js'
 
 describe('coutCentimes — au tarif du modèle', () => {
   it('Opus 5 : 5 $ / 25 $ le million', () => {
@@ -71,7 +74,8 @@ describe('reglageDe — le bon modèle et le bon effort par action', () => {
      Omis, il ferait réfléchir moins qu'avant sans que rien ne le dise. */
   it('l’effort est posé explicitement, jamais laissé au défaut du modèle', () => {
     for (const route of ['session-draft', 'profile', 'module', 'hypnose', 'revision'] as const) {
-      expect(reglageDe(route)).toEqual({ model: 'claude-opus-5-5', effort: 'high' })
+      // « medium » depuis le 2 octobre 2026 : posé, pas laissé au défaut du modèle.
+      expect(reglageDe(route)).toEqual({ model: 'claude-opus-5-5', effort: 'medium' })
     }
   })
 
@@ -79,11 +83,11 @@ describe('reglageDe — le bon modèle et le bon effort par action', () => {
     // Haiku 4.5 répond 400 à output_config.effort. Un effort posé là ferait
     // échouer l'appel au lieu de le rendre moins cher.
     expect(reglageDe('affirmations').effort).toBeUndefined()
-    expect(reglageDe('session-draft').effort).toBe('high')
-    expect(reglageDe('profile').effort).toBe('high')
-    expect(reglageDe('module').effort).toBe('high')
-    expect(reglageDe('hypnose').effort).toBe('high')
-    expect(reglageDe('revision').effort).toBe('high')
+    expect(reglageDe('session-draft').effort).toBe('medium')
+    expect(reglageDe('profile').effort).toBe('medium')
+    expect(reglageDe('module').effort).toBe('medium')
+    expect(reglageDe('hypnose').effort).toBe('medium')
+    expect(reglageDe('revision').effort).toBe('medium')
   })
 
   it('le mode courant nomme chaque action, pour le journal de démarrage', () => {
@@ -269,5 +273,101 @@ describe('rejouerLaPanne — une panne du modèle d’analyse se rejoue sur Opus
     expect(rejouerLaPanne('claude-opus-5', 503)).toBe(false)
     expect(rejouerLaPanne('claude-haiku-4-5', 503)).toBe(false)
     expect(rejouerLaPanne('claude-opus-5-5', undefined)).toBe(false)
+  })
+})
+
+describe('le cache du contexte répété (2 octobre 2026)', () => {
+  it('prix : l’écriture du cache à 1,25 fois l’entrée, la relecture au vingtième sur Opus 5.5', () => {
+    // Un million de jetons de chaque sorte, en centimes : 4 $ l'entrée, 5 $ l'écriture, 0,20 $ la relecture.
+    expect(coutCentimes('claude-opus-5-5', { input: 0, output: 0, cacheEcrit: 1_000_000 })).toBeCloseTo(500)
+    expect(coutCentimes('claude-opus-5-5', { input: 0, output: 0, cacheLu: 1_000_000 })).toBeCloseTo(20)
+    // Ailleurs, la relecture vaut le dixième de l'entrée.
+    expect(coutCentimes('claude-sonnet-5-5', { input: 0, output: 0, cacheLu: 1_000_000 })).toBeCloseTo(20)
+    expect(coutCentimes('claude-haiku-4-5', { input: 0, output: 0, cacheLu: 1_000_000 })).toBeCloseTo(10)
+  })
+
+  it('lit l’usage d’une réponse, cache compris, et additionne deux appels', () => {
+    const u = usageDe({ input_tokens: 10, output_tokens: 20, cache_creation_input_tokens: 30, cache_read_input_tokens: null })
+    expect(u).toEqual({ input: 10, output: 20, cacheEcrit: 30, cacheLu: 0 })
+    expect(additionner(u, { input: 1, output: 2, cacheLu: 5 })).toEqual({ input: 11, output: 22, cacheEcrit: 30, cacheLu: 5 })
+  })
+
+  it('sans début répété, la demande reste une chaîne — aucun point de cache', () => {
+    expect(contenuDeLaDemande(undefined, 'bonjour')).toBe('bonjour')
+    expect(contenuDeLaDemande([], 'bonjour')).toBe('bonjour')
+    expect(contenuDeLaDemande([''], 'bonjour')).toBe('bonjour')
+  })
+
+  it('avec un début répété, un seul point de cache, sur sa dernière partie, et le même texte', () => {
+    const blocs = contenuDeLaDemande(['dossier', ' puis le premier mouvement'], ' et la consigne')
+    expect(Array.isArray(blocs)).toBe(true)
+    const liste = blocs as Anthropic.TextBlockParam[]
+    expect(liste.map((b) => b.text).join('')).toBe('dossier puis le premier mouvement et la consigne')
+    expect(liste.filter((b) => b.cache_control).length).toBe(1)
+    expect(liste[1]?.cache_control).toEqual({ type: 'ephemeral' })
+    expect(liste[2]?.cache_control).toBeUndefined()
+  })
+
+  const contexte = {
+    name: 'Camille',
+    program: 'Liberté',
+    weekLabel: 'Semaine 3 sur 6',
+    adherence: 86,
+    subtitle: 'Arrêter de fumer',
+    scaleLabel: 'Envie',
+    echelle: [],
+    profile: { portrait: 'Tendue après les appels de sa sœur.', levers: [], axes: [], care: [] },
+    modules: [],
+    journal: [],
+    shared: '',
+  } as unknown as Parameters<typeof modulePrompt>[0]['context']
+
+  it('le module coupé en deux dit mot pour mot ce que disait le module d’une pièce', () => {
+    for (const brief of [
+      { intent: 'Ancrage du souffle après un appel', type: 'Exercice', quiz: false, context: contexte },
+      { intent: 'Un module générique', type: 'Exercice', quiz: true },
+    ] as Array<Parameters<typeof modulePrompt>[0]>) {
+      const { prefixe, suite } = modulePromptEnParties(brief)
+      expect(prefixe.join('') + suite).toBe(modulePrompt(brief))
+    }
+    // Les consignes d'une même séance partagent leur début : c'est lui que le cache relit.
+    const a = modulePromptEnParties({ intent: 'Un', type: 'Exercice', quiz: false, context: contexte })
+    const b = modulePromptEnParties({ intent: 'Deux', type: 'Écriture', quiz: false, context: contexte })
+    expect(a.prefixe).toEqual(b.prefixe)
+    expect(a.prefixe.length).toBe(1)
+  })
+
+  it('le mouvement coupé en parties dit mot pour mot ce qu’il disait, et chaque mouvement reprend le début du précédent', () => {
+    const base: HypnoseInput = {
+      context: null,
+      mots: [],
+      themes: [],
+      synthese: '',
+      intention: 'Retrouver un sommeil profond et réparateur',
+      precedents: [],
+    }
+    const t1 = 'Installez-vous confortablement.'
+    const t2 = 'Plus loin, plus profond.'
+    const second = { ...base, precedents: [{ mouvement: 'induction' as const, texte: t1 }] }
+    const troisieme = {
+      ...base,
+      precedents: [
+        { mouvement: 'induction' as const, texte: t1 },
+        { mouvement: 'approfondissement' as const, texte: t2 },
+      ],
+    }
+    for (const [m, input] of [
+      ['induction', base],
+      ['approfondissement', second],
+      ['travail', troisieme],
+    ] as const) {
+      const { prefixe, suite } = hypnosePromptEnParties(m, input)
+      expect(prefixe.join('') + suite).toBe(hypnosePrompt(m, input))
+    }
+    const p2 = hypnosePromptEnParties('approfondissement', second).prefixe
+    const p3 = hypnosePromptEnParties('travail', troisieme).prefixe
+    // Le troisième relit le début du deuxième tel quel, plus un mouvement.
+    expect(p3.slice(0, p2.length)).toEqual(p2)
+    expect(p3.length).toBe(p2.length + 1)
   })
 })

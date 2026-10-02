@@ -29,6 +29,7 @@ import {
   rembourser,
   reserver,
   soldeDuCabinet,
+  uuidDe,
   type Facturation,
 } from './jetons.js'
 import type { JetonsDeLAppel } from '../src/types/jetons.js'
@@ -56,8 +57,9 @@ import {
   type HypnoseInput,
   type Mouvement,
   affirmationsPrompt,
-  hypnosePrompt,
+  hypnosePromptEnParties,
   modulePrompt,
+  modulePromptEnParties,
   profilePrompt,
   hasSpeakerLabels,
   sessionDraftPrompt,
@@ -106,11 +108,19 @@ import { seFaitParLePatient, typeDeModule } from '../src/lib/typesDeModules.js'
  * réflexion, et c'est la seule action du produit dont on puisse le dire.
  *
  * OPUS 5.5 DEPUIS LE 29 SEPTEMBRE 2026. Le successeur d'Opus 5, 20 % moins
- * cher au jeton (4 $ / 20 $ le million contre 5 $ / 25 $). L'effort est posé
- * EXPLICITEMENT à « high » : son défaut est « medium », un cran sous celui
- * d'Opus 5, et une route qui l'omettrait réfléchirait moins qu'avant sans
- * que rien ne le dise. À effort égal, il réfléchit un peu plus qu'Opus 5 :
- * les plafonds de sortie ont été relevés d'autant (voir chaque action).
+ * cher au jeton (4 $ / 20 $ le million contre 5 $ / 25 $).
+ *
+ * L'EFFORT « MEDIUM » DEPUIS LE 2 OCTOBRE 2026 (décision de l'exploitante).
+ * Posé d'abord à « high », pour qu'Opus 5.5 ne réfléchisse pas moins
+ * qu'Opus 5. Mesuré ensuite sur les appels réels : à « high », il rendait
+ * 60 % de jetons de plus qu'Opus 5 sur un module, 98 % sur un mouvement
+ * d'hypnose, 41 % sur un profil — pour l'essentiel du raisonnement, que
+ * personne ne lit et qui est facturé au tarif de sortie, 80 % de la facture.
+ * « medium » est son réglage par défaut, et Anthropic le mesure à la même
+ * qualité que « high » sur la rédaction et l'analyse, pour 70 à 87 % du
+ * coût. Il reste posé EXPLICITEMENT : un défaut peut changer d'un modèle à
+ * l'autre, et une route doit dire ce qu'elle demande. Les plafonds de sortie
+ * ne bougent pas : ce sont des garde-fous, pas des réglages.
  *
  * Aucun suffixe de date : l'identifiant d'un modèle est complet tel quel.
  */
@@ -136,10 +146,10 @@ export const MODELE_ANALYSE = 'claude-opus-5-5'
 export const MODELE_DE_REPLI = 'claude-opus-5'
 
 const REGLAGES: Record<AiRoute, Reglage> = {
-  'session-draft': { model: MODELE_ANALYSE, effort: 'high' },
-  profile: { model: MODELE_ANALYSE, effort: 'high' },
-  module: { model: MODELE_ANALYSE, effort: 'high' },
-  hypnose: { model: MODELE_ANALYSE, effort: 'high' },
+  'session-draft': { model: MODELE_ANALYSE, effort: 'medium' },
+  profile: { model: MODELE_ANALYSE, effort: 'medium' },
+  module: { model: MODELE_ANALYSE, effort: 'medium' },
+  hypnose: { model: MODELE_ANALYSE, effort: 'medium' },
   // La seule exception. Écrire sept affirmations ne demande ni le meilleur
   // modèle ni la moindre réflexion : Haiku refuse output_config.effort (400)
   // et ne raisonne pas par défaut, ce qui est exactement ce qu'on veut.
@@ -147,7 +157,7 @@ const REGLAGES: Record<AiRoute, Reglage> = {
   /* La retouche n'a pas de réglage à elle : elle EMPRUNTE celui de l'action
      qui a écrit le texte (server/retouche.ts) — Haiku pour des affirmations,
      Opus pour tout le reste. Celui-ci ne sert qu'au journal de démarrage. */
-  revision: { model: MODELE_ANALYSE, effort: 'high' },
+  revision: { model: MODELE_ANALYSE, effort: 'medium' },
 }
 
 /** Les modèles qui acceptent `output_config.effort`. Les autres répondent 400. */
@@ -292,6 +302,15 @@ interface CallOptions<T> {
   schema: ZodType<T>
   system: string
   prompt: string
+  /**
+   * Le début du prompt qui se répète d'un appel à l'autre d'une même série —
+   * les quatre mouvements d'une hypnose, les consignes d'une séance —, en
+   * parties, AVANT `prompt`. Un point de cache est posé sur la dernière :
+   * l'appel suivant relit tout ce début au vingtième du prix au lieu de le
+   * repayer (server/prompts.ts, `PromptEnParties`). Absent : un seul bloc,
+   * pas de cache — un appel isolé paierait l'écriture sans jamais la relire.
+   */
+  prefixe?: string[]
   route: AiRoute
   maxTokens: number
   cle: Cle | null
@@ -303,6 +322,54 @@ interface CallOptions<T> {
 }
 
 /**
+ * Le contenu de la demande : une chaîne, ou — quand un début se répète d'un
+ * appel à l'autre — des blocs, le dernier du début portant le point de cache.
+ *
+ * Le texte est le même dans les deux cas, au caractère près : seul le
+ * découpage change. Tout ce qui précède le point (le système, puis le début)
+ * est écrit au cache ; l'appel suivant de la série le relit s'il commence
+ * pareil, dans les cinq minutes.
+ */
+export function contenuDeLaDemande(
+  prefixe: string[] | undefined,
+  prompt: string,
+): string | Anthropic.TextBlockParam[] {
+  const debut = (prefixe ?? []).filter((p) => p.length > 0)
+  if (!debut.length) return prompt
+  return [
+    ...debut.map((text, i): Anthropic.TextBlockParam =>
+      i === debut.length - 1 ? { type: 'text', text, cache_control: { type: 'ephemeral' } } : { type: 'text', text },
+    ),
+    { type: 'text', text: prompt },
+  ]
+}
+
+/** L'usage d'une réponse, cache compris. */
+export function usageDe(u: {
+  input_tokens: number
+  output_tokens: number
+  cache_creation_input_tokens?: number | null
+  cache_read_input_tokens?: number | null
+}): Usage {
+  return {
+    input: u.input_tokens,
+    output: u.output_tokens,
+    cacheEcrit: u.cache_creation_input_tokens ?? 0,
+    cacheLu: u.cache_read_input_tokens ?? 0,
+  }
+}
+
+/** Deux usages mis bout à bout — un refus puis son repli, un profil et sa reprise. */
+export function additionner(a: Usage, b: Usage): Usage {
+  return {
+    input: a.input + b.input,
+    output: a.output + b.output,
+    cacheEcrit: (a.cacheEcrit ?? 0) + (b.cacheEcrit ?? 0),
+    cacheLu: (a.cacheLu ?? 0) + (b.cacheLu ?? 0),
+  }
+}
+
+/**
  * Un appel, une sortie structurée.
  *
  * `output_config.format` contraint la réponse au schéma : le SDK rend l'objet
@@ -311,8 +378,13 @@ interface CallOptions<T> {
  */
 /** Jetons consommés par un appel, pour la consommation du cabinet. */
 export interface Usage {
+  /** Entrée facturée plein tarif — hors cache. */
   input: number
   output: number
+  /** Entrée écrite dans le cache (1,25 fois le tarif d'entrée). */
+  cacheEcrit?: number
+  /** Entrée relue dans le cache (une fraction du tarif d'entrée, selon le modèle). */
+  cacheLu?: number
   /** Le modèle facturé, quand ce n'est pas celui de l'action (repli après un refus). */
   modele?: string
 }
@@ -352,15 +424,16 @@ export function rejouerLaPanne(model: string, statut: number | undefined): boole
   return statut === 404 || statut === 429 || statut >= 500
 }
 
-async function callClaude<T>({ route, schema, system, prompt, maxTokens, cle, reglage }: CallOptions<T>): Promise<Produit<T>> {
+async function callClaude<T>({ route, schema, system, prompt, prefixe, maxTokens, cle, reglage }: CallOptions<T>): Promise<Produit<T>> {
   const { model, effort } = reglageDe(reglage ?? route)
   const format = zodOutputFormat(schema)
+  const contenu = contenuDeLaDemande(prefixe, prompt)
   const demander = (modele: string) =>
     client(cle).messages.parse({
       model: modele,
       max_tokens: maxTokens,
       system,
-      messages: [{ role: 'user', content: prompt }],
+      messages: [{ role: 'user', content: contenu }],
       output_config: effort && EFFORT_ACCEPTE.has(modele) ? { format, effort } : { format },
     })
   let message
@@ -381,7 +454,7 @@ async function callClaude<T>({ route, schema, system, prompt, maxTokens, cle, re
     const categorie = (message as { stop_details?: { category?: string | null } | null }).stop_details?.category
     if (!replie && message.stop_reason === 'refusal' && rejouerLeRefus(model, categorie)) {
       console.warn(`[ia] ${route} refusé (${categorie ?? 'sans catégorie'}), rejoué sur ${MODELE_DE_REPLI}`)
-      refuse = { input: message.usage.input_tokens, output: message.usage.output_tokens }
+      refuse = usageDe(message.usage)
       message = await demander(MODELE_DE_REPLI)
     }
   } catch (err) {
@@ -462,19 +535,15 @@ async function callClaude<T>({ route, schema, system, prompt, maxTokens, cle, re
   return {
     data: message.parsed_output,
     usage: refuse
-      ? {
-          input: refuse.input + message.usage.input_tokens,
-          output: refuse.output + message.usage.output_tokens,
-          modele: MODELE_DE_REPLI,
-        }
+      ? { ...additionner(refuse, usageDe(message.usage)), modele: MODELE_DE_REPLI }
       : replie
-        ? { input: message.usage.input_tokens, output: message.usage.output_tokens, modele: MODELE_DE_REPLI }
+        ? { ...usageDe(message.usage), modele: MODELE_DE_REPLI }
         : reglage && reglage !== route
           ? /* Un réglage emprunté : le modèle facturé n'est pas celui de la
                route — une retouche d'affirmations passe par Haiku, et le
                compteur doit le savoir pour ne pas la compter au prix d'Opus. */
-            { input: message.usage.input_tokens, output: message.usage.output_tokens, modele: model }
-          : { input: message.usage.input_tokens, output: message.usage.output_tokens },
+            { ...usageDe(message.usage), modele: model }
+          : usageDe(message.usage),
   }
 }
 
@@ -615,11 +684,19 @@ async function customModule(
   const brief = briefDuModule(body)
   if (mockMode()) return { data: mockGeneratedModule(brief), usage: null }
   const retenues = await preferences(CIBLES_DE_LA_ROUTE.module)
+  /* LES CONSIGNES D'UNE SÉANCE S'ÉCRIVENT COUP SUR COUP, pour la même
+     personne (useEcritureConsignes) : son dossier se met en cache au premier
+     module et se relit aux suivants. Un module de l'atelier est seul — un
+     point de cache lui ferait payer une écriture que rien ne relirait. */
+  const enParties = modulePromptEnParties(brief)
+  const enSerie = uuidDe(body.sessionId) !== null
   return callClaude({
     route: 'module',
     schema: generatedModuleSchema,
     system: MODULE_SYSTEM,
-    prompt: modulePrompt(brief) + retenues,
+    ...(enSerie
+      ? { prefixe: enParties.prefixe, prompt: enParties.suite + retenues }
+      : { prompt: modulePrompt(brief) + retenues }),
     maxTokens: 6000,
     cle,
   })
@@ -732,7 +809,13 @@ async function hypnose(
     route: 'hypnose',
     schema: generatedHypnoseSchema,
     system: HYPNOSE_SYSTEM,
-    prompt: hypnosePrompt(mouvement, matiere) + retenues,
+    /* Les quatre mouvements s'écrivent coup sur coup, et chacun reprend le
+       dossier et les mouvements déjà écrits : le cache les relit au lieu de
+       les repayer. */
+    ...(() => {
+      const { prefixe, suite } = hypnosePromptEnParties(mouvement, matiere)
+      return { prefixe, prompt: suite + retenues }
+    })(),
     // Un mouvement fait 500 à 900 mots. Le plafond laisse de la marge au
     // raisonnement d'Opus 5.5, qui pense un peu plus qu'Opus 5 à effort égal.
     maxTokens: 7000,
@@ -829,11 +912,7 @@ async function profilSansTrou(appel: CallOptions<GeneratedProfileOutput>): Promi
       alliance: reprise.data.alliance || generated.alliance,
     }
     if (usage && reprise.usage) {
-      usage = {
-        input: usage.input + reprise.usage.input,
-        output: usage.output + reprise.usage.output,
-        modele: reprise.usage.modele ?? usage.modele,
-      }
+      usage = { ...additionner(usage, reprise.usage), modele: reprise.usage.modele ?? usage.modele }
     }
   }
   // Les axes sont affichés sur une piste 0–100 : on borne avant de servir.
@@ -884,19 +963,31 @@ async function revision(
  * Consommation
  * ------------------------------------------------------------------ */
 
-/** Tarif du modèle, en dollars par million de jetons. */
-const TARIFS: Record<string, { input: number; output: number }> = {
-  'claude-opus-5-5': { input: 4, output: 20 },
-  'claude-sonnet-5-5': { input: 2, output: 10 },
-  'claude-opus-5': { input: 5, output: 25 },
-  'claude-sonnet-5': { input: 2, output: 10 },
-  'claude-haiku-4-5': { input: 1, output: 5 },
+/**
+ * Tarif du modèle, en dollars par million de jetons (page des prix
+ * d'Anthropic, relue le 2 octobre 2026). `relu` : la relecture du cache, en
+ * fraction du tarif d'entrée — 0,05 sur Opus 5.5, 0,1 sur les autres.
+ * L'écriture du cache, elle, coûte 1,25 fois l'entrée partout (cinq minutes).
+ */
+const TARIFS: Record<string, { input: number; output: number; relu: number }> = {
+  'claude-opus-5-5': { input: 4, output: 20, relu: 0.05 },
+  'claude-sonnet-5-5': { input: 2, output: 10, relu: 0.1 },
+  'claude-opus-5': { input: 5, output: 25, relu: 0.1 },
+  'claude-sonnet-5': { input: 2, output: 10, relu: 0.1 },
+  'claude-haiku-4-5': { input: 1, output: 5, relu: 0.1 },
 }
 
-/** Coût d'un appel en centimes, au tarif du modèle. Inconnu : tarif Opus. */
+/** Le prix de l'écriture du cache de cinq minutes, en multiple du tarif d'entrée. */
+const ECRITURE_DU_CACHE = 1.25
+
+/** Coût d'un appel en centimes, au tarif du modèle, cache compris. Inconnu : tarif Opus. */
 export function coutCentimes(model: string, usage: Usage): number {
   const tarif = TARIFS[model] ?? TARIFS['claude-opus-5']!
-  return ((usage.input * tarif.input + usage.output * tarif.output) / 1_000_000) * 100
+  const entree =
+    usage.input * tarif.input +
+    (usage.cacheEcrit ?? 0) * tarif.input * ECRITURE_DU_CACHE +
+    (usage.cacheLu ?? 0) * tarif.input * tarif.relu
+  return ((entree + usage.output * tarif.output) / 1_000_000) * 100
 }
 
 /** Le genre d'appel tel que la base le classe (enum ai_call_kind). */
@@ -934,6 +1025,8 @@ async function compter(route: AiRoute, cabinetId: string, usage: Usage): Promise
     model: modele,
     input_tokens: usage.input,
     output_tokens: usage.output,
+    cache_write_tokens: usage.cacheEcrit ?? 0,
+    cache_read_tokens: usage.cacheLu ?? 0,
     cost_cents: coutCentimes(modele, usage),
   })
   if (error) console.warn(`[ia] consommation non inscrite — ${error.message}`)

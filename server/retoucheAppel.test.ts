@@ -178,7 +178,7 @@ describe('la retouche, de la demande à la consommation', () => {
     const envoi = demande()
     expect(envoi.model).toBe('claude-opus-5-5')
     expect(envoi.max_tokens).toBe(7000)
-    expect(envoi.output_config.effort).toBe('high')
+    expect(envoi.output_config.effort).toBe('medium')
     expect(envoi.system.startsWith(HYPNOSE_SYSTEM)).toBe(true)
     expect(envoi.system.endsWith(REGLES_DE_RETOUCHE)).toBe(true)
 
@@ -315,5 +315,76 @@ describe('la retouche, de la demande à la consommation', () => {
       expect(m.rembourser).toHaveBeenCalledWith('conso-1', expect.anything())
       expect(m.confirmer).not.toHaveBeenCalled()
     })
+  })
+})
+
+/*
+ * Le cache du contexte répété (2 octobre 2026), de la demande au compteur :
+ * les consignes d'une séance et les mouvements d'une hypnose posent un point
+ * de cache sur leur début ; un module de l'atelier, seul, n'en pose pas ; et
+ * la consommation inscrite compte l'écriture et la relecture du cache.
+ */
+describe('le cache du contexte répété, de la demande au compteur', () => {
+  const SEANCE = '7a2b3c4d-1e2f-4a3b-8c4d-5e6f7a8b9c0d'
+
+  beforeEach(() => {
+    m.parse.mockClear()
+    base = fausseBase([])
+    m.base = base.db
+    m.hypnoseOuverte.mockResolvedValue(true)
+    m.facturationDuCabinet.mockResolvedValue({ mode: 'cle_cabinet' })
+  })
+
+  const contenu = () => (m.parse.mock.calls[0]![0] as { messages: Array<{ content: unknown }> }).messages[0]!.content
+
+  it('les consignes d’une séance : le dossier en premier bloc, avec le point de cache', async () => {
+    m.parse.mockResolvedValue(
+      reponse({ titre: 'Ancrage', duree: '3 minutes', quand: 'Au réveil', steps: ['a', 'b', 'c', 'd'], pourquoi: 'Parce que.', quiz: [] }),
+    )
+    await analyserPourCabinet(
+      'module',
+      { intent: 'Ancrage du souffle après un appel', type: 'Exercice', quiz: false, context: DOSSIER, sessionId: SEANCE },
+      'cab-1',
+    )
+    const blocs = contenu() as Array<{ text: string; cache_control?: unknown }>
+    expect(Array.isArray(blocs)).toBe(true)
+    expect(blocs[0]!.text).toContain('Camille Laurent')
+    expect(blocs[0]!.cache_control).toEqual({ type: 'ephemeral' })
+    expect(blocs.at(-1)!.text).toContain('Ancrage du souffle après un appel')
+    expect(blocs.at(-1)!.cache_control).toBeUndefined()
+  })
+
+  it('un module de l’atelier, seul : une demande d’une pièce, sans écriture de cache à payer', async () => {
+    m.parse.mockResolvedValue(
+      reponse({ titre: 'Ancrage', duree: '3 minutes', quand: 'Au réveil', steps: ['a', 'b', 'c', 'd'], pourquoi: 'Parce que.', quiz: [] }),
+    )
+    await analyserPourCabinet('module', { intent: 'Ancrage du souffle après un appel', type: 'Exercice', context: DOSSIER }, 'cab-1')
+    expect(typeof contenu()).toBe('string')
+  })
+
+  it('un mouvement d’hypnose : le dossier et les mouvements déjà écrits en tête, le point sur le dernier', async () => {
+    m.parse.mockResolvedValue({
+      stop_reason: 'end_turn',
+      parsed_output: { titre: 'Le large', texte: 'Plus loin, plus profond.' },
+      usage: { input_tokens: 300, output_tokens: 1500, cache_creation_input_tokens: 1400, cache_read_input_tokens: 2600 },
+    })
+    await analyserPourCabinet(
+      'hypnose',
+      {
+        mouvement: 'approfondissement',
+        context: DOSSIER,
+        intention: 'Retrouver un sommeil profond',
+        precedents: [{ mouvement: 'induction', texte: 'Installez-vous confortablement.' }],
+      },
+      'cab-1',
+    )
+    const blocs = contenu() as Array<{ text: string; cache_control?: unknown }>
+    expect(blocs).toHaveLength(3)
+    expect(blocs[1]!.text).toContain('Installez-vous confortablement.')
+    expect(blocs.map((b) => Boolean(b.cache_control))).toEqual([false, true, false])
+    // Le compteur inscrit le cache, et le prix le compte : 300 × 4 + 1 400 × 5 + 2 600 × 0,20 + 1 500 × 20, au million.
+    const ligne = base.inscrits[0]!
+    expect(ligne).toMatchObject({ input_tokens: 300, output_tokens: 1500, cache_write_tokens: 1400, cache_read_tokens: 2600 })
+    expect(ligne.cost_cents as number).toBeCloseTo(((300 * 4 + 1400 * 5 + 2600 * 0.2 + 1500 * 20) / 1_000_000) * 100, 6)
   })
 })
